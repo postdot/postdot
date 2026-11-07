@@ -4,7 +4,7 @@
 - Scope: V1 database, ORM boundary, and future PostgreSQL posture
 - Provenance: V1 persistence review
 - Related specs: [SPEC-001](../specs/SPEC-001-v1-scope.md), [SPEC-003](../specs/SPEC-003-product-foundation.md)
-- Superseded by: none
+- Partially superseded by: [ADR-097](ADR-097-selectable-storage-profiles.md) (database engines: SQLite remains the default; PostgreSQL is also supported)
 
 ## Context
 

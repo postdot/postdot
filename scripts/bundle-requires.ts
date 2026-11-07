@@ -117,6 +117,8 @@ export function classifySpecifier(specifier: string): SpecifierKind {
     if (specifier.startsWith('./') || specifier.startsWith('../')) return 'relative'
     if (specifier.startsWith('/') || specifier.startsWith('file://')) return 'absolute'
     if (specifier.startsWith('node:') || specifier.startsWith('bun:')) return 'builtin'
+    // `bun` is the runtime's own module (Bun.SQL for PostgreSQL), never a package.
+    if (specifier === 'bun') return 'builtin'
     if (nodeBuiltins.has(specifier)) return 'builtin'
     return 'package'
 }

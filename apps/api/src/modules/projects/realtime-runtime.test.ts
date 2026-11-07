@@ -7,22 +7,49 @@ function wait(milliseconds: number): Promise<void> {
 }
 
 describe('project realtime runtime', () => {
-    it('keeps the durable projection independent of SSE subscribers', () => {
+    it('drains an in-flight user lookup after closing stream waiters', async () => {
+        const entered = Promise.withResolvers<void>()
+        const read = Promise.withResolvers<readonly string[]>()
+        const runtime = createProjectRealtimeRuntime({
+            resolveUserIdsForProjects() {
+                entered.resolve()
+                return read.promise
+            },
+        })
+        const waiter = runtime.userHub.waitForChange('user', new AbortController().signal)
+        const publishing = runtime.publish(['project'])
+        await entered.promise
+        let stopped = false
+        const stopping = runtime.stop().then(() => {
+            stopped = true
+        })
+        await waiter
+        expect(stopped).toBe(false)
+        read.resolve(['user'])
+        await Promise.all([publishing, stopping])
+        expect(stopped).toBe(true)
+    })
+
+    it('keeps the durable projection independent of SSE subscribers', async () => {
         const projected: string[][] = []
         const runtime = createProjectRealtimeRuntime({
-            onProjectsChanged: projectIds => projected.push([...projectIds]),
+            onProjectsChanged: projectIds => {
+                projected.push([...projectIds])
+            },
         })
 
-        runtime.publish(['project-cli-only'])
+        await runtime.publish(['project-cli-only'])
 
         expect(projected).toEqual([['project-cli-only']])
-        runtime.stop()
+        await runtime.stop()
     })
 
     it('wakes only the projects named by a post-commit signal', async () => {
         const changed: string[][] = []
         const runtime = createProjectRealtimeRuntime({
-            onProjectsChanged: projectIds => changed.push([...projectIds]),
+            onProjectsChanged: projectIds => {
+                changed.push([...projectIds])
+            },
         })
         const firstController = new AbortController()
         const secondController = new AbortController()
@@ -37,19 +64,19 @@ describe('project realtime runtime', () => {
                 unrelatedResolved = true
             })
 
-        runtime.publish(['project-3', 'project-1', 'project-3'])
+        await runtime.publish(['project-3', 'project-1', 'project-3'])
         await Promise.all([first, second])
 
         expect(changed).toEqual([['project-3', 'project-1']])
         expect(unrelatedResolved).toBe(false)
         unrelatedController.abort()
         await unrelated
-        runtime.stop()
+        await runtime.stop()
     })
 
     it('wakes only users who belong to changed projects', async () => {
         const runtime = createProjectRealtimeRuntime({
-            resolveUserIdsForProjects: projectIds =>
+            resolveUserIdsForProjects: async projectIds =>
                 projectIds.includes('project-1') ? ['user-1'] : ['user-2'],
         })
         const firstController = new AbortController()
@@ -63,14 +90,14 @@ describe('project realtime runtime', () => {
             secondResolved = true
         })
 
-        runtime.publish(['project-1'])
+        await runtime.publish(['project-1'])
         await first
 
         expect(firstResolved).toBe(true)
         expect(secondResolved).toBe(false)
         secondController.abort()
         await second
-        runtime.stop()
+        await runtime.stop()
     })
 
     it('still wakes streams when the projection callback fails', async () => {
@@ -84,7 +111,7 @@ describe('project realtime runtime', () => {
         const controller = new AbortController()
         const pending = runtime.hub.waitForChange('project-1', controller.signal)
 
-        runtime.publish(['project-1'])
+        await runtime.publish(['project-1'])
         await Promise.race([
             pending,
             wait(250).then(() => {
@@ -93,14 +120,14 @@ describe('project realtime runtime', () => {
         ])
 
         expect(errors).toHaveLength(1)
-        runtime.stop()
+        await runtime.stop()
     })
 
     it('resolves waiters when the runtime stops', async () => {
         const runtime = createProjectRealtimeRuntime()
         const pending = runtime.hub.waitForChange('project-1', new AbortController().signal)
 
-        runtime.stop()
+        await runtime.stop()
         await Promise.race([
             pending,
             wait(250).then(() => {
@@ -111,12 +138,12 @@ describe('project realtime runtime', () => {
 
     it('does not wake a waiter after shutdown', async () => {
         const runtime = createProjectRealtimeRuntime()
-        runtime.stop()
+        await runtime.stop()
         await runtime.hub.waitForChange('project-1', new AbortController().signal)
-        runtime.publish(['project-1'])
+        await runtime.publish(['project-1'])
     })
 
-    it('tells both served hubs that the runtime stopped', () => {
+    it('tells both served hubs that the runtime stopped', async () => {
         const runtime = createProjectRealtimeRuntime()
         let projectNotifications = 0
         let userNotifications = 0
@@ -127,15 +154,15 @@ describe('project realtime runtime', () => {
             userNotifications += 1
         })
 
-        runtime.stop()
+        await runtime.stop()
 
         expect(projectNotifications).toBe(1)
         expect(userNotifications).toBe(1)
     })
 
-    it('tells a listener that subscribes after the runtime stopped', () => {
+    it('tells a listener that subscribes after the runtime stopped', async () => {
         const runtime = createProjectRealtimeRuntime()
-        runtime.stop()
+        await runtime.stop()
         let notified = false
 
         runtime.hub.subscribeShutdown?.(() => {
@@ -145,7 +172,7 @@ describe('project realtime runtime', () => {
         expect(notified).toBe(true)
     })
 
-    it('stops notifying a listener that unsubscribed', () => {
+    it('stops notifying a listener that unsubscribed', async () => {
         const runtime = createProjectRealtimeRuntime()
         let notified = false
         const unsubscribe = runtime.hub.subscribeShutdown?.(() => {
@@ -153,12 +180,12 @@ describe('project realtime runtime', () => {
         })
 
         unsubscribe?.()
-        runtime.stop()
+        await runtime.stop()
 
         expect(notified).toBe(false)
     })
 
-    it('keeps notifying the remaining listeners when one fails', () => {
+    it('keeps notifying the remaining listeners when one fails', async () => {
         const errors: unknown[] = []
         const runtime = createProjectRealtimeRuntime({ onError: error => errors.push(error) })
         let notified = false
@@ -169,7 +196,7 @@ describe('project realtime runtime', () => {
             notified = true
         })
 
-        runtime.stop()
+        await runtime.stop()
 
         expect(notified).toBe(true)
         expect(errors).toHaveLength(1)

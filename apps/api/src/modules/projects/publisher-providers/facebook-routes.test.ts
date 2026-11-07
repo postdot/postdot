@@ -1,7 +1,8 @@
 import { expect, test } from 'bun:test'
 
 import { createAuth } from '@postdot/auth'
-import { closeDatabase, createDatabase, createNotificationStore, runMigrations } from '@postdot/db'
+import { createNotificationStore } from '@postdot/db'
+import { closeTestDatabase, openTestDatabase } from '@postdot/db/testing'
 import { FACEBOOK_PUBLISH_PERMISSIONS } from '@postdot/facebook'
 
 import { createApp } from '../../../app'
@@ -9,8 +10,7 @@ import { createPublisherRuntime } from '../../publishers/runtime'
 
 const origin = 'https://postdot.test'
 async function fixture(configured = true) {
-    const database = createDatabase(':memory:')
-    runMigrations(database)
+    const database = (await openTestDatabase()).database
     let calls = 0
     const publisher = createPublisherRuntime(database, {
         apiOrigin: origin,
@@ -157,7 +157,7 @@ test('Facebook HTTP flow redirects to sanitized choices and persists the explici
         )
         expect(f.calls).toBe(calls)
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
@@ -171,7 +171,7 @@ test('Facebook HTTP routes require authentication and mask channels belonging to
         ).toBe(404)
         expect(f.calls).toBe(0)
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
@@ -182,7 +182,7 @@ test('unconfigured Facebook routes make no provider calls', async () => {
         expect(response.status).toBe(503)
         expect(f.calls).toBe(0)
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
@@ -231,14 +231,14 @@ test('Facebook callback and pending selection retain their stored application wh
             body: JSON.stringify({ selection, pageId: '456' }),
         })
         expect(selected.status).toBe(200)
-        const attempts = f.database.$client
-            .query(
+        const attempts = await f.database.sql
+            .statement(
                 'select provider_application_id as application from oauth_authorization_attempts'
             )
             .all()
         expect(attempts).toEqual([{ application: first }, { application: first }])
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
@@ -268,7 +268,7 @@ test('disabling a stored Facebook application invalidates its callback before an
         )
         expect(f.calls).toBe(0)
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
@@ -286,7 +286,7 @@ test('declining Facebook authorization returns contextual feedback without conta
         expect(target.searchParams.get('publisher')).toBe('authorization_denied')
         expect(f.calls).toBe(0)
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
@@ -305,7 +305,7 @@ test('a foreign callback session learns no project return path and does not cons
             new URL(accepted.headers.get('location')!).searchParams.get('facebook_selection')
         ).toBeTruthy()
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
@@ -329,6 +329,6 @@ test('Facebook callback uses the configured public origin behind a TLS proxy', a
         expect(location.searchParams.get('facebook_selection')?.length).toBeGreaterThan(32)
         expect(f.calls).toBeGreaterThan(0)
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })

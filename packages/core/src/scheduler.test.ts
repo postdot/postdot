@@ -56,7 +56,7 @@ function createFixture(eventAt: number | null = null) {
     let nextEventAt = eventAt
 
     const scheduler = new NextEventScheduler({
-        getNextEventAt: () => nextEventAt,
+        getNextEventAt: async () => nextEventAt,
         processDueEvents: now => {
             processedAt.push(now)
             nextEventAt = null
@@ -79,25 +79,105 @@ function createFixture(eventAt: number | null = null) {
 }
 
 describe('next-event scheduler', () => {
-    test('keeps no timer when durable work is empty', () => {
+    test('does not start due work when stopped during the wakeup read', async () => {
+        const reading = Promise.withResolvers<void>()
+        const read = Promise.withResolvers<number | null>()
+        const timers = new FakeTimers()
+        let reads = 0
+        let processed = false
+        const scheduler = new NextEventScheduler({
+            getNextEventAt: () => {
+                if (++reads === 1) return Promise.resolve(fixtureTime(0))
+                reading.resolve()
+                return read.promise
+            },
+            processDueEvents: () => {
+                processed = true
+            },
+            onError: error => {
+                throw error
+            },
+            clock: new FakeClock(fixtureTime(0)),
+            timers,
+        })
+        await scheduler.start()
+        const waking = timers.fireOnly()
+        await reading.promise
+        const stopping = scheduler.stop()
+        read.resolve(fixtureTime(0))
+        await Promise.all([waking, stopping])
+        expect(processed).toBe(false)
+        expect(scheduler.state).toBe('stopped')
+    })
+
+    test('drains a pending plan on shutdown without arming a timer', async () => {
+        const read = Promise.withResolvers<number | null>()
+        const timers = new FakeTimers()
+        const scheduler = new NextEventScheduler({
+            getNextEventAt: () => read.promise,
+            processDueEvents: () => {
+                throw new Error('Stopped scheduler ran work')
+            },
+            onError: error => {
+                throw error
+            },
+            timers,
+        })
+        const starting = scheduler.start()
+        let stopped = false
+        const stopping = scheduler.stop().then(() => {
+            stopped = true
+        })
+        await Promise.resolve()
+        expect(stopped).toBe(false)
+        read.resolve(fixtureTime(60_000))
+        await Promise.all([starting, stopping])
+        expect(scheduler.state).toBe('stopped')
+        expect(timers.active.size).toBe(0)
+    })
+
+    test('ignores an older plan failure after a newer plan has succeeded', async () => {
+        const older = Promise.withResolvers<number | null>()
+        const errors: unknown[] = []
+        const timers = new FakeTimers()
+        let reads = 0
+        const scheduler = new NextEventScheduler({
+            getNextEventAt: () =>
+                ++reads === 1 ? older.promise : Promise.resolve(fixtureTime(1_000)),
+            processDueEvents: () => {},
+            onError: error => errors.push(error),
+            clock: new FakeClock(fixtureTime(0)),
+            timers,
+        })
+        const starting = scheduler.start()
+        await scheduler.replan()
+        older.reject(new Error('stale read failed'))
+        await starting
+        expect(scheduler.state).toBe('started')
+        expect(timers.onlyDelay).toBe(1_000)
+        expect(errors).toEqual([])
+        await scheduler.stop()
+    })
+
+    test('keeps no timer when durable work is empty', async () => {
         const fixture = createFixture()
 
-        fixture.scheduler.start()
+        await fixture.scheduler.start()
 
         expect(fixture.scheduler.state).toBe('started')
         expect(fixture.scheduler.scheduledAt).toBeNull()
         expect(fixture.timers.active.size).toBe(0)
     })
 
-    test('arms only the nearest event and replaces it during replanning', () => {
+    test('arms only the nearest event and replaces it during replanning', async () => {
         const fixture = createFixture(fixtureTime(60_000))
-        fixture.scheduler.start()
+        await fixture.scheduler.start()
 
         expect(fixture.timers.active.size).toBe(1)
         expect(fixture.timers.onlyDelay).toBe(60_000)
 
         fixture.setNextEventAt(fixtureTime(10_000))
-        fixture.scheduler.replan()
+        await fixture.scheduler.replan()
 
         expect(fixture.timers.active.size).toBe(1)
         expect(fixture.timers.onlyDelay).toBe(10_000)
@@ -106,7 +186,7 @@ describe('next-event scheduler', () => {
 
     test('processes an event once and replans from durable state', async () => {
         const fixture = createFixture(fixtureTime(1_000))
-        fixture.scheduler.start()
+        await fixture.scheduler.start()
         fixture.clock.current = fixtureTime(1_000)
 
         await fixture.timers.fireOnly()
@@ -126,7 +206,7 @@ describe('next-event scheduler', () => {
             processingStarted = resolve
         })
         const scheduler = new NextEventScheduler({
-            getNextEventAt: () => clock.current,
+            getNextEventAt: async () => clock.current,
             processDueEvents: async () => {
                 processingStarted?.()
                 await new Promise<void>(resolve => {
@@ -138,7 +218,7 @@ describe('next-event scheduler', () => {
             timers,
         })
 
-        scheduler.start()
+        await scheduler.start()
         const wake = timers.fireOnly()
         await started
 
@@ -159,13 +239,13 @@ describe('next-event scheduler', () => {
         expect(timers.active.size).toBe(0)
     })
 
-    test('reconstructs its timer when a new scheduler starts', () => {
+    test('reconstructs its timer when a new scheduler starts', async () => {
         const first = createFixture(fixtureTime(30_000))
-        first.scheduler.start()
-        first.scheduler.stop()
+        await first.scheduler.start()
+        await first.scheduler.stop()
 
         const second = createFixture(fixtureTime(30_000))
-        second.scheduler.start()
+        await second.scheduler.start()
 
         expect(first.timers.active.size).toBe(0)
         expect(second.timers.onlyDelay).toBe(30_000)
@@ -173,7 +253,7 @@ describe('next-event scheduler', () => {
 
     test('processes an already due event without a polling interval', async () => {
         const fixture = createFixture(fixtureTime(-1))
-        fixture.scheduler.start()
+        await fixture.scheduler.start()
 
         expect(fixture.timers.onlyDelay).toBe(0)
         await fixture.timers.fireOnly()
@@ -183,7 +263,7 @@ describe('next-event scheduler', () => {
     test('caps long timers and replans without processing early', async () => {
         const eventAt = fixtureTime(maximumTimerDelay + 10_000)
         const fixture = createFixture(eventAt)
-        fixture.scheduler.start()
+        await fixture.scheduler.start()
 
         expect(fixture.timers.onlyDelay).toBe(maximumTimerDelay)
         fixture.clock.current += maximumTimerDelay
@@ -200,7 +280,7 @@ describe('next-event scheduler', () => {
         const errors: unknown[] = []
         const failure = new Error('database unavailable')
         const scheduler = new NextEventScheduler({
-            getNextEventAt: () => clock.current,
+            getNextEventAt: async () => clock.current,
             processDueEvents: () => {
                 throw failure
             },
@@ -208,7 +288,7 @@ describe('next-event scheduler', () => {
             clock,
             timers,
         })
-        scheduler.start()
+        await scheduler.start()
 
         await timers.fireOnly()
 

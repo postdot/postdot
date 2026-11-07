@@ -16,9 +16,8 @@ import type {
     SchedulerTimers,
 } from '@postdot/core'
 import { createCustomHttpTransport } from '@postdot/custom-http'
+import type { DatabaseHandle } from '@postdot/db'
 import {
-    closeDatabase,
-    createDatabase,
     createManualStore,
     createMediaAssetStore,
     createNotificationStore,
@@ -26,9 +25,8 @@ import {
     createPublisherCredentialStore,
     createPublisherStore,
     createProviderMediaDeliveryStore,
-    runMigrations,
 } from '@postdot/db'
-import { auditEvents, providerMediaDeliveries, publications } from '@postdot/db/schema'
+import { closeTestDatabase, openTestDatabase, type TestRow } from '@postdot/db/testing'
 import { seedTestWorkspace } from '@postdot/db/testing'
 import {
     createDiscordPublisher,
@@ -48,7 +46,6 @@ import {
 } from '@postdot/mastodon'
 import { createLocalMediaStore } from '@postdot/media'
 import { clientSecretPost, type OAuthAuthorizationServer } from '@postdot/oauth'
-import { eq } from 'drizzle-orm'
 
 import { assessWorkingDraftMedia } from '../../../../../packages/db/src/manual-store/publication-media'
 import { blueskyPublisherConnectionPolicy } from '../../providers/bluesky/connection-policy'
@@ -260,10 +257,9 @@ function createPng(width = 4, height = 3): Uint8Array {
 
 describe('publication worker', () => {
     it('executes scheduled LinkedIn publications, persists outcomes, and projects notifications', async () => {
-        const database = createDatabase(':memory:')
+        const database = (await openTestDatabase()).database
 
         try {
-            runMigrations(database)
             const manualStore = createManualStore(database, { now: () => now })
             const credentialStore = createPublisherCredentialStore(database, {
                 cipher: createPublisherCredentialCipher({ keyId: 'test-v1', key: encryptionKey }),
@@ -274,13 +270,13 @@ describe('publication worker', () => {
                 connectionPolicies: { linkedin: linkedInPublisherConnectionPolicy },
                 now: () => now,
             })
-            const project = manualStore.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const project = await manualStore.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'LinkedIn Worker Project',
                 subjectId: 'user-1',
                 displayName: 'Postdot Operator',
             })
-            const channel = manualStore.createChannel({
+            const channel = await manualStore.createChannel({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 name: 'LinkedIn Member',
@@ -302,21 +298,23 @@ describe('publication worker', () => {
                 throw new Error('The test credential was not created')
 
             expect(
-                publisherStore.createPublisherConnection({
-                    projectId: project.project.id,
-                    channelId: channel.id,
-                    subjectId: 'user-1',
-                    kind: 'linkedin',
-                    credentialId: credential.credential.id,
-                    destination: {
-                        type: 'organization',
-                        id: '12345',
-                        name: 'Tala Web',
-                    },
-                }).kind
+                (
+                    await publisherStore.createPublisherConnection({
+                        projectId: project.project.id,
+                        channelId: channel.id,
+                        subjectId: 'user-1',
+                        kind: 'linkedin',
+                        credentialId: credential.credential.id,
+                        destination: {
+                            type: 'organization',
+                            id: '12345',
+                            name: 'Tala Web',
+                        },
+                    })
+                ).kind
             ).toBe('created')
 
-            const first = manualStore.createPost({
+            const first = await manualStore.createPost({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 sourceContent: {
@@ -327,9 +325,9 @@ describe('publication worker', () => {
                     { channelId: channel.id, deliveryMode: 'automatic', scheduledAt: now },
                 ],
             })
-            const second = createPostAt(manualStore, project.project.id, channel.id, now + 1)
-            const third = createPostAt(manualStore, project.project.id, channel.id, now + 2)
-            const fourth = createPostAt(manualStore, project.project.id, channel.id, now + 3)
+            const second = await createPostAt(manualStore, project.project.id, channel.id, now + 1)
+            const third = await createPostAt(manualStore, project.project.id, channel.id, now + 2)
+            const fourth = await createPostAt(manualStore, project.project.id, channel.id, now + 3)
             expect(first).not.toBeNull()
             expect(second).not.toBeNull()
             expect(third).not.toBeNull()
@@ -396,8 +394,8 @@ describe('publication worker', () => {
 
             const notifications = createNotificationStore(database, { now: () => now + 4 })
             const notificationProjection = createNotificationProjectionRuntime(notifications)
-            notificationProjection.runNow()
-            const inbox = notifications.list({
+            await notificationProjection.runNow()
+            const inbox = await notifications.list({
                 projectId: project.project.id,
                 subjectId: 'user-1',
             })
@@ -432,15 +430,11 @@ describe('publication worker', () => {
                 commentary: 'First LinkedIn publication',
             })
 
-            const publicationRows = database
-                .select({
-                    state: publications.state,
-                    externalId: publications.externalId,
-                    errorMessage: publications.errorMessage,
-                })
-                .from(publications)
-                .where(eq(publications.projectId, project.project.id))
-                .all()
+            const publicationRows = await database.sql
+                .statement<TestRow>(
+                    'select "publications"."state" as "state", "publications"."external_id" as "externalId", "publications"."error_message" as "errorMessage" from "publications" where "publications"."project_id" = ?1'
+                )
+                .all(project.project.id)
             expect(publicationRows).toContainEqual({
                 state: 'published',
                 externalId: 'urn:li:post:published',
@@ -456,8 +450,8 @@ describe('publication worker', () => {
                     .includes('linkedin-access-token')
             ).toBe(false)
 
-            const jobRows = database.$client
-                .query<{ state: string; runAt: number; errorMessage: string | null }, []>(`
+            const jobRows = await database.sql
+                .statement<{ state: string; runAt: number; errorMessage: string | null }, []>(`
                     select state, run_at as runAt, error_message as errorMessage
                     from jobs
                     order by run_at, id
@@ -471,10 +465,13 @@ describe('publication worker', () => {
             expect(jobRows.filter(row => row.state === 'succeeded')).toHaveLength(1)
             expect(jobRows.filter(row => row.state === 'failed')).toHaveLength(2)
             expect(
-                credentialStore.getPublisherCredential(project.project.id, credential.credential.id)
+                await credentialStore.getPublisherCredential(
+                    project.project.id,
+                    credential.credential.id
+                )
             ).toMatchObject({ state: 'reconnect_required' })
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
@@ -494,10 +491,9 @@ describe('publication worker', () => {
         })
         const receiverPort = receiver.port
         if (receiverPort === undefined) throw new Error('The retry receiver has no port')
-        const database = createDatabase(':memory:')
+        const database = (await openTestDatabase()).database
 
         try {
-            runMigrations(database)
             const manualStore = createManualStore(database, { now: () => now })
             const credentialStore = createPublisherCredentialStore(database, {
                 cipher: createPublisherCredentialCipher({ keyId: 'test-v1', key: encryptionKey }),
@@ -508,13 +504,13 @@ describe('publication worker', () => {
                 connectionPolicies: { linkedin: linkedInPublisherConnectionPolicy },
                 now: () => now,
             })
-            const project = manualStore.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const project = await manualStore.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'Custom HTTP Retry Project',
                 subjectId: 'user-1',
                 displayName: 'Postdot Operator',
             })
-            const channel = manualStore.createChannel({
+            const channel = await manualStore.createChannel({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 name: 'Retry Receiver',
@@ -537,7 +533,7 @@ describe('publication worker', () => {
             if (credential.kind !== 'created')
                 throw new Error('The retry credential was not created')
 
-            const connection = publisherStore.createPublisherConnection({
+            const connection = await publisherStore.createPublisherConnection({
                 projectId: project.project.id,
                 channelId: channel.id,
                 subjectId: 'user-1',
@@ -548,7 +544,7 @@ describe('publication worker', () => {
             })
             expect(connection.kind).toBe('created')
 
-            const created = manualStore.createPost({
+            const created = await manualStore.createPost({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 sourceContent: {
@@ -585,9 +581,9 @@ describe('publication worker', () => {
 
             await worker.processDueEvents(now)
             expect(attempt).toBe(1)
-            expect(readPublicationState(database, publication.id)).toBe('failed')
+            expect(await readPublicationState(database, publication.id)).toBe('failed')
 
-            const retried = manualStore.retryFailedPublication({
+            const retried = await manualStore.retryFailedPublication({
                 projectId: project.project.id,
                 publicationId: publication.id,
                 subjectId: 'user-1',
@@ -599,22 +595,17 @@ describe('publication worker', () => {
 
             await worker.processDueEvents(now)
             expect(attempt).toBe(2)
-            expect(readPublicationState(database, publication.id)).toBe('published')
+            expect(await readPublicationState(database, publication.id)).toBe('published')
             expect(receivedBodies).toEqual([
                 { commentary: 'Retry this rejected publication' },
                 { commentary: 'Retry this rejected publication' },
             ])
 
-            const publicationAudit = database
-                .select({
-                    action: auditEvents.action,
-                    entityId: auditEvents.entityId,
-                    id: auditEvents.id,
-                    metadataJson: auditEvents.metadataJson,
-                })
-                .from(auditEvents)
-                .where(eq(auditEvents.entityId, publication.id))
-                .all()
+            const publicationAudit = await database.sql
+                .statement<TestRow>(
+                    'select "audit_events"."action" as "action", "audit_events"."entity_id" as "entityId", "audit_events"."id" as "id", "audit_events"."metadata_json" as "metadataJson" from "audit_events" where "audit_events"."entity_id" = ?1'
+                )
+                .all(publication.id)
             expect(publicationAudit.map(event => event.action)).toEqual(
                 expect.arrayContaining([
                     'publication.execution.failed',
@@ -641,10 +632,10 @@ describe('publication worker', () => {
             )
             const notifications = createNotificationStore(database, { now: () => now })
             const notificationProjection = createNotificationProjectionRuntime(notifications)
-            notificationProjection.runNow()
-            const publicationNotifications = notifications
-                .list({ projectId: project.project.id, subjectId: 'user-1' })
-                ?.items.filter(item => item.subject.id === publication.id)
+            await notificationProjection.runNow()
+            const publicationNotifications = (
+                await notifications.list({ projectId: project.project.id, subjectId: 'user-1' })
+            )?.items.filter(item => item.subject.id === publication.id)
             expect(publicationNotifications).toEqual(
                 expect.arrayContaining([
                     expect.objectContaining({
@@ -658,17 +649,16 @@ describe('publication worker', () => {
                 ])
             )
         } finally {
-            receiver.stop()
-            closeDatabase(database)
+            await receiver.stop()
+            await closeTestDatabase(database)
         }
     })
 
     it('services due projects in a round-robin order', async () => {
         let currentTime = now
-        const database = createDatabase(':memory:')
+        const database = (await openTestDatabase()).database
 
         try {
-            runMigrations(database)
             const manualStore = createManualStore(database, { now: () => currentTime })
             const credentialStore = createPublisherCredentialStore(database, {
                 cipher: createPublisherCredentialCipher({ keyId: 'test-v1', key: encryptionKey }),
@@ -681,13 +671,13 @@ describe('publication worker', () => {
             })
 
             async function createLinkedInProject(name: string, externalAccountId: string) {
-                const project = manualStore.createProject({
-                    workspaceId: seedTestWorkspace(database),
+                const project = await manualStore.createProject({
+                    workspaceId: await seedTestWorkspace(database),
                     name,
                     subjectId: 'user-1',
                     displayName: 'Postdot Operator',
                 })
-                const channel = manualStore.createChannel({
+                const channel = await manualStore.createChannel({
                     projectId: project.project.id,
                     subjectId: 'user-1',
                     name: `${name} channel`,
@@ -708,13 +698,15 @@ describe('publication worker', () => {
                 if (credential.kind !== 'created')
                     throw new Error(`The ${name} credential was not created`)
                 expect(
-                    publisherStore.createPublisherConnection({
-                        projectId: project.project.id,
-                        channelId: channel.id,
-                        subjectId: 'user-1',
-                        kind: 'linkedin',
-                        credentialId: credential.credential.id,
-                    }).kind
+                    (
+                        await publisherStore.createPublisherConnection({
+                            projectId: project.project.id,
+                            channelId: channel.id,
+                            subjectId: 'user-1',
+                            kind: 'linkedin',
+                            credentialId: credential.credential.id,
+                        })
+                    ).kind
                 ).toBe('created')
 
                 return { channel, project }
@@ -725,9 +717,13 @@ describe('publication worker', () => {
             const quietProject = await createLinkedInProject('Quiet project', 'quiet-member')
             currentTime = now
 
-            function createPublication(projectId: string, channelId: string, text: string): void {
+            async function createPublication(
+                projectId: string,
+                channelId: string,
+                text: string
+            ): Promise<void> {
                 expect(
-                    manualStore.createPost({
+                    await manualStore.createPost({
                         projectId,
                         subjectId: 'user-1',
                         sourceContent: {
@@ -739,10 +735,26 @@ describe('publication worker', () => {
                 ).not.toBeNull()
             }
 
-            createPublication(busyProject.project.project.id, busyProject.channel.id, 'busy-1')
-            createPublication(busyProject.project.project.id, busyProject.channel.id, 'busy-2')
-            createPublication(busyProject.project.project.id, busyProject.channel.id, 'busy-3')
-            createPublication(quietProject.project.project.id, quietProject.channel.id, 'quiet-1')
+            await createPublication(
+                busyProject.project.project.id,
+                busyProject.channel.id,
+                'busy-1'
+            )
+            await createPublication(
+                busyProject.project.project.id,
+                busyProject.channel.id,
+                'busy-2'
+            )
+            await createPublication(
+                busyProject.project.project.id,
+                busyProject.channel.id,
+                'busy-3'
+            )
+            await createPublication(
+                quietProject.project.project.id,
+                quietProject.channel.id,
+                'quiet-1'
+            )
 
             const delivered: string[] = []
             let externalId = 0
@@ -781,23 +793,24 @@ describe('publication worker', () => {
             )
             expect(delivered.filter(text => text.startsWith('busy-'))).toHaveLength(3)
             expect(
-                database.$client
-                    .query<{ count: number }, []>(
-                        `select count(*) as count from publications where state = 'published'`
-                    )
-                    .get()?.count
+                (
+                    await database.sql
+                        .statement<{ count: number }, []>(
+                            `select count(*) as count from publications where state = 'published'`
+                        )
+                        .get()
+                )?.count
             ).toBe(4)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('uses a fresh processing time for each event in a long-running batch', async () => {
         let currentTime = now
-        const database = createDatabase(':memory:')
+        const database = (await openTestDatabase()).database
 
         try {
-            runMigrations(database)
             const manualStore = createManualStore(database, { now: () => currentTime })
             const credentialStore = createPublisherCredentialStore(database, {
                 cipher: createPublisherCredentialCipher({ keyId: 'test-v1', key: encryptionKey }),
@@ -808,13 +821,13 @@ describe('publication worker', () => {
                 connectionPolicies: { linkedin: linkedInPublisherConnectionPolicy },
                 now: () => currentTime,
             })
-            const project = manualStore.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const project = await manualStore.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'Worker Clock Project',
                 subjectId: 'user-1',
                 displayName: 'Postdot Operator',
             })
-            const channel = manualStore.createChannel({
+            const channel = await manualStore.createChannel({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 name: 'LinkedIn Member',
@@ -836,17 +849,23 @@ describe('publication worker', () => {
                 throw new Error('The worker clock credential was not created')
 
             expect(
-                publisherStore.createPublisherConnection({
-                    projectId: project.project.id,
-                    channelId: channel.id,
-                    subjectId: 'user-1',
-                    kind: 'linkedin',
-                    credentialId: credential.credential.id,
-                }).kind
+                (
+                    await publisherStore.createPublisherConnection({
+                        projectId: project.project.id,
+                        channelId: channel.id,
+                        subjectId: 'user-1',
+                        kind: 'linkedin',
+                        credentialId: credential.credential.id,
+                    })
+                ).kind
             ).toBe('created')
 
-            expect(createPostAt(manualStore, project.project.id, channel.id, now)).not.toBeNull()
-            expect(createPostAt(manualStore, project.project.id, channel.id, now)).not.toBeNull()
+            expect(
+                await createPostAt(manualStore, project.project.id, channel.id, now)
+            ).not.toBeNull()
+            expect(
+                await createPostAt(manualStore, project.project.id, channel.id, now)
+            ).not.toBeNull()
 
             let requestCount = 0
             const publisher = createLinkedInTextPublisher({
@@ -878,8 +897,8 @@ describe('publication worker', () => {
             await worker.processDueEvents(now)
 
             expect(
-                database.$client
-                    .query<{ claimedAt: number; completedAt: number }, []>(`
+                await database.sql
+                    .statement<{ claimedAt: number; completedAt: number }, []>(`
                         select claimed_at as claimedAt,
                                completed_at as completedAt
                         from jobs
@@ -897,7 +916,7 @@ describe('publication worker', () => {
                 },
             ])
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
@@ -909,10 +928,9 @@ describe('publication worker', () => {
         'uploads %i LinkedIn images with durable %s handling',
         async (imageCount, failureMode) => {
             const rootDirectory = await mkdtemp(join(tmpdir(), 'postdot-worker-linkedin-image-'))
-            const database = createDatabase(':memory:')
+            const database = (await openTestDatabase()).database
 
             try {
-                runMigrations(database)
                 const media = createMediaAssetStore(
                     database,
                     createLocalMediaStore({
@@ -935,8 +953,8 @@ describe('publication worker', () => {
                     connectionPolicies: { linkedin: linkedInPublisherConnectionPolicy },
                     now: () => now,
                 })
-                const project = manualStore.createProject({
-                    workspaceId: seedTestWorkspace(database),
+                const project = await manualStore.createProject({
+                    workspaceId: await seedTestWorkspace(database),
                     name: 'LinkedIn Image Worker Project',
                     subjectId: 'user-1',
                     displayName: 'Postdot Operator',
@@ -951,7 +969,7 @@ describe('publication worker', () => {
                     profile.contentSchema.properties.media.maxItems = 1
                     profile.capabilities.mediaFields[0].maxItems = 1
                 }
-                const channel = manualStore.createChannel({
+                const channel = await manualStore.createChannel({
                     projectId: project.project.id,
                     subjectId: 'user-1',
                     name: 'LinkedIn Member',
@@ -973,19 +991,21 @@ describe('publication worker', () => {
                     throw new Error('The LinkedIn image credential was not created')
 
                 expect(
-                    publisherStore.createPublisherConnection({
-                        projectId: project.project.id,
-                        channelId: channel.id,
-                        subjectId: 'user-1',
-                        kind: 'linkedin',
-                        credentialId: credential.credential.id,
-                    }).kind
+                    (
+                        await publisherStore.createPublisherConnection({
+                            projectId: project.project.id,
+                            channelId: channel.id,
+                            subjectId: 'user-1',
+                            kind: 'linkedin',
+                            credentialId: credential.credential.id,
+                        })
+                    ).kind
                 ).toBe('created')
 
                 const bytes = createPng()
                 const assets: string[] = []
                 for (let index = 0; index < imageCount; index += 1) {
-                    const reservation = media.reserveUpload({
+                    const reservation = await media.reserveUpload({
                         projectId: project.project.id,
                         subjectId: 'user-1',
                         originalFilename: `announcement-${index}.png`,
@@ -1015,7 +1035,7 @@ describe('publication worker', () => {
                     assets.push(reservation.asset.id)
                 }
 
-                const post = manualStore.createPost({
+                const post = await manualStore.createPost({
                     projectId: project.project.id,
                     subjectId: 'user-1',
                     sourceContent: {
@@ -1096,15 +1116,15 @@ describe('publication worker', () => {
                 expect(postAttempts).toBe(imageCount === 1 ? 1 : 0)
                 if (failureMode === 'ambiguous') {
                     expect(
-                        database.$client
-                            .query('select state from publications where project_id = ?')
+                        await database.sql
+                            .statement('select state from publications where project_id = ?')
                             .all(project.project.id)
                     ).toEqual([{ state: 'ambiguous' }])
                     expect(
-                        database.$client
-                            .query('select state from provider_media_deliveries order by rowid')
+                        await database.sql
+                            .statement('select state from provider_media_deliveries order by state')
                             .all()
-                    ).toEqual([{ state: 'uploaded' }, { state: 'ambiguous' }])
+                    ).toEqual([{ state: 'ambiguous' }, { state: 'uploaded' }])
                     await worker.processDueEvents(now + 60_000)
                     expect(uploads).toBe(2)
                     expect(postAttempts).toBe(0)
@@ -1112,11 +1132,11 @@ describe('publication worker', () => {
                 }
 
                 expect(
-                    database
-                        .select({ state: publications.state })
-                        .from(publications)
-                        .where(eq(publications.projectId, project.project.id))
-                        .all()
+                    await database.sql
+                        .statement<TestRow>(
+                            'select "publications"."state" as "state" from "publications" where "publications"."project_id" = ?1'
+                        )
+                        .all(project.project.id)
                 ).toEqual([{ state: 'ready' }])
 
                 await worker.processDueEvents(now + 1)
@@ -1148,28 +1168,23 @@ describe('publication worker', () => {
                             : { multiImage: { images: expectedImages } },
                 })
                 expect(
-                    database
-                        .select({
-                            state: publications.state,
-                            externalId: publications.externalId,
-                        })
-                        .from(publications)
-                        .where(eq(publications.projectId, project.project.id))
-                        .all()
+                    await database.sql
+                        .statement<TestRow>(
+                            'select "publications"."state" as "state", "publications"."external_id" as "externalId" from "publications" where "publications"."project_id" = ?1'
+                        )
+                        .all(project.project.id)
                 ).toEqual([{ state: 'published', externalId: 'urn:li:post:worker-image-42' }])
                 expect(
-                    database
-                        .select({
-                            state: providerMediaDeliveries.state,
-                            remoteMediaId: providerMediaDeliveries.remoteMediaId,
-                        })
-                        .from(providerMediaDeliveries)
+                    await database.sql
+                        .statement<TestRow>(
+                            'select "provider_media_deliveries"."state" as "state", "provider_media_deliveries"."remote_media_id" as "remoteMediaId" from "provider_media_deliveries"'
+                        )
                         .all()
                 ).toEqual(
                     expectedImages.map(image => ({ state: 'uploaded', remoteMediaId: image.id }))
                 )
             } finally {
-                closeDatabase(database)
+                await closeTestDatabase(database)
                 await rm(rootDirectory, { recursive: true, force: true })
             }
         }
@@ -1186,10 +1201,9 @@ describe('publication worker', () => {
                 return Response.json({ accepted: true }, { status: 201 })
             },
         })
-        const database = createDatabase(':memory:')
+        const database = (await openTestDatabase()).database
 
         try {
-            runMigrations(database)
             const manualStore = createManualStore(database, { now: () => now })
             const credentialStore = createPublisherCredentialStore(database, {
                 cipher: createPublisherCredentialCipher({ keyId: 'test-v1', key: encryptionKey }),
@@ -1200,13 +1214,13 @@ describe('publication worker', () => {
                 connectionPolicies: { linkedin: linkedInPublisherConnectionPolicy },
                 now: () => now,
             })
-            const project = manualStore.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const project = await manualStore.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'Custom HTTP Worker Project',
                 subjectId: 'user-1',
                 displayName: 'Postdot Operator',
             })
-            const channel = manualStore.createChannel({
+            const channel = await manualStore.createChannel({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 name: 'Local Receiver',
@@ -1230,7 +1244,7 @@ describe('publication worker', () => {
             if (credential.kind !== 'created')
                 throw new Error('The custom HTTP credential was not created')
 
-            const connection = publisherStore.createPublisherConnection({
+            const connection = await publisherStore.createPublisherConnection({
                 projectId: project.project.id,
                 channelId: channel.id,
                 subjectId: 'user-1',
@@ -1241,7 +1255,7 @@ describe('publication worker', () => {
             })
             expect(connection.kind).toBe('created')
 
-            const post = manualStore.createPost({
+            const post = await manualStore.createPost({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 sourceContent: {
@@ -1281,15 +1295,15 @@ describe('publication worker', () => {
                 content: { commentary: 'Delivered by the custom channel' },
             })
             expect(
-                database
-                    .select({ state: publications.state })
-                    .from(publications)
-                    .where(eq(publications.projectId, project.project.id))
-                    .all()
+                await database.sql
+                    .statement<TestRow>(
+                        'select "publications"."state" as "state" from "publications" where "publications"."project_id" = ?1'
+                    )
+                    .all(project.project.id)
             ).toEqual([{ state: 'published' }])
         } finally {
-            receiver.stop()
-            closeDatabase(database)
+            await receiver.stop()
+            await closeTestDatabase(database)
         }
     })
 
@@ -1347,10 +1361,9 @@ describe('publication worker', () => {
         const receiverPort = receiver.port
         if (receiverPort === undefined) throw new Error('The provider sandbox has no port')
         const timers = new WorkerFakeTimers()
-        const database = createDatabase(':memory:')
+        const database = (await openTestDatabase()).database
 
         try {
-            runMigrations(database)
             const manualStore = createManualStore(database, { now: () => currentTime })
             const credentialStore = createPublisherCredentialStore(database, {
                 cipher: createPublisherCredentialCipher({ keyId: 'test-v1', key: encryptionKey }),
@@ -1361,13 +1374,13 @@ describe('publication worker', () => {
                 connectionPolicies: { linkedin: linkedInPublisherConnectionPolicy },
                 now: () => currentTime,
             })
-            const project = manualStore.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const project = await manualStore.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'Worker Scheduler Sandbox Project',
                 subjectId: 'user-1',
                 displayName: 'Postdot Operator',
             })
-            const channel = manualStore.createChannel({
+            const channel = await manualStore.createChannel({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 name: 'Local Provider Sandbox',
@@ -1390,7 +1403,7 @@ describe('publication worker', () => {
             if (credential.kind !== 'created')
                 throw new Error('The provider sandbox credential was not created')
 
-            const connection = publisherStore.createPublisherConnection({
+            const connection = await publisherStore.createPublisherConnection({
                 projectId: project.project.id,
                 channelId: channel.id,
                 subjectId: 'user-1',
@@ -1401,7 +1414,7 @@ describe('publication worker', () => {
             })
             expect(connection.kind).toBe('created')
 
-            const mappedChannel = manualStore.createChannel({
+            const mappedChannel = await manualStore.createChannel({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 name: 'Mapped Provider Sandbox',
@@ -1411,7 +1424,7 @@ describe('publication worker', () => {
             if (mappedChannel === null)
                 throw new Error('The mapped provider sandbox channel was not created')
 
-            const mappedConnection = publisherStore.createPublisherConnection({
+            const mappedConnection = await publisherStore.createPublisherConnection({
                 projectId: project.project.id,
                 channelId: mappedChannel.id,
                 subjectId: 'user-1',
@@ -1422,12 +1435,12 @@ describe('publication worker', () => {
             })
             expect(mappedConnection.kind).toBe('created')
 
-            const createSandboxPublication = (
+            const createSandboxPublication = async (
                 label: string,
                 scheduledAt: number,
                 publicationChannelId = channel.id
             ) => {
-                const created = manualStore.createPost({
+                const created = await manualStore.createPost({
                     projectId: project.project.id,
                     subjectId: 'user-1',
                     sourceContent: {
@@ -1449,8 +1462,8 @@ describe('publication worker', () => {
                 return created.publications[0]
             }
 
-            const successful = createSandboxPublication('success', now + 100)
-            const cancelled = createSandboxPublication('cancelled', now + 200)
+            const successful = await createSandboxPublication('success', now + 100)
+            const cancelled = await createSandboxPublication('cancelled', now + 200)
             const worker = createPublicationWorker({
                 database,
                 publisherStore,
@@ -1477,34 +1490,34 @@ describe('publication worker', () => {
                 })(),
             })
 
-            worker.start()
+            await worker.start()
             expect(worker.scheduler.scheduledAt).toBe(now + 100)
             expect(
-                manualStore.cancelPublications({
+                await manualStore.cancelPublications({
                     projectId: project.project.id,
                     publicationIds: [cancelled.id],
                     subjectId: 'user-1',
                 })
             ).not.toBeNull()
-            worker.replan()
+            await worker.replan()
             expect(worker.scheduler.scheduledAt).toBe(now + 100)
 
             currentTime = now + 100
             await timers.fireOnly()
             expect(deliveries).toEqual([{ label: 'success', attempt: 1, status: 201 }])
-            expect(readPublicationState(database, successful.id)).toBe('published')
-            expect(readPublicationState(database, cancelled.id)).toBe('cancelled')
+            expect(await readPublicationState(database, successful.id)).toBe('published')
+            expect(await readPublicationState(database, cancelled.id)).toBe('cancelled')
 
-            const retry = createSandboxPublication('retry', now + 200)
-            const retryFiveHundredThree = createSandboxPublication(
+            const retry = await createSandboxPublication('retry', now + 200)
+            const retryFiveHundredThree = await createSandboxPublication(
                 'retry-5xx',
                 now + 200,
                 mappedChannel.id
             )
-            const failed = createSandboxPublication('failed', now + 200)
-            const ambiguous = createSandboxPublication('ambiguous', now + 200)
-            const timeout = createSandboxPublication('timeout', now + 200)
-            worker.replan()
+            const failed = await createSandboxPublication('failed', now + 200)
+            const ambiguous = await createSandboxPublication('ambiguous', now + 200)
+            const timeout = await createSandboxPublication('timeout', now + 200)
+            await worker.replan()
             expect(worker.scheduler.scheduledAt).toBe(now + 200)
 
             currentTime = now + 200
@@ -1519,15 +1532,15 @@ describe('publication worker', () => {
                     { label: 'ambiguous', attempt: 1, status: 500 },
                 ])
             )
-            expect(readPublicationState(database, retry.id)).toBe('ready')
-            expect(readPublicationState(database, retryFiveHundredThree.id)).toBe('ready')
-            expect(readPublicationState(database, failed.id)).toBe('failed')
-            expect(readPublicationState(database, ambiguous.id)).toBe('ambiguous')
-            expect(readPublicationState(database, timeout.id)).toBe('ambiguous')
+            expect(await readPublicationState(database, retry.id)).toBe('ready')
+            expect(await readPublicationState(database, retryFiveHundredThree.id)).toBe('ready')
+            expect(await readPublicationState(database, failed.id)).toBe('failed')
+            expect(await readPublicationState(database, ambiguous.id)).toBe('ambiguous')
+            expect(await readPublicationState(database, timeout.id)).toBe('ambiguous')
             expect(timeoutRequests).toEqual([1])
             expect(worker.scheduler.scheduledAt).toBe(now + 300)
 
-            const reconciledTimeout = manualStore.reconcileAmbiguousPublication({
+            const reconciledTimeout = await manualStore.reconcileAmbiguousPublication({
                 projectId: project.project.id,
                 publicationId: timeout.id,
                 subjectId: 'user-1',
@@ -1539,18 +1552,18 @@ describe('publication worker', () => {
                 publication: { state: 'failed' },
             })
             expect(
-                manualStore.retryFailedPublication({
+                await manualStore.retryFailedPublication({
                     projectId: project.project.id,
                     publicationId: timeout.id,
                     subjectId: 'user-1',
                 })
             ).toMatchObject({ kind: 'retried', publication: { state: 'ready' } })
-            worker.replan()
+            await worker.replan()
             expect(worker.scheduler.scheduledAt).toBe(now + 200)
 
             currentTime = now + 200
             await timers.fireOnly()
-            expect(readPublicationState(database, timeout.id)).toBe('published')
+            expect(await readPublicationState(database, timeout.id)).toBe('published')
             expect(timeoutRequests).toEqual([1, 2])
             expect(attempts.get('timeout')).toBe(2)
             expect(worker.scheduler.scheduledAt).toBe(now + 300)
@@ -1569,14 +1582,14 @@ describe('publication worker', () => {
             expect(attempts.get('failed')).toBe(1)
             expect(attempts.get('ambiguous')).toBe(1)
             expect(attempts.get('timeout')).toBe(2)
-            expect(readPublicationState(database, retry.id)).toBe('published')
+            expect(await readPublicationState(database, retry.id)).toBe('published')
             expect(worker.scheduler.scheduledAt).toBeNull()
 
             await worker.stop()
         } finally {
             releaseTimedOutRequest?.()
-            receiver.stop()
-            closeDatabase(database)
+            await receiver.stop()
+            await closeTestDatabase(database)
         }
     })
 
@@ -1592,10 +1605,9 @@ describe('publication worker', () => {
         })
         const receiverPort = receiver.port
         if (receiverPort === undefined) throw new Error('The public media receiver has no port')
-        const database = createDatabase(':memory:')
+        const database = (await openTestDatabase()).database
 
         try {
-            runMigrations(database)
             const media = createMediaAssetStore(
                 database,
                 createLocalMediaStore({
@@ -1619,14 +1631,14 @@ describe('publication worker', () => {
                 connectionPolicies: { linkedin: linkedInPublisherConnectionPolicy },
                 now: () => now,
             })
-            const project = manualStore.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const project = await manualStore.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'Mapped Public Media Project',
                 subjectId: 'user-1',
                 displayName: 'Postdot Operator',
             })
             const bytes = createPng()
-            const reservation = media.reserveUpload({
+            const reservation = await media.reserveUpload({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 originalFilename: 'cover.png',
@@ -1651,7 +1663,7 @@ describe('publication worker', () => {
             })
             expect(finalized.kind).toBe('ready')
 
-            const channel = manualStore.createChannel({
+            const channel = await manualStore.createChannel({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 name: 'Mapped Public Media Receiver',
@@ -1674,7 +1686,7 @@ describe('publication worker', () => {
             if (publisherCredential.kind !== 'created')
                 throw new Error('The mapped media credential was not created')
 
-            const connection = publisherStore.createPublisherConnection({
+            const connection = await publisherStore.createPublisherConnection({
                 projectId: project.project.id,
                 channelId: channel.id,
                 subjectId: 'user-1',
@@ -1685,7 +1697,7 @@ describe('publication worker', () => {
             })
             expect(connection.kind).toBe('created')
 
-            const post = manualStore.createPost({
+            const post = await manualStore.createPost({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 sourceContent: {
@@ -1753,25 +1765,24 @@ describe('publication worker', () => {
             })
 
             expect(
-                database
-                    .select({ state: publications.state })
-                    .from(publications)
-                    .where(eq(publications.projectId, project.project.id))
-                    .all()
+                await database.sql
+                    .statement<TestRow>(
+                        'select "publications"."state" as "state" from "publications" where "publications"."project_id" = ?1'
+                    )
+                    .all(project.project.id)
             ).toEqual([{ state: 'published' }])
         } finally {
-            receiver.stop()
-            closeDatabase(database)
+            await receiver.stop()
+            await closeTestDatabase(database)
             await rm(rootDirectory, { recursive: true, force: true })
         }
     })
 
     it('rejects changed custom HTTP media bytes before making a request', async () => {
         const rootDirectory = await mkdtemp(join(tmpdir(), 'postdot-worker-custom-media-checksum-'))
-        const database = createDatabase(':memory:')
+        const database = (await openTestDatabase()).database
 
         try {
-            runMigrations(database)
             const media = createMediaAssetStore(
                 database,
                 createLocalMediaStore({
@@ -1791,14 +1802,14 @@ describe('publication worker', () => {
                 connectionPolicies: { linkedin: linkedInPublisherConnectionPolicy },
                 now: () => now,
             })
-            const project = manualStore.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const project = await manualStore.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'Custom HTTP Checksum Project',
                 subjectId: 'user-1',
                 displayName: 'Postdot Operator',
             })
             const bytes = createPng()
-            const reservation = media.reserveUpload({
+            const reservation = await media.reserveUpload({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 originalFilename: 'image.png',
@@ -1833,7 +1844,7 @@ describe('publication worker', () => {
                 changedBytes
             )
 
-            const channel = manualStore.createChannel({
+            const channel = await manualStore.createChannel({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 name: 'Custom HTTP Checksum Receiver',
@@ -1855,17 +1866,19 @@ describe('publication worker', () => {
             if (credential.kind !== 'created')
                 throw new Error('The checksum test credential was not created')
             expect(
-                publisherStore.createPublisherConnection({
-                    projectId: project.project.id,
-                    channelId: channel.id,
-                    subjectId: 'user-1',
-                    kind: 'custom_http',
-                    credentialId: credential.credential.id,
-                    endpointUrl: 'https://receiver.example.test',
-                    authentication: { kind: 'none' },
-                }).kind
+                (
+                    await publisherStore.createPublisherConnection({
+                        projectId: project.project.id,
+                        channelId: channel.id,
+                        subjectId: 'user-1',
+                        kind: 'custom_http',
+                        credentialId: credential.credential.id,
+                        endpointUrl: 'https://receiver.example.test',
+                        authentication: { kind: 'none' },
+                    })
+                ).kind
             ).toBe('created')
-            const post = manualStore.createPost({
+            const post = await manualStore.createPost({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 sourceContent: {
@@ -1901,14 +1914,14 @@ describe('publication worker', () => {
 
             expect(requests).toHaveLength(0)
             expect(
-                database
-                    .select({ state: publications.state })
-                    .from(publications)
-                    .where(eq(publications.projectId, project.project.id))
-                    .all()
+                await database.sql
+                    .statement<TestRow>(
+                        'select "publications"."state" as "state" from "publications" where "publications"."project_id" = ?1'
+                    )
+                    .all(project.project.id)
             ).toEqual([{ state: 'failed' }])
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
             await rm(rootDirectory, { recursive: true, force: true })
         }
     })
@@ -1929,10 +1942,9 @@ describe('publication worker', () => {
                 })
             },
         })
-        const database = createDatabase(':memory:')
+        const database = (await openTestDatabase()).database
 
         try {
-            runMigrations(database)
             const manualStore = createManualStore(database, { now: () => now })
             const credentialStore = createPublisherCredentialStore(database, {
                 cipher: createPublisherCredentialCipher({ keyId: 'test-v1', key: encryptionKey }),
@@ -1943,13 +1955,13 @@ describe('publication worker', () => {
                 connectionPolicies: { linkedin: linkedInPublisherConnectionPolicy },
                 now: () => now,
             })
-            const project = manualStore.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const project = await manualStore.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'Refresh Worker Project',
                 subjectId: 'user-1',
                 displayName: 'Postdot Operator',
             })
-            const channel = manualStore.createChannel({
+            const channel = await manualStore.createChannel({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 name: 'LinkedIn Member',
@@ -1973,16 +1985,18 @@ describe('publication worker', () => {
                 throw new Error('The expired credential was not created')
 
             expect(
-                publisherStore.createPublisherConnection({
-                    projectId: project.project.id,
-                    channelId: channel.id,
-                    subjectId: 'user-1',
-                    kind: 'linkedin',
-                    credentialId: credential.credential.id,
-                }).kind
+                (
+                    await publisherStore.createPublisherConnection({
+                        projectId: project.project.id,
+                        channelId: channel.id,
+                        subjectId: 'user-1',
+                        kind: 'linkedin',
+                        credentialId: credential.credential.id,
+                    })
+                ).kind
             ).toBe('created')
 
-            const post = manualStore.createPost({
+            const post = await manualStore.createPost({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 sourceContent: {
@@ -2042,21 +2056,24 @@ describe('publication worker', () => {
                 providerSession: null,
             })
             expect(
-                credentialStore.getPublisherCredential(project.project.id, credential.credential.id)
+                await credentialStore.getPublisherCredential(
+                    project.project.id,
+                    credential.credential.id
+                )
             ).toMatchObject({
                 state: 'active',
                 expiresAt: now + 3_600_000,
             })
             expect(
-                database
-                    .select({ state: publications.state, externalId: publications.externalId })
-                    .from(publications)
-                    .where(eq(publications.projectId, project.project.id))
-                    .all()
+                await database.sql
+                    .statement<TestRow>(
+                        'select "publications"."state" as "state", "publications"."external_id" as "externalId" from "publications" where "publications"."project_id" = ?1'
+                    )
+                    .all(project.project.id)
             ).toEqual([{ state: 'published', externalId: 'urn:li:post:refreshed' }])
         } finally {
-            provider.stop()
-            closeDatabase(database)
+            await provider.stop()
+            await closeTestDatabase(database)
         }
     })
 })
@@ -2106,23 +2123,24 @@ class WorkerFakeTimers implements SchedulerTimers {
     }
 }
 
-function readPublicationState(
-    database: ReturnType<typeof createDatabase>,
+async function readPublicationState(
+    database: DatabaseHandle,
     publicationId: string
-): string | undefined {
-    return database
-        .select({ state: publications.state })
-        .from(publications)
-        .where(eq(publications.id, publicationId))
-        .all()[0]?.state
+): Promise<string | undefined> {
+    return (
+        await database.sql
+            .statement<TestRow>(
+                'select "publications"."state" as "state" from "publications" where "publications"."id" = ?1'
+            )
+            .all(publicationId)
+    )[0]?.state
 }
 
 it('releases the worker during video processing and resumes without uploading or consuming failure attempts', async () => {
     const rootDirectory = await mkdtemp(join(tmpdir(), 'postdot-worker-linkedin-video-'))
-    const database = createDatabase(':memory:')
+    const database = (await openTestDatabase()).database
     let clock = now
     try {
-        runMigrations(database)
         const media = createMediaAssetStore(
             database,
             createLocalMediaStore({
@@ -2142,18 +2160,18 @@ it('releases the worker during video processing and resumes without uploading or
             connectionPolicies: { linkedin: linkedInPublisherConnectionPolicy },
             now: () => clock,
         })
-        const project = manualStore.createProject({
-            workspaceId: seedTestWorkspace(database),
+        const project = (await manualStore.createProject({
+            workspaceId: await seedTestWorkspace(database),
             name: 'Video project',
             subjectId: 'video-user',
             displayName: 'Video editor',
-        })!
-        const channel = manualStore.createChannel({
+        }))!
+        const channel = (await manualStore.createChannel({
             projectId: project.project.id,
             subjectId: 'video-user',
             name: 'LinkedIn video',
             profile: linkedinChannelProfile,
-        })!
+        }))!
         const credential = await credentials.createPublisherCredential({
             projectId: project.project.id,
             connectedByActorId: project.actor.id,
@@ -2164,24 +2182,26 @@ it('releases the worker during video processing and resumes without uploading or
         })
         if (credential.kind !== 'created') throw new Error('Credential fixture failed')
         expect(
-            publishers.createPublisherConnection({
-                projectId: project.project.id,
-                channelId: channel.id,
-                subjectId: 'video-user',
-                kind: 'linkedin',
-                credentialId: credential.credential.id,
-            }).kind
+            (
+                await publishers.createPublisherConnection({
+                    projectId: project.project.id,
+                    channelId: channel.id,
+                    subjectId: 'video-user',
+                    kind: 'linkedin',
+                    credentialId: credential.credential.id,
+                })
+            ).kind
         ).toBe('created')
         const bytes = await Bun.file(
             new URL('../../../../../packages/db/src/fixtures/video-h264.mp4', import.meta.url)
         ).bytes()
-        const reserved = media.reserveUpload({
+        const reserved = (await media.reserveUpload({
             projectId: project.project.id,
             subjectId: 'video-user',
             originalFilename: 'video.mp4',
             contentType: 'video/mp4',
             expectedSize: bytes.length,
-        })!
+        }))!
         expect(
             await media.upload({
                 projectId: project.project.id,
@@ -2198,13 +2218,13 @@ it('releases the worker during video processing and resumes without uploading or
             })
         ).toMatchObject({ kind: 'ready' })
         const imageBytes = createPng()
-        const image = media.reserveUpload({
+        const image = (await media.reserveUpload({
             projectId: project.project.id,
             subjectId: 'video-user',
             originalFilename: 'image.png',
             contentType: 'image/png',
             expectedSize: imageBytes.length,
-        })!
+        }))!
         await media.upload({
             projectId: project.project.id,
             subjectId: 'video-user',
@@ -2219,7 +2239,7 @@ it('releases the worker during video processing and resumes without uploading or
             })
         ).toMatchObject({ kind: 'ready' })
         expect(
-            assessWorkingDraftMedia(
+            await assessWorkingDraftMedia(
                 linkedinChannelProfile,
                 {
                     commentary: 'Mixed media',
@@ -2237,7 +2257,7 @@ it('releases the worker during video processing and resumes without uploading or
             }),
         ])
         expect(
-            assessWorkingDraftMedia(
+            await assessWorkingDraftMedia(
                 linkedinChannelProfile,
                 {
                     commentary: 'Too many videos',
@@ -2251,7 +2271,7 @@ it('releases the worker during video processing and resumes without uploading or
         ).toEqual([
             expect.objectContaining({ message: expect.stringContaining('at most 1 video') }),
         ])
-        const post = manualStore.createPost({
+        const post = (await manualStore.createPost({
             projectId: project.project.id,
             subjectId: 'video-user',
             sourceContent: {
@@ -2261,7 +2281,7 @@ it('releases the worker during video processing and resumes without uploading or
             publications: [
                 { channelId: channel.id, deliveryMode: 'automatic', scheduledAt: clock },
             ],
-        })!
+        }))!
         expect(post).not.toBeNull()
         let registrations = 0
         let transfers = 0
@@ -2323,7 +2343,7 @@ it('releases the worker during video processing and resumes without uploading or
         })
         for (let index = 0; index < 5; index++) {
             await worker.processDueEvents(clock)
-            expect(database.$client.query('select state, attempts from jobs').all()).toEqual([
+            expect(await database.sql.statement('select state, attempts from jobs').all()).toEqual([
                 { state: 'pending', attempts: 0 },
             ])
             expect(posts).toBe(0)
@@ -2337,16 +2357,16 @@ it('releases the worker during video processing and resumes without uploading or
             finalizations: 1,
             posts: 1,
         })
-        expect(database.$client.query('select state from publications').all()).toEqual([
+        expect(await database.sql.statement('select state from publications').all()).toEqual([
             { state: 'published' },
         ])
         expect(
-            database.$client
-                .query('select state, remote_media_id as id from provider_media_deliveries')
+            await database.sql
+                .statement('select state, remote_media_id as id from provider_media_deliveries')
                 .all()
         ).toEqual([{ state: 'uploaded', id: 'urn:li:video:worker' }])
     } finally {
-        closeDatabase(database)
+        await closeTestDatabase(database)
         await rm(rootDirectory, { recursive: true, force: true })
     }
 })
@@ -2360,10 +2380,9 @@ for (const scenario of [
 ] as const) {
     it(`executes native Mastodon video with durable ${scenario} handling`, async () => {
         const rootDirectory = await mkdtemp(join(tmpdir(), 'postdot-worker-mastodon-video-'))
-        const database = createDatabase(':memory:')
+        const database = (await openTestDatabase()).database
         let clock = now
         try {
-            runMigrations(database)
             const media = createMediaAssetStore(
                 database,
                 createLocalMediaStore({
@@ -2383,18 +2402,18 @@ for (const scenario of [
                 connectionPolicies: { mastodon: mastodonPublisherConnectionPolicy },
                 now: () => clock,
             })
-            const project = manualStore.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const project = (await manualStore.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'Video project',
                 subjectId: 'video-user',
                 displayName: 'Video editor',
-            })!
-            const channel = manualStore.createChannel({
+            }))!
+            const channel = (await manualStore.createChannel({
                 projectId: project.project.id,
                 subjectId: 'video-user',
                 name: 'Mastodon video',
                 profile: mastodonChannelProfile,
-            })!
+            }))!
             const credential = await credentials.createPublisherCredential({
                 projectId: project.project.id,
                 connectedByActorId: project.actor.id,
@@ -2411,25 +2430,27 @@ for (const scenario of [
             })
             if (credential.kind !== 'created') throw new Error('Credential fixture failed')
             expect(
-                publishers.createPublisherConnection({
-                    projectId: project.project.id,
-                    channelId: channel.id,
-                    subjectId: 'video-user',
-                    kind: 'mastodon',
-                    endpointUrl: 'https://mastodon.example',
-                    credentialId: credential.credential.id,
-                }).kind
+                (
+                    await publishers.createPublisherConnection({
+                        projectId: project.project.id,
+                        channelId: channel.id,
+                        subjectId: 'video-user',
+                        kind: 'mastodon',
+                        endpointUrl: 'https://mastodon.example',
+                        credentialId: credential.credential.id,
+                    })
+                ).kind
             ).toBe('created')
             const bytes = await Bun.file(
                 new URL('../../../../../packages/db/src/fixtures/video-h264.mp4', import.meta.url)
             ).bytes()
-            const reserved = media.reserveUpload({
+            const reserved = (await media.reserveUpload({
                 projectId: project.project.id,
                 subjectId: 'video-user',
                 originalFilename: 'video.mp4',
                 contentType: 'video/mp4',
                 expectedSize: bytes.length,
-            })!
+            }))!
             expect(
                 await media.upload({
                     projectId: project.project.id,
@@ -2447,7 +2468,7 @@ for (const scenario of [
             ).toMatchObject({ kind: 'ready' })
 
             expect(
-                assessWorkingDraftMedia(
+                await assessWorkingDraftMedia(
                     mastodonImageChannelProfile,
                     {
                         text: 'Historical',
@@ -2460,7 +2481,7 @@ for (const scenario of [
                 )
             ).not.toEqual([])
             expect(
-                assessWorkingDraftMedia(
+                await assessWorkingDraftMedia(
                     mastodonChannelProfile,
                     {
                         text: 'Too many',
@@ -2475,7 +2496,7 @@ for (const scenario of [
                     false
                 )
             ).not.toEqual([])
-            const post = manualStore.createPost({
+            const post = (await manualStore.createPost({
                 projectId: project.project.id,
                 subjectId: 'video-user',
                 sourceContent: {
@@ -2485,7 +2506,7 @@ for (const scenario of [
                 publications: [
                     { channelId: channel.id, deliveryMode: 'automatic', scheduledAt: clock },
                 ],
-            })!
+            }))!
             expect(post).not.toBeNull()
             let transfers = 0
             let posts = 0
@@ -2558,7 +2579,7 @@ for (const scenario of [
                 for (let index = 0; index < 5; index++) {
                     await worker.processDueEvents(clock)
                     expect(
-                        database.$client.query('select state, attempts from jobs').all()
+                        await database.sql.statement('select state, attempts from jobs').all()
                     ).toEqual([{ state: 'pending', attempts: 0 }])
                     expect(posts).toBe(0)
                     clock += 60_000
@@ -2569,7 +2590,7 @@ for (const scenario of [
             await worker.processDueEvents(clock)
             expect(transfers).toBe(scenario === 'instance-limit' ? 0 : 1)
             expect(posts).toBe(scenario === 'processing' ? 1 : 0)
-            expect(database.$client.query('select state from publications').all()).toEqual([
+            expect(await database.sql.statement('select state from publications').all()).toEqual([
                 {
                     state:
                         scenario === 'processing'
@@ -2579,8 +2600,8 @@ for (const scenario of [
                               : 'failed',
                 },
             ])
-            const deliveries = database.$client
-                .query('select state, remote_media_id as id from provider_media_deliveries')
+            const deliveries = await database.sql
+                .statement('select state, remote_media_id as id from provider_media_deliveries')
                 .all()
             if (scenario === 'processing')
                 expect(deliveries).toEqual([{ state: 'uploaded', id: 'video-one' }])
@@ -2588,7 +2609,7 @@ for (const scenario of [
                 expect(deliveries).toEqual([{ state: 'ambiguous', id: null }])
             if (scenario === 'timeout') expect(transfers).toBe(1)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
             await rm(rootDirectory, { recursive: true, force: true })
         }
     })
@@ -2597,10 +2618,9 @@ for (const scenario of [
 for (const scenario of ['published', 'refused', 'ambiguous'] as const) {
     it(`executes native Discord video with durable ${scenario} handling`, async () => {
         const rootDirectory = await mkdtemp(join(tmpdir(), 'postdot-worker-discord-video-'))
-        const database = createDatabase(':memory:')
+        const database = (await openTestDatabase()).database
         let clock = now
         try {
-            runMigrations(database)
             const media = createMediaAssetStore(
                 database,
                 createLocalMediaStore({
@@ -2620,18 +2640,18 @@ for (const scenario of ['published', 'refused', 'ambiguous'] as const) {
                 connectionPolicies: { discord: discordPublisherConnectionPolicy },
                 now: () => clock,
             })
-            const project = manualStore.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const project = (await manualStore.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'Video project',
                 subjectId: 'video-user',
                 displayName: 'Video editor',
-            })!
-            const channel = manualStore.createChannel({
+            }))!
+            const channel = (await manualStore.createChannel({
                 projectId: project.project.id,
                 subjectId: 'video-user',
                 name: 'Discord video',
                 profile: discordChannelProfile,
-            })!
+            }))!
             const credential = await credentials.createPublisherCredential({
                 projectId: project.project.id,
                 connectedByActorId: project.actor.id,
@@ -2642,25 +2662,27 @@ for (const scenario of ['published', 'refused', 'ambiguous'] as const) {
             })
             if (credential.kind !== 'created') throw new Error('Credential fixture failed')
             expect(
-                publishers.createPublisherConnection({
-                    projectId: project.project.id,
-                    channelId: channel.id,
-                    subjectId: 'video-user',
-                    kind: 'discord',
-                    destination: { type: 'channel', id: '123456789012345678', name: 'Video' },
-                    credentialId: credential.credential.id,
-                }).kind
+                (
+                    await publishers.createPublisherConnection({
+                        projectId: project.project.id,
+                        channelId: channel.id,
+                        subjectId: 'video-user',
+                        kind: 'discord',
+                        destination: { type: 'channel', id: '123456789012345678', name: 'Video' },
+                        credentialId: credential.credential.id,
+                    })
+                ).kind
             ).toBe('created')
             const bytes = await Bun.file(
                 new URL('../../../../../packages/db/src/fixtures/video-h264.mp4', import.meta.url)
             ).bytes()
-            const reserved = media.reserveUpload({
+            const reserved = (await media.reserveUpload({
                 projectId: project.project.id,
                 subjectId: 'video-user',
                 originalFilename: 'video.mp4',
                 contentType: 'video/mp4',
                 expectedSize: bytes.length,
-            })!
+            }))!
             expect(
                 await media.upload({
                     projectId: project.project.id,
@@ -2678,7 +2700,7 @@ for (const scenario of ['published', 'refused', 'ambiguous'] as const) {
             ).toMatchObject({ kind: 'ready' })
 
             expect(
-                assessWorkingDraftMedia(
+                await assessWorkingDraftMedia(
                     discordImageChannelProfile,
                     {
                         text: 'Historical',
@@ -2691,7 +2713,7 @@ for (const scenario of ['published', 'refused', 'ambiguous'] as const) {
                 )
             ).not.toEqual([])
             expect(
-                assessWorkingDraftMedia(
+                await assessWorkingDraftMedia(
                     discordChannelProfile,
                     {
                         text: 'Too many',
@@ -2706,7 +2728,7 @@ for (const scenario of ['published', 'refused', 'ambiguous'] as const) {
                     false
                 )
             ).not.toEqual([])
-            const post = manualStore.createPost({
+            const post = (await manualStore.createPost({
                 projectId: project.project.id,
                 subjectId: 'video-user',
                 sourceContent: {
@@ -2716,7 +2738,7 @@ for (const scenario of ['published', 'refused', 'ambiguous'] as const) {
                 publications: [
                     { channelId: channel.id, deliveryMode: 'automatic', scheduledAt: clock },
                 ],
-            })!
+            }))!
             expect(post).not.toBeNull()
 
             let dispatches = 0
@@ -2756,7 +2778,7 @@ for (const scenario of ['published', 'refused', 'ambiguous'] as const) {
                 now: () => clock,
             })
             await worker.processDueEvents(clock)
-            expect(database.$client.query('select state from publications').all()).toEqual([
+            expect(await database.sql.statement('select state from publications').all()).toEqual([
                 {
                     state:
                         scenario === 'published'
@@ -2767,8 +2789,8 @@ for (const scenario of ['published', 'refused', 'ambiguous'] as const) {
                 },
             ])
             expect(
-                database.$client
-                    .query('select state, remote_media_id as id from provider_media_deliveries')
+                await database.sql
+                    .statement('select state, remote_media_id as id from provider_media_deliveries')
                     .all()
             ).toEqual([
                 {
@@ -2785,7 +2807,7 @@ for (const scenario of ['published', 'refused', 'ambiguous'] as const) {
             await worker.processDueEvents(clock)
             expect(dispatches).toBe(1)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
             await rm(rootDirectory, { recursive: true, force: true })
         }
     })
@@ -2793,10 +2815,9 @@ for (const scenario of ['published', 'refused', 'ambiguous'] as const) {
 
 it('resumes a durable Bluesky video job without uploading again', async () => {
     const rootDirectory = await mkdtemp(join(tmpdir(), 'postdot-worker-bluesky-video-'))
-    const database = createDatabase(':memory:')
+    const database = (await openTestDatabase()).database
     let clock = now
     try {
-        runMigrations(database)
         const media = createMediaAssetStore(
             database,
             createLocalMediaStore({
@@ -2816,18 +2837,18 @@ it('resumes a durable Bluesky video job without uploading again', async () => {
             connectionPolicies: { bluesky: blueskyPublisherConnectionPolicy },
             now: () => clock,
         })
-        const project = manualStore.createProject({
-            workspaceId: seedTestWorkspace(database),
+        const project = (await manualStore.createProject({
+            workspaceId: await seedTestWorkspace(database),
             name: 'Video project',
             subjectId: 'video-user',
             displayName: 'Video editor',
-        })!
-        const channel = manualStore.createChannel({
+        }))!
+        const channel = (await manualStore.createChannel({
             projectId: project.project.id,
             subjectId: 'video-user',
             name: 'Bluesky video',
             profile: blueskyChannelProfile,
-        })!
+        }))!
         const credential = await credentials.createPublisherCredential({
             projectId: project.project.id,
             connectedByActorId: project.actor.id,
@@ -2845,25 +2866,27 @@ it('resumes a durable Bluesky video job without uploading again', async () => {
         })
         if (credential.kind !== 'created') throw new Error('Credential fixture failed')
         expect(
-            publishers.createPublisherConnection({
-                projectId: project.project.id,
-                channelId: channel.id,
-                subjectId: 'video-user',
-                kind: 'bluesky',
-                credentialId: credential.credential.id,
-            }).kind
+            (
+                await publishers.createPublisherConnection({
+                    projectId: project.project.id,
+                    channelId: channel.id,
+                    subjectId: 'video-user',
+                    kind: 'bluesky',
+                    credentialId: credential.credential.id,
+                })
+            ).kind
         ).toBe('created')
         const bytes = await Bun.file(
             new URL('../../../../../packages/db/src/fixtures/video-h264.mp4', import.meta.url)
         ).bytes()
-        const reserved = media.reserveUpload({
+        const reserved = (await media.reserveUpload({
             projectId: project.project.id,
             subjectId: 'video-user',
             originalFilename: 'video.mp4',
             contentType: 'video/mp4',
             expectedSize: bytes.length,
             defaultAccessibilityText: 'A moving scene',
-        })!
+        }))!
         expect(
             await media.upload({
                 projectId: project.project.id,
@@ -2879,7 +2902,7 @@ it('resumes a durable Bluesky video job without uploading again', async () => {
                 intentId: reserved.intent.id,
             })
         ).toMatchObject({ kind: 'ready' })
-        const post = manualStore.createPost({
+        const post = (await manualStore.createPost({
             projectId: project.project.id,
             subjectId: 'video-user',
             sourceContent: {
@@ -2889,7 +2912,7 @@ it('resumes a durable Bluesky video job without uploading again', async () => {
             publications: [
                 { channelId: channel.id, deliveryMode: 'automatic', scheduledAt: clock },
             ],
-        })!
+        }))!
         expect(post).not.toBeNull()
         let uploads = 0
         let posts = 0
@@ -2987,7 +3010,7 @@ it('resumes a durable Bluesky video job without uploading again', async () => {
         })
         for (let index = 0; index < 5; index++) {
             await worker.processDueEvents(clock)
-            expect(database.$client.query('select state, attempts from jobs').all()).toEqual([
+            expect(await database.sql.statement('select state, attempts from jobs').all()).toEqual([
                 { state: 'pending', attempts: 0 },
             ])
             expect(posts).toBe(0)
@@ -2999,19 +3022,19 @@ it('resumes a durable Bluesky video job without uploading again', async () => {
         statusUnavailable = true
         clock += 60 * 60_000
         await worker.processDueEvents(clock)
-        expect(database.$client.query('select state, attempts from jobs').all()).toEqual([
+        expect(await database.sql.statement('select state, attempts from jobs').all()).toEqual([
             { state: 'pending', attempts: 2 },
         ])
         statusUnavailable = false
         clock += 60 * 60_000
         await worker.processDueEvents(clock)
         expect({ uploads, checks, posts }).toEqual({ uploads: 1, checks: 1, posts: 2 })
-        expect(database.$client.query('select state from publications').all()).toEqual([
+        expect(await database.sql.statement('select state from publications').all()).toEqual([
             { state: 'published' },
         ])
         expect(
-            database.$client
-                .query('select state, remote_media_id as id from provider_media_deliveries')
+            await database.sql
+                .statement('select state, remote_media_id as id from provider_media_deliveries')
                 .all()
         ).toEqual([
             {
@@ -3020,7 +3043,7 @@ it('resumes a durable Bluesky video job without uploading again', async () => {
             },
         ])
     } finally {
-        closeDatabase(database)
+        await closeTestDatabase(database)
         await rm(rootDirectory, { recursive: true, force: true })
     }
 })

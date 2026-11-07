@@ -7,7 +7,7 @@ import { createE2ERuntimeResources } from './e2e-runtime'
 
 const repositoryRoot = join(import.meta.dir, '..')
 const apiEntryPoint = join(repositoryRoot, 'apps/api/src/index.ts')
-const migrationsDirectory = join(repositoryRoot, 'packages/db/drizzle')
+const migrationsDirectory = join(repositoryRoot, 'packages/db/migrations')
 
 const markerDeadlineMs = 30_000
 const markerPidDeadlineMs = 2_000

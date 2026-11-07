@@ -42,7 +42,7 @@ trap cleanup EXIT
 # Secrets match the lengths the API environment schema requires.
 POSTDOT_E2E_DATA_DIRECTORY="$DATA_DIR" \
 DB_FILE_NAME="$DATA_DIR/postdot.sqlite" \
-POSTDOT_MIGRATIONS_DIR="$PWD/packages/db/drizzle" \
+POSTDOT_MIGRATIONS_DIR="$PWD/packages/db/migrations" \
 NODE_ENV=test PORT="$API_PORT" \
 POSTDOT_MEDIA_STORE=local POSTDOT_MEDIA_DIRECTORY="$DATA_DIR/media" \
 POSTDOT_MEDIA_STORE_ID=sse-repro \

@@ -186,7 +186,7 @@ Graceful stop has 30 seconds to drain. If a forced termination leaves a runtime
 lock, verify that no process uses the database before removing only its exact
 `.runtime.lock` marker; never remove a live process's lock.
 
-## Optional email and S3
+## Optional email, S3 and PostgreSQL
 
 ### Email delivery
 
@@ -232,12 +232,41 @@ able to reach the endpoint; `localhost` inside it refers to the container itself
 Choose it once and keep it stable across restarts, updates and maintenance commands.
 Changing it can make existing media inaccessible. Changing bucket, prefix or
 storage backend does **not** migrate stored objects or update saved media records.
-Plan a migration separately for an instance that already contains media.
+To move the media of an existing instance, use the `media transfer` command
+described in [Move between SQLite and PostgreSQL](/docs/transfer/).
 
 Compose passes `.env` to both the server and maintenance commands. SQLite still
 uses the persistent `/data` volume when media uses S3. After configuration, upload
 an image through Media, reopen it, restart the container and verify that it remains
 available. Configuration validation alone does not prove storage compatibility.
+
+### PostgreSQL database
+
+SQLite in the `/data` volume is the default and needs no setup. The same image can
+instead use an existing PostgreSQL server (PostgreSQL 18 is the tested version) for a **new
+installation**. Create an empty database and a user that owns it, then set:
+
+```dotenv
+POSTDOT_DATABASE_URL=postgres://postdot:replace-with-password@db.example.com:5432/postdot
+# Optional: connections kept open by the server (default 10).
+# POSTDOT_DATABASE_POOL_SIZE=10
+```
+
+`POSTDOT_DATABASE_URL` takes precedence over `DB_FILE_NAME`, which the image sets
+for its SQLite default; the startup log names the engine in use. At startup Postdot applies its migrations to the PostgreSQL
+database; restarting it is safe.
+
+With local media, one server runs per database: a second server started against
+the same PostgreSQL database stops with an error instead of sharing it. With
+PostgreSQL **and** S3-compatible media, several servers may share the database,
+for availability and rolling updates. See
+[PostgreSQL operations](/docs/postgresql/) for that setup, backups and upgrades.
+
+With PostgreSQL, the `backup` and `restore` commands below do not apply: they work
+on the SQLite file. Back up the database with your PostgreSQL tooling (for example
+`pg_dump`) together with the media storage, and keep the encryption key separately
+as described below. To move an existing instance between SQLite and PostgreSQL,
+see [Move between SQLite and PostgreSQL](/docs/transfer/).
 
 ## Backup and restoration
 

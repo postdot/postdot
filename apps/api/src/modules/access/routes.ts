@@ -107,12 +107,12 @@ const adminSyncFailedResponse = () => ({
     },
 })
 
-function isInstanceAdmin(
+async function isInstanceAdmin(
     authMethod: PostdotAuthenticationMethod,
     userId: string,
     access: AccessStore
-): boolean {
-    return authMethod === 'session' && access.isInstanceAdmin(userId)
+): Promise<boolean> {
+    return authMethod === 'session' && (await access.isInstanceAdmin(userId))
 }
 
 export function registerAccessRoutes<const Routes extends Record<string, unknown>>(
@@ -137,15 +137,15 @@ export function registerAccessRoutes<const Routes extends Record<string, unknown
                     security: sessionSecurity,
                 },
             },
-            ({ authMethod, status, user }) => {
+            async ({ authMethod, status, user }) => {
                 if (authMethod !== 'session') {
                     return status(403, sessionOnlyForbiddenResponse())
                 }
-                const instance = access.getInstanceState()
+                const instance = await access.getInstanceState()
                 return {
                     instance,
-                    membership: access.getInstanceMembership(user.id),
-                    isAdmin: access.isInstanceAdmin(user.id),
+                    membership: await access.getInstanceMembership(user.id),
+                    isAdmin: await access.isInstanceAdmin(user.id),
                 }
             }
         )
@@ -165,11 +165,11 @@ export function registerAccessRoutes<const Routes extends Record<string, unknown
                     security: sessionSecurity,
                 },
             },
-            ({ authMethod, status, user }) => {
-                if (!isInstanceAdmin(authMethod, user.id, access)) {
+            async ({ authMethod, status, user }) => {
+                if (!(await isInstanceAdmin(authMethod, user.id, access))) {
                     return status(403, forbiddenResponse())
                 }
-                return { members: access.listInstanceMemberships() }
+                return { members: await access.listInstanceMemberships() }
             }
         )
         .patch(
@@ -195,12 +195,12 @@ export function registerAccessRoutes<const Routes extends Record<string, unknown
                 },
             },
             async ({ authMethod, body, params, request, status, user }) => {
-                if (!isInstanceAdmin(authMethod, user.id, access)) {
+                if (!(await isInstanceAdmin(authMethod, user.id, access))) {
                     return status(403, forbiddenResponse())
                 }
 
-                const previousMembership = access.getInstanceMembership(params.userId)
-                const result = access.updateInstanceMembership({
+                const previousMembership = await access.getInstanceMembership(params.userId)
+                const result = await access.updateInstanceMembership({
                     actorUserId: user.id,
                     userId: params.userId,
                     role: body.role,
@@ -265,7 +265,7 @@ export function registerAccessRoutes<const Routes extends Record<string, unknown
                         (previousMembership.role !== nextRole ||
                             previousMembership.state !== nextState)
                     ) {
-                        access.updateInstanceMembership({
+                        await access.updateInstanceMembership({
                             actorUserId: user.id,
                             userId: params.userId,
                             role: previousMembership.role,
@@ -302,7 +302,8 @@ export function registerAccessRoutes<const Routes extends Record<string, unknown
                 }
 
                 return {
-                    membership: access.getInstanceMembership(params.userId) ?? result.membership,
+                    membership:
+                        (await access.getInstanceMembership(params.userId)) ?? result.membership,
                 }
             }
         )
@@ -322,11 +323,11 @@ export function registerAccessRoutes<const Routes extends Record<string, unknown
                     security: sessionSecurity,
                 },
             },
-            ({ authMethod, status, user }) => {
-                if (!isInstanceAdmin(authMethod, user.id, access)) {
+            async ({ authMethod, status, user }) => {
+                if (!(await isInstanceAdmin(authMethod, user.id, access))) {
                     return status(403, forbiddenResponse())
                 }
-                return { invitations: access.listInvitations() }
+                return { invitations: await access.listInvitations() }
             }
         )
         .post(
@@ -347,13 +348,13 @@ export function registerAccessRoutes<const Routes extends Record<string, unknown
                     security: sessionSecurity,
                 },
             },
-            ({ authMethod, body, status, user }) => {
-                if (!isInstanceAdmin(authMethod, user.id, access)) {
+            async ({ authMethod, body, status, user }) => {
+                if (!(await isInstanceAdmin(authMethod, user.id, access))) {
                     return status(403, forbiddenResponse())
                 }
 
                 try {
-                    const result = access.createInvitation({
+                    const result = await access.createInvitation({
                         targetEmail: body.targetEmail,
                         createdByUserId: user.id,
                         expiresAt: body.expiresAt,
@@ -388,11 +389,11 @@ export function registerAccessRoutes<const Routes extends Record<string, unknown
                     security: sessionSecurity,
                 },
             },
-            ({ authMethod, params, status, user }) => {
-                if (!isInstanceAdmin(authMethod, user.id, access)) {
+            async ({ authMethod, params, status, user }) => {
+                if (!(await isInstanceAdmin(authMethod, user.id, access))) {
                     return status(403, forbiddenResponse())
                 }
-                const result = access.revokeInvitation(params.invitationId)
+                const result = await access.revokeInvitation(params.invitationId)
                 if (result.kind === 'not_found') {
                     return status(404, {
                         error: { code: 'not_found', message: 'Invitation not found' },
@@ -426,7 +427,7 @@ export function registerAccessRoutes<const Routes extends Record<string, unknown
                     security: sessionSecurity,
                 },
             },
-            ({ authMethod, body, status, user }) => {
+            async ({ authMethod, body, status, user }) => {
                 if (authMethod !== 'session' || user.email === null) {
                     return status(403, {
                         error: {
@@ -439,7 +440,7 @@ export function registerAccessRoutes<const Routes extends Record<string, unknown
 
                 // Better Auth handles project invitations separately. This route
                 // accepts only Postdot instance invitations.
-                const result = access.acceptInvitation({
+                const result = await access.acceptInvitation({
                     token: body.token,
                     userId: user.id,
                     email: user.email,
@@ -459,7 +460,7 @@ export function registerAccessRoutes<const Routes extends Record<string, unknown
 }
 
 export type AccessSummaryResponse = {
-    readonly instance: ReturnType<AccessStore['getInstanceState']>
-    readonly membership: ReturnType<AccessStore['getInstanceMembership']>
+    readonly instance: Awaited<ReturnType<AccessStore['getInstanceState']>>
+    readonly membership: Awaited<ReturnType<AccessStore['getInstanceMembership']>>
     readonly isAdmin: boolean
 }

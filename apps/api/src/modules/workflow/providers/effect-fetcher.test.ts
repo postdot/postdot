@@ -15,7 +15,7 @@ test('combines request and effect cancellation and refuses dispatch after owners
             received = init?.signal
             return new Response(null, { status: 200 })
         },
-        () => {
+        async () => {
             if (!owned) throw new Error('Claim lost')
         }
     )
@@ -24,10 +24,10 @@ test('combines request and effect cancellation and refuses dispatch after owners
     request.abort()
     expect(received?.aborted).toBe(true)
     owned = false
-    expect(() => fetcher('https://provider.test')).toThrow('Claim lost')
+    await expect(fetcher('https://provider.test')).rejects.toThrow('Claim lost')
     expect(calls).toBe(1)
     owned = true
     effect.abort()
-    expect(() => fetcher('https://provider.test')).toThrow()
+    await expect(fetcher('https://provider.test')).rejects.toThrow()
     expect(calls).toBe(1)
 })

@@ -18,7 +18,7 @@ import {
 } from '@postdot/core'
 
 import { createChannelCadenceStore } from './channel-cadence'
-import { recordDatabaseCommitProject, type PostdotDatabase } from './client'
+import { recordDatabaseCommitProject, type DatabaseHandle } from './client'
 import { createChannelLifecycleStore } from './manual-store/channel-lifecycle-store'
 import { createChannelProfileStore } from './manual-store/channel-profile-store'
 import { parseProfile } from './manual-store/content-codec'
@@ -353,8 +353,8 @@ export interface AuditEvent {
     readonly createdAt: Timestamp
 }
 
-export function createManualStore(database: PostdotDatabase, options: ManualStoreOptions = {}) {
-    const client = database.$client
+export function createManualStore(database: DatabaseHandle, options: ManualStoreOptions = {}) {
+    const sql = database.sql
     const now = options.now ?? Date.now
     const createId = options.createId ?? (() => crypto.randomUUID())
     const profileCompiler = options.profileCompiler ?? new ChannelProfileCompiler()
@@ -364,7 +364,7 @@ export function createManualStore(database: PostdotDatabase, options: ManualStor
     const channelLifecycleStore = createChannelLifecycleStore(database, { now, createId })
     const sharedChannels = createWorkspaceChannelStore(database, { now, createId })
 
-    const loadActorStatement = client.query<ActorRow, [projectId: string, subjectId: string]>(`
+    const loadActorStatement = sql.statement<ActorRow, [projectId: string, subjectId: string]>(`
         select id,
                project_id as projectId,
                kind,
@@ -379,7 +379,7 @@ export function createManualStore(database: PostdotDatabase, options: ManualStor
         order by created_at, id
         limit 1
     `)
-    const loadChannelStatement = client.query<
+    const loadChannelStatement = sql.statement<
         PublicationChannelRow,
         [projectId: string, channelId: string]
     >(`
@@ -408,7 +408,7 @@ export function createManualStore(database: PostdotDatabase, options: ManualStor
         where channels.project_id = ?1
           and channels.id = ?2
     `)
-    const loadProfileStatement = client.query<ProfileRow, [projectId: string, profileId: string]>(`
+    const loadProfileStatement = sql.statement<ProfileRow, [projectId: string, profileId: string]>(`
         select id,
                project_id as projectId,
                channel_id as channelId,
@@ -428,7 +428,7 @@ export function createManualStore(database: PostdotDatabase, options: ManualStor
           and id = ?2
           and state <> 'disabled'
     `)
-    const loadPostSourceStatement = client.query<
+    const loadPostSourceStatement = sql.statement<
         PostSourceRow,
         [projectId: string, postId: string]
     >(`
@@ -440,7 +440,7 @@ export function createManualStore(database: PostdotDatabase, options: ManualStor
         where project_id = ?1
           and id = ?2
     `)
-    const loadActiveJobStatement = client.query<
+    const loadActiveJobStatement = sql.statement<
         { id: string; state: 'pending' | 'running'; runAt: number; attempts: number },
         [projectId: string, publicationId: string]
     >(`
@@ -454,7 +454,7 @@ export function createManualStore(database: PostdotDatabase, options: ManualStor
           and state in ('pending', 'running')
         limit 1
     `)
-    const loadPublicationByIdStatement = client.query<
+    const loadPublicationByIdStatement = sql.statement<
         PublicationRow,
         [projectId: string, publicationId: string]
     >(`
@@ -464,7 +464,7 @@ export function createManualStore(database: PostdotDatabase, options: ManualStor
           and id = ?2
     `)
 
-    const insertTargetRevisionStatement = client.query<
+    const insertTargetRevisionStatement = sql.statement<
         void,
         [
             id: string,
@@ -502,7 +502,7 @@ export function createManualStore(database: PostdotDatabase, options: ManualStor
             created_at
         ) values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)
     `)
-    const insertTargetRevisionMediaStatement = client.query<
+    const insertTargetRevisionMediaStatement = sql.statement<
         void,
         [
             id: string,
@@ -531,7 +531,7 @@ export function createManualStore(database: PostdotDatabase, options: ManualStor
         ) values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)
     `)
 
-    const updatePublicationAssessmentStatement = client.query<
+    const updatePublicationAssessmentStatement = sql.statement<
         { changes: number },
         [
             reviewState: PublicationReviewState,
@@ -553,7 +553,7 @@ export function createManualStore(database: PostdotDatabase, options: ManualStor
           and id = ?7
           and state in ('draft', 'scheduled', 'ready', 'failed')
     `)
-    const updateWorkingDraftAssessmentStatement = client.query<
+    const updateWorkingDraftAssessmentStatement = sql.statement<
         { changes: number },
         [
             reviewState: PublicationReviewState,
@@ -575,7 +575,7 @@ export function createManualStore(database: PostdotDatabase, options: ManualStor
         where project_id = ?6
           and publication_id = ?7
     `)
-    const updatePendingJobStatement = client.query<
+    const updatePendingJobStatement = sql.statement<
         { changes: number },
         [runAt: number, updatedAt: number, projectId: string, jobId: string]
     >(`
@@ -586,7 +586,7 @@ export function createManualStore(database: PostdotDatabase, options: ManualStor
           and id = ?4
           and state = 'pending'
     `)
-    const cancelPendingJobStatement = client.query<
+    const cancelPendingJobStatement = sql.statement<
         { changes: number },
         [completedAt: number, projectId: string, jobId: string]
     >(`
@@ -598,7 +598,7 @@ export function createManualStore(database: PostdotDatabase, options: ManualStor
           and id = ?3
           and state = 'pending'
     `)
-    const insertJobStatement = client.query<
+    const insertJobStatement = sql.statement<
         void,
         [id: string, projectId: string, publicationId: string, runAt: number, now: number]
     >(`
@@ -612,7 +612,7 @@ export function createManualStore(database: PostdotDatabase, options: ManualStor
             updated_at
         ) values (?1, ?2, ?3, 'pending', ?4, ?5, ?5)
     `)
-    const insertAuditEventStatement = client.query<
+    const insertAuditEventStatement = sql.statement<
         void,
         [
             id: string,
@@ -637,7 +637,7 @@ export function createManualStore(database: PostdotDatabase, options: ManualStor
         )
         values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
     `)
-    const listAuditEventsStatement = client.query<
+    const listAuditEventsStatement = sql.statement<
         AuditEventRow,
         [projectId: string, limit: number]
     >(`
@@ -654,7 +654,7 @@ export function createManualStore(database: PostdotDatabase, options: ManualStor
         order by created_at desc, sequence desc
         limit ?2
     `)
-    const supersedePendingApprovalRequestStatement = client.query<
+    const supersedePendingApprovalRequestStatement = sql.statement<
         { changes: number },
         [
             decidedByActorId: string,
@@ -678,13 +678,16 @@ export function createManualStore(database: PostdotDatabase, options: ManualStor
         now,
         createId,
         profileCompiler,
-        loadActor: (projectId, subjectId) => loadActorStatement.get(projectId, subjectId),
-        loadChannel: (projectId, channelId) => loadChannelStatement.get(projectId, channelId),
-        loadProfile: (projectId, profileId) => loadProfileStatement.get(projectId, profileId),
+        loadActor: async (projectId, subjectId) =>
+            await loadActorStatement.get(projectId, subjectId),
+        loadChannel: async (projectId, channelId) =>
+            await loadChannelStatement.get(projectId, channelId),
+        loadProfile: async (projectId, profileId) =>
+            await loadProfileStatement.get(projectId, profileId),
         parseProfile,
         toProfileVersion,
-        validateWorkingDraftMedia: (profile, content, projectId, subjectId) =>
-            assessWorkingDraftMedia(
+        validateWorkingDraftMedia: async (profile, content, projectId, subjectId) =>
+            await assessWorkingDraftMedia(
                 profile,
                 content,
                 projectId,
@@ -692,8 +695,8 @@ export function createManualStore(database: PostdotDatabase, options: ManualStor
                 media,
                 publicMediaUrlAvailable
             ),
-        validatePinnedTargetMedia: (profile, content, projectId, subjectId, pinnedMedia) =>
-            assessPinnedTargetMedia(
+        validatePinnedTargetMedia: async (profile, content, projectId, subjectId, pinnedMedia) =>
+            await assessPinnedTargetMedia(
                 profile,
                 content,
                 projectId,
@@ -702,8 +705,8 @@ export function createManualStore(database: PostdotDatabase, options: ManualStor
                 pinnedMedia,
                 publicMediaUrlAvailable
             ),
-        updateWorkingDraftAssessment: input => {
-            const updated = updateWorkingDraftAssessmentStatement.run(
+        updateWorkingDraftAssessment: async input => {
+            const updated = await updateWorkingDraftAssessmentStatement.run(
                 input.reviewState,
                 input.issuesJson,
                 input.profileVersionId,
@@ -713,7 +716,7 @@ export function createManualStore(database: PostdotDatabase, options: ManualStor
                 input.publicationId
             )
             if (updated.changes !== 1) return false
-            const superseded = supersedePendingApprovalRequestStatement.run(
+            const superseded = await supersedePendingApprovalRequestStatement.run(
                 input.updatedByActorId,
                 input.updatedAt,
                 input.updatedAt,
@@ -722,7 +725,7 @@ export function createManualStore(database: PostdotDatabase, options: ManualStor
             )
             if (superseded.changes === 1) {
                 recordDatabaseCommitProject(database, input.projectId)
-                insertAuditEventStatement.run(
+                await insertAuditEventStatement.run(
                     createId(),
                     input.projectId,
                     input.updatedByActorId,
@@ -735,22 +738,24 @@ export function createManualStore(database: PostdotDatabase, options: ManualStor
             }
             return true
         },
-        updatePublicationAssessment: input =>
-            updatePublicationAssessmentStatement.run(
-                input.reviewState,
-                input.issuesJson,
-                input.profileVersionId,
-                input.updatedAt,
-                input.actorId,
-                input.projectId,
-                input.publicationId
+        updatePublicationAssessment: async input =>
+            (
+                await updatePublicationAssessmentStatement.run(
+                    input.reviewState,
+                    input.issuesJson,
+                    input.profileVersionId,
+                    input.updatedAt,
+                    input.actorId,
+                    input.projectId,
+                    input.publicationId
+                )
             ).changes === 1,
-        loadActiveJob: (projectId, publicationId) =>
-            loadActiveJobStatement.get(projectId, publicationId),
-        cancelPendingJob: (projectId, jobId, completedAt) =>
-            cancelPendingJobStatement.run(completedAt, projectId, jobId).changes === 1,
-        ensureAutomaticJob: ({ projectId, publicationId, channel, timestamp }) => {
-            const publicationRow = loadPublicationByIdStatement.get(projectId, publicationId)
+        loadActiveJob: async (projectId, publicationId) =>
+            await loadActiveJobStatement.get(projectId, publicationId),
+        cancelPendingJob: async (projectId, jobId, completedAt) =>
+            (await cancelPendingJobStatement.run(completedAt, projectId, jobId)).changes === 1,
+        ensureAutomaticJob: async ({ projectId, publicationId, channel, timestamp }) => {
+            const publicationRow = await loadPublicationByIdStatement.get(projectId, publicationId)
             if (publicationRow === null) {
                 throw new DomainInvariantError(
                     'claim_mismatch',
@@ -765,11 +770,17 @@ export function createManualStore(database: PostdotDatabase, options: ManualStor
                 runAt: Math.max(publication.scheduledAt ?? timestamp, timestamp),
                 now: timestamp,
             })
-            insertJobStatement.run(job.id, job.projectId, job.publicationId, job.runAt, timestamp)
+            await insertJobStatement.run(
+                job.id,
+                job.projectId,
+                job.publicationId,
+                job.runAt,
+                timestamp
+            )
         },
-        insertAuditEvent: input => {
+        insertAuditEvent: async input => {
             recordDatabaseCommitProject(database, input.projectId)
-            return insertAuditEventStatement.run(
+            return await insertAuditEventStatement.run(
                 input.id,
                 input.projectId,
                 input.actorId,
@@ -786,16 +797,20 @@ export function createManualStore(database: PostdotDatabase, options: ManualStor
         now,
         createId,
         profileCompiler,
-        loadActor: (projectId, subjectId) => loadActorStatement.get(projectId, subjectId),
-        loadPublication: (projectId, publicationId) =>
-            loadPublicationByIdStatement.get(projectId, publicationId),
-        loadPostSource: (projectId, postId) => loadPostSourceStatement.get(projectId, postId),
-        loadChannel: (projectId, channelId) => loadChannelStatement.get(projectId, channelId),
-        loadProfile: (projectId, profileId) => loadProfileStatement.get(projectId, profileId),
-        loadActiveJob: (projectId, publicationId) =>
-            loadActiveJobStatement.get(projectId, publicationId),
-        assessWorkingDraftMedia: (profile, content, projectId, subjectId) =>
-            assessWorkingDraftMedia(
+        loadActor: async (projectId, subjectId) =>
+            await loadActorStatement.get(projectId, subjectId),
+        loadPublication: async (projectId, publicationId) =>
+            await loadPublicationByIdStatement.get(projectId, publicationId),
+        loadPostSource: async (projectId, postId) =>
+            await loadPostSourceStatement.get(projectId, postId),
+        loadChannel: async (projectId, channelId) =>
+            await loadChannelStatement.get(projectId, channelId),
+        loadProfile: async (projectId, profileId) =>
+            await loadProfileStatement.get(projectId, profileId),
+        loadActiveJob: async (projectId, publicationId) =>
+            await loadActiveJobStatement.get(projectId, publicationId),
+        assessWorkingDraftMedia: async (profile, content, projectId, subjectId) =>
+            await assessWorkingDraftMedia(
                 profile,
                 content,
                 projectId,
@@ -803,8 +818,8 @@ export function createManualStore(database: PostdotDatabase, options: ManualStor
                 media,
                 publicMediaUrlAvailable
             ),
-        assessActiveProfileMedia: (profile, content, projectId, subjectId) =>
-            assessWorkingDraftMedia(
+        assessActiveProfileMedia: async (profile, content, projectId, subjectId) =>
+            await assessWorkingDraftMedia(
                 profile,
                 content,
                 projectId,
@@ -812,8 +827,8 @@ export function createManualStore(database: PostdotDatabase, options: ManualStor
                 media,
                 publicMediaUrlAvailable
             ),
-        resolveTargetMedia: (profile, content, projectId, subjectId) =>
-            resolveTargetMedia(
+        resolveTargetMedia: async (profile, content, projectId, subjectId) =>
+            await resolveTargetMedia(
                 profile,
                 content,
                 projectId,
@@ -821,12 +836,12 @@ export function createManualStore(database: PostdotDatabase, options: ManualStor
                 media,
                 publicMediaUrlAvailable
             ),
-        updatePendingJob: (projectId, jobId, runAt, updatedAt) =>
-            updatePendingJobStatement.run(runAt, updatedAt, projectId, jobId).changes === 1,
-        cancelPendingJob: (projectId, jobId, completedAt) =>
-            cancelPendingJobStatement.run(completedAt, projectId, jobId).changes === 1,
-        insertTargetRevision: input =>
-            insertTargetRevisionStatement.run(
+        updatePendingJob: async (projectId, jobId, runAt, updatedAt) =>
+            (await updatePendingJobStatement.run(runAt, updatedAt, projectId, jobId)).changes === 1,
+        cancelPendingJob: async (projectId, jobId, completedAt) =>
+            (await cancelPendingJobStatement.run(completedAt, projectId, jobId)).changes === 1,
+        insertTargetRevision: async input =>
+            await insertTargetRevisionStatement.run(
                 input.id,
                 input.projectId,
                 input.publicationId,
@@ -843,8 +858,8 @@ export function createManualStore(database: PostdotDatabase, options: ManualStor
                 input.createdByActorId,
                 input.createdAt
             ),
-        insertTargetRevisionMedia: input =>
-            insertTargetRevisionMediaStatement.run(
+        insertTargetRevisionMedia: async input =>
+            await insertTargetRevisionMediaStatement.run(
                 input.id,
                 input.projectId,
                 input.targetRevisionId,
@@ -856,17 +871,17 @@ export function createManualStore(database: PostdotDatabase, options: ManualStor
                 input.accessibilityText,
                 input.createdAt
             ),
-        insertJob: input =>
-            insertJobStatement.run(
+        insertJob: async input =>
+            await insertJobStatement.run(
                 input.id,
                 input.projectId,
                 input.publicationId,
                 input.runAt,
                 input.createdAt
             ),
-        insertAuditEvent: input => {
+        insertAuditEvent: async input => {
             recordDatabaseCommitProject(database, input.projectId)
-            return insertAuditEventStatement.run(
+            return await insertAuditEventStatement.run(
                 input.id,
                 input.projectId,
                 input.actorId,
@@ -882,16 +897,17 @@ export function createManualStore(database: PostdotDatabase, options: ManualStor
     const publicationSchedulingStore = createPublicationSchedulingStore(database, {
         now,
         createId,
-        loadActor: (projectId, subjectId) => loadActorStatement.get(projectId, subjectId),
-        loadPublication: (projectId, publicationId) =>
-            loadPublicationByIdStatement.get(projectId, publicationId),
-        loadActiveJob: (projectId, publicationId) =>
-            loadActiveJobStatement.get(projectId, publicationId),
-        updatePendingJob: (projectId, jobId, runAt, updatedAt) =>
-            updatePendingJobStatement.run(runAt, updatedAt, projectId, jobId).changes === 1,
-        insertAuditEvent: input => {
+        loadActor: async (projectId, subjectId) =>
+            await loadActorStatement.get(projectId, subjectId),
+        loadPublication: async (projectId, publicationId) =>
+            await loadPublicationByIdStatement.get(projectId, publicationId),
+        loadActiveJob: async (projectId, publicationId) =>
+            await loadActiveJobStatement.get(projectId, publicationId),
+        updatePendingJob: async (projectId, jobId, runAt, updatedAt) =>
+            (await updatePendingJobStatement.run(runAt, updatedAt, projectId, jobId)).changes === 1,
+        insertAuditEvent: async input => {
             recordDatabaseCommitProject(database, input.projectId)
-            return insertAuditEventStatement.run(
+            return await insertAuditEventStatement.run(
                 input.id,
                 input.projectId,
                 input.actorId,
@@ -907,18 +923,19 @@ export function createManualStore(database: PostdotDatabase, options: ManualStor
     const publicationCancellationStore = createPublicationCancellationStore(database, {
         now,
         createId,
-        loadActor: (projectId, subjectId) => loadActorStatement.get(projectId, subjectId),
-        loadPublication: (projectId, publicationId) =>
-            loadPublicationByIdStatement.get(projectId, publicationId),
-        loadActiveJob: (projectId, publicationId) =>
-            loadActiveJobStatement.get(projectId, publicationId),
-        loadProvider: (projectId, channelId) =>
-            loadChannelStatement.get(projectId, channelId)?.publisherKind ?? null,
-        cancelPendingJob: (projectId, jobId, completedAt) =>
-            cancelPendingJobStatement.run(completedAt, projectId, jobId).changes === 1,
-        insertAuditEvent: input => {
+        loadActor: async (projectId, subjectId) =>
+            await loadActorStatement.get(projectId, subjectId),
+        loadPublication: async (projectId, publicationId) =>
+            await loadPublicationByIdStatement.get(projectId, publicationId),
+        loadActiveJob: async (projectId, publicationId) =>
+            await loadActiveJobStatement.get(projectId, publicationId),
+        loadProvider: async (projectId, channelId) =>
+            (await loadChannelStatement.get(projectId, channelId))?.publisherKind ?? null,
+        cancelPendingJob: async (projectId, jobId, completedAt) =>
+            (await cancelPendingJobStatement.run(completedAt, projectId, jobId)).changes === 1,
+        insertAuditEvent: async input => {
             recordDatabaseCommitProject(database, input.projectId)
-            return insertAuditEventStatement.run(
+            return await insertAuditEventStatement.run(
                 input.id,
                 input.projectId,
                 input.actorId,
@@ -934,12 +951,13 @@ export function createManualStore(database: PostdotDatabase, options: ManualStor
     const publicationOutcomeStore = createPublicationOutcomeStore(database, {
         now,
         createId,
-        loadActor: (projectId, subjectId) => loadActorStatement.get(projectId, subjectId),
-        loadPublication: (projectId, publicationId) =>
-            loadPublicationByIdStatement.get(projectId, publicationId),
-        insertAuditEvent: input => {
+        loadActor: async (projectId, subjectId) =>
+            await loadActorStatement.get(projectId, subjectId),
+        loadPublication: async (projectId, publicationId) =>
+            await loadPublicationByIdStatement.get(projectId, publicationId),
+        insertAuditEvent: async input => {
             recordDatabaseCommitProject(database, input.projectId)
-            return insertAuditEventStatement.run(
+            return await insertAuditEventStatement.run(
                 input.id,
                 input.projectId,
                 input.actorId,
@@ -956,12 +974,13 @@ export function createManualStore(database: PostdotDatabase, options: ManualStor
         publicMediaUrlAvailable,
         now,
         createId,
-        loadActor: (projectId, subjectId) => loadActorStatement.get(projectId, subjectId),
-        loadPublication: (projectId, publicationId) =>
-            loadPublicationByIdStatement.get(projectId, publicationId),
-        insertAuditEvent: input => {
+        loadActor: async (projectId, subjectId) =>
+            await loadActorStatement.get(projectId, subjectId),
+        loadPublication: async (projectId, publicationId) =>
+            await loadPublicationByIdStatement.get(projectId, publicationId),
+        insertAuditEvent: async input => {
             recordDatabaseCommitProject(database, input.projectId)
-            return insertAuditEventStatement.run(
+            return await insertAuditEventStatement.run(
                 input.id,
                 input.projectId,
                 input.actorId,
@@ -978,11 +997,14 @@ export function createManualStore(database: PostdotDatabase, options: ManualStor
         now,
         createId,
         profileCompiler,
-        loadActor: (projectId, subjectId) => loadActorStatement.get(projectId, subjectId),
-        loadChannel: (projectId, channelId) => loadChannelStatement.get(projectId, channelId),
-        loadProfile: (projectId, profileId) => loadProfileStatement.get(projectId, profileId),
-        assessWorkingDraftMedia: (profile, content, projectId, subjectId) =>
-            assessWorkingDraftMedia(
+        loadActor: async (projectId, subjectId) =>
+            await loadActorStatement.get(projectId, subjectId),
+        loadChannel: async (projectId, channelId) =>
+            await loadChannelStatement.get(projectId, channelId),
+        loadProfile: async (projectId, profileId) =>
+            await loadProfileStatement.get(projectId, profileId),
+        assessWorkingDraftMedia: async (profile, content, projectId, subjectId) =>
+            await assessWorkingDraftMedia(
                 profile,
                 content,
                 projectId,
@@ -990,8 +1012,8 @@ export function createManualStore(database: PostdotDatabase, options: ManualStor
                 media,
                 publicMediaUrlAvailable
             ),
-        resolveTargetMedia: (profile, content, projectId, subjectId) =>
-            resolveTargetMedia(
+        resolveTargetMedia: async (profile, content, projectId, subjectId) =>
+            await resolveTargetMedia(
                 profile,
                 content,
                 projectId,
@@ -999,17 +1021,17 @@ export function createManualStore(database: PostdotDatabase, options: ManualStor
                 media,
                 publicMediaUrlAvailable
             ),
-        insertJob: input =>
-            insertJobStatement.run(
+        insertJob: async input =>
+            await insertJobStatement.run(
                 input.id,
                 input.projectId,
                 input.publicationId,
                 input.runAt,
                 input.createdAt
             ),
-        insertAuditEvent: input => {
+        insertAuditEvent: async input => {
             recordDatabaseCommitProject(database, input.projectId)
-            return insertAuditEventStatement.run(
+            return await insertAuditEventStatement.run(
                 input.id,
                 input.projectId,
                 input.actorId,
@@ -1025,25 +1047,27 @@ export function createManualStore(database: PostdotDatabase, options: ManualStor
     const publicationComposerDraftStore = createPublicationComposerDraftStore(database, {
         now,
         createId,
-        loadActor: (projectId, subjectId) => loadActorStatement.get(projectId, subjectId),
+        loadActor: async (projectId, subjectId) =>
+            await loadActorStatement.get(projectId, subjectId),
     })
 
     const publicationDraftLifecycleStore = createPublicationDraftLifecycleStore(database, {
         now,
         createId,
-        loadActor: (projectId, subjectId) => loadActorStatement.get(projectId, subjectId),
-        loadPublication: (projectId, publicationId) =>
-            loadPublicationByIdStatement.get(projectId, publicationId),
+        loadActor: async (projectId, subjectId) =>
+            await loadActorStatement.get(projectId, subjectId),
+        loadPublication: async (projectId, publicationId) =>
+            await loadPublicationByIdStatement.get(projectId, publicationId),
         getPublicationEditorState: (projectId, publicationId, subjectId) =>
             publicationAuthoringStore.getPublicationEditorState(
                 projectId,
                 publicationId,
                 subjectId
             ),
-        createPost: input => publicationCreationStore.createPost(input),
-        insertAuditEvent: input => {
+        createPost: async input => await publicationCreationStore.createPost(input),
+        insertAuditEvent: async input => {
             recordDatabaseCommitProject(database, input.projectId)
-            insertAuditEventStatement.run(
+            await insertAuditEventStatement.run(
                 input.id,
                 input.projectId,
                 input.actorId,
@@ -1058,28 +1082,29 @@ export function createManualStore(database: PostdotDatabase, options: ManualStor
 
     const cadence = createChannelCadenceStore(database)
     return {
-        getPublicationCadence(input: {
+        async getPublicationCadence(input: {
             projectId: string
             publicationId: string
             subjectId: string
         }) {
-            if (!loadActorStatement.get(input.projectId, input.subjectId)) return null
+            if (!(await loadActorStatement.get(input.projectId, input.subjectId))) return null
             return cadence.timing(input.projectId, input.publicationId)
         },
-        overridePublicationCadence(input: {
+        async overridePublicationCadence(input: {
             projectId: string
             publicationId: string
             subjectId: string
             confirmation: string
         }) {
-            const actor = loadActorStatement.get(input.projectId, input.subjectId)
+            const actor = await loadActorStatement.get(input.projectId, input.subjectId)
             if (!actor) return null
             return cadence.override.immediate({ ...input, actorId: actor.id, now: now() })
         },
         ...createPublicationDestinationStore(database, {
             now,
             createId,
-            loadActor: (projectId, subjectId) => loadActorStatement.get(projectId, subjectId),
+            loadActor: async (projectId, subjectId) =>
+                await loadActorStatement.get(projectId, subjectId),
         }),
         ...projectChannelStore,
         /** Workspace-owned channel sharing; every call needs a request-bound access policy. */
@@ -1103,10 +1128,12 @@ export function createManualStore(database: PostdotDatabase, options: ManualStor
             createId,
             profileCompiler,
             getEditor: publicationAuthoringStore.getPublicationEditorState,
-            loadChannel: (projectId, channelId) => loadChannelStatement.get(projectId, channelId),
-            loadProfile: (projectId, profileId) => loadProfileStatement.get(projectId, profileId),
-            assessMedia: (profile, content, projectId, subjectId) =>
-                assessWorkingDraftMedia(
+            loadChannel: async (projectId, channelId) =>
+                await loadChannelStatement.get(projectId, channelId),
+            loadProfile: async (projectId, profileId) =>
+                await loadProfileStatement.get(projectId, profileId),
+            assessMedia: async (profile, content, projectId, subjectId) =>
+                await assessWorkingDraftMedia(
                     profile,
                     content,
                     projectId,
@@ -1117,19 +1144,30 @@ export function createManualStore(database: PostdotDatabase, options: ManualStor
             createForPost: publicationCreationStore.createPublicationsForPost,
         }),
 
-        listAuditEvents(projectId: string, subjectId: string, limit = 100): AuditEvent[] | null {
-            const normalizedProjectId = requireNonBlank(projectId, 'projectId')
-            const actor = loadActorStatement.get(
-                normalizedProjectId,
-                requireNonBlank(subjectId, 'subjectId')
-            )
-            if (actor === null) return null
+        async listAuditEvents(
+            projectId: string,
+            subjectId: string,
+            limit = 100
+        ): Promise<AuditEvent[] | null> {
+            return database.sql.transaction(async () => {
+                const normalizedProjectId = requireNonBlank(projectId, 'projectId')
+                const actor = await loadActorStatement.get(
+                    normalizedProjectId,
+                    requireNonBlank(subjectId, 'subjectId')
+                )
+                if (actor === null) return null
 
-            if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100) {
-                throw new DomainInvariantError('invalid_input', 'limit must be between 1 and 100')
-            }
+                if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100) {
+                    throw new DomainInvariantError(
+                        'invalid_input',
+                        'limit must be between 1 and 100'
+                    )
+                }
 
-            return listAuditEventsStatement.all(normalizedProjectId, limit).map(toAuditEvent)
+                return (await listAuditEventsStatement.all(normalizedProjectId, limit)).map(
+                    toAuditEvent
+                )
+            }, 'deferred')
         },
     }
 }

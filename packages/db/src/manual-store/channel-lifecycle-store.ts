@@ -5,11 +5,7 @@ import {
     type Channel,
 } from '@postdot/core'
 
-import {
-    createDatabaseTransaction,
-    recordDatabaseCommitProject,
-    type PostdotDatabase,
-} from '../client'
+import { defineTransaction, recordDatabaseCommitProject, type DatabaseHandle } from '../client'
 import { toChannel } from './project-channel-mappers'
 import type { ActorRow, ChannelRow } from './rows'
 
@@ -73,12 +69,12 @@ export interface ChannelLifecycleStoreOptions {
 }
 
 export function createChannelLifecycleStore(
-    database: PostdotDatabase,
+    database: DatabaseHandle,
     options: ChannelLifecycleStoreOptions
 ) {
-    const client = database.$client
+    const sql = database.sql
 
-    const loadActorStatement = client.query<ActorRow, [projectId: string, subjectId: string]>(`
+    const loadActorStatement = sql.statement<ActorRow, [projectId: string, subjectId: string]>(`
         select id,
                project_id as projectId,
                kind,
@@ -93,7 +89,7 @@ export function createChannelLifecycleStore(
         order by created_at, id
         limit 1
     `)
-    const loadChannelStatement = client.query<ChannelRow, [projectId: string, channelId: string]>(`
+    const loadChannelStatement = sql.statement<ChannelRow, [projectId: string, channelId: string]>(`
         select channels.id,
                channels.project_id as projectId,
                channels.name,
@@ -112,13 +108,10 @@ export function createChannelLifecycleStore(
         where channels.project_id = ?1
           and channels.id = ?2
     `)
-    const loadActiveWorkStatement = client.query<
-        { readonly found: number },
-        [projectId: string, channelId: string]
-    >(`
+    const loadActiveWorkStatement = sql.statement<{ readonly found: number }, [channelId: string]>(`
         select 1 as found
         from publications
-        where channel_id = ?2
+        where channel_id = ?1
           and state in ('scheduled', 'ready', 'publishing', 'ambiguous')
         union all
         select 1 as found
@@ -126,30 +119,30 @@ export function createChannelLifecycleStore(
         inner join publications
             on publications.project_id = jobs.project_id
            and publications.id = jobs.publication_id
-        where publications.channel_id = ?2
+        where publications.channel_id = ?1
           and jobs.state in ('pending', 'running')
         limit 1
     `)
-    const loadPendingAuthorizationStatement = client.query<
+    const loadPendingAuthorizationStatement = sql.statement<
         { readonly found: number },
-        [projectId: string, channelId: string]
+        [channelId: string]
     >(`
         select 1 as found
         from oauth_authorization_attempts
-        where channel_id = ?2
+        where channel_id = ?1
           and status = 'pending'
         limit 1
     `)
-    const loadPublicationReferenceStatement = client.query<
+    const loadPublicationReferenceStatement = sql.statement<
         { readonly found: number },
-        [projectId: string, channelId: string]
+        [channelId: string]
     >(`
         select 1 as found
         from publications
-        where channel_id = ?2
+        where channel_id = ?1
         limit 1
     `)
-    const loadPublisherReferenceStatement = client.query<
+    const loadPublisherReferenceStatement = sql.statement<
         { readonly found: number },
         [projectId: string, channelId: string]
     >(`
@@ -159,7 +152,7 @@ export function createChannelLifecycleStore(
           and channel_id = ?2
         limit 1
     `)
-    const loadOtherAttachmentStatement = client.query<
+    const loadOtherAttachmentStatement = sql.statement<
         { readonly found: number },
         [projectId: string, channelId: string]
     >(`
@@ -169,7 +162,7 @@ export function createChannelLifecycleStore(
           and project_id <> ?1
         limit 1
     `)
-    const renameChannelStatement = client.query<
+    const renameChannelStatement = sql.statement<
         { readonly changes: number },
         [name: string, updatedAt: number, projectId: string, channelId: string, revision: number]
     >(`
@@ -187,7 +180,7 @@ export function createChannelLifecycleStore(
                 and visible.attachment_state = 'active'
           )
     `)
-    const archiveChannelStatement = client.query<
+    const archiveChannelStatement = sql.statement<
         { readonly changes: number },
         [archivedAt: number, projectId: string, channelId: string, revision: number]
     >(`
@@ -207,7 +200,7 @@ export function createChannelLifecycleStore(
                 and visible.attachment_state = 'active'
           )
     `)
-    const restoreChannelStatement = client.query<
+    const restoreChannelStatement = sql.statement<
         { readonly changes: number },
         [updatedAt: number, projectId: string, channelId: string, revision: number]
     >(`
@@ -227,7 +220,7 @@ export function createChannelLifecycleStore(
                 and visible.attachment_state = 'active'
           )
     `)
-    const deleteChannelStatement = client.query<
+    const deleteChannelStatement = sql.statement<
         { readonly changes: number },
         [projectId: string, channelId: string, revision: number]
     >(`
@@ -249,7 +242,7 @@ export function createChannelLifecycleStore(
                 and other.project_id <> ?1
           )
     `)
-    const insertAuditEventStatement = client.query<
+    const insertAuditEventStatement = sql.statement<
         void,
         [
             id: string,
@@ -273,11 +266,11 @@ export function createChannelLifecycleStore(
         ) values (?1, ?2, ?3, ?4, 'channel', ?5, ?6, ?7)
     `)
 
-    const renameChannelTransaction = createDatabaseTransaction(
+    const renameChannelTransaction = defineTransaction(
         database,
-        (input: RenameChannelInput): Channel | null => {
-            const actor = loadActorStatement.get(input.projectId, input.subjectId)
-            const row = loadChannelStatement.get(input.projectId, input.channelId)
+        async (input: RenameChannelInput): Promise<Channel | null> => {
+            const actor = await loadActorStatement.get(input.projectId, input.subjectId)
+            const row = await loadChannelStatement.get(input.projectId, input.channelId)
             if (actor === null || row === null) return null
 
             assertExpectedRevision(input.expectedRevision)
@@ -287,19 +280,21 @@ export function createChannelLifecycleStore(
 
             const timestamp = requireTimestamp(options.now(), 'now')
             if (
-                renameChannelStatement.run(
-                    name,
-                    timestamp,
-                    input.projectId,
-                    input.channelId,
-                    input.expectedRevision
+                (
+                    await renameChannelStatement.run(
+                        name,
+                        timestamp,
+                        input.projectId,
+                        input.channelId,
+                        input.expectedRevision
+                    )
                 ).changes !== 1
             ) {
                 throw staleChannelRevision(input.channelId, input.expectedRevision)
             }
 
             recordDatabaseCommitProject(database, input.projectId)
-            insertAuditEventStatement.run(
+            await insertAuditEventStatement.run(
                 options.createId(),
                 input.projectId,
                 actor.id,
@@ -312,11 +307,11 @@ export function createChannelLifecycleStore(
         }
     )
 
-    const archiveChannelTransaction = createDatabaseTransaction(
+    const archiveChannelTransaction = defineTransaction(
         database,
-        (input: ArchiveChannelInput): ChannelLifecycleUpdateResult | null => {
-            const actor = loadActorStatement.get(input.projectId, input.subjectId)
-            const row = loadChannelStatement.get(input.projectId, input.channelId)
+        async (input: ArchiveChannelInput): Promise<ChannelLifecycleUpdateResult | null> => {
+            const actor = await loadActorStatement.get(input.projectId, input.subjectId)
+            const row = await loadChannelStatement.get(input.projectId, input.channelId)
             if (actor === null || row === null) return null
 
             assertExpectedRevision(input.expectedRevision)
@@ -328,23 +323,25 @@ export function createChannelLifecycleStore(
                 )
             }
 
-            const blockers = archiveBlockers(input.projectId, input.channelId)
+            const blockers = await archiveBlockers(input.projectId, input.channelId)
             if (blockers.length > 0) return { kind: 'blocked', blockers }
 
             const timestamp = requireTimestamp(options.now(), 'now')
             if (
-                archiveChannelStatement.run(
-                    timestamp,
-                    input.projectId,
-                    input.channelId,
-                    input.expectedRevision
+                (
+                    await archiveChannelStatement.run(
+                        timestamp,
+                        input.projectId,
+                        input.channelId,
+                        input.expectedRevision
+                    )
                 ).changes !== 1
             ) {
                 throw staleChannelRevision(input.channelId, input.expectedRevision)
             }
 
             recordDatabaseCommitProject(database, input.projectId)
-            insertAuditEventStatement.run(
+            await insertAuditEventStatement.run(
                 options.createId(),
                 input.projectId,
                 actor.id,
@@ -355,16 +352,16 @@ export function createChannelLifecycleStore(
             )
             return {
                 kind: 'updated',
-                channel: loadUpdatedChannel(input.projectId, input.channelId),
+                channel: await loadUpdatedChannel(input.projectId, input.channelId),
             }
         }
     )
 
-    const restoreChannelTransaction = createDatabaseTransaction(
+    const restoreChannelTransaction = defineTransaction(
         database,
-        (input: RestoreChannelInput): ChannelLifecycleUpdateResult | null => {
-            const actor = loadActorStatement.get(input.projectId, input.subjectId)
-            const row = loadChannelStatement.get(input.projectId, input.channelId)
+        async (input: RestoreChannelInput): Promise<ChannelLifecycleUpdateResult | null> => {
+            const actor = await loadActorStatement.get(input.projectId, input.subjectId)
+            const row = await loadChannelStatement.get(input.projectId, input.channelId)
             if (actor === null || row === null) return null
 
             assertExpectedRevision(input.expectedRevision)
@@ -378,18 +375,20 @@ export function createChannelLifecycleStore(
 
             const timestamp = requireTimestamp(options.now(), 'now')
             if (
-                restoreChannelStatement.run(
-                    timestamp,
-                    input.projectId,
-                    input.channelId,
-                    input.expectedRevision
+                (
+                    await restoreChannelStatement.run(
+                        timestamp,
+                        input.projectId,
+                        input.channelId,
+                        input.expectedRevision
+                    )
                 ).changes !== 1
             ) {
                 throw staleChannelRevision(input.channelId, input.expectedRevision)
             }
 
             recordDatabaseCommitProject(database, input.projectId)
-            insertAuditEventStatement.run(
+            await insertAuditEventStatement.run(
                 options.createId(),
                 input.projectId,
                 actor.id,
@@ -400,16 +399,16 @@ export function createChannelLifecycleStore(
             )
             return {
                 kind: 'updated',
-                channel: loadUpdatedChannel(input.projectId, input.channelId),
+                channel: await loadUpdatedChannel(input.projectId, input.channelId),
             }
         }
     )
 
-    const deleteChannelTransaction = createDatabaseTransaction(
+    const deleteChannelTransaction = defineTransaction(
         database,
-        (input: DeleteChannelInput): DeleteChannelResult | null => {
-            const actor = loadActorStatement.get(input.projectId, input.subjectId)
-            const row = loadChannelStatement.get(input.projectId, input.channelId)
+        async (input: DeleteChannelInput): Promise<DeleteChannelResult | null> => {
+            const actor = await loadActorStatement.get(input.projectId, input.subjectId)
+            const row = await loadChannelStatement.get(input.projectId, input.channelId)
             if (actor === null || row === null) return null
 
             assertExpectedRevision(input.expectedRevision)
@@ -419,30 +418,40 @@ export function createChannelLifecycleStore(
             }
 
             const blockers: ChannelLifecycleBlockerCode[] = []
-            if (loadPublicationReferenceStatement.get(input.projectId, input.channelId) !== null) {
+            if ((await loadPublicationReferenceStatement.get(input.channelId)) !== null) {
                 blockers.push('publications')
             }
-            if (loadPublisherReferenceStatement.get(input.projectId, input.channelId) !== null) {
+            if (
+                (await loadPublisherReferenceStatement.get(input.projectId, input.channelId)) !==
+                null
+            ) {
                 blockers.push('publisher')
             }
-            if (loadPendingAuthorizationStatement.get(input.projectId, input.channelId) !== null) {
+            if ((await loadPendingAuthorizationStatement.get(input.channelId)) !== null) {
                 blockers.push('pending_authorization')
             }
-            if (loadOtherAttachmentStatement.get(input.projectId, input.channelId) !== null) {
+            if (
+                (await loadOtherAttachmentStatement.get(input.projectId, input.channelId)) !== null
+            ) {
                 blockers.push('shared')
             }
             if (blockers.length > 0) return { kind: 'blocked', blockers }
 
             if (
-                deleteChannelStatement.run(input.projectId, input.channelId, input.expectedRevision)
-                    .changes < 1
+                (
+                    await deleteChannelStatement.run(
+                        input.projectId,
+                        input.channelId,
+                        input.expectedRevision
+                    )
+                ).changes < 1
             ) {
                 throw staleChannelRevision(input.channelId, input.expectedRevision)
             }
 
             const timestamp = requireTimestamp(options.now(), 'now')
             recordDatabaseCommitProject(database, input.projectId)
-            insertAuditEventStatement.run(
+            await insertAuditEventStatement.run(
                 options.createId(),
                 input.projectId,
                 actor.id,
@@ -455,27 +464,30 @@ export function createChannelLifecycleStore(
         }
     )
 
-    function loadUpdatedChannel(projectId: string, channelId: string): Channel {
-        const row = loadChannelStatement.get(projectId, channelId)
+    async function loadUpdatedChannel(projectId: string, channelId: string): Promise<Channel> {
+        const row = await loadChannelStatement.get(projectId, channelId)
         if (row === null) {
             throw new DomainInvariantError('invalid_input', 'Channel disappeared after its update')
         }
         return toChannel(row)
     }
 
-    function archiveBlockers(projectId: string, channelId: string): ChannelLifecycleBlockerCode[] {
+    async function archiveBlockers(
+        projectId: string,
+        channelId: string
+    ): Promise<ChannelLifecycleBlockerCode[]> {
         const blockers: ChannelLifecycleBlockerCode[] = []
-        if (loadActiveWorkStatement.get(projectId, channelId) !== null) {
+        if ((await loadActiveWorkStatement.get(channelId)) !== null) {
             blockers.push('active_work')
         }
-        if (loadPendingAuthorizationStatement.get(projectId, channelId) !== null) {
+        if ((await loadPendingAuthorizationStatement.get(channelId)) !== null) {
             blockers.push('pending_authorization')
         }
         return blockers
     }
 
     return {
-        renameChannel(input: RenameChannelInput): Channel | null {
+        async renameChannel(input: RenameChannelInput): Promise<Channel | null> {
             return renameChannelTransaction.immediate({
                 ...input,
                 projectId: requireNonBlank(input.projectId, 'projectId'),
@@ -485,7 +497,9 @@ export function createChannelLifecycleStore(
             })
         },
 
-        archiveChannel(input: ArchiveChannelInput): ChannelLifecycleUpdateResult | null {
+        async archiveChannel(
+            input: ArchiveChannelInput
+        ): Promise<ChannelLifecycleUpdateResult | null> {
             return archiveChannelTransaction.immediate({
                 ...input,
                 projectId: requireNonBlank(input.projectId, 'projectId'),
@@ -494,7 +508,9 @@ export function createChannelLifecycleStore(
             })
         },
 
-        restoreChannel(input: RestoreChannelInput): ChannelLifecycleUpdateResult | null {
+        async restoreChannel(
+            input: RestoreChannelInput
+        ): Promise<ChannelLifecycleUpdateResult | null> {
             return restoreChannelTransaction.immediate({
                 ...input,
                 projectId: requireNonBlank(input.projectId, 'projectId'),
@@ -503,7 +519,7 @@ export function createChannelLifecycleStore(
             })
         },
 
-        deleteChannel(input: DeleteChannelInput): DeleteChannelResult | null {
+        async deleteChannel(input: DeleteChannelInput): Promise<DeleteChannelResult | null> {
             return deleteChannelTransaction.immediate({
                 ...input,
                 projectId: requireNonBlank(input.projectId, 'projectId'),

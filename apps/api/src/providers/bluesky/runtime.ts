@@ -115,7 +115,7 @@ export function createBlueskyRuntime({
             })
         }
         if (applicationId !== undefined && applicationId !== null) return undefined
-        if (providerApplicationStore.hasProviderApplication('bluesky')) return undefined
+        if (await providerApplicationStore.hasProviderApplication('bluesky')) return undefined
         return bluesky === undefined ? undefined : { applicationId: null, ...bluesky }
     }
 

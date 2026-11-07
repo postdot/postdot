@@ -35,7 +35,7 @@ describe('Postdot auth email delivery', () => {
             organizationId: 'organization-1',
         })
 
-        delivery.sendOrganizationInvitationEmail?.({
+        await delivery.sendOrganizationInvitationEmail?.({
             id: 'invitation-1',
             email: 'member@example.test',
             role: 'viewer',
@@ -47,12 +47,12 @@ describe('Postdot auth email delivery', () => {
             expiresAt: new Date('2026-09-18T12:00:00.000Z'),
             invitationURL,
         })
-        delivery.sendEmailVerification?.({
+        await delivery.sendEmailVerification?.({
             user: { email: 'member@example.test', name: 'Member <one>' },
             url: 'https://api.example.test/api/auth/verify-email?token=verification-1',
             token: 'verification-1',
         })
-        delivery.sendPasswordResetEmail?.({
+        await delivery.sendPasswordResetEmail?.({
             user: { email: 'member@example.test', name: 'Member <one>' },
             url: 'https://api.example.test/api/auth/reset-password/reset-1',
             token: 'reset-1',
@@ -107,7 +107,7 @@ describe('Postdot auth email delivery', () => {
             },
         })
 
-        delivery.sendEmailVerification?.({
+        await delivery.sendEmailVerification?.({
             user: { email: 'member@example.test', name: 'Member' },
             url: 'http://localhost:3000/api/auth/verify-email?token=verification-1',
             token: 'verification-1',

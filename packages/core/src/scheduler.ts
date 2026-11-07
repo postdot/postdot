@@ -14,7 +14,7 @@ export interface SchedulerTimers {
 export type SchedulerState = 'idle' | 'started' | 'running' | 'stopped' | 'failed'
 
 export interface NextEventSchedulerOptions {
-    readonly getNextEventAt: () => number | null
+    readonly getNextEventAt: () => Promise<number | null>
     readonly processDueEvents: (now: number) => void | Promise<void>
     readonly onError: (error: unknown) => void
     readonly clock?: SchedulerClock
@@ -36,7 +36,8 @@ const systemTimers: SchedulerTimers = {
 }
 
 export class NextEventScheduler {
-    readonly #getNextEventAt: () => number | null
+    readonly #getNextEventAt: () => Promise<number | null>
+    #planSequence = 0
     readonly #processDueEvents: (now: number) => void | Promise<void>
     readonly #onError: (error: unknown) => void
     readonly #clock: SchedulerClock
@@ -46,6 +47,7 @@ export class NextEventScheduler {
     #state: SchedulerState = 'idle'
     #timer: unknown | null = null
     #activeRun: Promise<void> | null = null
+    readonly #activePlans = new Set<Promise<void>>()
     #stopping = false
     #generation = 0
     #scheduledAt: number | null = null
@@ -74,7 +76,8 @@ export class NextEventScheduler {
         return this.#scheduledAt
     }
 
-    start(): void {
+    /** Starts the scheduler; the returned promise settles once the first plan is armed. */
+    start(): Promise<void> {
         if (this.#state !== 'idle') {
             throw new DomainInvariantError(
                 'invalid_transition',
@@ -83,11 +86,12 @@ export class NextEventScheduler {
         }
 
         this.#state = 'started'
-        this.#plan()
+        return this.#trackPlan()
     }
 
-    replan(): void {
-        if (this.#state === 'running') return
+    /** Re-reads the next event; the returned promise settles once the plan is armed. */
+    replan(): Promise<void> {
+        if (this.#state === 'running') return Promise.resolve()
         if (this.#state !== 'started') {
             throw new DomainInvariantError(
                 'invalid_transition',
@@ -95,23 +99,36 @@ export class NextEventScheduler {
             )
         }
 
-        this.#plan()
+        return this.#trackPlan()
     }
 
     stop(): Promise<void> {
-        if (this.#state === 'stopped') return this.#activeRun ?? Promise.resolve()
-
         this.#stopping = true
         this.#clearTimer()
         this.#state = 'stopped'
-        return this.#activeRun ?? Promise.resolve()
+        return Promise.all([...this.#activePlans, this.#activeRun]).then(() => {})
     }
 
-    #plan(): void {
+    #trackPlan(): Promise<void> {
+        const plan = this.#plan()
+        this.#activePlans.add(plan)
+        void plan.then(
+            () => this.#activePlans.delete(plan),
+            () => this.#activePlans.delete(plan)
+        )
+        return plan
+    }
+
+    async #plan(): Promise<void> {
         this.#clearTimer()
+        // Reading the next event is asynchronous: only the latest plan of a
+        // still-started scheduler may arm a timer.
+        const sequence = ++this.#planSequence
 
         try {
-            const eventAt = this.#getNextEventAt()
+            const eventAt = await this.#getNextEventAt()
+            if (sequence !== this.#planSequence || this.#state !== 'started') return
+            this.#clearTimer()
             if (eventAt === null) return
 
             this.#scheduledAt = requireTimestamp(eventAt, 'nextEventAt')
@@ -120,6 +137,7 @@ export class NextEventScheduler {
             const generation = this.#generation
             this.#timer = this.#timers.set(() => this.#wake(generation), delay)
         } catch (error) {
+            if (sequence !== this.#planSequence || this.#state !== 'started') return
             this.#fail(error)
         }
     }
@@ -143,7 +161,8 @@ export class NextEventScheduler {
 
         try {
             const now = requireTimestamp(this.#clock.now(), 'now')
-            const eventAt = this.#getNextEventAt()
+            const eventAt = await this.#getNextEventAt()
+            if (this.#state !== 'running') return
 
             if (eventAt !== null && requireTimestamp(eventAt, 'nextEventAt') <= now) {
                 await this.#processDueEvents(now)
@@ -151,7 +170,7 @@ export class NextEventScheduler {
 
             if (this.#state !== 'running') return
             this.#state = 'started'
-            this.#plan()
+            await this.#plan()
         } catch (error) {
             if (this.#stopping) {
                 this.#onError(error)

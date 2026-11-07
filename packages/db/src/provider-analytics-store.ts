@@ -15,7 +15,7 @@ import {
     type ProviderAnalyticsSubjectType,
 } from '@postdot/core'
 
-import { createDatabaseTransaction, type PostdotDatabase } from './client'
+import { defineTransaction, type DatabaseHandle } from './client'
 
 const defaultObservationLimit = 100
 const maximumObservationLimit = 500
@@ -115,13 +115,13 @@ interface KnownProviderContentRow {
 }
 
 export function createProviderAnalyticsStore(
-    database: PostdotDatabase,
+    database: DatabaseHandle,
     options: ProviderAnalyticsStoreOptions = {}
 ) {
-    const client = database.$client
+    const sql = database.sql
     const createId = options.createId ?? (() => crypto.randomUUID())
 
-    const projectAccessStatement = client.query<
+    const projectAccessStatement = sql.statement<
         ProjectAccessRow,
         [projectId: string, subjectId: string]
     >(
@@ -136,7 +136,7 @@ export function createProviderAnalyticsStore(
         limit 1
     `
     )
-    const insertObservationStatement = client.query<
+    const insertObservationStatement = sql.statement<
         void,
         [
             id: string,
@@ -162,7 +162,7 @@ export function createProviderAnalyticsStore(
         ]
     >(
         String.raw`
-        insert or ignore into provider_analytics_observations (
+        insert into provider_analytics_observations (
             id,
             project_id,
             provider,
@@ -187,9 +187,10 @@ export function createProviderAnalyticsStore(
             ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10,
             ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20
         )
+        on conflict do nothing
     `
     )
-    const observationKeyStatement = client.query<
+    const observationKeyStatement = sql.statement<
         ObservationRow,
         [
             projectId: string,
@@ -231,7 +232,7 @@ export function createProviderAnalyticsStore(
         limit 1
     `
     )
-    const listObservationsStatement = client.query<
+    const listObservationsStatement = sql.statement<
         ObservationRow,
         [
             projectId: string,
@@ -266,15 +267,15 @@ export function createProviderAnalyticsStore(
         from provider_analytics_observations
         where project_id = ?1
           and provider = ?2
-          and (?3 is null or subject_type = ?3)
-          and (?4 is null or provider_subject_id = ?4)
-          and (?5 is null or postdot_entity_id = ?5)
+          and (cast(?3 as text) is null or subject_type = ?3)
+          and (cast(?4 as text) is null or provider_subject_id = ?4)
+          and (cast(?5 as text) is null or postdot_entity_id = ?5)
         order by fetched_at desc, id desc
         limit ?6
     `
     )
     const listLatestContentObservationsStatement = (publicationIds: readonly string[]) =>
-        client.query<ObservationRow, [string, string, ...string[]]>(
+        sql.statement<ObservationRow, [string, string, ...string[]]>(
             String.raw`
             with ranked as (
                 select id,
@@ -334,7 +335,7 @@ export function createProviderAnalyticsStore(
             limit ${maximumObservationLimit + 1}
         `
         )
-    const listKnownContentStatement = client.query<
+    const listKnownContentStatement = sql.statement<
         KnownProviderContentRow,
         [projectId: string, channelId: string, provider: string, limit: number]
     >(
@@ -357,7 +358,7 @@ export function createProviderAnalyticsStore(
     `
     )
     const listSelectedKnownContentStatement = (publicationIds: readonly string[]) =>
-        client.query<KnownProviderContentRow, [string, string, string, ...string[]]>(
+        sql.statement<KnownProviderContentRow, [string, string, string, ...string[]]>(
             String.raw`
             select publications.channel_id as channelId,
                    publications.id as postdotEntityId,
@@ -377,19 +378,19 @@ export function createProviderAnalyticsStore(
         `
         )
 
-    const recordObservationsTransaction = createDatabaseTransaction(
+    const recordObservationsTransaction = defineTransaction(
         database,
-        (
+        async (
             input: RecordProviderAnalyticsObservationsInput,
             normalizedProjectId: string
-        ): RecordProviderAnalyticsObservationsResult => {
+        ): Promise<RecordProviderAnalyticsObservationsResult> => {
             let inserted = 0
             let duplicates = 0
             const observations: ProviderAnalyticsObservation[] = []
 
             for (const observation of input.observations) {
                 const normalized = normalizeObservation(observation, normalizedProjectId)
-                const result = insertObservationStatement.run(
+                const result = await insertObservationStatement.run(
                     createId(),
                     normalized.projectId,
                     normalized.provider,
@@ -414,7 +415,7 @@ export function createProviderAnalyticsStore(
                 if (result.changes === 0) duplicates += 1
                 else inserted += 1
 
-                const persisted = observationKeyStatement.get(
+                const persisted = await observationKeyStatement.get(
                     normalized.projectId,
                     normalized.provider,
                     normalized.subjectType,
@@ -435,103 +436,112 @@ export function createProviderAnalyticsStore(
     )
 
     return {
-        recordObservations(
+        async recordObservations(
             input: RecordProviderAnalyticsObservationsInput
-        ): RecordProviderAnalyticsObservationsResult | null {
+        ): Promise<RecordProviderAnalyticsObservationsResult | null> {
             const projectId = requireNonBlank(input.projectId, 'projectId')
             const subjectId = requireNonBlank(input.subjectId, 'subjectId')
-            if (projectAccessStatement.get(projectId, subjectId) === null) return null
+            if ((await projectAccessStatement.get(projectId, subjectId)) === null) return null
 
             return recordObservationsTransaction.immediate(input, projectId)
         },
 
-        listObservations(
+        async listObservations(
             input: ListProviderAnalyticsObservationsInput
-        ): ProviderAnalyticsObservationPage | null {
-            const projectId = requireNonBlank(input.projectId, 'projectId')
-            const subjectId = requireNonBlank(input.subjectId, 'subjectId')
-            if (projectAccessStatement.get(projectId, subjectId) === null) return null
+        ): Promise<ProviderAnalyticsObservationPage | null> {
+            return database.sql.transaction(async () => {
+                const projectId = requireNonBlank(input.projectId, 'projectId')
+                const subjectId = requireNonBlank(input.subjectId, 'subjectId')
+                if ((await projectAccessStatement.get(projectId, subjectId)) === null) return null
 
-            const provider = requireNonBlank(input.provider, 'provider')
-            const subjectType = normalizeOptionalSubjectType(input.subjectType)
-            const providerSubjectId = normalizeOptionalText(
-                input.providerSubjectId,
-                'providerSubjectId'
-            )
-            const postdotEntityId = normalizeOptionalText(input.postdotEntityId, 'postdotEntityId')
-            const limit = normalizeLimit(input.limit)
-            const rows = listObservationsStatement.all(
-                projectId,
-                provider,
-                subjectType,
-                providerSubjectId,
-                postdotEntityId,
-                limit + 1
-            )
+                const provider = requireNonBlank(input.provider, 'provider')
+                const subjectType = normalizeOptionalSubjectType(input.subjectType)
+                const providerSubjectId = normalizeOptionalText(
+                    input.providerSubjectId,
+                    'providerSubjectId'
+                )
+                const postdotEntityId = normalizeOptionalText(
+                    input.postdotEntityId,
+                    'postdotEntityId'
+                )
+                const limit = normalizeLimit(input.limit)
+                const rows = await listObservationsStatement.all(
+                    projectId,
+                    provider,
+                    subjectType,
+                    providerSubjectId,
+                    postdotEntityId,
+                    limit + 1
+                )
 
-            return {
-                contractVersion: providerAnalyticsContractVersion,
-                projectId,
-                provider,
-                observations: rows.slice(0, limit).map(toObservation),
-                limit,
-                hasMore: rows.length > limit,
-            }
+                return {
+                    contractVersion: providerAnalyticsContractVersion,
+                    projectId,
+                    provider,
+                    observations: rows.slice(0, limit).map(toObservation),
+                    limit,
+                    hasMore: rows.length > limit,
+                }
+            }, 'deferred')
         },
 
-        listLatestContentObservations(
+        async listLatestContentObservations(
             input: ListLatestProviderContentObservationsInput
-        ): ProviderAnalyticsObservationPage | null {
-            const projectId = requireNonBlank(input.projectId, 'projectId')
-            const subjectId = requireNonBlank(input.subjectId, 'subjectId')
-            if (projectAccessStatement.get(projectId, subjectId) === null) return null
+        ): Promise<ProviderAnalyticsObservationPage | null> {
+            return database.sql.transaction(async () => {
+                const projectId = requireNonBlank(input.projectId, 'projectId')
+                const subjectId = requireNonBlank(input.subjectId, 'subjectId')
+                if ((await projectAccessStatement.get(projectId, subjectId)) === null) return null
 
-            const provider = requireNonBlank(input.provider, 'provider')
-            const publicationIds = normalizeLatestPublicationIds(input.publicationIds)
-            const rows = listLatestContentObservationsStatement(publicationIds).all(
-                projectId,
-                provider,
-                ...publicationIds
-            )
+                const provider = requireNonBlank(input.provider, 'provider')
+                const publicationIds = normalizeLatestPublicationIds(input.publicationIds)
+                const rows = await listLatestContentObservationsStatement(publicationIds).all(
+                    projectId,
+                    provider,
+                    ...publicationIds
+                )
 
-            return {
-                contractVersion: providerAnalyticsContractVersion,
-                projectId,
-                provider,
-                observations: rows.slice(0, maximumObservationLimit).map(toObservation),
-                limit: maximumObservationLimit,
-                hasMore: rows.length > maximumObservationLimit,
-            }
+                return {
+                    contractVersion: providerAnalyticsContractVersion,
+                    projectId,
+                    provider,
+                    observations: rows.slice(0, maximumObservationLimit).map(toObservation),
+                    limit: maximumObservationLimit,
+                    hasMore: rows.length > maximumObservationLimit,
+                }
+            }, 'deferred')
         },
 
-        listKnownProviderContent(
+        async listKnownProviderContent(
             input: ListKnownProviderContentInput
-        ): KnownProviderContent[] | null {
-            const projectId = requireNonBlank(input.projectId, 'projectId')
-            const subjectId = requireNonBlank(input.subjectId, 'subjectId')
-            if (projectAccessStatement.get(projectId, subjectId) === null) return null
+        ): Promise<KnownProviderContent[] | null> {
+            return database.sql.transaction(async () => {
+                const projectId = requireNonBlank(input.projectId, 'projectId')
+                const subjectId = requireNonBlank(input.subjectId, 'subjectId')
+                if ((await projectAccessStatement.get(projectId, subjectId)) === null) return null
 
-            const channelId = requireNonBlank(input.channelId, 'channelId')
-            const provider = requireNonBlank(input.provider, 'provider')
-            const limit = normalizeKnownContentLimit(input.limit)
-            const publicationIds = normalizePublicationIds(input.publicationIds)
-            const rows =
-                publicationIds.length === 0
-                    ? listKnownContentStatement.all(projectId, channelId, provider, limit)
-                    : listSelectedKnownContentStatement(publicationIds).all(
-                          projectId,
-                          channelId,
-                          provider,
-                          ...publicationIds
-                      )
+                const channelId = requireNonBlank(input.channelId, 'channelId')
+                const provider = requireNonBlank(input.provider, 'provider')
+                const limit = normalizeKnownContentLimit(input.limit)
+                const publicationIds = normalizePublicationIds(input.publicationIds)
+                const rows =
+                    publicationIds.length === 0
+                        ? await listKnownContentStatement.all(projectId, channelId, provider, limit)
+                        : await listSelectedKnownContentStatement(publicationIds).all(
+                              projectId,
+                              channelId,
+                              provider,
+                              ...publicationIds
+                          )
 
-            return rows.slice(0, limit).map(row => ({
-                channelId: row.channelId,
-                postdotEntityType: 'publication',
-                postdotEntityId: row.postdotEntityId,
-                providerSubjectId: row.providerSubjectId,
-                providerSubjectLabel: null,
-            }))
+                return rows.slice(0, limit).map(row => ({
+                    channelId: row.channelId,
+                    postdotEntityType: 'publication',
+                    postdotEntityId: row.postdotEntityId,
+                    providerSubjectId: row.providerSubjectId,
+                    providerSubjectLabel: null,
+                }))
+            }, 'deferred')
         },
     }
 }

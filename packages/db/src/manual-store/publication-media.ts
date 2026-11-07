@@ -17,14 +17,14 @@ function profileAssessmentIssue(code: string, message: string, path = '/media'):
     return { path, code, message, severity: 'error', source: 'capability' }
 }
 
-export function assessWorkingDraftMedia(
+export async function assessWorkingDraftMedia(
     profile: ChannelProfileDefinition,
     content: unknown,
     projectId: string,
     subjectId: string,
     media: Pick<MediaAssetStore, 'getAsset'> | undefined,
     publicMediaUrlAvailable: boolean
-): readonly ValidationIssue[] {
+): Promise<readonly ValidationIssue[]> {
     if (!isRecord(content)) {
         return [
             profileAssessmentIssue(
@@ -36,7 +36,14 @@ export function assessWorkingDraftMedia(
     }
 
     try {
-        resolveTargetMedia(profile, content, projectId, subjectId, media, publicMediaUrlAvailable)
+        await resolveTargetMedia(
+            profile,
+            content,
+            projectId,
+            subjectId,
+            media,
+            publicMediaUrlAvailable
+        )
         return []
     } catch (error) {
         return [
@@ -48,7 +55,7 @@ export function assessWorkingDraftMedia(
     }
 }
 
-export function assessPinnedTargetMedia(
+export async function assessPinnedTargetMedia(
     profile: ChannelProfileDefinition,
     content: unknown,
     projectId: string,
@@ -56,7 +63,7 @@ export function assessPinnedTargetMedia(
     media: Pick<MediaAssetStore, 'getAsset'> | undefined,
     pinnedMedia: readonly TargetRevisionMediaRow[],
     publicMediaUrlAvailable: boolean
-): readonly ValidationIssue[] {
+): Promise<readonly ValidationIssue[]> {
     if (!isRecord(content)) {
         return [
             profileAssessmentIssue(
@@ -161,7 +168,7 @@ export function assessPinnedTargetMedia(
             continue
         }
 
-        const asset = media.getAsset(projectId, reference.assetId, subjectId)
+        const asset = await media.getAsset(projectId, reference.assetId, subjectId)
         if (asset === null || asset.asset.state !== 'ready') {
             issues.push(
                 profileAssessmentIssue(
@@ -253,14 +260,14 @@ export function assessPinnedTargetMedia(
     return issues
 }
 
-export function resolveTargetMedia(
+export async function resolveTargetMedia(
     profile: ChannelProfileDefinition,
     content: TargetContent,
     projectId: string,
     subjectId: string,
     media: Pick<MediaAssetStore, 'getAsset'> | undefined,
     publicMediaUrlAvailable: boolean
-): readonly ResolvedTargetMedia[] {
+): Promise<readonly ResolvedTargetMedia[]> {
     const references = extractTargetMediaReferences(profile, content)
     if (references.length === 0) {
         for (const capability of profile.capabilities.mediaFields) {
@@ -303,7 +310,7 @@ export function resolveTargetMedia(
         const capability = profile.capabilities.mediaFields.find(
             candidate => candidate.bindingId === reference.bindingId
         )
-        const asset = media.getAsset(projectId, reference.assetId, subjectId)
+        const asset = await media.getAsset(projectId, reference.assetId, subjectId)
         if (asset === null || asset.asset.state !== 'ready') {
             throw mediaContentError(
                 `Media asset ${reference.assetId} is not available for publication`

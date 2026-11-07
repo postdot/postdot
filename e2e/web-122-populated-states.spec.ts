@@ -330,7 +330,7 @@ test('keeps calendar titles readable across intermediate workspace widths', asyn
 }, testInfo) => {
     test.setTimeout(90_000)
     const { calendar, projectId } = await createDenseCalendarProject(page)
-    await page.getByRole('button', { name: 'Switch language to French', exact: true }).click()
+    await page.getByRole('button', { name: 'Language', exact: true }).click()
     await page.getByRole('menuitem', { name: 'French', exact: true }).click()
     await page.emulateMedia({ reducedMotion: 'reduce' })
 

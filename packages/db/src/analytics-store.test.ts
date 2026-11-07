@@ -2,15 +2,17 @@ import { describe, expect, it } from 'bun:test'
 
 import type { ChannelProfileDefinition } from '@postdot/core'
 import { DomainInvariantError } from '@postdot/core'
-import { eq } from 'drizzle-orm'
 
 import { createAnalyticsStore } from './analytics-store'
-import { closeDatabase, createDatabase } from './client'
 import { createEventJournalStore } from './event-journal-store'
 import { createManualStore } from './manual-store'
-import { runMigrations } from './migrations'
-import { jobs, publications, publishers } from './schema'
-import { seedTestWorkspace, workspaceOf } from './testing'
+import {
+    closeTestDatabase,
+    openTestDatabase,
+    seedTestWorkspace,
+    type TestRow,
+    workspaceOf,
+} from './testing'
 
 const dayMs = 24 * 60 * 60 * 1_000
 
@@ -49,13 +51,12 @@ function sourceContent(text: string) {
     }
 }
 
-function createFixture(
+async function createFixture(
     timeZone = 'Europe/Paris',
     setupAt = Date.UTC(2025, 0, 1),
     prefix = 'analytics'
 ) {
-    const database = createDatabase(':memory:')
-    runMigrations(database)
+    const database = (await openTestDatabase()).database
     const store = createManualStore(database, {
         now: () => setupAt,
         createId: (() => {
@@ -63,19 +64,19 @@ function createFixture(
             return () => prefix + '-generated-' + ++sequence
         })(),
     })
-    const project = store.createProject({
-        workspaceId: seedTestWorkspace(database),
+    const project = await store.createProject({
+        workspaceId: await seedTestWorkspace(database),
         name: 'Analytics project',
         subjectId: 'user-1',
         displayName: 'Analytics operator',
         timeZone,
     })
-    const manualChannel = store.createChannel({
+    const manualChannel = await store.createChannel({
         projectId: project.project.id,
         subjectId: 'user-1',
         name: 'Manual channel',
     })
-    const automaticChannel = store.createChannel({
+    const automaticChannel = await store.createChannel({
         projectId: project.project.id,
         subjectId: 'user-1',
         name: 'Automatic channel',
@@ -84,26 +85,27 @@ function createFixture(
     if (manualChannel === null || automaticChannel === null) {
         throw new Error('The analytics fixture channels were not created')
     }
-    database
-        .insert(publishers)
-        .values({
-            id: prefix + '-publisher',
-            workspaceId: workspaceOf(database, project.project.id),
-            channelId: automaticChannel.id,
-            kind: 'analytics-provider',
-        })
-        .run()
+    await database.sql
+        .statement(
+            'insert into "publishers" ("id", "workspace_id", "channel_id", "kind") values (?1, ?2, ?3, ?4)'
+        )
+        .run(
+            prefix + '-publisher',
+            await workspaceOf(database, project.project.id),
+            automaticChannel.id,
+            'analytics-provider'
+        )
 
     return { database, store, project, manualChannel, automaticChannel }
 }
 
-function createPublication(
-    fixture: ReturnType<typeof createFixture>,
+async function createPublication(
+    fixture: Awaited<ReturnType<typeof createFixture>>,
     channelId: string,
     deliveryMode: 'manual' | 'automatic',
     scheduledAt?: number
-): string {
-    const created = fixture.store.createPost({
+): Promise<string> {
+    const created = await fixture.store.createPost({
         projectId: fixture.project.project.id,
         subjectId: 'user-1',
         sourceContent: sourceContent('Analytics ' + channelId),
@@ -122,7 +124,7 @@ function createPublication(
 
 function appendFact(
     journal: ReturnType<typeof createEventJournalStore>,
-    fixture: ReturnType<typeof createFixture>,
+    fixture: Awaited<ReturnType<typeof createFixture>>,
     input: {
         readonly id: string
         readonly name: string
@@ -145,7 +147,7 @@ function appendFact(
 }
 
 function executionPayload(
-    _fixture: ReturnType<typeof createFixture>,
+    _fixture: Awaited<ReturnType<typeof createFixture>>,
     jobId: string,
     attempt: number,
     runAt: number,
@@ -168,64 +170,66 @@ function byState(
 }
 
 describe('analytics store', () => {
-    it('returns current publication, execution, and workload snapshots independently of history', () => {
+    it('returns current publication, execution, and workload snapshots independently of history', async () => {
         const observedAt = Date.UTC(2026, 5, 1, 12)
-        const fixture = createFixture('Europe/Paris', observedAt - 1_000)
+        const fixture = await createFixture('Europe/Paris', observedAt - 1_000)
 
         try {
-            createPublication(fixture, fixture.manualChannel.id, 'manual', observedAt - 1)
-            const automaticDue = createPublication(
+            await createPublication(fixture, fixture.manualChannel.id, 'manual', observedAt - 1)
+            const automaticDue = await createPublication(
                 fixture,
                 fixture.automaticChannel.id,
                 'automatic',
                 observedAt - 500
             )
-            createPublication(
+            await createPublication(
                 fixture,
                 fixture.automaticChannel.id,
                 'automatic',
                 observedAt + 10_000
             )
-            const automaticRunning = createPublication(
+            const automaticRunning = await createPublication(
                 fixture,
                 fixture.automaticChannel.id,
                 'automatic',
                 observedAt - 400
             )
-            const automaticSucceeded = createPublication(
+            const automaticSucceeded = await createPublication(
                 fixture,
                 fixture.automaticChannel.id,
                 'automatic',
                 observedAt - 300
             )
-            const automaticFailed = createPublication(
+            const automaticFailed = await createPublication(
                 fixture,
                 fixture.automaticChannel.id,
                 'automatic',
                 observedAt - 200
             )
-            const automaticAmbiguous = createPublication(
+            const automaticAmbiguous = await createPublication(
                 fixture,
                 fixture.automaticChannel.id,
                 'automatic',
                 observedAt - 100
             )
 
-            const jobFor = (publicationId: string) => {
-                const job = fixture.database
-                    .select()
-                    .from(jobs)
-                    .where(eq(jobs.publicationId, publicationId))
-                    .all()[0]
+            const jobFor = async (publicationId: string) => {
+                const job = (
+                    await fixture.database.sql
+                        .statement<TestRow>(
+                            'select "jobs"."id" as "id", "jobs"."project_id" as "projectId", "jobs"."publication_id" as "publicationId", "jobs"."state" as "state", "jobs"."run_at" as "runAt", "jobs"."attempts" as "attempts", "jobs"."claim_token" as "claimToken", "jobs"."claimed_by_actor_id" as "claimedByActorId", "jobs"."claimed_at" as "claimedAt", "jobs"."lease_expires_at" as "leaseExpiresAt", "jobs"."effect_started_at" as "effectStartedAt", "jobs"."started_at" as "startedAt", "jobs"."completed_at" as "completedAt", "jobs"."error_message" as "errorMessage", "jobs"."created_at" as "createdAt", "jobs"."updated_at" as "updatedAt" from "jobs" where "jobs"."publication_id" = ?1'
+                        )
+                        .all(publicationId)
+                )[0]
                 if (job === undefined) {
                     throw new Error('Job for ' + publicationId + ' is missing')
                 }
                 return job
             }
 
-            const retryJob = jobFor(automaticDue)
+            const retryJob = await jobFor(automaticDue)
             const journal = createEventJournalStore(fixture.database)
-            journal.append({
+            await journal.append({
                 id: 'current-retry-scheduled',
                 projectId: fixture.project.project.id,
                 actorId: fixture.project.actor.id,
@@ -240,78 +244,72 @@ describe('analytics store', () => {
                 occurredAt: observedAt - 450,
             })
 
-            const runningJob = jobFor(automaticRunning)
-            fixture.database
-                .update(jobs)
-                .set({
-                    state: 'running',
-                    attempts: 1,
-                    claimToken: 'analytics-running',
-                    claimedByActorId: fixture.project.actor.id,
-                    claimedAt: observedAt - 300,
-                    leaseExpiresAt: observedAt + 100_000,
-                    startedAt: observedAt - 300,
-                })
-                .where(eq(jobs.id, runningJob.id))
-                .run()
+            const runningJob = await jobFor(automaticRunning)
+            await fixture.database.sql
+                .statement(
+                    'update "jobs" set "state" = ?1, "attempts" = ?2, "claim_token" = ?3, "claimed_by_actor_id" = ?4, "claimed_at" = ?5, "lease_expires_at" = ?6, "started_at" = ?7 where "jobs"."id" = ?8'
+                )
+                .run(
+                    'running',
+                    1,
+                    'analytics-running',
+                    fixture.project.actor.id,
+                    observedAt - 300,
+                    observedAt + 100_000,
+                    observedAt - 300,
+                    runningJob.id
+                )
 
-            const succeededJob = jobFor(automaticSucceeded)
-            fixture.database
-                .update(jobs)
-                .set({
-                    state: 'succeeded',
-                    attempts: 1,
-                    startedAt: observedAt - 300,
-                    completedAt: observedAt - 250,
-                })
-                .where(eq(jobs.id, succeededJob.id))
-                .run()
-            fixture.database
-                .update(publications)
-                .set({
-                    state: 'published',
-                    publishedAt: observedAt - 250,
-                    publishedByActorId: fixture.project.actor.id,
-                })
-                .where(eq(publications.id, automaticSucceeded))
-                .run()
+            const succeededJob = await jobFor(automaticSucceeded)
+            await fixture.database.sql
+                .statement(
+                    'update "jobs" set "state" = ?1, "attempts" = ?2, "started_at" = ?3, "completed_at" = ?4 where "jobs"."id" = ?5'
+                )
+                .run('succeeded', 1, observedAt - 300, observedAt - 250, succeededJob.id)
+            await fixture.database.sql
+                .statement(
+                    'update "publications" set "state" = ?1, "published_at" = ?2, "published_by_actor_id" = ?3 where "publications"."id" = ?4'
+                )
+                .run('published', observedAt - 250, fixture.project.actor.id, automaticSucceeded)
 
-            const failedJob = jobFor(automaticFailed)
-            fixture.database
-                .update(jobs)
-                .set({
-                    state: 'failed',
-                    attempts: 1,
-                    startedAt: observedAt - 250,
-                    completedAt: observedAt - 150,
-                    errorMessage: 'analytics failure',
-                })
-                .where(eq(jobs.id, failedJob.id))
-                .run()
-            fixture.database
-                .update(publications)
-                .set({ state: 'failed', errorMessage: 'analytics failure' })
-                .where(eq(publications.id, automaticFailed))
-                .run()
+            const failedJob = await jobFor(automaticFailed)
+            await fixture.database.sql
+                .statement(
+                    'update "jobs" set "state" = ?1, "attempts" = ?2, "started_at" = ?3, "completed_at" = ?4, "error_message" = ?5 where "jobs"."id" = ?6'
+                )
+                .run(
+                    'failed',
+                    1,
+                    observedAt - 250,
+                    observedAt - 150,
+                    'analytics failure',
+                    failedJob.id
+                )
+            await fixture.database.sql
+                .statement(
+                    'update "publications" set "state" = ?1, "error_message" = ?2 where "publications"."id" = ?3'
+                )
+                .run('failed', 'analytics failure', automaticFailed)
 
-            const ambiguousJob = jobFor(automaticAmbiguous)
-            fixture.database
-                .update(jobs)
-                .set({
-                    state: 'failed',
-                    attempts: 1,
-                    startedAt: observedAt - 150,
-                    completedAt: observedAt - 50,
-                    errorMessage: 'analytics ambiguity',
-                })
-                .where(eq(jobs.id, ambiguousJob.id))
-                .run()
-            fixture.database
-                .update(publications)
-                .set({ state: 'ambiguous', errorMessage: 'analytics ambiguity' })
-                .where(eq(publications.id, automaticAmbiguous))
-                .run()
-            journal.append({
+            const ambiguousJob = await jobFor(automaticAmbiguous)
+            await fixture.database.sql
+                .statement(
+                    'update "jobs" set "state" = ?1, "attempts" = ?2, "started_at" = ?3, "completed_at" = ?4, "error_message" = ?5 where "jobs"."id" = ?6'
+                )
+                .run(
+                    'failed',
+                    1,
+                    observedAt - 150,
+                    observedAt - 50,
+                    'analytics ambiguity',
+                    ambiguousJob.id
+                )
+            await fixture.database.sql
+                .statement(
+                    'update "publications" set "state" = ?1, "error_message" = ?2 where "publications"."id" = ?3'
+                )
+                .run('ambiguous', 'analytics ambiguity', automaticAmbiguous)
+            await journal.append({
                 id: 'current-ambiguity-history',
                 projectId: fixture.project.project.id,
                 actorId: fixture.project.actor.id,
@@ -326,7 +324,7 @@ describe('analytics store', () => {
                 occurredAt: observedAt - 50,
             })
 
-            const analytics = createAnalyticsStore(fixture.database, {
+            const analytics = await createAnalyticsStore(fixture.database, {
                 now: () => observedAt,
             }).getProjectAnalytics({
                 projectId: fixture.project.project.id,
@@ -387,7 +385,7 @@ describe('analytics store', () => {
                 ])
             )
 
-            const manualOnly = createAnalyticsStore(fixture.database, {
+            const manualOnly = await createAnalyticsStore(fixture.database, {
                 now: () => observedAt,
             }).getProjectAnalytics({
                 projectId: fixture.project.project.id,
@@ -400,37 +398,39 @@ describe('analytics store', () => {
             expect(manualOnly?.current.executions.scheduled).toBe(0)
             expect(manualOnly?.current.workload.manualDue).toBe(1)
         } finally {
-            closeDatabase(fixture.database)
+            await closeTestDatabase(fixture.database)
         }
     })
 
-    it('keeps the automatic provider on reconciliation and supports provider filtering', () => {
+    it('keeps the automatic provider on reconciliation and supports provider filtering', async () => {
         const observedAt = Date.UTC(2026, 0, 2)
         const setupAt = observedAt - 1_000
-        const fixture = createFixture('UTC', setupAt)
+        const fixture = await createFixture('UTC', setupAt)
 
         try {
-            const publicationId = createPublication(
+            const publicationId = await createPublication(
                 fixture,
                 fixture.automaticChannel.id,
                 'automatic',
                 setupAt
             )
-            const job = fixture.database
-                .select()
-                .from(jobs)
-                .where(eq(jobs.publicationId, publicationId))
-                .all()[0]
+            const job = (
+                await fixture.database.sql
+                    .statement<TestRow>(
+                        'select "jobs"."id" as "id", "jobs"."project_id" as "projectId", "jobs"."publication_id" as "publicationId", "jobs"."state" as "state", "jobs"."run_at" as "runAt", "jobs"."attempts" as "attempts", "jobs"."claim_token" as "claimToken", "jobs"."claimed_by_actor_id" as "claimedByActorId", "jobs"."claimed_at" as "claimedAt", "jobs"."lease_expires_at" as "leaseExpiresAt", "jobs"."effect_started_at" as "effectStartedAt", "jobs"."started_at" as "startedAt", "jobs"."completed_at" as "completedAt", "jobs"."error_message" as "errorMessage", "jobs"."created_at" as "createdAt", "jobs"."updated_at" as "updatedAt" from "jobs" where "jobs"."publication_id" = ?1'
+                    )
+                    .all(publicationId)
+            )[0]
             if (job === undefined) throw new Error('The reconciliation job is missing')
 
-            fixture.database
-                .update(publications)
-                .set({ state: 'ambiguous', errorMessage: 'provider response was lost' })
-                .where(eq(publications.id, publicationId))
-                .run()
+            await fixture.database.sql
+                .statement(
+                    'update "publications" set "state" = ?1, "error_message" = ?2 where "publications"."id" = ?3'
+                )
+                .run('ambiguous', 'provider response was lost', publicationId)
 
             const journal = createEventJournalStore(fixture.database)
-            journal.append({
+            await journal.append({
                 id: 'reconciliation-ambiguity',
                 projectId: fixture.project.project.id,
                 actorId: fixture.project.actor.id,
@@ -446,12 +446,11 @@ describe('analytics store', () => {
                 },
                 occurredAt: setupAt + 100,
             })
-            fixture.database
-                .delete(publishers)
-                .where(eq(publishers.channelId, fixture.automaticChannel.id))
-                .run()
+            await fixture.database.sql
+                .statement('delete from "publishers" where "publishers"."channel_id" = ?1')
+                .run(fixture.automaticChannel.id)
 
-            const reconciled = fixture.store.reconcileAmbiguousPublication({
+            const reconciled = await fixture.store.reconcileAmbiguousPublication({
                 projectId: fixture.project.project.id,
                 publicationId,
                 subjectId: 'user-1',
@@ -460,16 +459,16 @@ describe('analytics store', () => {
             })
             expect(reconciled.kind).toBe('reconciled')
 
-            const reconciliationEvent = fixture.store
-                .listAuditEvents(fixture.project.project.id, 'user-1')
-                ?.find(event => event.action === 'publication.reconciled')
+            const reconciliationEvent = (
+                await fixture.store.listAuditEvents(fixture.project.project.id, 'user-1')
+            )?.find(event => event.action === 'publication.reconciled')
             expect(reconciliationEvent).not.toBeUndefined()
             expect(JSON.parse(reconciliationEvent?.metadataJson ?? '{}')).toMatchObject({
                 deliveryMode: 'automatic',
                 provider: 'analytics-provider',
             })
 
-            const providerFiltered = createAnalyticsStore(fixture.database, {
+            const providerFiltered = await createAnalyticsStore(fixture.database, {
                 now: () => observedAt,
             }).getProjectAnalytics({
                 projectId: fixture.project.project.id,
@@ -487,43 +486,47 @@ describe('analytics store', () => {
                 }),
             ])
         } finally {
-            closeDatabase(fixture.database)
+            await closeTestDatabase(fixture.database)
         }
     })
 
-    it('counts historical lifecycle and execution facts with retry, ambiguity, recovery, and replay semantics', () => {
+    it('counts historical lifecycle and execution facts with retry, ambiguity, recovery, and replay semantics', async () => {
         const observedAt = Date.UTC(2026, 0, 2)
-        const fixture = createFixture('UTC', observedAt - dayMs)
+        const fixture = await createFixture('UTC', observedAt - dayMs)
 
         try {
             const journal = createEventJournalStore(fixture.database)
-            const manualPublication = createPublication(fixture, fixture.manualChannel.id, 'manual')
-            const successfulPublication = createPublication(
+            const manualPublication = await createPublication(
+                fixture,
+                fixture.manualChannel.id,
+                'manual'
+            )
+            const successfulPublication = await createPublication(
                 fixture,
                 fixture.automaticChannel.id,
                 'automatic'
             )
-            const directAmbiguousPublication = createPublication(
+            const directAmbiguousPublication = await createPublication(
                 fixture,
                 fixture.automaticChannel.id,
                 'automatic'
             )
-            const recoveredPublication = createPublication(
+            const recoveredPublication = await createPublication(
                 fixture,
                 fixture.automaticChannel.id,
                 'automatic'
             )
-            const recoveredClaimPublication = createPublication(
+            const recoveredClaimPublication = await createPublication(
                 fixture,
                 fixture.automaticChannel.id,
                 'automatic'
             )
-            const failedPublication = createPublication(
+            const failedPublication = await createPublication(
                 fixture,
                 fixture.automaticChannel.id,
                 'automatic'
             )
-            const cancelledPublication = createPublication(
+            const cancelledPublication = await createPublication(
                 fixture,
                 fixture.automaticChannel.id,
                 'automatic'
@@ -543,7 +546,7 @@ describe('analytics store', () => {
                 provider: 'analytics-provider',
             }
 
-            appendFact(journal, fixture, {
+            await appendFact(journal, fixture, {
                 id: 'history-manual-created',
                 name: 'publication.created',
                 entityId: manualPublication,
@@ -554,14 +557,14 @@ describe('analytics store', () => {
                     scheduledAt: start,
                 },
             })
-            appendFact(journal, fixture, {
+            await appendFact(journal, fixture, {
                 id: 'history-manual-ready',
                 name: 'publication.ready',
                 entityId: manualPublication,
                 occurredAt: start + 50,
                 payload: { ...manualMetadata, fromState: 'scheduled', toState: 'ready' },
             })
-            appendFact(journal, fixture, {
+            await appendFact(journal, fixture, {
                 id: 'history-manual-published',
                 name: 'publication.published',
                 entityId: manualPublication,
@@ -569,28 +572,28 @@ describe('analytics store', () => {
                 payload: { ...manualMetadata, fromState: 'ready', toState: 'published' },
             })
 
-            appendFact(journal, fixture, {
+            await appendFact(journal, fixture, {
                 id: 'history-success-created',
                 name: 'publication.created',
                 entityId: successfulPublication,
                 occurredAt: start,
                 payload: automaticMetadata,
             })
-            appendFact(journal, fixture, {
+            await appendFact(journal, fixture, {
                 id: 'history-success-created-replay',
                 name: 'publication.created',
                 entityId: successfulPublication,
                 occurredAt: start + 1,
                 payload: automaticMetadata,
             })
-            appendFact(journal, fixture, {
+            await appendFact(journal, fixture, {
                 id: 'history-success-claim-one',
                 name: 'publication.execution.claimed',
                 entityId: successfulPublication,
                 occurredAt: start + 10,
                 payload: executionPayload(fixture, 'job-success', 1, start),
             })
-            appendFact(journal, fixture, {
+            await appendFact(journal, fixture, {
                 id: 'history-success-effect-one',
                 name: 'publication.execution.effect_started',
                 entityId: successfulPublication,
@@ -600,7 +603,7 @@ describe('analytics store', () => {
                     toState: 'publishing',
                 }),
             })
-            appendFact(journal, fixture, {
+            await appendFact(journal, fixture, {
                 id: 'history-success-retry',
                 name: 'publication.execution.retry_scheduled',
                 entityId: successfulPublication,
@@ -611,14 +614,14 @@ describe('analytics store', () => {
                     retryAt: start + 500,
                 }),
             })
-            appendFact(journal, fixture, {
+            await appendFact(journal, fixture, {
                 id: 'history-success-claim-two',
                 name: 'publication.execution.claimed',
                 entityId: successfulPublication,
                 occurredAt: start + 510,
                 payload: executionPayload(fixture, 'job-success', 2, start + 500),
             })
-            appendFact(journal, fixture, {
+            await appendFact(journal, fixture, {
                 id: 'history-success-effect-two',
                 name: 'publication.execution.effect_started',
                 entityId: successfulPublication,
@@ -628,14 +631,14 @@ describe('analytics store', () => {
                     toState: 'publishing',
                 }),
             })
-            appendFact(journal, fixture, {
+            await appendFact(journal, fixture, {
                 id: 'history-success-effect-two-replay',
                 name: 'publication.execution.effect_started',
                 entityId: successfulPublication,
                 occurredAt: start + 521,
                 payload: executionPayload(fixture, 'job-success', 2, start + 500),
             })
-            appendFact(journal, fixture, {
+            await appendFact(journal, fixture, {
                 id: 'history-success-succeeded',
                 name: 'publication.execution.succeeded',
                 entityId: successfulPublication,
@@ -645,7 +648,7 @@ describe('analytics store', () => {
                     toState: 'published',
                 }),
             })
-            appendFact(journal, fixture, {
+            await appendFact(journal, fixture, {
                 id: 'history-success-succeeded-replay',
                 name: 'publication.execution.succeeded',
                 entityId: successfulPublication,
@@ -653,7 +656,7 @@ describe('analytics store', () => {
                 payload: executionPayload(fixture, 'job-success', 2, start + 500),
             })
 
-            const appendAutomaticOutcome = (
+            const appendAutomaticOutcome = async (
                 idPrefix: string,
                 publicationId: string,
                 jobId: string,
@@ -662,21 +665,21 @@ describe('analytics store', () => {
                 outcomeAt: number,
                 extra: Readonly<Record<string, unknown>> = {}
             ) => {
-                appendFact(journal, fixture, {
+                await appendFact(journal, fixture, {
                     id: idPrefix + '-created',
                     name: 'publication.created',
                     entityId: publicationId,
                     occurredAt: start,
                     payload: automaticMetadata,
                 })
-                appendFact(journal, fixture, {
+                await appendFact(journal, fixture, {
                     id: idPrefix + '-claim',
                     name: 'publication.execution.claimed',
                     entityId: publicationId,
                     occurredAt: effectAt - 10,
                     payload: executionPayload(fixture, jobId, 1, start),
                 })
-                appendFact(journal, fixture, {
+                await appendFact(journal, fixture, {
                     id: idPrefix + '-effect',
                     name: 'publication.execution.effect_started',
                     entityId: publicationId,
@@ -699,7 +702,7 @@ describe('analytics store', () => {
                 ) {
                     outcomePayload.toState = 'ambiguous'
                 }
-                appendFact(journal, fixture, {
+                await appendFact(journal, fixture, {
                     id: idPrefix + '-outcome',
                     name: action,
                     entityId: publicationId,
@@ -708,7 +711,7 @@ describe('analytics store', () => {
                 })
             }
 
-            appendAutomaticOutcome(
+            await appendAutomaticOutcome(
                 'history-direct-ambiguous',
                 directAmbiguousPublication,
                 'job-direct-ambiguous',
@@ -716,7 +719,7 @@ describe('analytics store', () => {
                 start + 300,
                 start + 400
             )
-            appendAutomaticOutcome(
+            await appendAutomaticOutcome(
                 'history-recovered',
                 recoveredPublication,
                 'job-recovered',
@@ -724,21 +727,21 @@ describe('analytics store', () => {
                 start + 500,
                 start + 600
             )
-            appendFact(journal, fixture, {
+            await appendFact(journal, fixture, {
                 id: 'history-claim-recovered-created',
                 name: 'publication.created',
                 entityId: recoveredClaimPublication,
                 occurredAt: start,
                 payload: automaticMetadata,
             })
-            appendFact(journal, fixture, {
+            await appendFact(journal, fixture, {
                 id: 'history-claim-recovered-claim',
                 name: 'publication.execution.claimed',
                 entityId: recoveredClaimPublication,
                 occurredAt: start + 700,
                 payload: executionPayload(fixture, 'job-claim-recovered', 1, start),
             })
-            appendFact(journal, fixture, {
+            await appendFact(journal, fixture, {
                 id: 'history-claim-recovered-recovery',
                 name: 'publication.execution.claim_recovered',
                 entityId: recoveredClaimPublication,
@@ -748,7 +751,7 @@ describe('analytics store', () => {
                     toState: 'pending',
                 }),
             })
-            appendAutomaticOutcome(
+            await appendAutomaticOutcome(
                 'history-failed',
                 failedPublication,
                 'job-failed',
@@ -756,14 +759,14 @@ describe('analytics store', () => {
                 start + 900,
                 start + 1_000
             )
-            appendFact(journal, fixture, {
+            await appendFact(journal, fixture, {
                 id: 'history-cancelled-created',
                 name: 'publication.created',
                 entityId: cancelledPublication,
                 occurredAt: start,
                 payload: automaticMetadata,
             })
-            appendFact(journal, fixture, {
+            await appendFact(journal, fixture, {
                 id: 'history-cancelled',
                 name: 'publication.execution.cancelled',
                 entityId: cancelledPublication,
@@ -772,21 +775,21 @@ describe('analytics store', () => {
                     toState: 'cancelled',
                 }),
             })
-            appendFact(journal, fixture, {
+            await appendFact(journal, fixture, {
                 id: 'history-contradictory-success',
                 name: 'publication.execution.succeeded',
                 entityId: 'history-contradictory-publication',
                 occurredAt: start + 1_150,
                 payload: executionPayload(fixture, 'job-contradictory', 1, start),
             })
-            appendFact(journal, fixture, {
+            await appendFact(journal, fixture, {
                 id: 'history-contradictory-failure',
                 name: 'publication.execution.failed',
                 entityId: 'history-contradictory-publication',
                 occurredAt: start + 1_160,
                 payload: executionPayload(fixture, 'job-contradictory', 1, start),
             })
-            appendFact(journal, fixture, {
+            await appendFact(journal, fixture, {
                 id: 'history-unknown-version',
                 name: 'publication.created',
                 entityId: 'unknown-version-publication',
@@ -794,21 +797,21 @@ describe('analytics store', () => {
                 version: 2,
                 payload: automaticMetadata,
             })
-            appendFact(journal, fixture, {
+            await appendFact(journal, fixture, {
                 id: 'history-known-unsupported',
                 name: 'publication.analytics.unhandled',
                 entityId: unknownPublication,
                 occurredAt: start + 1_250,
                 payload: automaticMetadata,
             })
-            appendFact(journal, fixture, {
+            await appendFact(journal, fixture, {
                 id: 'history-missing-attempt',
                 name: 'publication.execution.effect_started',
                 entityId: unknownPublication,
                 occurredAt: start + 1_400,
                 payload: { deliveryMode: 'automatic', provider: 'analytics-provider' },
             })
-            appendFact(journal, fixture, {
+            await appendFact(journal, fixture, {
                 id: 'history-missing-dimension',
                 name: 'publication.created',
                 entityId: unknownPublication,
@@ -816,7 +819,7 @@ describe('analytics store', () => {
                 payload: { state: 'draft' },
             })
 
-            const analytics = createAnalyticsStore(fixture.database, {
+            const analytics = await createAnalyticsStore(fixture.database, {
                 now: () => observedAt,
             }).getProjectAnalytics({
                 projectId: fixture.project.project.id,
@@ -894,20 +897,20 @@ describe('analytics store', () => {
                 }),
             ])
         } finally {
-            closeDatabase(fixture.database)
+            await closeTestDatabase(fixture.database)
         }
     })
 
-    it('uses half-open bounded ranges and project-timezone DST buckets', () => {
+    it('uses half-open bounded ranges and project-timezone DST buckets', async () => {
         const observedAt = Date.UTC(2026, 2, 30)
-        const fixture = createFixture('Europe/Paris', observedAt - dayMs)
+        const fixture = await createFixture('Europe/Paris', observedAt - dayMs)
 
         try {
             const journal = createEventJournalStore(fixture.database)
             const from = Date.UTC(2026, 2, 28, 23, 30)
             const boundary = Date.UTC(2026, 2, 29, 1, 30)
             const afterBoundary = Date.UTC(2026, 2, 29, 22, 30)
-            appendFact(journal, fixture, {
+            await appendFact(journal, fixture, {
                 id: 'dst-inclusive',
                 name: 'publication.created',
                 entityId: 'dst-inclusive-publication',
@@ -919,7 +922,7 @@ describe('analytics store', () => {
                     state: 'draft',
                 },
             })
-            appendFact(journal, fixture, {
+            await appendFact(journal, fixture, {
                 id: 'dst-exclusive',
                 name: 'publication.created',
                 entityId: 'dst-exclusive-publication',
@@ -931,7 +934,7 @@ describe('analytics store', () => {
                     state: 'draft',
                 },
             })
-            appendFact(journal, fixture, {
+            await appendFact(journal, fixture, {
                 id: 'dst-next-day',
                 name: 'publication.created',
                 entityId: 'dst-next-day-publication',
@@ -947,7 +950,7 @@ describe('analytics store', () => {
             const analyticsStore = createAnalyticsStore(fixture.database, {
                 now: () => observedAt,
             })
-            const analytics = analyticsStore.getProjectAnalytics({
+            const analytics = await analyticsStore.getProjectAnalytics({
                 projectId: fixture.project.project.id,
                 subjectId: 'user-1',
                 from,
@@ -967,51 +970,55 @@ describe('analytics store', () => {
             })
             expect(bucket.bucketEndUtc - bucket.bucketStartUtc).toBe(23 * 60 * 60 * 1_000)
             expect(
-                analyticsStore.getProjectAnalytics({
-                    projectId: fixture.project.project.id,
-                    subjectId: 'user-1',
-                    from,
-                    to: boundary,
-                })?.historical.publications.created
+                (
+                    await analyticsStore.getProjectAnalytics({
+                        projectId: fixture.project.project.id,
+                        subjectId: 'user-1',
+                        from,
+                        to: boundary,
+                    })
+                )?.historical.publications.created
             ).toBe(1)
             expect(
-                analyticsStore.getProjectAnalytics({
-                    projectId: fixture.project.project.id,
-                    subjectId: 'user-1',
-                })?.range
+                (
+                    await analyticsStore.getProjectAnalytics({
+                        projectId: fixture.project.project.id,
+                        subjectId: 'user-1',
+                    })
+                )?.range
             ).toEqual({
                 from: observedAt - 30 * dayMs,
                 to: observedAt,
             })
-            expect(() =>
+            await expect(
                 analyticsStore.getProjectAnalytics({
                     projectId: fixture.project.project.id,
                     subjectId: 'user-1',
                     from: observedAt - 366 * dayMs - 1,
                     to: observedAt,
                 })
-            ).toThrow(DomainInvariantError)
-            expect(() =>
+            ).rejects.toThrow(DomainInvariantError)
+            await expect(
                 analyticsStore.getProjectAnalytics({
                     projectId: fixture.project.project.id,
                     subjectId: 'user-1',
                     from: observedAt,
                     to: observedAt + 1,
                 })
-            ).toThrow(DomainInvariantError)
+            ).rejects.toThrow(DomainInvariantError)
         } finally {
-            closeDatabase(fixture.database)
+            await closeTestDatabase(fixture.database)
         }
     })
 
-    it('authorizes before project reads and isolates project-scoped facts and filters', () => {
+    it('authorizes before project reads and isolates project-scoped facts and filters', async () => {
         const observedAt = Date.UTC(2026, 0, 2)
-        const first = createFixture('UTC', observedAt - dayMs, 'first')
-        const second = createFixture('UTC', observedAt - dayMs, 'second')
+        const first = await createFixture('UTC', observedAt - dayMs, 'first')
+        const second = await createFixture('UTC', observedAt - dayMs, 'second')
 
         try {
             const firstJournal = createEventJournalStore(first.database)
-            appendFact(firstJournal, first, {
+            await appendFact(firstJournal, first, {
                 id: 'first-project-fact',
                 name: 'publication.created',
                 entityId: 'first-publication',
@@ -1024,7 +1031,7 @@ describe('analytics store', () => {
                 },
             })
             const secondJournal = createEventJournalStore(second.database)
-            appendFact(secondJournal, second, {
+            await appendFact(secondJournal, second, {
                 id: 'second-project-fact',
                 name: 'publication.created',
                 entityId: 'second-publication',
@@ -1041,42 +1048,46 @@ describe('analytics store', () => {
                 now: () => observedAt,
             })
             expect(
-                firstAnalytics.getProjectAnalytics({
-                    projectId: first.project.project.id,
-                    subjectId: 'user-1',
-                    from: observedAt - dayMs,
-                    to: observedAt,
-                    provider: 'analytics-provider',
-                    channelId: first.automaticChannel.id,
-                })?.historical.publications.created
+                (
+                    await firstAnalytics.getProjectAnalytics({
+                        projectId: first.project.project.id,
+                        subjectId: 'user-1',
+                        from: observedAt - dayMs,
+                        to: observedAt,
+                        provider: 'analytics-provider',
+                        channelId: first.automaticChannel.id,
+                    })
+                )?.historical.publications.created
             ).toBe(1)
             expect(
-                firstAnalytics.getProjectAnalytics({
-                    projectId: first.project.project.id,
-                    subjectId: 'user-1',
-                    from: observedAt - dayMs,
-                    to: observedAt,
-                    channelId: second.automaticChannel.id,
-                })?.historical.publications.created
+                (
+                    await firstAnalytics.getProjectAnalytics({
+                        projectId: first.project.project.id,
+                        subjectId: 'user-1',
+                        from: observedAt - dayMs,
+                        to: observedAt,
+                        channelId: second.automaticChannel.id,
+                    })
+                )?.historical.publications.created
             ).toBe(0)
             expect(
-                firstAnalytics.getProjectAnalytics({
+                await firstAnalytics.getProjectAnalytics({
                     projectId: first.project.project.id,
                     subjectId: 'other-user',
                 })
             ).toBeNull()
         } finally {
-            closeDatabase(first.database)
-            closeDatabase(second.database)
+            await closeTestDatabase(first.database)
+            await closeTestDatabase(second.database)
         }
     })
 
-    it('returns an empty, typed response for an authorized project with no matching data', () => {
+    it('returns an empty, typed response for an authorized project with no matching data', async () => {
         const observedAt = Date.UTC(2026, 0, 2)
-        const fixture = createFixture('UTC', observedAt - dayMs)
+        const fixture = await createFixture('UTC', observedAt - dayMs)
 
         try {
-            const analytics = createAnalyticsStore(fixture.database, {
+            const analytics = await createAnalyticsStore(fixture.database, {
                 now: () => observedAt,
             }).getProjectAnalytics({
                 projectId: fixture.project.project.id,
@@ -1110,7 +1121,7 @@ describe('analytics store', () => {
             expect(analytics.historical.latency.effectDuration).toBeNull()
             expect(analytics.coverage.dataQuality.unknownEventVersions).toBe(0)
         } finally {
-            closeDatabase(fixture.database)
+            await closeTestDatabase(fixture.database)
         }
     })
 })

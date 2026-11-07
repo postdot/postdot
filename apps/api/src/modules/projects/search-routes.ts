@@ -1,4 +1,5 @@
 import type { AccessStore } from '@postdot/db'
+import { filterSequential } from '@postdot/db'
 import { Type, type Static } from 'typebox'
 
 import { errorResponse } from './models'
@@ -47,7 +48,7 @@ export function registerSearchRoutes<const Routes extends Record<string, unknown
                 tags: ['Search'],
             },
         },
-        ({ user, authMethod, query, status }) => {
+        async ({ user, authMethod, query, status }) => {
             if (authMethod !== 'session')
                 return status(403, {
                     error: {
@@ -56,20 +57,21 @@ export function registerSearchRoutes<const Routes extends Record<string, unknown
                     },
                 })
             const candidates = new Map(
-                manualStore.listProjects(user.id).map(project => [project.id, project])
+                (await manualStore.listProjects(user.id)).map(project => [project.id, project])
             )
-            for (const workspace of access.listWorkspacesForUser(user.id)) {
-                for (const project of manualStore.listProjectsForWorkspace(workspace.id))
+            for (const workspace of await access.listWorkspacesForUser(user.id)) {
+                for (const project of await manualStore.listProjectsForWorkspace(workspace.id))
                     candidates.set(project.id, project)
             }
-            const projectIds = [...candidates.values()]
-                .filter(
-                    project =>
-                        access.canAccessProject(project.id, user.id) &&
+            const projectIds = (
+                await filterSequential(
+                    [...candidates.values()],
+                    async project =>
+                        (await access.canAccessProject(project.id, user.id)) &&
                         (query.projectId === undefined || project.id === query.projectId)
                 )
-                .map(project => project.id)
-            return { results: manualStore.search(projectIds, query.q) }
+            ).map(project => project.id)
+            return { results: await manualStore.search(projectIds, query.q) }
         }
     )
 }

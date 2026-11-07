@@ -18,13 +18,14 @@ import {
 } from '@postdot/core'
 
 import { createChannelCadenceStore } from '../channel-cadence'
-import { createDatabaseTransaction, type PostdotDatabase } from '../client'
+import { defineTransaction, type DatabaseHandle } from '../client'
 import type {
     AddPostDestinationsInput,
     CreatePostInput,
     CreatedPost,
     SavePostSourceInput,
 } from '../manual-store'
+import { mapSequential } from '../sql/sequential'
 import {
     canonicalJson,
     contentHash,
@@ -68,33 +69,36 @@ export interface PublicationCreationStoreOptions {
     readonly now: () => number
     readonly createId: () => string
     readonly profileCompiler: ChannelProfileCompiler
-    readonly loadActor: (projectId: string, subjectId: string) => ActorRow | null
-    readonly loadChannel: (projectId: string, channelId: string) => PublicationChannelRow | null
-    readonly loadProfile: (projectId: string, profileId: string) => ProfileRow | null
+    readonly loadActor: (projectId: string, subjectId: string) => Promise<ActorRow | null>
+    readonly loadChannel: (
+        projectId: string,
+        channelId: string
+    ) => Promise<PublicationChannelRow | null>
+    readonly loadProfile: (projectId: string, profileId: string) => Promise<ProfileRow | null>
     readonly assessWorkingDraftMedia: (
         profile: ChannelProfileDefinition,
         content: unknown,
         projectId: string,
         subjectId: string
-    ) => readonly ValidationIssue[]
+    ) => Promise<readonly ValidationIssue[]>
     readonly resolveTargetMedia: (
         profile: ChannelProfileDefinition,
         content: Record<string, unknown>,
         projectId: string,
         subjectId: string
-    ) => readonly ResolvedTargetMedia[]
-    readonly insertJob: (input: JobInsert) => void
-    readonly insertAuditEvent: (input: AuditEventInsert) => void
+    ) => Promise<readonly ResolvedTargetMedia[]>
+    readonly insertJob: (input: JobInsert) => Promise<unknown>
+    readonly insertAuditEvent: (input: AuditEventInsert) => Promise<unknown>
 }
 
 export function createPublicationCreationStore(
-    database: PostdotDatabase,
+    database: DatabaseHandle,
     options: PublicationCreationStoreOptions
 ) {
     const cadence = createChannelCadenceStore(database)
-    const client = database.$client
+    const sql = database.sql
 
-    const loadProjectStatement = client.query<ProjectRow, [projectId: string]>(`
+    const loadProjectStatement = sql.statement<ProjectRow, [projectId: string]>(`
         select id,
                name,
                time_zone as timeZone,
@@ -104,14 +108,14 @@ export function createPublicationCreationStore(
         from projects
         where id = ?1
     `)
-    const loadPostStatement = client.query<PostRow, [string, string]>(`
+    const loadPostStatement = sql.statement<PostRow, [string, string]>(`
         select id, project_id as projectId, title, source_content as sourceContentJson,
                source_revision as sourceRevision, created_by_actor_id as createdByActorId,
                created_at as createdAt, updated_at as updatedAt
         from posts where project_id = ?1 and id = ?2
     `)
 
-    const insertPostStatement = client.query<
+    const insertPostStatement = sql.statement<
         void,
         [
             id: string,
@@ -134,7 +138,7 @@ export function createPublicationCreationStore(
             updated_at
         ) values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?7)
     `)
-    const insertPublicationStatement = client.query<
+    const insertPublicationStatement = sql.statement<
         void,
         [
             id: string,
@@ -175,7 +179,7 @@ export function createPublicationCreationStore(
         )
         values (?1, ?2, ?3, ?4, (select destination_revision from project_channel_contexts as channels where project_id = ?2 and id = ?4), ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?15)
     `)
-    const insertWorkingDraftStatement = client.query<
+    const insertWorkingDraftStatement = sql.statement<
         void,
         [
             id: string,
@@ -209,7 +213,7 @@ export function createPublicationCreationStore(
             updated_at
         ) values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, 1, ?11, ?12, ?12)
     `)
-    const insertTargetRevisionStatement = client.query<
+    const insertTargetRevisionStatement = sql.statement<
         void,
         [
             id: string,
@@ -247,7 +251,7 @@ export function createPublicationCreationStore(
             created_at
         ) values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)
     `)
-    const insertTargetRevisionMediaStatement = client.query<
+    const insertTargetRevisionMediaStatement = sql.statement<
         void,
         [
             id: string,
@@ -275,7 +279,7 @@ export function createPublicationCreationStore(
             created_at
         ) values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)
     `)
-    const loadProjectTagStatement = client.query<
+    const loadProjectTagStatement = sql.statement<
         { readonly id: string; readonly state: ProjectTag['state'] },
         [projectId: string, tagId: string]
     >(`
@@ -284,7 +288,7 @@ export function createPublicationCreationStore(
         where project_id = ?1
           and id = ?2
     `)
-    const insertPublicationTagStatement = client.query<
+    const insertPublicationTagStatement = sql.statement<
         void,
         [projectId: string, publicationId: string, tagId: string, createdAt: number]
     >(`
@@ -296,9 +300,9 @@ export function createPublicationCreationStore(
         ) values (?1, ?2, ?3, ?4)
     `)
 
-    const createPostTransaction = createDatabaseTransaction(
+    const createPostTransaction = defineTransaction(
         database,
-        (input: CreatePostInput, existingPost?: Post): CreatedPost | null => {
+        async (input: CreatePostInput, existingPost?: Post): Promise<CreatedPost | null> => {
             if (input.publications.length === 0) {
                 throw new DomainInvariantError(
                     'invalid_input',
@@ -306,8 +310,8 @@ export function createPublicationCreationStore(
                 )
             }
 
-            const actorRow = options.loadActor(input.projectId, input.subjectId)
-            const projectRow = loadProjectStatement.get(input.projectId)
+            const actorRow = await options.loadActor(input.projectId, input.subjectId)
+            const projectRow = await loadProjectStatement.get(input.projectId)
             if (actorRow === null || projectRow === null) return null
 
             const timestamp = requireTimestamp(options.now(), 'now')
@@ -324,134 +328,143 @@ export function createPublicationCreationStore(
                     now: timestamp,
                 })
 
-            const publicationEntries = input.publications.map(publicationInput => {
-                const channelRow = options.loadChannel(project.id, publicationInput.channelId)
-                if (channelRow === null) {
-                    throw new DomainInvariantError(
-                        'project_mismatch',
-                        `Channel ${publicationInput.channelId} does not belong to project`
+            const publicationEntries = await mapSequential(
+                input.publications,
+                async publicationInput => {
+                    const channelRow = await options.loadChannel(
+                        project.id,
+                        publicationInput.channelId
                     )
-                }
-                if (channelRow.state !== 'active') {
-                    throw new DomainInvariantError(
-                        'invalid_transition',
-                        `Cannot create a publication for an ${channelRow.state} channel`
-                    )
-                }
-
-                const tagIds =
-                    publicationInput.tagIds === undefined
-                        ? []
-                        : [
-                              ...new Set(
-                                  publicationInput.tagIds.map(tagId =>
-                                      requireNonBlank(tagId, 'tagId')
-                                  )
-                              ),
-                          ]
-                for (const tagId of tagIds) {
-                    const tag = loadProjectTagStatement.get(input.projectId, tagId)
-                    if (tag === null) {
+                    if (channelRow === null) {
                         throw new DomainInvariantError(
-                            'invalid_input',
-                            'Every publication tag must belong to the project'
+                            'project_mismatch',
+                            `Channel ${publicationInput.channelId} does not belong to project`
                         )
                     }
-                    if (tag.state === 'archived') {
+                    if (channelRow.state !== 'active') {
                         throw new DomainInvariantError(
                             'invalid_transition',
-                            'Archived tags cannot be newly assigned to a publication'
+                            `Cannot create a publication for an ${channelRow.state} channel`
                         )
                     }
-                }
 
-                const profileRow = options.loadProfile(project.id, channelRow.profileVersionId)
-                if (profileRow === null || profileRow.channelId !== channelRow.id) {
-                    throw new DomainInvariantError(
-                        'invalid_input',
-                        `Channel ${channelRow.id} has no available profile`
+                    const tagIds =
+                        publicationInput.tagIds === undefined
+                            ? []
+                            : [
+                                  ...new Set(
+                                      publicationInput.tagIds.map(tagId =>
+                                          requireNonBlank(tagId, 'tagId')
+                                      )
+                                  ),
+                              ]
+                    for (const tagId of tagIds) {
+                        const tag = await loadProjectTagStatement.get(input.projectId, tagId)
+                        if (tag === null) {
+                            throw new DomainInvariantError(
+                                'invalid_input',
+                                'Every publication tag must belong to the project'
+                            )
+                        }
+                        if (tag.state === 'archived') {
+                            throw new DomainInvariantError(
+                                'invalid_transition',
+                                'Archived tags cannot be newly assigned to a publication'
+                            )
+                        }
+                    }
+
+                    const profileRow = await options.loadProfile(
+                        project.id,
+                        channelRow.profileVersionId
                     )
-                }
-                const profileResult = options.profileCompiler.compile(
-                    parseProfile(profileRow.profileJson)
-                )
-                if (!profileResult.ok) throw invalidProfileError(profileResult.issues)
-                const profile = profileResult.value.profile
-                const targetContent =
-                    publicationInput.targetContent ??
-                    adaptSourceContentToProfile(post.sourceContent, profile)
-                if (!isRecord(targetContent)) {
-                    throw new DomainInvariantError(
-                        'invalid_content',
-                        'Publication target content must be a JSON object'
+                    if (profileRow === null || profileRow.channelId !== channelRow.id) {
+                        throw new DomainInvariantError(
+                            'invalid_input',
+                            `Channel ${channelRow.id} has no available profile`
+                        )
+                    }
+                    const profileResult = options.profileCompiler.compile(
+                        parseProfile(profileRow.profileJson)
                     )
+                    if (!profileResult.ok) throw invalidProfileError(profileResult.issues)
+                    const profile = profileResult.value.profile
+                    const targetContent =
+                        publicationInput.targetContent ??
+                        adaptSourceContentToProfile(post.sourceContent, profile)
+                    if (!isRecord(targetContent)) {
+                        throw new DomainInvariantError(
+                            'invalid_content',
+                            'Publication target content must be a JSON object'
+                        )
+                    }
+                    const validation = profileResult.value.validate(targetContent)
+                    const mediaIssues =
+                        publicationInput.scheduledAt == null
+                            ? await options.assessWorkingDraftMedia(
+                                  profile,
+                                  targetContent,
+                                  project.id,
+                                  input.subjectId
+                              )
+                            : []
+                    const validationIssues = [...validation.issues, ...mediaIssues]
+                    const reviewState: PublicationReviewState =
+                        validation.ok && mediaIssues.length === 0 ? 'compatible' : 'review_required'
+                    if (
+                        publicationInput.scheduledAt != null &&
+                        (!validation.ok || mediaIssues.length > 0)
+                    ) {
+                        throw invalidTargetContentError(validationIssues)
+                    }
+                    const targetMedia =
+                        publicationInput.scheduledAt == null
+                            ? []
+                            : await options.resolveTargetMedia(
+                                  profile,
+                                  targetContent,
+                                  project.id,
+                                  input.subjectId
+                              )
+                    const targetContentJson = canonicalJson(targetContent)
+                    const deliveryMode = publicationInput.deliveryMode ?? 'manual'
+                    if (deliveryMode === 'automatic' && profile.execution.kind === 'manual') {
+                        throw new DomainInvariantError(
+                            'invalid_input',
+                            `Channel ${channelRow.id} has no automatic execution contract`
+                        )
+                    }
+                    const targetRevisionId =
+                        publicationInput.scheduledAt == null ? null : options.createId()
+                    const publication = createPublication({
+                        id: options.createId(),
+                        project,
+                        post,
+                        channel: toChannel(channelRow),
+                        createdBy: actor,
+                        targetRevisionId,
+                        deliveryMode,
+                        reviewState,
+                        scheduledAt: publicationInput.scheduledAt,
+                        now: timestamp,
+                    })
+                    return {
+                        publication,
+                        profile,
+                        profileVersionId: channelRow.profileVersionId,
+                        targetContent,
+                        targetContentJson,
+                        targetMedia,
+                        validationIssues,
+                        tagIds,
+                        workingDraftId: options.createId(),
+                        targetRevisionId,
+                        publisher: channelRow.publisherId === null ? null : toPublisher(channelRow),
+                    }
                 }
-                const validation = profileResult.value.validate(targetContent)
-                const mediaIssues =
-                    publicationInput.scheduledAt == null
-                        ? options.assessWorkingDraftMedia(
-                              profile,
-                              targetContent,
-                              project.id,
-                              input.subjectId
-                          )
-                        : []
-                const validationIssues = [...validation.issues, ...mediaIssues]
-                const reviewState: PublicationReviewState =
-                    validation.ok && mediaIssues.length === 0 ? 'compatible' : 'review_required'
-                if (
-                    publicationInput.scheduledAt != null &&
-                    (!validation.ok || mediaIssues.length > 0)
-                ) {
-                    throw invalidTargetContentError(validationIssues)
-                }
-                const targetMedia =
-                    publicationInput.scheduledAt == null
-                        ? []
-                        : options.resolveTargetMedia(
-                              profile,
-                              targetContent,
-                              project.id,
-                              input.subjectId
-                          )
-                const targetContentJson = canonicalJson(targetContent)
-                const deliveryMode = publicationInput.deliveryMode ?? 'manual'
-                if (deliveryMode === 'automatic' && profile.execution.kind === 'manual') {
-                    throw new DomainInvariantError(
-                        'invalid_input',
-                        `Channel ${channelRow.id} has no automatic execution contract`
-                    )
-                }
-                const targetRevisionId =
-                    publicationInput.scheduledAt == null ? null : options.createId()
-                const publication = createPublication({
-                    id: options.createId(),
-                    project,
-                    post,
-                    channel: toChannel(channelRow),
-                    createdBy: actor,
-                    targetRevisionId,
-                    deliveryMode,
-                    reviewState,
-                    scheduledAt: publicationInput.scheduledAt,
-                    now: timestamp,
-                })
-                return {
-                    publication,
-                    profile,
-                    profileVersionId: channelRow.profileVersionId,
-                    targetContent,
-                    targetContentJson,
-                    targetMedia,
-                    validationIssues,
-                    tagIds,
-                    workingDraftId: options.createId(),
-                    targetRevisionId,
-                    publisher: channelRow.publisherId === null ? null : toPublisher(channelRow),
-                }
-            })
+            )
             const publications = publicationEntries.map(entry => entry.publication)
-            cadence.check({
+            await cadence.check({
                 projectId: input.projectId,
                 actorId: actor.id,
                 now: timestamp,
@@ -465,7 +478,7 @@ export function createPublicationCreationStore(
             })
 
             if (existingPost === undefined) {
-                insertPostStatement.run(
+                await insertPostStatement.run(
                     post.id,
                     project.id,
                     post.title,
@@ -474,7 +487,7 @@ export function createPublicationCreationStore(
                     actor.id,
                     timestamp
                 )
-                options.insertAuditEvent({
+                await options.insertAuditEvent({
                     id: options.createId(),
                     projectId: project.id,
                     actorId: actor.id,
@@ -488,7 +501,7 @@ export function createPublicationCreationStore(
 
             for (const entry of publicationEntries) {
                 const { publication } = entry
-                insertPublicationStatement.run(
+                await insertPublicationStatement.run(
                     publication.id,
                     project.id,
                     post.id,
@@ -505,7 +518,7 @@ export function createPublicationCreationStore(
                     JSON.stringify(entry.validationIssues),
                     timestamp
                 )
-                insertWorkingDraftStatement.run(
+                await insertWorkingDraftStatement.run(
                     entry.workingDraftId,
                     project.id,
                     publication.id,
@@ -520,7 +533,7 @@ export function createPublicationCreationStore(
                     timestamp
                 )
                 if (entry.targetRevisionId !== null) {
-                    insertTargetRevisionStatement.run(
+                    await insertTargetRevisionStatement.run(
                         entry.targetRevisionId,
                         project.id,
                         publication.id,
@@ -538,7 +551,7 @@ export function createPublicationCreationStore(
                         timestamp
                     )
                     for (const [position, targetMedia] of entry.targetMedia.entries()) {
-                        insertTargetRevisionMediaStatement.run(
+                        await insertTargetRevisionMediaStatement.run(
                             options.createId(),
                             project.id,
                             entry.targetRevisionId,
@@ -553,9 +566,14 @@ export function createPublicationCreationStore(
                     }
                 }
                 for (const tagId of entry.tagIds) {
-                    insertPublicationTagStatement.run(project.id, publication.id, tagId, timestamp)
+                    await insertPublicationTagStatement.run(
+                        project.id,
+                        publication.id,
+                        tagId,
+                        timestamp
+                    )
                 }
-                options.insertAuditEvent({
+                await options.insertAuditEvent({
                     id: options.createId(),
                     projectId: project.id,
                     actorId: actor.id,
@@ -588,7 +606,7 @@ export function createPublicationCreationStore(
                         runAt: publication.scheduledAt,
                         now: timestamp,
                     })
-                    options.insertJob({
+                    await options.insertJob({
                         id: job.id,
                         projectId: job.projectId,
                         publicationId: job.publicationId,
@@ -603,75 +621,80 @@ export function createPublicationCreationStore(
     )
 
     return {
-        getPost(projectId: string, postId: string, subjectId: string): Post | null {
-            if (options.loadActor(projectId, subjectId) === null) return null
-            const row = loadPostStatement.get(projectId, postId)
-            return row === null ? null : toPost(row)
+        async getPost(projectId: string, postId: string, subjectId: string): Promise<Post | null> {
+            return database.sql.transaction(async () => {
+                if ((await options.loadActor(projectId, subjectId)) === null) return null
+                const row = await loadPostStatement.get(projectId, postId)
+                return row === null ? null : toPost(row)
+            }, 'deferred')
         },
-        savePostSource(input: SavePostSourceInput): Post | null {
-            return createDatabaseTransaction(database, () => {
-                const actor = options.loadActor(input.projectId, input.subjectId)
-                const row = loadPostStatement.get(input.projectId, input.postId)
-                if (actor === null || row === null) return null
-                if (row.sourceRevision !== input.expectedSourceRevision) {
-                    throw new DomainInvariantError(
-                        'write_conflict',
-                        'The source post changed before it could be saved'
-                    )
-                }
-                const validation = validateSourceContent(input.sourceContent)
-                if (!validation.ok) throw invalidSourceContentError(validation.issues)
-                for (const media of validation.value.media) {
-                    const asset = client
-                        .query(
-                            'select id from media_assets where project_id = ?1 and id = ?2 and state = ?3 and deleted_at is null and deletion_requested_at is null'
-                        )
-                        .get(input.projectId, media.assetId, 'ready')
-                    if (asset === null)
+        async savePostSource(input: SavePostSourceInput): Promise<Post | null> {
+            return database.sql.transaction(async () => {
+                return defineTransaction(database, async () => {
+                    const actor = await options.loadActor(input.projectId, input.subjectId)
+                    const row = await loadPostStatement.get(input.projectId, input.postId)
+                    if (actor === null || row === null) return null
+                    if (row.sourceRevision !== input.expectedSourceRevision) {
                         throw new DomainInvariantError(
-                            'invalid_content',
-                            'Source media must be available in this project'
+                            'write_conflict',
+                            'The source post changed before it could be saved'
                         )
-                }
-                const content = canonicalJson(validation.value)
-                if (content === canonicalJson(toPost(row).sourceContent)) return toPost(row)
-                const timestamp = requireTimestamp(options.now(), 'now')
-                const result = client
-                    .query(
-                        `update posts set source_content = ?1, source_revision = source_revision + 1, updated_at = ?2 where project_id = ?3 and id = ?4 and source_revision = ?5`
-                    )
-                    .run(
-                        content,
-                        timestamp,
-                        input.projectId,
-                        input.postId,
-                        input.expectedSourceRevision
-                    )
-                if (result.changes !== 1)
-                    throw new DomainInvariantError(
-                        'write_conflict',
-                        'The source post changed before it could be saved'
-                    )
-                options.insertAuditEvent({
-                    id: options.createId(),
-                    projectId: input.projectId,
-                    actorId: actor.id,
-                    action: 'post.source.updated',
-                    entityType: 'post',
-                    entityId: input.postId,
-                    metadataJson: JSON.stringify({
-                        fromSourceRevision: row.sourceRevision,
-                        toSourceRevision: row.sourceRevision + 1,
-                    }),
-                    createdAt: timestamp,
-                })
-                return toPost(loadPostStatement.get(input.projectId, input.postId)!)
-            }).immediate()
+                    }
+                    const validation = validateSourceContent(input.sourceContent)
+                    if (!validation.ok) throw invalidSourceContentError(validation.issues)
+                    for (const media of validation.value.media) {
+                        const asset = await sql
+                            .statement(
+                                'select id from media_assets where project_id = ?1 and id = ?2 and state = ?3 and deleted_at is null and deletion_requested_at is null'
+                            )
+                            .get(input.projectId, media.assetId, 'ready')
+                        if (asset === null)
+                            throw new DomainInvariantError(
+                                'invalid_content',
+                                'Source media must be available in this project'
+                            )
+                    }
+                    const content = canonicalJson(validation.value)
+                    if (content === canonicalJson(toPost(row).sourceContent)) return toPost(row)
+                    const timestamp = requireTimestamp(options.now(), 'now')
+                    const result = await sql
+                        .statement(
+                            `update posts set source_content = ?1, source_revision = source_revision + 1, updated_at = ?2 where project_id = ?3 and id = ?4 and source_revision = ?5`
+                        )
+                        .run(
+                            content,
+                            timestamp,
+                            input.projectId,
+                            input.postId,
+                            input.expectedSourceRevision
+                        )
+                    if (result.changes !== 1)
+                        throw new DomainInvariantError(
+                            'write_conflict',
+                            'The source post changed before it could be saved'
+                        )
+                    await options.insertAuditEvent({
+                        id: options.createId(),
+                        projectId: input.projectId,
+                        actorId: actor.id,
+                        action: 'post.source.updated',
+                        entityType: 'post',
+                        entityId: input.postId,
+                        metadataJson: JSON.stringify({
+                            fromSourceRevision: row.sourceRevision,
+                            toSourceRevision: row.sourceRevision + 1,
+                        }),
+                        createdAt: timestamp,
+                    })
+                    return toPost((await loadPostStatement.get(input.projectId, input.postId))!)
+                }).immediate()
+            }, 'immediate')
         },
-        addPostDestinations(input: AddPostDestinationsInput): CreatedPost | null {
-            return createDatabaseTransaction(database, () => {
-                if (options.loadActor(input.projectId, input.subjectId) === null) return null
-                const row = loadPostStatement.get(input.projectId, input.postId)
+        async addPostDestinations(input: AddPostDestinationsInput): Promise<CreatedPost | null> {
+            return defineTransaction(database, async () => {
+                if ((await options.loadActor(input.projectId, input.subjectId)) === null)
+                    return null
+                const row = await loadPostStatement.get(input.projectId, input.postId)
                 if (row === null) return null
                 if (row.sourceRevision !== input.expectedSourceRevision) {
                     throw new DomainInvariantError(
@@ -680,12 +703,13 @@ export function createPublicationCreationStore(
                     )
                 }
                 const existingChannels = new Set(
-                    client
-                        .query<{ channelId: string }, [string, string]>(
-                            'select channel_id as channelId from publications where project_id = ?1 and post_id = ?2'
-                        )
-                        .all(input.projectId, input.postId)
-                        .map(item => item.channelId)
+                    (
+                        await sql
+                            .statement<{ channelId: string }, [string, string]>(
+                                'select channel_id as channelId from publications where project_id = ?1 and post_id = ?2'
+                            )
+                            .all(input.projectId, input.postId)
+                    ).map(item => item.channelId)
                 )
                 const newChannels = new Set<string>()
                 for (const item of input.publications) {
@@ -718,10 +742,13 @@ export function createPublicationCreationStore(
             }).immediate()
         },
         /** Internal same-post creation; callers own source/profile concurrency and authorization. */
-        createPublicationsForPost(input: CreatePostInput, post: Post): CreatedPost | null {
+        async createPublicationsForPost(
+            input: CreatePostInput,
+            post: Post
+        ): Promise<CreatedPost | null> {
             return createPostTransaction.immediate(input, post)
         },
-        createPost(input: CreatePostInput): CreatedPost | null {
+        async createPost(input: CreatePostInput): Promise<CreatedPost | null> {
             return createPostTransaction.immediate({
                 ...input,
                 projectId: requireNonBlank(input.projectId, 'projectId'),

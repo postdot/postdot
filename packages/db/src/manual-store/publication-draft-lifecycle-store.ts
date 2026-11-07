@@ -1,6 +1,6 @@
 import { DomainInvariantError, requireNonBlank, type Publication } from '@postdot/core'
 
-import { createDatabaseTransaction, type PostdotDatabase } from '../client'
+import { defineTransaction, type DatabaseHandle } from '../client'
 import type { CreatePostInput, CreatedPost, PublicationEditorState } from '../manual-store'
 import { toActor } from './mappers'
 import type { ActorRow, PublicationRow } from './rows'
@@ -19,15 +19,18 @@ interface AuditEventInsert {
 export interface PublicationDraftLifecycleStoreOptions {
     readonly now: () => number
     readonly createId: () => string
-    readonly loadActor: (projectId: string, subjectId: string) => ActorRow | null
-    readonly loadPublication: (projectId: string, publicationId: string) => PublicationRow | null
+    readonly loadActor: (projectId: string, subjectId: string) => Promise<ActorRow | null>
+    readonly loadPublication: (
+        projectId: string,
+        publicationId: string
+    ) => Promise<PublicationRow | null>
     readonly getPublicationEditorState: (
         projectId: string,
         publicationId: string,
         subjectId: string
-    ) => PublicationEditorState | null
-    readonly createPost: (input: CreatePostInput) => CreatedPost | null
-    readonly insertAuditEvent: (input: AuditEventInsert) => void
+    ) => Promise<PublicationEditorState | null>
+    readonly createPost: (input: CreatePostInput) => Promise<CreatedPost | null>
+    readonly insertAuditEvent: (input: AuditEventInsert) => Promise<unknown>
 }
 
 export interface DeleteDraftPublicationInput {
@@ -60,11 +63,11 @@ export type DuplicateDraftPublicationResult =
     | { readonly kind: 'not_draft' }
 
 export function createPublicationDraftLifecycleStore(
-    database: PostdotDatabase,
+    database: DatabaseHandle,
     options: PublicationDraftLifecycleStoreOptions
 ) {
-    const client = database.$client
-    const deletePublicationStatement = client.query<
+    const sql = database.sql
+    const deletePublicationStatement = sql.statement<
         { changes: number },
         [projectId: string, publicationId: string]
     >(`
@@ -73,7 +76,7 @@ export function createPublicationDraftLifecycleStore(
           and id = ?2
           and state = 'draft'
     `)
-    const countPostPublicationsStatement = client.query<
+    const countPostPublicationsStatement = sql.statement<
         { count: number },
         [projectId: string, postId: string]
     >(`
@@ -82,7 +85,7 @@ export function createPublicationDraftLifecycleStore(
         where project_id = ?1
           and post_id = ?2
     `)
-    const deletePostStatement = client.query<
+    const deletePostStatement = sql.statement<
         { changes: number },
         [projectId: string, postId: string]
     >(`
@@ -90,7 +93,7 @@ export function createPublicationDraftLifecycleStore(
         where project_id = ?1
           and id = ?2
     `)
-    const listActivePublicationTagIdsStatement = client.query<
+    const listActivePublicationTagIdsStatement = sql.statement<
         { readonly tagId: string },
         [projectId: string, publicationId: string]
     >(`
@@ -105,17 +108,20 @@ export function createPublicationDraftLifecycleStore(
         order by tags.normalized_name, tags.id
     `)
 
-    const deleteDraftPublicationTransaction = createDatabaseTransaction(
+    const deleteDraftPublicationTransaction = defineTransaction(
         database,
-        (input: DeleteDraftPublicationInput): DeleteDraftPublicationResult => {
-            const actorRow = options.loadActor(input.projectId, input.subjectId)
+        async (input: DeleteDraftPublicationInput): Promise<DeleteDraftPublicationResult> => {
+            const actorRow = await options.loadActor(input.projectId, input.subjectId)
             if (actorRow === null) return { kind: 'not_found' }
 
-            const currentRow = options.loadPublication(input.projectId, input.publicationId)
+            const currentRow = await options.loadPublication(input.projectId, input.publicationId)
             if (currentRow === null) return { kind: 'not_found' }
             if (currentRow.state !== 'draft') return { kind: 'not_draft' }
 
-            const deleted = deletePublicationStatement.run(input.projectId, input.publicationId)
+            const deleted = await deletePublicationStatement.run(
+                input.projectId,
+                input.publicationId
+            )
             if (deleted.changes < 1) {
                 throw new DomainInvariantError(
                     'claim_mismatch',
@@ -123,7 +129,10 @@ export function createPublicationDraftLifecycleStore(
                 )
             }
 
-            const remaining = countPostPublicationsStatement.get(input.projectId, currentRow.postId)
+            const remaining = await countPostPublicationsStatement.get(
+                input.projectId,
+                currentRow.postId
+            )
             if (remaining === null) {
                 throw new DomainInvariantError(
                     'claim_mismatch',
@@ -132,7 +141,10 @@ export function createPublicationDraftLifecycleStore(
             }
             const postDeleted = remaining.count === 0
             if (postDeleted) {
-                const deletedPost = deletePostStatement.run(input.projectId, currentRow.postId)
+                const deletedPost = await deletePostStatement.run(
+                    input.projectId,
+                    currentRow.postId
+                )
                 if (deletedPost.changes < 1) {
                     throw new DomainInvariantError(
                         'claim_mismatch',
@@ -143,7 +155,7 @@ export function createPublicationDraftLifecycleStore(
 
             const actor = toActor(actorRow)
             const timestamp = options.now()
-            options.insertAuditEvent({
+            await options.insertAuditEvent({
                 id: options.createId(),
                 projectId: input.projectId,
                 actorId: actor.id,
@@ -162,7 +174,9 @@ export function createPublicationDraftLifecycleStore(
     )
 
     return {
-        deleteDraftPublication(input: DeleteDraftPublicationInput): DeleteDraftPublicationResult {
+        async deleteDraftPublication(
+            input: DeleteDraftPublicationInput
+        ): Promise<DeleteDraftPublicationResult> {
             return deleteDraftPublicationTransaction.immediate({
                 ...input,
                 projectId: requireNonBlank(input.projectId, 'projectId'),
@@ -171,45 +185,51 @@ export function createPublicationDraftLifecycleStore(
             })
         },
 
-        duplicateDraftPublication(
+        async duplicateDraftPublication(
             input: DuplicateDraftPublicationInput
-        ): DuplicateDraftPublicationResult {
-            const projectId = requireNonBlank(input.projectId, 'projectId')
-            const publicationId = requireNonBlank(input.publicationId, 'publicationId')
-            const subjectId = requireNonBlank(input.subjectId, 'subjectId')
-            const editor = options.getPublicationEditorState(projectId, publicationId, subjectId)
-            if (editor === null) return { kind: 'not_found' }
-            if (editor.publication.state !== 'draft') return { kind: 'not_draft' }
-            const tagIds = listActivePublicationTagIdsStatement
-                .all(projectId, publicationId)
-                .map(tag => tag.tagId)
-
-            const created = options.createPost({
-                projectId,
-                subjectId,
-                title: editor.post.title,
-                sourceContent: editor.post.sourceContent,
-                publications: [
-                    {
-                        channelId: editor.publication.channelId,
-                        targetContent: editor.draft.content,
-                        deliveryMode: editor.publication.deliveryMode,
-                        scheduledAt: null,
-                        tagIds,
-                    },
-                ],
-            })
-            if (created === null) return { kind: 'not_found' }
-
-            const publication = created.publications[0]
-            if (publication === undefined) {
-                throw new DomainInvariantError(
-                    'claim_mismatch',
-                    `Duplicated post ${created.post.id} has no publication`
+        ): Promise<DuplicateDraftPublicationResult> {
+            return database.sql.transaction(async () => {
+                const projectId = requireNonBlank(input.projectId, 'projectId')
+                const publicationId = requireNonBlank(input.publicationId, 'publicationId')
+                const subjectId = requireNonBlank(input.subjectId, 'subjectId')
+                const editor = await options.getPublicationEditorState(
+                    projectId,
+                    publicationId,
+                    subjectId
                 )
-            }
+                if (editor === null) return { kind: 'not_found' }
+                if (editor.publication.state !== 'draft') return { kind: 'not_draft' }
+                const tagIds = (
+                    await listActivePublicationTagIdsStatement.all(projectId, publicationId)
+                ).map(tag => tag.tagId)
 
-            return { kind: 'duplicated', post: created.post, publication }
+                const created = await options.createPost({
+                    projectId,
+                    subjectId,
+                    title: editor.post.title,
+                    sourceContent: editor.post.sourceContent,
+                    publications: [
+                        {
+                            channelId: editor.publication.channelId,
+                            targetContent: editor.draft.content,
+                            deliveryMode: editor.publication.deliveryMode,
+                            scheduledAt: null,
+                            tagIds,
+                        },
+                    ],
+                })
+                if (created === null) return { kind: 'not_found' }
+
+                const publication = created.publications[0]
+                if (publication === undefined) {
+                    throw new DomainInvariantError(
+                        'claim_mismatch',
+                        `Duplicated post ${created.post.id} has no publication`
+                    )
+                }
+
+                return { kind: 'duplicated', post: created.post, publication }
+            }, 'immediate')
         },
     }
 }

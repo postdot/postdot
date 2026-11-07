@@ -332,20 +332,20 @@ export function registerMediaRoutes<const Routes extends Record<string, unknown>
                     tags: ['Media'],
                 },
             },
-            ({ authMethod, body, params, status, user }) => {
+            async ({ authMethod, body, params, status, user }) => {
                 if (media === undefined) return status(503, mediaUnavailableError())
                 if (
-                    !canAccessProjectRole({
+                    !(await canAccessProjectRole({
                         access,
                         authMethod,
                         minimumRole: 'editor',
                         projectId: params.projectId,
                         userId: user.id,
-                    })
+                    }))
                 ) {
                     return status(403, forbiddenProjectMutation())
                 }
-                const reservation = media.reserveUpload({
+                const reservation = await media.reserveUpload({
                     projectId: params.projectId,
                     subjectId: user.id,
                     originalFilename: body.originalFilename,
@@ -384,13 +384,13 @@ export function registerMediaRoutes<const Routes extends Record<string, unknown>
             async ({ authMethod, params, request, status, user }) => {
                 if (media === undefined) return status(503, mediaUnavailableError())
                 if (
-                    !canAccessProjectRole({
+                    !(await canAccessProjectRole({
                         access,
                         authMethod,
                         minimumRole: 'editor',
                         projectId: params.projectId,
                         userId: user.id,
-                    })
+                    }))
                 ) {
                     return status(403, forbiddenProjectMutation())
                 }
@@ -457,13 +457,13 @@ export function registerMediaRoutes<const Routes extends Record<string, unknown>
             async ({ authMethod, params, status, user }) => {
                 if (media === undefined) return status(503, mediaUnavailableError())
                 if (
-                    !canAccessProjectRole({
+                    !(await canAccessProjectRole({
                         access,
                         authMethod,
                         minimumRole: 'editor',
                         projectId: params.projectId,
                         userId: user.id,
-                    })
+                    }))
                 ) {
                     return status(403, forbiddenProjectMutation())
                 }
@@ -521,13 +521,13 @@ export function registerMediaRoutes<const Routes extends Record<string, unknown>
                     })
                 }
                 if (
-                    !canAccessProjectRole({
+                    !(await canAccessProjectRole({
                         access,
                         authMethod,
                         minimumRole: 'editor',
                         projectId: params.projectId,
                         userId: user.id,
-                    })
+                    }))
                 ) {
                     return status(403, forbiddenProjectMutation())
                 }
@@ -586,9 +586,9 @@ export function registerMediaRoutes<const Routes extends Record<string, unknown>
                     tags: ['Media'],
                 },
             },
-            ({ params, status, user }) => {
+            async ({ params, status, user }) => {
                 if (media === undefined) return status(503, mediaUnavailableError())
-                const policy = media.getUploadPolicy(params.projectId, user.id)
+                const policy = await media.getUploadPolicy(params.projectId, user.id)
                 if (policy === null) {
                     return status(404, {
                         error: { code: 'not_found', message: 'Project not found' },
@@ -618,9 +618,9 @@ export function registerMediaRoutes<const Routes extends Record<string, unknown>
                     tags: ['Media'],
                 },
             },
-            ({ params, status, user }) => {
+            async ({ params, status, user }) => {
                 if (media === undefined) return status(503, mediaUnavailableError())
-                if (media.getUploadPolicy(params.projectId, user.id) === null) {
+                if ((await media.getUploadPolicy(params.projectId, user.id)) === null) {
                     return status(404, {
                         error: { code: 'not_found', message: 'Project not found' },
                     })
@@ -653,9 +653,9 @@ export function registerMediaRoutes<const Routes extends Record<string, unknown>
                     tags: ['Media'],
                 },
             },
-            ({ params, query, status, user }) => {
+            async ({ params, query, status, user }) => {
                 if (media === undefined) return status(503, mediaUnavailableError())
-                const page = media.listAssetsPage({
+                const page = await media.listAssetsPage({
                     projectId: params.projectId,
                     subjectId: user.id,
                     view: query.view,
@@ -699,9 +699,9 @@ export function registerMediaRoutes<const Routes extends Record<string, unknown>
                     tags: ['Media'],
                 },
             },
-            ({ params, status, user }) => {
+            async ({ params, status, user }) => {
                 if (media === undefined) return status(503, mediaUnavailableError())
-                const usage = media.getAssetUsage(params.projectId, params.assetId, user.id)
+                const usage = await media.getAssetUsage(params.projectId, params.assetId, user.id)
                 if (usage === null) {
                     return status(404, {
                         error: { code: 'not_found', message: 'Media asset not found' },
@@ -777,7 +777,7 @@ export function registerMediaRoutes<const Routes extends Record<string, unknown>
                 if (media === undefined) return status(503, mediaUnavailableError())
                 const rangeHeader = request.headers.get('range')
                 const reference = rangeHeader
-                    ? media.getAsset(params.projectId, params.assetId, user.id)
+                    ? await media.getAsset(params.projectId, params.assetId, user.id)
                     : null
                 const representation =
                     reference?.representations.find(
@@ -858,9 +858,9 @@ export function registerMediaRoutes<const Routes extends Record<string, unknown>
                     tags: ['Media'],
                 },
             },
-            ({ params, status, user }) => {
+            async ({ params, status, user }) => {
                 if (media === undefined) return status(503, mediaUnavailableError())
-                const mediaAsset = media.getAsset(params.projectId, params.assetId, user.id)
+                const mediaAsset = await media.getAsset(params.projectId, params.assetId, user.id)
                 if (mediaAsset === null) {
                     return status(404, {
                         error: { code: 'not_found', message: 'Media asset not found' },
@@ -887,23 +887,23 @@ export function registerMediaRoutes<const Routes extends Record<string, unknown>
                     tags: ['Media'],
                 },
             },
-            ({ authMethod, body, params, status, user }) => {
+            async ({ authMethod, body, params, status, user }) => {
                 if (media === undefined) return status(503, mediaUnavailableError())
                 if (
-                    !canAccessProjectRole({
+                    !(await canAccessProjectRole({
                         access,
                         authMethod,
                         minimumRole: 'editor',
                         projectId: params.projectId,
                         userId: user.id,
-                    })
+                    }))
                 ) {
                     return status(403, forbiddenProjectMutation())
                 }
 
                 const deletions: MediaDeletionBatchResponse['deletions'] = []
                 for (const assetId of new Set(body.assetIds)) {
-                    const result = media.requestDeletion(params.projectId, assetId, user.id)
+                    const result = await media.requestDeletion(params.projectId, assetId, user.id)
                     deletions.push({
                         assetId,
                         status: result.kind === 'requested' ? 'deletion_requested' : result.kind,
@@ -932,20 +932,24 @@ export function registerMediaRoutes<const Routes extends Record<string, unknown>
                     tags: ['Media'],
                 },
             },
-            ({ authMethod, params, status, user }) => {
+            async ({ authMethod, params, status, user }) => {
                 if (media === undefined) return status(503, mediaUnavailableError())
                 if (
-                    !canAccessProjectRole({
+                    !(await canAccessProjectRole({
                         access,
                         authMethod,
                         minimumRole: 'editor',
                         projectId: params.projectId,
                         userId: user.id,
-                    })
+                    }))
                 ) {
                     return status(403, forbiddenProjectMutation())
                 }
-                const result = media.requestDeletion(params.projectId, params.assetId, user.id)
+                const result = await media.requestDeletion(
+                    params.projectId,
+                    params.assetId,
+                    user.id
+                )
                 if (result.kind === 'not_found') {
                     return status(404, {
                         error: { code: 'not_found', message: 'Media asset not found' },
@@ -989,13 +993,13 @@ export function registerMediaRoutes<const Routes extends Record<string, unknown>
             async ({ authMethod, params, status, user }) => {
                 if (media === undefined) return status(503, mediaUnavailableError())
                 if (
-                    !canAccessProjectRole({
+                    !(await canAccessProjectRole({
                         access,
                         authMethod,
                         minimumRole: 'editor',
                         projectId: params.projectId,
                         userId: user.id,
-                    })
+                    }))
                 ) {
                     return status(403, forbiddenProjectMutation())
                 }
@@ -1050,21 +1054,25 @@ export function registerMediaRoutes<const Routes extends Record<string, unknown>
                     tags: ['Media'],
                 },
             },
-            ({ authMethod, params, status, user }) => {
+            async ({ authMethod, params, status, user }) => {
                 if (media === undefined) return status(503, mediaUnavailableError())
                 if (
-                    !canAccessProjectRole({
+                    !(await canAccessProjectRole({
                         access,
                         authMethod,
                         minimumRole: 'editor',
                         projectId: params.projectId,
                         userId: user.id,
-                    })
+                    }))
                 ) {
                     return status(403, forbiddenProjectMutation())
                 }
 
-                const result = media.restoreDeletion(params.projectId, params.assetId, user.id)
+                const result = await media.restoreDeletion(
+                    params.projectId,
+                    params.assetId,
+                    user.id
+                )
                 if (result.kind === 'not_found') {
                     return status(404, {
                         error: { code: 'not_found', message: 'Media asset not found in the trash' },
@@ -1103,9 +1111,9 @@ function mediaUnavailableError() {
     } as const
 }
 
-type MediaReservation = NonNullable<ReturnType<MediaAssetStore['reserveUpload']>>
-type MediaReference = NonNullable<ReturnType<MediaAssetStore['getAsset']>>
-type MediaAssetUsage = NonNullable<ReturnType<MediaAssetStore['getAssetUsage']>>
+type MediaReservation = NonNullable<Awaited<ReturnType<MediaAssetStore['reserveUpload']>>>
+type MediaReference = NonNullable<Awaited<ReturnType<MediaAssetStore['getAsset']>>>
+type MediaAssetUsage = NonNullable<Awaited<ReturnType<MediaAssetStore['getAssetUsage']>>>
 
 function toMediaUsageResponse(usage: MediaAssetUsage): MediaAssetUsageResponse {
     return {

@@ -13,7 +13,7 @@ import {
     type ValidationIssue,
 } from '@postdot/core'
 
-import { createDatabaseTransaction, type PostdotDatabase } from '../client'
+import { defineTransaction, type DatabaseHandle } from '../client'
 import type {
     ActivateChannelProfileInput,
     ChannelProfileActivationResult,
@@ -76,9 +76,12 @@ export interface ChannelProfileStoreOptions {
     readonly now: () => number
     readonly createId: () => string
     readonly profileCompiler: ChannelProfileCompiler
-    readonly loadActor: (projectId: string, subjectId: string) => ActorRow | null
-    readonly loadChannel: (projectId: string, channelId: string) => PublicationChannelRow | null
-    readonly loadProfile: (projectId: string, profileId: string) => ProfileRow | null
+    readonly loadActor: (projectId: string, subjectId: string) => Promise<ActorRow | null>
+    readonly loadChannel: (
+        projectId: string,
+        channelId: string
+    ) => Promise<PublicationChannelRow | null>
+    readonly loadProfile: (projectId: string, profileId: string) => Promise<ProfileRow | null>
     readonly parseProfile: (value: string) => ChannelProfileDefinition
     readonly toProfileVersion: (row: ProfileRow) => ChannelProfileVersion
     readonly validateWorkingDraftMedia: (
@@ -86,27 +89,31 @@ export interface ChannelProfileStoreOptions {
         content: unknown,
         projectId: string,
         subjectId: string
-    ) => readonly ValidationIssue[]
+    ) => Promise<readonly ValidationIssue[]>
     readonly validatePinnedTargetMedia: (
         profile: ChannelProfileDefinition,
         content: unknown,
         projectId: string,
         subjectId: string,
         pinnedMedia: readonly TargetRevisionMediaRow[]
-    ) => readonly ValidationIssue[]
-    readonly updateWorkingDraftAssessment: (input: WorkingDraftAssessmentUpdate) => boolean
-    readonly updatePublicationAssessment: (input: PublicationAssessmentUpdate) => boolean
-    readonly loadActiveJob: (projectId: string, publicationId: string) => ActiveJob | null
-    readonly cancelPendingJob: (projectId: string, jobId: string, completedAt: number) => boolean
-    readonly ensureAutomaticJob: (input: AutomaticJobReconciliation) => void
-    readonly insertAuditEvent: (input: AuditEventInput) => void
+    ) => Promise<readonly ValidationIssue[]>
+    readonly updateWorkingDraftAssessment: (input: WorkingDraftAssessmentUpdate) => Promise<boolean>
+    readonly updatePublicationAssessment: (input: PublicationAssessmentUpdate) => Promise<boolean>
+    readonly loadActiveJob: (projectId: string, publicationId: string) => Promise<ActiveJob | null>
+    readonly cancelPendingJob: (
+        projectId: string,
+        jobId: string,
+        completedAt: number
+    ) => Promise<boolean>
+    readonly ensureAutomaticJob: (input: AutomaticJobReconciliation) => Promise<unknown>
+    readonly insertAuditEvent: (input: AuditEventInput) => Promise<unknown>
 }
 
 export function createChannelProfileStore(
-    database: PostdotDatabase,
+    database: DatabaseHandle,
     options: ChannelProfileStoreOptions
 ) {
-    const client = database.$client
+    const sql = database.sql
     const profileReadStore = createChannelProfileReadStore(database, {
         loadActor: options.loadActor,
         loadChannel: options.loadChannel,
@@ -118,25 +125,25 @@ export function createChannelProfileStore(
     })
     const loadDraftProfile = profileReadStore.loadDraftProfile
     const assessChannelProfileImpact = profileReadStore.assessChannelProfileImpact
-    const activeAttachmentStatement = client.query<{ found: number }, [string, string]>(
+    const activeAttachmentStatement = sql.statement<{ found: number }, [string, string]>(
         `select 1 as found from project_channel_attachments where project_id = ?1 and channel_id = ?2 and state = 'active'`
     )
-    const projectWorkspaceStatement = client.query<{ workspaceId: string | null }, [string]>(
+    const projectWorkspaceStatement = sql.statement<{ workspaceId: string | null }, [string]>(
         'select workspace_id as workspaceId from projects where id = ?1'
     )
     const workspaceActors = createWorkspaceActorStore(database, {
         now: options.now,
         createId: options.createId,
     })
-    const workspaceActorId = (projectId: string, projectActorId: string) => {
-        const workspaceId = projectWorkspaceStatement.get(projectId)?.workspaceId
+    const workspaceActorId = async (projectId: string, projectActorId: string) => {
+        const workspaceId = (await projectWorkspaceStatement.get(projectId))?.workspaceId
         const actor = workspaceId
-            ? workspaceActors.ensureFromProjectActor({ workspaceId, projectActorId })
+            ? await workspaceActors.ensureFromProjectActor({ workspaceId, projectActorId })
             : null
         if (actor === null) throw new Error('Project actor has no workspace attribution')
         return actor.id
     }
-    const insertProfileStatement = client.query<
+    const insertProfileStatement = sql.statement<
         void,
         [
             id: string,
@@ -171,7 +178,7 @@ export function createChannelProfileStore(
             updated_at
         ) values (?1, (select workspace_id from projects where id = ?2), ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?13)
     `)
-    const updateProfileDraftStatement = client.query<
+    const updateProfileDraftStatement = sql.statement<
         { changes: number },
         [
             profileJson: string,
@@ -201,7 +208,7 @@ export function createChannelProfileStore(
                 and visible.id = channel_profile_versions.id
           )
     `)
-    const updateProfileStateStatement = client.query<
+    const updateProfileStateStatement = sql.statement<
         { changes: number },
         [
             state: ChannelProfileVersionState,
@@ -221,7 +228,7 @@ export function createChannelProfileStore(
                 and visible.id = channel_profile_versions.id
           )
     `)
-    const updateChannelProfileStatement = client.query<
+    const updateChannelProfileStatement = sql.statement<
         { changes: number },
         [
             profileVersionId: string,
@@ -244,13 +251,13 @@ export function createChannelProfileStore(
           )
     `)
 
-    const createChannelProfileDraftTransaction = createDatabaseTransaction(
+    const createChannelProfileDraftTransaction = defineTransaction(
         database,
-        (input: CreateChannelProfileDraftInput): ChannelProfileVersion | null => {
-            const actor = options.loadActor(input.projectId, input.subjectId)
-            const channelRow = options.loadChannel(input.projectId, input.channelId)
+        async (input: CreateChannelProfileDraftInput): Promise<ChannelProfileVersion | null> => {
+            const actor = await options.loadActor(input.projectId, input.subjectId)
+            const channelRow = await options.loadChannel(input.projectId, input.channelId)
             if (actor === null || channelRow === null) return null
-            if (activeAttachmentStatement.get(input.projectId, input.channelId) === null)
+            if ((await activeAttachmentStatement.get(input.projectId, input.channelId)) === null)
                 return null
             if (channelRow.state !== 'active') {
                 throw new DomainInvariantError(
@@ -259,7 +266,10 @@ export function createChannelProfileStore(
                 )
             }
 
-            const activeRow = options.loadProfile(input.projectId, channelRow.profileVersionId)
+            const activeRow = await options.loadProfile(
+                input.projectId,
+                channelRow.profileVersionId
+            )
             if (activeRow === null || activeRow.state !== 'active') {
                 throw new DomainInvariantError(
                     'invalid_input',
@@ -274,7 +284,7 @@ export function createChannelProfileStore(
 
             const profile = profileResult.value.profile
             const timestamp = requireTimestamp(options.now(), 'now')
-            const existingDraft = loadDraftProfile(input.projectId, input.channelId)
+            const existingDraft = await loadDraftProfile(input.projectId, input.channelId)
 
             if (existingDraft !== null) {
                 if (expectedRevision === undefined || expectedRevision !== existingDraft.revision) {
@@ -284,7 +294,7 @@ export function createChannelProfileStore(
                     )
                 }
 
-                const updated = updateProfileDraftStatement.run(
+                const updated = await updateProfileDraftStatement.run(
                     JSON.stringify(profile),
                     profile.profileHash,
                     profile.schemaHash,
@@ -301,7 +311,7 @@ export function createChannelProfileStore(
                     )
                 }
 
-                options.insertAuditEvent({
+                await options.insertAuditEvent({
                     id: options.createId(),
                     projectId: input.projectId,
                     actorId: actor.id,
@@ -317,7 +327,7 @@ export function createChannelProfileStore(
                     createdAt: timestamp,
                 })
 
-                const saved = options.loadProfile(input.projectId, existingDraft.id)
+                const saved = await options.loadProfile(input.projectId, existingDraft.id)
                 if (saved === null)
                     throw new DomainInvariantError('invalid_input', 'Draft disappeared')
                 return options.toProfileVersion(saved)
@@ -331,7 +341,7 @@ export function createChannelProfileStore(
             }
 
             const profileVersionId = options.createId()
-            insertProfileStatement.run(
+            await insertProfileStatement.run(
                 profileVersionId,
                 input.projectId,
                 input.channelId,
@@ -343,10 +353,10 @@ export function createChannelProfileStore(
                 JSON.stringify(profile),
                 profile.profileHash,
                 profile.schemaHash,
-                workspaceActorId(input.projectId, actor.id),
+                await workspaceActorId(input.projectId, actor.id),
                 timestamp
             )
-            options.insertAuditEvent({
+            await options.insertAuditEvent({
                 id: options.createId(),
                 projectId: input.projectId,
                 actorId: actor.id,
@@ -362,20 +372,22 @@ export function createChannelProfileStore(
                 createdAt: timestamp,
             })
 
-            const created = options.loadProfile(input.projectId, profileVersionId)
+            const created = await options.loadProfile(input.projectId, profileVersionId)
             if (created === null)
                 throw new DomainInvariantError('invalid_input', 'Draft disappeared')
             return options.toProfileVersion(created)
         }
     )
 
-    const activateChannelProfileTransaction = createDatabaseTransaction(
+    const activateChannelProfileTransaction = defineTransaction(
         database,
-        (input: ActivateChannelProfileInput): ChannelProfileActivationResult | null => {
-            const actor = options.loadActor(input.projectId, input.subjectId)
-            const channelRow = options.loadChannel(input.projectId, input.channelId)
+        async (
+            input: ActivateChannelProfileInput
+        ): Promise<ChannelProfileActivationResult | null> => {
+            const actor = await options.loadActor(input.projectId, input.subjectId)
+            const channelRow = await options.loadChannel(input.projectId, input.channelId)
             if (actor === null || channelRow === null) return null
-            if (activeAttachmentStatement.get(input.projectId, input.channelId) === null)
+            if ((await activeAttachmentStatement.get(input.projectId, input.channelId)) === null)
                 return null
             if (channelRow.state !== 'active') {
                 throw new DomainInvariantError(
@@ -386,8 +398,8 @@ export function createChannelProfileStore(
 
             const { activeRow, draftRow } = assertActiveAndDraftProfiles(
                 input,
-                options.loadProfile(input.projectId, channelRow.profileVersionId),
-                options.loadProfile(input.projectId, input.profileVersionId)
+                await options.loadProfile(input.projectId, channelRow.profileVersionId),
+                await options.loadProfile(input.projectId, input.profileVersionId)
             )
 
             const expectedRevision = normalizeOptionalProfileRevision(input.expectedRevision)
@@ -398,7 +410,7 @@ export function createChannelProfileStore(
                 )
             }
 
-            const impact = assessChannelProfileImpact(
+            const impact = await assessChannelProfileImpact(
                 input.projectId,
                 input.channelId,
                 activeRow,
@@ -408,11 +420,13 @@ export function createChannelProfileStore(
             const timestamp = requireTimestamp(options.now(), 'now')
 
             if (
-                updateProfileStateStatement.run(
-                    'superseded',
-                    timestamp,
-                    input.projectId,
-                    activeRow.id
+                (
+                    await updateProfileStateStatement.run(
+                        'superseded',
+                        timestamp,
+                        input.projectId,
+                        activeRow.id
+                    )
                 ).changes !== 1
             ) {
                 throw new DomainInvariantError(
@@ -421,8 +435,14 @@ export function createChannelProfileStore(
                 )
             }
             if (
-                updateProfileStateStatement.run('active', timestamp, input.projectId, draftRow.id)
-                    .changes !== 1
+                (
+                    await updateProfileStateStatement.run(
+                        'active',
+                        timestamp,
+                        input.projectId,
+                        draftRow.id
+                    )
+                ).changes !== 1
             ) {
                 throw new DomainInvariantError(
                     'claim_mismatch',
@@ -430,12 +450,14 @@ export function createChannelProfileStore(
                 )
             }
             if (
-                updateChannelProfileStatement.run(
-                    draftRow.id,
-                    timestamp,
-                    input.projectId,
-                    input.channelId,
-                    activeRow.id
+                (
+                    await updateChannelProfileStatement.run(
+                        draftRow.id,
+                        timestamp,
+                        input.projectId,
+                        input.channelId,
+                        activeRow.id
+                    )
                 ).changes !== 1
             ) {
                 throw new DomainInvariantError(
@@ -450,7 +472,7 @@ export function createChannelProfileStore(
                 )
                 if (assessed === undefined) continue
                 if (
-                    !options.updateWorkingDraftAssessment({
+                    !(await options.updateWorkingDraftAssessment({
                         reviewState: assessed.state,
                         issuesJson: JSON.stringify(assessed.issues),
                         profileVersionId: draftRow.id,
@@ -458,7 +480,7 @@ export function createChannelProfileStore(
                         updatedAt: timestamp,
                         projectId: input.projectId,
                         publicationId: workingDraft.publicationId,
-                    })
+                    }))
                 ) {
                     throw new DomainInvariantError(
                         'claim_mismatch',
@@ -473,7 +495,7 @@ export function createChannelProfileStore(
                 )
                 if (assessed === undefined) continue
                 if (
-                    !options.updatePublicationAssessment({
+                    !(await options.updatePublicationAssessment({
                         reviewState: assessed.state,
                         issuesJson: JSON.stringify(assessed.issues),
                         profileVersionId: draftRow.id,
@@ -481,7 +503,7 @@ export function createChannelProfileStore(
                         actorId: actor.id,
                         projectId: input.projectId,
                         publicationId: target.publicationId,
-                    })
+                    }))
                 ) {
                     throw new DomainInvariantError(
                         'claim_mismatch',
@@ -489,11 +511,11 @@ export function createChannelProfileStore(
                     )
                 }
 
-                const activeJob = options.loadActiveJob(input.projectId, target.publicationId)
+                const activeJob = await options.loadActiveJob(input.projectId, target.publicationId)
                 if (assessed.state === 'review_required') {
                     if (
                         activeJob?.state === 'pending' &&
-                        !options.cancelPendingJob(input.projectId, activeJob.id, timestamp)
+                        !(await options.cancelPendingJob(input.projectId, activeJob.id, timestamp))
                     ) {
                         throw new DomainInvariantError(
                             'claim_mismatch',
@@ -508,7 +530,7 @@ export function createChannelProfileStore(
                     target.deliveryMode === 'automatic' &&
                     channelRow.publisherId !== null
                 ) {
-                    options.ensureAutomaticJob({
+                    await options.ensureAutomaticJob({
                         projectId: input.projectId,
                         publicationId: target.publicationId,
                         channel: channelRow,
@@ -517,7 +539,7 @@ export function createChannelProfileStore(
                 }
             }
 
-            options.insertAuditEvent({
+            await options.insertAuditEvent({
                 id: options.createId(),
                 projectId: input.projectId,
                 actorId: actor.id,
@@ -543,8 +565,8 @@ export function createChannelProfileStore(
                 createdAt: timestamp,
             })
 
-            const updatedChannel = options.loadChannel(input.projectId, input.channelId)
-            const updatedProfile = options.loadProfile(input.projectId, draftRow.id)
+            const updatedChannel = await options.loadChannel(input.projectId, input.channelId)
+            const updatedProfile = await options.loadProfile(input.projectId, draftRow.id)
             if (updatedChannel === null || updatedProfile === null) {
                 throw new DomainInvariantError('invalid_input', 'Activated profile disappeared')
             }
@@ -560,9 +582,9 @@ export function createChannelProfileStore(
     return {
         ...profileReadStore.api,
 
-        createChannelProfileDraft(
+        async createChannelProfileDraft(
             input: CreateChannelProfileDraftInput
-        ): ChannelProfileVersion | null {
+        ): Promise<ChannelProfileVersion | null> {
             return createChannelProfileDraftTransaction.immediate({
                 ...input,
                 projectId: requireNonBlank(input.projectId, 'projectId'),
@@ -571,9 +593,9 @@ export function createChannelProfileStore(
             })
         },
 
-        activateChannelProfile(
+        async activateChannelProfile(
             input: ActivateChannelProfileInput
-        ): ChannelProfileActivationResult | null {
+        ): Promise<ChannelProfileActivationResult | null> {
             return activateChannelProfileTransaction.immediate({
                 ...input,
                 projectId: requireNonBlank(input.projectId, 'projectId'),

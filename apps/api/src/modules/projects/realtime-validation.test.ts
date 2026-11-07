@@ -3,10 +3,11 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
+import type { DatabaseHandle } from '@postdot/db'
 import {
-    closeDatabase,
     createDatabase,
-    createDatabaseTransaction,
+    defineTransaction,
+    mapSequential,
     createEventJournalStore,
     createManualStore,
     createNotificationStore,
@@ -14,9 +15,16 @@ import {
     setDatabaseCommitObserver,
     type EventJournalCursor,
     type EventJournalEntry,
+    closeDatabase,
     type PostdotDatabase,
 } from '@postdot/db'
-import { seedTestWorkspace } from '@postdot/db/testing'
+import {
+    closeTestDatabase,
+    dropRejectingTrigger,
+    installRejectingTrigger,
+    openTestDatabase,
+    seedTestWorkspace,
+} from '@postdot/db/testing'
 
 import { createNotificationProjectionRuntime } from '../notifications/runtime'
 import { createProjectEventStream } from './realtime-routes'
@@ -27,17 +35,17 @@ const eventTime = 1_800_000_000_000
 const projectionTime = eventTime + 1_000
 const idleHeartbeatIntervalMs = 60_000
 
-function createFixture(database: PostdotDatabase) {
+async function createFixture(database: DatabaseHandle) {
     let nextId = 0
     const createId = () => `realtime-106-${++nextId}`
-    database.$client
-        .query(
-            `insert into user (id, name, email, email_verified, created_at, updated_at)
+    await database.sql
+        .statement(
+            `insert into "user" (id, name, email, email_verified, created_at, updated_at)
              values ('realtime-106-human', 'Realtime Validation Human', 'realtime-106-human@postdot.local', 0, ?1, ?1)`
         )
         .run(eventTime)
-    database.$client
-        .query(
+    await database.sql
+        .statement(
             `insert into instance_memberships
              (id, user_id, role, state, created_at, updated_at)
              values ('instance-membership:realtime-106-human', 'realtime-106-human', 'admin', 'enabled', ?1, ?1)`
@@ -47,8 +55,8 @@ function createFixture(database: PostdotDatabase) {
         createId,
         now: () => eventTime,
     })
-    const project = manual.createProject({
-        workspaceId: seedTestWorkspace(database),
+    const project = await manual.createProject({
+        workspaceId: await seedTestWorkspace(database),
         name: 'Realtime validation project',
         subjectId: 'realtime-106-human',
         displayName: 'Realtime validation human',
@@ -56,7 +64,7 @@ function createFixture(database: PostdotDatabase) {
     if (project === null) throw new Error('The realtime validation project was not created')
 
     const journal = createEventJournalStore(database, { createId })
-    const baselineCursor = journal.latestCursor()
+    const baselineCursor = await journal.latestCursor()
     if (baselineCursor === null) throw new Error('The fixture project event is missing')
 
     return {
@@ -73,7 +81,7 @@ function createFixture(database: PostdotDatabase) {
 }
 
 function appendPublicationEvent(
-    fixture: ReturnType<typeof createFixture>,
+    fixture: Awaited<ReturnType<typeof createFixture>>,
     id: string,
     occurredAt = eventTime
 ) {
@@ -88,7 +96,7 @@ function appendPublicationEvent(
     })
 }
 
-function createRealtimeBridge(fixture: ReturnType<typeof createFixture>) {
+function createRealtimeBridge(fixture: Awaited<ReturnType<typeof createFixture>>) {
     const projectionErrors: unknown[] = []
     const observerErrors: unknown[] = []
     const projection = createNotificationProjectionRuntime(fixture.notifications, {
@@ -99,7 +107,9 @@ function createRealtimeBridge(fixture: ReturnType<typeof createFixture>) {
     })
     const clearObserver = setDatabaseCommitObserver(
         fixture.database,
-        projectIds => realtime.publish(projectIds),
+        projectIds => {
+            void realtime.publish(projectIds)
+        },
         error => observerErrors.push(error)
     )
 
@@ -108,16 +118,16 @@ function createRealtimeBridge(fixture: ReturnType<typeof createFixture>) {
         realtime,
         projectionErrors,
         observerErrors,
-        dispose() {
+        async dispose() {
             clearObserver()
-            realtime.stop()
-            projection.stop()
+            await realtime.stop()
+            await projection.stop()
         },
     }
 }
 
 function createProjectStream(
-    fixture: ReturnType<typeof createFixture>,
+    fixture: Awaited<ReturnType<typeof createFixture>>,
     after: EventJournalCursor | null,
     projectChanges?: ProjectRealtimeHub
 ) {
@@ -152,8 +162,7 @@ function eventCursorsFromSse(text: string): string[] {
 }
 
 async function flushMicrotasks() {
-    await Promise.resolve()
-    await Promise.resolve()
+    await new Promise<void>(resolve => setTimeout(resolve, 0))
 }
 
 function createWaiterTracker() {
@@ -196,10 +205,9 @@ async function createTemporaryDatabase() {
 
 describe('REALTIME-106 realtime validation', () => {
     it('keeps CLI-style writes correct with zero SSE subscribers and projects for a later browser', async () => {
-        const database = createDatabase(':memory:')
+        const database = (await openTestDatabase()).database
         try {
-            runMigrations(database)
-            const fixture = createFixture(database)
+            const fixture = await createFixture(database)
             let globalRecoveryScans = 0
             const projectedProjects: string[] = []
             const projection = createNotificationProjectionRuntime({
@@ -212,25 +220,34 @@ describe('REALTIME-106 realtime validation', () => {
                     return fixture.notifications.project(projectId)
                 },
             })
+            const projectionRuns: Promise<unknown>[] = []
             const realtime = createProjectRealtimeRuntime({
-                onProjectsChanged: projectIds => projection.runProjects(projectIds),
+                onProjectsChanged: projectIds => {
+                    const run = projection.runProjects(projectIds)
+                    projectionRuns.push(run)
+                    return run
+                },
             })
+            const publications: Promise<unknown>[] = []
             const clearObserver = setDatabaseCommitObserver(database, projectIds => {
-                realtime.publish(projectIds)
+                publications.push(realtime.publish(projectIds))
             })
 
             try {
-                const event = appendPublicationEvent(fixture, 'zero-subscriber-event')
+                const event = await appendPublicationEvent(fixture, 'zero-subscriber-event')
+                // The commit wakes the projection; wait for that run, not for a fixed delay.
+                await Promise.all(publications)
+                await Promise.all(projectionRuns)
 
                 expect(projectedProjects).toEqual([fixture.project.id])
                 expect(globalRecoveryScans).toBe(0)
                 expect(
-                    fixture.notifications
-                        .list({
+                    (
+                        await fixture.notifications.list({
                             projectId: fixture.project.id,
                             subjectId: 'realtime-106-human',
                         })
-                        ?.items.map(notification => notification.sourceEventId)
+                    )?.items.map(notification => notification.sourceEventId)
                 ).toEqual([event.id])
 
                 const reader = createProjectStream(
@@ -244,18 +261,20 @@ describe('REALTIME-106 realtime validation', () => {
                 expect(eventIdsFromSse(laterBrowser.text)).toEqual([event.id])
             } finally {
                 clearObserver()
-                realtime.stop()
-                projection.stop()
+                await realtime.stop()
+                await projection.stop()
             }
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('isolates project signals while waking every subscriber for the changed project', async () => {
         const changed: string[][] = []
         const runtime = createProjectRealtimeRuntime({
-            onProjectsChanged: projectIds => changed.push([...projectIds]),
+            onProjectsChanged: projectIds => {
+                changed.push([...projectIds])
+            },
         })
         const firstController = new AbortController()
         const secondController = new AbortController()
@@ -281,7 +300,7 @@ describe('REALTIME-106 realtime validation', () => {
                     unrelatedResolved = true
                 })
 
-            runtime.publish(['project-a', 'project-a'])
+            await runtime.publish(['project-a', 'project-a'])
             await Promise.all([first, second])
 
             expect(changed).toEqual([['project-a']])
@@ -292,19 +311,18 @@ describe('REALTIME-106 realtime validation', () => {
             unrelatedController.abort()
             await unrelated
         } finally {
-            runtime.stop()
+            await runtime.stop()
         }
     })
 
     it('replays disconnected commits once across cursor reconnects and continues from the last cursor', async () => {
-        const database = createDatabase(':memory:')
+        const database = (await openTestDatabase()).database
         try {
-            runMigrations(database)
-            const fixture = createFixture(database)
+            const fixture = await createFixture(database)
             const bridge = createRealtimeBridge(fixture)
 
             try {
-                const first = appendPublicationEvent(fixture, 'reconnect-first')
+                const first = await appendPublicationEvent(fixture, 'reconnect-first')
                 const firstReader = createProjectStream(
                     fixture,
                     fixture.baselineCursor,
@@ -316,7 +334,7 @@ describe('REALTIME-106 realtime validation', () => {
                 expect(eventIdsFromSse(firstChunk.text)).toEqual([first.id])
                 expect(eventCursorsFromSse(firstChunk.text)).toEqual([first.cursor])
 
-                const second = appendPublicationEvent(fixture, 'reconnect-second')
+                const second = await appendPublicationEvent(fixture, 'reconnect-second')
                 const replayReader = createProjectStream(
                     fixture,
                     first.cursor,
@@ -338,7 +356,7 @@ describe('REALTIME-106 realtime validation', () => {
                 const thirdRead = readChunk(thirdReader)
                 await flushMicrotasks()
 
-                const third = appendPublicationEvent(fixture, 'reconnect-third')
+                const third = await appendPublicationEvent(fixture, 'reconnect-third')
                 const thirdChunk = await thirdRead
                 await thirdReader.cancel()
 
@@ -346,10 +364,10 @@ describe('REALTIME-106 realtime validation', () => {
                 expect(eventIdsFromSse(thirdChunk.text)).toEqual([third.id])
                 expect(bridge.observerErrors).toEqual([])
             } finally {
-                bridge.dispose()
+                await bridge.dispose()
             }
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
@@ -358,9 +376,9 @@ describe('REALTIME-106 realtime validation', () => {
         let database: PostdotDatabase | undefined
         try {
             database = createDatabase(temporary.filename)
-            runMigrations(database)
-            const fixture = createFixture(database)
-            const event = appendPublicationEvent(fixture, 'restart-event')
+            await runMigrations(database)
+            const fixture = await createFixture(database)
+            const event = await appendPublicationEvent(fixture, 'restart-event')
             const projectId = fixture.project.id
             const baselineCursor = fixture.baselineCursor
             closeDatabase(database)
@@ -368,23 +386,25 @@ describe('REALTIME-106 realtime validation', () => {
 
             const reopened = createDatabase(temporary.filename)
             database = reopened
-            runMigrations(reopened)
+            await runMigrations(reopened)
             const journal = createEventJournalStore(reopened)
             const notifications = createNotificationStore(reopened, {
                 now: () => projectionTime,
             })
             const projection = createNotificationProjectionRuntime(notifications)
             projection.start()
-            await flushMicrotasks()
+            await projection.runNow()
 
             expect(projection.state).toBe('started')
             expect(
-                notifications
-                    .list({ projectId, subjectId: 'realtime-106-human' })
-                    ?.items.map(notification => notification.sourceEventId)
+                (
+                    await notifications.list({ projectId, subjectId: 'realtime-106-human' })
+                )?.items.map(notification => notification.sourceEventId)
             ).toEqual([event.id])
             expect(
-                journal.readAfter({ projectId, after: baselineCursor }).map(entry => entry.id)
+                (await journal.readAfter({ projectId, after: baselineCursor })).map(
+                    entry => entry.id
+                )
             ).toEqual([event.id])
 
             const stream = createProjectEventStream({
@@ -403,7 +423,7 @@ describe('REALTIME-106 realtime validation', () => {
 
             expect(eventIdsFromSse(replay.text)).toEqual([event.id])
             expect(eventCursorsFromSse(replay.text)).toEqual([event.cursor])
-            projection.stop()
+            await projection.stop()
         } finally {
             if (database !== undefined) closeDatabase(database)
             await temporary.remove()
@@ -415,8 +435,8 @@ describe('REALTIME-106 realtime validation', () => {
         let database: PostdotDatabase | undefined
         try {
             database = createDatabase(temporary.filename)
-            runMigrations(database)
-            const fixture = createFixture(database)
+            await runMigrations(database)
+            const fixture = await createFixture(database)
             const bridge = createRealtimeBridge(fixture)
             const eventCount = 240
             const eventIds = Array.from(
@@ -425,8 +445,8 @@ describe('REALTIME-106 realtime validation', () => {
             )
 
             try {
-                const committed = createDatabaseTransaction(database, () =>
-                    eventIds.map((id, index) =>
+                const committed = await defineTransaction(database, () =>
+                    mapSequential(eventIds, (id, index) =>
                         appendPublicationEvent(fixture, id, eventTime + index)
                     )
                 )()
@@ -435,7 +455,7 @@ describe('REALTIME-106 realtime validation', () => {
                 const journalEntries: EventJournalEntry[] = []
                 let after: EventJournalCursor | null = null
                 while (true) {
-                    const batch = fixture.journal.readAfter({
+                    const batch = await fixture.journal.readAfter({
                         projectId: fixture.project.id,
                         after: after ?? fixture.baselineCursor,
                         limit: 37,
@@ -450,7 +470,7 @@ describe('REALTIME-106 realtime validation', () => {
                 const sourceEventIds: string[] = []
                 let before: string | null | undefined
                 do {
-                    const page = fixture.notifications.list({
+                    const page = await fixture.notifications.list({
                         projectId: fixture.project.id,
                         subjectId: 'realtime-106-human',
                         limit: 100,
@@ -464,15 +484,15 @@ describe('REALTIME-106 realtime validation', () => {
                 expect(sourceEventIds).toEqual([...eventIds].reverse())
                 expect(new Set(sourceEventIds).size).toBe(eventCount)
 
-                bridge.projection.runProjects([fixture.project.id])
+                await bridge.projection.runProjects([fixture.project.id])
                 expect(
-                    fixture.notifications
-                        .list({
+                    (
+                        await fixture.notifications.list({
                             projectId: fixture.project.id,
                             subjectId: 'realtime-106-human',
                             limit: 100,
                         })
-                        ?.items.map(item => item.sourceEventId)
+                    )?.items.map(item => item.sourceEventId)
                 ).toEqual(eventIds.slice().reverse().slice(0, 100))
 
                 const streamReader = createProjectStream(
@@ -495,7 +515,7 @@ describe('REALTIME-106 realtime validation', () => {
                 expect(streamedCursors).toHaveLength(eventCount)
 
                 const tracker = createWaiterTracker()
-                const lastCursor = fixture.journal.latestCursor()
+                const lastCursor = await fixture.journal.latestCursor()
                 if (lastCursor === null) throw new Error('The burst cursor is missing')
                 const idleReaders = Array.from({ length: 24 }, () =>
                     createProjectStream(fixture, lastCursor, tracker.hub).getReader()
@@ -512,7 +532,7 @@ describe('REALTIME-106 realtime validation', () => {
                 await Promise.all(idleReads)
                 expect(tracker.pending).toBe(0)
             } finally {
-                bridge.dispose()
+                await bridge.dispose()
             }
         } finally {
             if (database !== undefined) closeDatabase(database)
@@ -520,25 +540,24 @@ describe('REALTIME-106 realtime validation', () => {
         }
     })
 
-    it('emits no signal for rollback and keeps the committed fact recoverable after observer failure', () => {
-        const database = createDatabase(':memory:')
+    it('emits no signal for rollback and keeps the committed fact recoverable after observer failure', async () => {
+        const database = (await openTestDatabase()).database
         try {
-            runMigrations(database)
-            const fixture = createFixture(database)
+            const fixture = await createFixture(database)
             const observed: string[][] = []
             const clearObserver = setDatabaseCommitObserver(database, projectIds => {
                 observed.push([...projectIds])
             })
 
             try {
-                const rollback = createDatabaseTransaction(database, () => {
-                    appendPublicationEvent(fixture, 'rollback-event')
+                const rollback = defineTransaction(database, async () => {
+                    await appendPublicationEvent(fixture, 'rollback-event')
                     throw new Error('intentional rollback')
                 })
-                expect(() => rollback()).toThrow('intentional rollback')
+                await expect(rollback()).rejects.toThrow('intentional rollback')
                 expect(observed).toEqual([])
                 expect(
-                    fixture.journal.readAfter({
+                    await fixture.journal.readAfter({
                         projectId: fixture.project.id,
                         after: fixture.baselineCursor,
                     })
@@ -556,11 +575,11 @@ describe('REALTIME-106 realtime validation', () => {
                 error => observerErrors.push(error)
             )
             try {
-                const event = appendPublicationEvent(fixture, 'observer-failure-event')
+                const event = await appendPublicationEvent(fixture, 'observer-failure-event')
                 expect(event.id).toBe('observer-failure-event')
                 expect(observerErrors).toHaveLength(1)
                 expect(
-                    fixture.journal.readAfter({
+                    await fixture.journal.readAfter({
                         projectId: fixture.project.id,
                         after: fixture.baselineCursor,
                     })
@@ -569,59 +588,61 @@ describe('REALTIME-106 realtime validation', () => {
                 clearFailingObserver()
             }
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
-    it('recovers a committed event when notification projection fails after commit', () => {
-        const database = createDatabase(':memory:')
+    it('recovers a committed event when notification projection fails after commit', async () => {
+        const database = (await openTestDatabase()).database
         try {
-            runMigrations(database)
-            const fixture = createFixture(database)
+            const fixture = await createFixture(database)
             const bridge = createRealtimeBridge(fixture)
 
             try {
-                database.$client.run(`
-                    create trigger reject_realtime_projection_cursor
-                    before insert on notification_projection_cursors
-                    begin
-                        select raise(abort, 'projection unavailable');
-                    end
-                `)
+                await installRejectingTrigger(database, {
+                    name: 'reject_realtime_projection_cursor',
+                    table: 'notification_projection_cursors',
+                    timing: 'before',
+                    event: 'insert',
+                    message: 'projection unavailable',
+                })
 
-                const event = appendPublicationEvent(fixture, 'projection-failure-event')
+                const event = await appendPublicationEvent(fixture, 'projection-failure-event')
                 expect(bridge.observerErrors).toEqual([])
-                expect(bridge.projectionErrors).toHaveLength(1)
+                await bridge.projection.runProjects([fixture.project.id])
+                expect(bridge.projectionErrors.length).toBeGreaterThanOrEqual(1)
                 expect(
-                    fixture.journal.readAfter({
+                    await fixture.journal.readAfter({
                         projectId: fixture.project.id,
                         after: fixture.baselineCursor,
                     })
                 ).toEqual([event])
                 expect(
-                    fixture.notifications.list({
-                        projectId: fixture.project.id,
-                        subjectId: 'realtime-106-human',
-                    })?.items
-                ).toEqual([])
-
-                database.$client.run('drop trigger reject_realtime_projection_cursor')
-                bridge.projection.runNow()
-
-                expect(bridge.projection.state).toBe('idle')
-                expect(
-                    fixture.notifications
-                        .list({
+                    (
+                        await fixture.notifications.list({
                             projectId: fixture.project.id,
                             subjectId: 'realtime-106-human',
                         })
-                        ?.items.map(notification => notification.sourceEventId)
+                    )?.items
+                ).toEqual([])
+
+                await dropRejectingTrigger(database, 'reject_realtime_projection_cursor')
+                await bridge.projection.runNow()
+
+                expect(bridge.projection.state).toBe('idle')
+                expect(
+                    (
+                        await fixture.notifications.list({
+                            projectId: fixture.project.id,
+                            subjectId: 'realtime-106-human',
+                        })
+                    )?.items.map(notification => notification.sourceEventId)
                 ).toEqual([event.id])
             } finally {
-                bridge.dispose()
+                await bridge.dispose()
             }
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 })

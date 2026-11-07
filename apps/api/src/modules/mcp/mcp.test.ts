@@ -3,13 +3,8 @@ import { describe, expect, it } from 'bun:test'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 import { createAuth } from '@postdot/auth'
-import {
-    closeDatabase,
-    createAccessStore,
-    createDatabase,
-    createNotificationStore,
-    runMigrations,
-} from '@postdot/db'
+import { createAccessStore, createNotificationStore } from '@postdot/db'
+import { closeTestDatabase, openTestDatabase } from '@postdot/db/testing'
 
 import { createApp } from '../../app'
 import { createPublisherRuntime } from '../publishers/runtime'
@@ -19,9 +14,8 @@ const baseURL = 'http://localhost:3000'
 const secret = 'postdot-test-secret-with-at-least-32-characters'
 const now = 1_800_000_000_000
 
-function createFixture(options: { mcp?: { enabled: boolean } } = {}) {
-    const database = createDatabase(':memory:')
-    runMigrations(database)
+async function createFixture(options: { mcp?: { enabled: boolean } } = {}) {
+    const database = (await openTestDatabase()).database
     const publisher = createPublisherRuntime(database, {
         apiOrigin: baseURL,
         webOrigin: 'http://localhost:5173',
@@ -46,7 +40,7 @@ function createFixture(options: { mcp?: { enabled: boolean } } = {}) {
 type App = ReturnType<typeof createApp>
 
 async function setup() {
-    const fixture = createFixture()
+    const fixture = await createFixture()
     const signUp = await fixture.app.handle(
         new Request(`${baseURL}/api/auth/sign-up/email`, {
             method: 'POST',
@@ -76,13 +70,13 @@ async function setup() {
     return { ...fixture, json, project, apiKey }
 }
 
-function connect(app: App, token: string) {
+async function connect(app: App, token: string) {
     const client = new Client({ name: 'mcp-test', version: '1.0.0' })
     const transport = new StreamableHTTPClientTransport(new URL(`${baseURL}/mcp`), {
         requestInit: { headers: { authorization: `Bearer ${token}` } },
         fetch: (input, init) => app.handle(new Request(input as string, init)),
     })
-    return { client, connected: client.connect(transport) }
+    return { client, connected: await client.connect(transport) }
 }
 
 const textOf = (result: unknown) =>
@@ -90,7 +84,7 @@ const textOf = (result: unknown) =>
 
 describe('MCP endpoint', () => {
     it('builds the tool catalog from the live OpenAPI document', async () => {
-        const { app, database } = createFixture()
+        const { app, database } = await createFixture()
         try {
             const document = await (await app.handle(new Request(`${baseURL}/openapi/json`))).json()
             const tools = buildMcpTools(document as Record<string, unknown>)
@@ -115,7 +109,7 @@ describe('MCP endpoint', () => {
             ])
                 expect(names).not.toContain(hidden)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
@@ -174,7 +168,7 @@ describe('MCP endpoint', () => {
             ).headers.get('set-cookie')
             expect((await post({ cookie: cookie?.split(';', 1)[0] ?? '' })).status).toBe(401)
         } finally {
-            closeDatabase(f.database)
+            await closeTestDatabase(f.database)
         }
     })
 
@@ -188,7 +182,7 @@ describe('MCP endpoint', () => {
                 projectIds: [first],
                 actionAccess: ['project:read'],
             })
-            const reader = connect(f.app, readOnly)
+            const reader = await connect(f.app, readOnly)
             await reader.connected
             const listed = (await reader.client.listTools()).tools
             expect(listed.length).toBeGreaterThan(10)
@@ -216,7 +210,7 @@ describe('MCP endpoint', () => {
             ).rejects.toThrow()
             await reader.client.close()
 
-            const full = connect(f.app, await f.apiKey({ name: 'Full', projectIds: null }))
+            const full = await connect(f.app, await f.apiKey({ name: 'Full', projectIds: null }))
             await full.connected
             const created = await full.client.callTool({
                 name: 'create_project_channel',
@@ -236,7 +230,7 @@ describe('MCP endpoint', () => {
             expect(unknown.isError).toBe(true)
             await full.client.close()
         } finally {
-            closeDatabase(f.database)
+            await closeTestDatabase(f.database)
         }
     })
 
@@ -249,7 +243,7 @@ describe('MCP endpoint', () => {
                     await f.json(`/api/projects/${project}/channels`, { name: 'Destination' })
                 ).json()) as { channel: { id: string } }
             ).channel.id
-            const { client, connected } = connect(
+            const { client, connected } = await connect(
                 f.app,
                 await f.apiKey({ name: 'Publisher', projectIds: null })
             )
@@ -300,12 +294,12 @@ describe('MCP endpoint', () => {
             expect(draft.isError).toBe(false)
             await client.close()
         } finally {
-            closeDatabase(f.database)
+            await closeTestDatabase(f.database)
         }
     })
 
     it('is absent when a deployment turns it off', async () => {
-        const { app, database } = createFixture({ mcp: { enabled: false } })
+        const { app, database } = await createFixture({ mcp: { enabled: false } })
         try {
             const response = await app.handle(
                 new Request(`${baseURL}/mcp`, {
@@ -316,7 +310,7 @@ describe('MCP endpoint', () => {
             )
             expect(response.status).toBe(404)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 })

@@ -159,7 +159,7 @@ test('exports all filtered stored results and handles cancellation or incomplete
     expect(downloads).toBe(1)
     expect(collections).toBe(0)
     await page.setViewportSize({ width: 390, height: 844 })
-    await page.getByRole('button', { name: 'Switch language to French', exact: true }).click()
+    await page.getByRole('button', { name: 'Language', exact: true }).click()
     await page.getByRole('menuitem', { name: 'French', exact: true }).click()
     await page.keyboard.press('Escape')
     await expect(page.getByRole('menu')).toHaveCount(0)

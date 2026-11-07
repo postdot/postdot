@@ -1,5 +1,6 @@
 import { ChannelProfileValidationError } from '@postdot/core'
 import type { AccessStore } from '@postdot/db'
+import { mapSequential } from '@postdot/db'
 import { Type } from 'typebox'
 
 import { canAccessProjectRole, forbiddenProjectMutation } from './authorization'
@@ -29,7 +30,7 @@ import {
 import { profileDraftErrorResponse, profileValidationFeedback } from './profile-validation-feedback'
 import type { AuthenticatedElysia, ManualStore } from './types'
 
-type SharingResult = ReturnType<ManualStore['sharedChannels']['attach']>
+type SharingResult = Awaited<ReturnType<ManualStore['sharedChannels']['attach']>>
 
 type SharingOutcome =
     | { readonly kind: 'not_found' }
@@ -141,8 +142,8 @@ export function registerChannelRoutes<const Routes extends Record<string, unknow
                     tags: ['Channels'],
                 },
             },
-            ({ params, status, user, authMethod, apiKeyPermissions, apiKeyProjectIds }) => {
-                const ctx = sharingContext({
+            async ({ params, status, user, authMethod, apiKeyPermissions, apiKeyProjectIds }) => {
+                const ctx = await sharingContext({
                     projectId: params.projectId,
                     userId: user.id,
                     authMethod,
@@ -150,7 +151,7 @@ export function registerChannelRoutes<const Routes extends Record<string, unknow
                     apiKeyProjectIds,
                 })
                 const result = ctx
-                    ? manualStore.sharedChannels.getCadence(ctx, params.channelId)
+                    ? await manualStore.sharedChannels.getCadence(ctx, params.channelId)
                     : null
                 return (
                     result ??
@@ -184,8 +185,16 @@ export function registerChannelRoutes<const Routes extends Record<string, unknow
                     tags: ['Channels'],
                 },
             },
-            ({ params, body, status, user, authMethod, apiKeyPermissions, apiKeyProjectIds }) => {
-                const ctx = sharingContext({
+            async ({
+                params,
+                body,
+                status,
+                user,
+                authMethod,
+                apiKeyPermissions,
+                apiKeyProjectIds,
+            }) => {
+                const ctx = await sharingContext({
                     projectId: params.projectId,
                     userId: user.id,
                     authMethod,
@@ -193,7 +202,7 @@ export function registerChannelRoutes<const Routes extends Record<string, unknow
                     apiKeyProjectIds,
                 })
                 const result = ctx
-                    ? manualStore.sharedChannels.configureCadence(ctx, {
+                    ? await manualStore.sharedChannels.configureCadence(ctx, {
                           ...body,
                           channelId: params.channelId,
                       })
@@ -222,14 +231,14 @@ export function registerChannelRoutes<const Routes extends Record<string, unknow
                     tags: ['Channels'],
                 },
             },
-            ({ params, status, user, authMethod, apiKeyPermissions, apiKeyProjectIds }) => {
-                const channels = manualStore.listChannels(params.projectId, user.id)
+            async ({ params, status, user, authMethod, apiKeyPermissions, apiKeyProjectIds }) => {
+                const channels = await manualStore.listChannels(params.projectId, user.id)
                 if (channels === null) {
                     return status(404, {
                         error: { code: 'not_found', message: 'Project not found' },
                     })
                 }
-                const ctx = sharingContext({
+                const ctx = await sharingContext({
                     projectId: params.projectId,
                     userId: user.id,
                     authMethod,
@@ -237,7 +246,7 @@ export function registerChannelRoutes<const Routes extends Record<string, unknow
                     apiKeyProjectIds,
                 })
                 const views = ctx
-                    ? manualStore.sharedChannels.listProject(ctx, params.projectId, true)
+                    ? await manualStore.sharedChannels.listProject(ctx, params.projectId, true)
                     : null
                 return {
                     channels: channels.map(channel => ({
@@ -267,21 +276,21 @@ export function registerChannelRoutes<const Routes extends Record<string, unknow
                     tags: ['Channels'],
                 },
             },
-            ({ authMethod, body, params, status, user }) => {
+            async ({ authMethod, body, params, status, user }) => {
                 if (
-                    !canAccessProjectRole({
+                    !(await canAccessProjectRole({
                         access,
                         authMethod,
                         minimumRole: 'editor',
                         projectId: params.projectId,
                         userId: user.id,
-                    })
+                    }))
                 ) {
                     return status(403, forbiddenProjectMutation())
                 }
                 let channel
                 try {
-                    channel = manualStore.createChannel({
+                    channel = await manualStore.createChannel({
                         projectId: params.projectId,
                         subjectId: user.id,
                         name: body.name,
@@ -320,19 +329,19 @@ export function registerChannelRoutes<const Routes extends Record<string, unknow
                     tags: ['Channels'],
                 },
             },
-            ({ authMethod, body, params, status, user }) => {
+            async ({ authMethod, body, params, status, user }) => {
                 if (
-                    !canAccessProjectRole({
+                    !(await canAccessProjectRole({
                         access,
                         authMethod,
                         minimumRole: 'editor',
                         projectId: params.projectId,
                         userId: user.id,
-                    })
+                    }))
                 ) {
                     return status(403, forbiddenProjectMutation())
                 }
-                const channel = manualStore.renameChannel({
+                const channel = await manualStore.renameChannel({
                     projectId: params.projectId,
                     channelId: params.channelId,
                     subjectId: user.id,
@@ -366,19 +375,19 @@ export function registerChannelRoutes<const Routes extends Record<string, unknow
                     tags: ['Channels'],
                 },
             },
-            ({ authMethod, body, params, status, user }) => {
+            async ({ authMethod, body, params, status, user }) => {
                 if (
-                    !canAccessProjectRole({
+                    !(await canAccessProjectRole({
                         access,
                         authMethod,
                         minimumRole: 'editor',
                         projectId: params.projectId,
                         userId: user.id,
-                    })
+                    }))
                 ) {
                     return status(403, forbiddenProjectMutation())
                 }
-                const result = manualStore.archiveChannel({
+                const result = await manualStore.archiveChannel({
                     projectId: params.projectId,
                     channelId: params.channelId,
                     subjectId: user.id,
@@ -420,19 +429,19 @@ export function registerChannelRoutes<const Routes extends Record<string, unknow
                     tags: ['Channels'],
                 },
             },
-            ({ authMethod, body, params, status, user }) => {
+            async ({ authMethod, body, params, status, user }) => {
                 if (
-                    !canAccessProjectRole({
+                    !(await canAccessProjectRole({
                         access,
                         authMethod,
                         minimumRole: 'editor',
                         projectId: params.projectId,
                         userId: user.id,
-                    })
+                    }))
                 ) {
                     return status(403, forbiddenProjectMutation())
                 }
-                const result = manualStore.restoreChannel({
+                const result = await manualStore.restoreChannel({
                     projectId: params.projectId,
                     channelId: params.channelId,
                     subjectId: user.id,
@@ -474,19 +483,19 @@ export function registerChannelRoutes<const Routes extends Record<string, unknow
                     tags: ['Channels'],
                 },
             },
-            ({ authMethod, body, params, status, user }) => {
+            async ({ authMethod, body, params, status, user }) => {
                 if (
-                    !canAccessProjectRole({
+                    !(await canAccessProjectRole({
                         access,
                         authMethod,
                         minimumRole: 'editor',
                         projectId: params.projectId,
                         userId: user.id,
-                    })
+                    }))
                 ) {
                     return status(403, forbiddenProjectMutation())
                 }
-                const result = manualStore.deleteChannel({
+                const result = await manualStore.deleteChannel({
                     projectId: params.projectId,
                     channelId: params.channelId,
                     subjectId: user.id,
@@ -529,13 +538,21 @@ export function registerChannelRoutes<const Routes extends Record<string, unknow
                     tags: ['Channels'],
                 },
             },
-            ({ apiKeyPermissions, apiKeyProjectIds, authMethod, params, query, status, user }) => {
+            async ({
+                apiKeyPermissions,
+                apiKeyProjectIds,
+                authMethod,
+                params,
+                query,
+                status,
+                user,
+            }) => {
                 if (query.to <= query.from) {
                     return status(404, {
                         error: { code: 'not_found', message: 'Project not found' },
                     })
                 }
-                const ctx = sharingContext({
+                const ctx = await sharingContext({
                     apiKeyPermissions,
                     apiKeyProjectIds,
                     authMethod,
@@ -543,7 +560,7 @@ export function registerChannelRoutes<const Routes extends Record<string, unknow
                     userId: user.id,
                 })
                 const occupancy = ctx
-                    ? manualStore.sharedChannels.occupancy(ctx, params.projectId, query)
+                    ? await manualStore.sharedChannels.occupancy(ctx, params.projectId, query)
                     : null
                 if (occupancy === null) {
                     return status(404, {
@@ -572,8 +589,8 @@ export function registerChannelRoutes<const Routes extends Record<string, unknow
                     tags: ['Channels'],
                 },
             },
-            ({ apiKeyPermissions, apiKeyProjectIds, authMethod, params, status, user }) => {
-                const ctx = sharingContext({
+            async ({ apiKeyPermissions, apiKeyProjectIds, authMethod, params, status, user }) => {
+                const ctx = await sharingContext({
                     apiKeyPermissions,
                     apiKeyProjectIds,
                     authMethod,
@@ -581,12 +598,16 @@ export function registerChannelRoutes<const Routes extends Record<string, unknow
                     userId: user.id,
                 })
                 const view = ctx
-                    ? manualStore.sharedChannels
-                          .listProject(ctx, params.projectId, true)
-                          ?.find(channel => channel.id === params.channelId)
+                    ? (
+                          await manualStore.sharedChannels.listProject(ctx, params.projectId, true)
+                      )?.find(channel => channel.id === params.channelId)
                     : undefined
                 const usages = ctx
-                    ? manualStore.sharedChannels.listProjectUsages(ctx, params.channelId, true)
+                    ? await manualStore.sharedChannels.listProjectUsages(
+                          ctx,
+                          params.channelId,
+                          true
+                      )
                     : null
                 if (!view || usages === null) {
                     return status(404, {
@@ -605,9 +626,9 @@ export function registerChannelRoutes<const Routes extends Record<string, unknow
                         canWithdraw: view.canWithdraw,
                         management: view.management,
                     },
-                    usages: usages.map(usage => ({
+                    usages: await mapSequential(usages, async usage => ({
                         ...usage,
-                        canAcceptManagement: ctx!.authorization.authorizeProject(
+                        canAcceptManagement: await ctx!.authorization.authorizeProject(
                             usage.projectId,
                             'accept_channel_management'
                         ),
@@ -636,8 +657,16 @@ export function registerChannelRoutes<const Routes extends Record<string, unknow
                     tags: ['Channels'],
                 },
             },
-            ({ apiKeyPermissions, apiKeyProjectIds, authMethod, body, params, status, user }) => {
-                const ctx = sharingContext({
+            async ({
+                apiKeyPermissions,
+                apiKeyProjectIds,
+                authMethod,
+                body,
+                params,
+                status,
+                user,
+            }) => {
+                const ctx = await sharingContext({
                     apiKeyPermissions,
                     apiKeyProjectIds,
                     authMethod,
@@ -650,7 +679,7 @@ export function registerChannelRoutes<const Routes extends Record<string, unknow
                     })
                 }
                 const outcome = sharingOutcome(
-                    manualStore.sharedChannels.attach(ctx, {
+                    await manualStore.sharedChannels.attach(ctx, {
                         channelId: params.channelId,
                         projectId: body.projectId,
                         expectedRevision: body.expectedRevision,
@@ -686,8 +715,16 @@ export function registerChannelRoutes<const Routes extends Record<string, unknow
                     tags: ['Channels'],
                 },
             },
-            ({ apiKeyPermissions, apiKeyProjectIds, authMethod, body, params, status, user }) => {
-                const ctx = sharingContext({
+            async ({
+                apiKeyPermissions,
+                apiKeyProjectIds,
+                authMethod,
+                body,
+                params,
+                status,
+                user,
+            }) => {
+                const ctx = await sharingContext({
                     apiKeyPermissions,
                     apiKeyProjectIds,
                     authMethod,
@@ -700,7 +737,7 @@ export function registerChannelRoutes<const Routes extends Record<string, unknow
                     })
                 }
                 const outcome = sharingOutcome(
-                    manualStore.sharedChannels.detach(ctx, {
+                    await manualStore.sharedChannels.detach(ctx, {
                         channelId: params.channelId,
                         projectId: params.attachedProjectId,
                         expectedRevision: body.expectedRevision,
@@ -735,8 +772,16 @@ export function registerChannelRoutes<const Routes extends Record<string, unknow
                     tags: ['Channels'],
                 },
             },
-            ({ apiKeyPermissions, apiKeyProjectIds, authMethod, body, params, status, user }) => {
-                const ctx = sharingContext({
+            async ({
+                apiKeyPermissions,
+                apiKeyProjectIds,
+                authMethod,
+                body,
+                params,
+                status,
+                user,
+            }) => {
+                const ctx = await sharingContext({
                     apiKeyPermissions,
                     apiKeyProjectIds,
                     authMethod,
@@ -749,7 +794,7 @@ export function registerChannelRoutes<const Routes extends Record<string, unknow
                     })
                 }
                 const outcome = sharingOutcome(
-                    manualStore.sharedChannels.transferManagement(ctx, {
+                    await manualStore.sharedChannels.transferManagement(ctx, {
                         channelId: params.channelId,
                         projectId: body.projectId,
                         expectedRevision: body.expectedRevision,

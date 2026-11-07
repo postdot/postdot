@@ -2,7 +2,9 @@ import { createHash, randomBytes, randomUUID } from 'node:crypto'
 
 import { requireNonBlank } from '@postdot/core'
 
-import type { PostdotDatabase } from './client'
+import type { DatabaseHandle } from './client'
+import { defineTransaction } from './client'
+import { nowMillisSql } from './sql/dialect'
 
 export const accessInstanceId = 'default'
 export const defaultInvitationTtlMs = 7 * 24 * 60 * 60 * 1_000
@@ -414,8 +416,8 @@ function selectBestProjectMembership(
     }, null)
 }
 
-export function createAccessStore(database: PostdotDatabase, options: AccessStoreOptions = {}) {
-    const client = database.$client
+export function createAccessStore(database: DatabaseHandle, options: AccessStoreOptions = {}) {
+    const sql = database.sql
     const now = options.now ?? Date.now
     const createId = options.createId ?? randomUUID
     const invitationTtlMs = options.invitationTtlMs ?? defaultInvitationTtlMs
@@ -424,7 +426,7 @@ export function createAccessStore(database: PostdotDatabase, options: AccessStor
         throw new Error(`invitationTtlMs must be between 1 and ${maximumInvitationTtlMs}`)
     }
 
-    const loadInstanceStateStatement = client.query<InstanceStateRow, []>(`
+    const loadInstanceStateStatement = sql.statement<InstanceStateRow, []>(`
         select id,
                state,
                bootstrap_blocked as bootstrapBlocked,
@@ -436,7 +438,7 @@ export function createAccessStore(database: PostdotDatabase, options: AccessStor
         from instance_state
         where id = 'default'
     `)
-    const loadDefaultWorkspaceStatement = client.query<WorkspaceRow, []>(`
+    const loadDefaultWorkspaceStatement = sql.statement<WorkspaceRow, []>(`
         select workspaces.id,
                workspaces.organization_id as organizationId,
                workspaces.name,
@@ -448,7 +450,7 @@ export function createAccessStore(database: PostdotDatabase, options: AccessStor
         inner join workspaces on workspaces.id = instance_state.default_workspace_id
         where instance_state.id = 'default'
     `)
-    const loadWorkspaceStatement = client.query<WorkspaceRow, [workspaceId: string]>(`
+    const loadWorkspaceStatement = sql.statement<WorkspaceRow, [workspaceId: string]>(`
         select id,
                organization_id as organizationId,
                name,
@@ -459,7 +461,7 @@ export function createAccessStore(database: PostdotDatabase, options: AccessStor
         from workspaces
         where id = ?1
     `)
-    const loadWorkspaceByOrganizationStatement = client.query<
+    const loadWorkspaceByOrganizationStatement = sql.statement<
         WorkspaceRow,
         [organizationId: string]
     >(`
@@ -473,7 +475,7 @@ export function createAccessStore(database: PostdotDatabase, options: AccessStor
         from workspaces
         where organization_id = ?1
     `)
-    const listWorkspacesForUserStatement = client.query<
+    const listWorkspacesForUserStatement = sql.statement<
         WorkspaceRow & { readonly role: string },
         [userId: string]
     >(`
@@ -490,7 +492,7 @@ export function createAccessStore(database: PostdotDatabase, options: AccessStor
         where members.user_id = ?1
         order by workspaces.is_default desc, workspaces.created_at, workspaces.id
     `)
-    const loadWorkspaceMembershipStatement = client.query<
+    const loadWorkspaceMembershipStatement = sql.statement<
         WorkspaceMembershipRow,
         [workspaceId: string, userId: string]
     >(`
@@ -503,11 +505,11 @@ export function createAccessStore(database: PostdotDatabase, options: AccessStor
                members.created_at as createdAt
         from workspaces
         inner join member as members on members.organization_id = workspaces.organization_id
-        inner join user as users on users.id = members.user_id
+        inner join "user" as users on users.id = members.user_id
         where workspaces.id = ?1
           and members.user_id = ?2
     `)
-    const loadWorkspaceMemberStatement = client.query<
+    const loadWorkspaceMemberStatement = sql.statement<
         { readonly role: string },
         [organizationId: string, userId: string]
     >(`
@@ -515,14 +517,14 @@ export function createAccessStore(database: PostdotDatabase, options: AccessStor
         from member
         where organization_id = ?1 and user_id = ?2
     `)
-    const insertWorkspaceOrganizationStatement = client.query<
+    const insertWorkspaceOrganizationStatement = sql.statement<
         void,
         [id: string, name: string, slug: string, metadata: string, createdAt: number]
     >(`
         insert into organization (id, name, slug, metadata, created_at)
         values (?1, ?2, ?3, ?4, ?5)
     `)
-    const insertWorkspaceStatement = client.query<
+    const insertWorkspaceStatement = sql.statement<
         void,
         [
             id: string,
@@ -536,7 +538,7 @@ export function createAccessStore(database: PostdotDatabase, options: AccessStor
         insert into workspaces (id, organization_id, name, slug, is_default, created_at, updated_at)
         values (?1, ?2, ?3, ?4, ?5, ?6, ?6)
     `)
-    const setDefaultWorkspaceStatement = client.query<
+    const setDefaultWorkspaceStatement = sql.statement<
         { readonly changes: number },
         [workspaceId: string, updatedAt: number]
     >(`
@@ -545,7 +547,7 @@ export function createAccessStore(database: PostdotDatabase, options: AccessStor
             updated_at = ?2
         where id = 'default'
     `)
-    const insertWorkspaceMemberStatement = client.query<
+    const insertWorkspaceMemberStatement = sql.statement<
         void,
         [id: string, organizationId: string, userId: string, role: string, createdAt: number]
     >(`
@@ -557,14 +559,14 @@ export function createAccessStore(database: PostdotDatabase, options: AccessStor
                 else excluded.role
             end
     `)
-    const insertWorkspaceTeamStatement = client.query<
+    const insertWorkspaceTeamStatement = sql.statement<
         void,
         [id: string, name: string, organizationId: string, createdAt: number]
     >(`
         insert into team (id, name, member_count, organization_id, created_at, updated_at)
         values (?1, ?2, 0, ?3, ?4, ?4)
     `)
-    const addWorkspaceTeamMemberStatement = client.query<
+    const addWorkspaceTeamMemberStatement = sql.statement<
         void,
         [id: string, teamId: string, userId: string, createdAt: number]
     >(`
@@ -572,7 +574,7 @@ export function createAccessStore(database: PostdotDatabase, options: AccessStor
         values (?1, ?2, ?3, ?1, ?4)
         on conflict (team_id, user_id) do nothing
     `)
-    const refreshWorkspaceTeamMemberCountStatement = client.query<void, [teamId: string]>(`
+    const refreshWorkspaceTeamMemberCountStatement = sql.statement<void, [teamId: string]>(`
         update team
         set member_count = (
                 select count(*)
@@ -583,10 +585,10 @@ export function createAccessStore(database: PostdotDatabase, options: AccessStor
                    and workspace_members.user_id = team_members.user_id
                 where team_members.team_id = ?1
             ),
-            updated_at = cast(unixepoch('subsecond') * 1000 as integer)
+            updated_at = ${nowMillisSql(sql.dialect)}
         where id = ?1
     `)
-    const listWorkspaceTeamMembersStatement = client.query<
+    const listWorkspaceTeamMembersStatement = sql.statement<
         {
             readonly id: string
             readonly teamId: string
@@ -611,7 +613,7 @@ export function createAccessStore(database: PostdotDatabase, options: AccessStor
           and team.id = ?2
         order by team_members.created_at, team_members.id
     `)
-    const claimInstanceStatement = client.query<
+    const claimInstanceStatement = sql.statement<
         { readonly changes: number },
         [userId: string, claimedAt: number, updatedAt: number]
     >(`
@@ -624,7 +626,7 @@ export function createAccessStore(database: PostdotDatabase, options: AccessStor
           and state = 'claimable'
           and bootstrap_blocked = 0
     `)
-    const insertInstanceMembershipStatement = client.query<
+    const insertInstanceMembershipStatement = sql.statement<
         void,
         [
             id: string,
@@ -637,7 +639,7 @@ export function createAccessStore(database: PostdotDatabase, options: AccessStor
         insert into instance_memberships (id, user_id, role, state, created_at, updated_at)
         values (?1, ?2, ?3, ?4, ?5, ?5)
     `)
-    const ensureTestAdminMembershipStatement = client.query<
+    const ensureTestAdminMembershipStatement = sql.statement<
         void,
         [id: string, userId: string, now: number]
     >(`
@@ -648,27 +650,27 @@ export function createAccessStore(database: PostdotDatabase, options: AccessStor
             state = 'enabled',
             updated_at = excluded.updated_at
     `)
-    const ensureTestAdminUserStatement = client.query<void, [userId: string]>(`
-        update user
+    const ensureTestAdminUserStatement = sql.statement<void, [userId: string]>(`
+        update "user"
         set role = 'admin',
             banned = 0,
             ban_reason = null,
             ban_expires = null
         where id = ?1
     `)
-    const hasPendingOrganizationInvitationForUserStatement = client.query<
+    const hasPendingOrganizationInvitationForUserStatement = sql.statement<
         { readonly id: string },
         [userId: string, now: number]
     >(`
         select invitations.id
         from invitation as invitations
-        inner join user as users on lower(users.email) = lower(invitations.email)
+        inner join "user" as users on lower(users.email) = lower(invitations.email)
         where users.id = ?1
           and invitations.status = 'pending'
           and invitations.expires_at > ?2
         limit 1
     `)
-    const loadInstanceMembershipStatement = client.query<InstanceMembershipRow, [userId: string]>(`
+    const loadInstanceMembershipStatement = sql.statement<InstanceMembershipRow, [userId: string]>(`
         select memberships.id,
                memberships.user_id as userId,
                users.email,
@@ -680,10 +682,10 @@ export function createAccessStore(database: PostdotDatabase, options: AccessStor
                memberships.created_at as createdAt,
                memberships.updated_at as updatedAt
         from instance_memberships as memberships
-        inner join user as users on users.id = memberships.user_id
+        inner join "user" as users on users.id = memberships.user_id
         where memberships.user_id = ?1
     `)
-    const listInstanceMembershipsStatement = client.query<InstanceMembershipRow, []>(`
+    const listInstanceMembershipsStatement = sql.statement<InstanceMembershipRow, []>(`
         select memberships.id,
                memberships.user_id as userId,
                users.email,
@@ -695,18 +697,18 @@ export function createAccessStore(database: PostdotDatabase, options: AccessStor
                memberships.created_at as createdAt,
                memberships.updated_at as updatedAt
         from instance_memberships as memberships
-        inner join user as users on users.id = memberships.user_id
+        inner join "user" as users on users.id = memberships.user_id
         order by memberships.created_at, memberships.id
     `)
-    const countEnabledInstanceAdminsStatement = client.query<{ readonly count: number }, []>(`
+    const countEnabledInstanceAdminsStatement = sql.statement<{ readonly count: number }, []>(`
         select count(*) as count
         from instance_memberships as memberships
-        inner join user as users on users.id = memberships.user_id
+        inner join "user" as users on users.id = memberships.user_id
         where memberships.state = 'enabled'
           and (users.banned is null or users.banned = 0)
-          and instr(',' || coalesce(users.role, memberships.role) || ',', ',admin,') > 0
+          and (',' || coalesce(users.role, memberships.role) || ',') like '%,admin,%'
     `)
-    const updateInstanceMembershipStatement = client.query<
+    const updateInstanceMembershipStatement = sql.statement<
         { readonly changes: number },
         [
             role: AccessInstanceRole,
@@ -721,7 +723,7 @@ export function createAccessStore(database: PostdotDatabase, options: AccessStor
             updated_at = ?3
         where user_id = ?4
     `)
-    const loadProjectUserGrantMembershipStatement = client.query<
+    const loadProjectUserGrantMembershipStatement = sql.statement<
         ProjectMembershipRow,
         [projectId: string, userId: string]
     >(`
@@ -736,7 +738,7 @@ export function createAccessStore(database: PostdotDatabase, options: AccessStor
                grants.updated_at as updatedAt
         from projects
         inner join project_user_grants as grants on grants.project_id = projects.id
-        inner join user as users
+        inner join "user" as users
             on users.id = grants.user_id
            and (users.banned is null or users.banned = 0)
         inner join instance_memberships
@@ -756,7 +758,7 @@ export function createAccessStore(database: PostdotDatabase, options: AccessStor
               )
           )
     `)
-    const listProjectUserGrantMembershipsStatement = client.query<
+    const listProjectUserGrantMembershipsStatement = sql.statement<
         ProjectMembershipRow,
         [projectId: string]
     >(`
@@ -771,7 +773,7 @@ export function createAccessStore(database: PostdotDatabase, options: AccessStor
                grants.updated_at as updatedAt
         from projects
         inner join project_user_grants as grants on grants.project_id = projects.id
-        inner join user as users
+        inner join "user" as users
             on users.id = grants.user_id
            and (users.banned is null or users.banned = 0)
         inner join instance_memberships
@@ -790,7 +792,7 @@ export function createAccessStore(database: PostdotDatabase, options: AccessStor
               )
           )
     `)
-    const loadProjectTeamGrantMembershipStatement = client.query<
+    const loadProjectTeamGrantMembershipStatement = sql.statement<
         ProjectMembershipRow,
         [projectId: string, userId: string]
     >(`
@@ -812,7 +814,7 @@ export function createAccessStore(database: PostdotDatabase, options: AccessStor
         inner join member as workspace_members
             on workspace_members.organization_id = workspaces.organization_id
            and workspace_members.user_id = team_members.user_id
-        inner join user as users
+        inner join "user" as users
             on users.id = team_members.user_id
            and (users.banned is null or users.banned = 0)
         inner join instance_memberships
@@ -821,7 +823,7 @@ export function createAccessStore(database: PostdotDatabase, options: AccessStor
         where projects.id = ?1
           and team_members.user_id = ?2
     `)
-    const listProjectTeamGrantMembershipsStatement = client.query<
+    const listProjectTeamGrantMembershipsStatement = sql.statement<
         ProjectMembershipRow,
         [projectId: string]
     >(`
@@ -843,7 +845,7 @@ export function createAccessStore(database: PostdotDatabase, options: AccessStor
         inner join member as workspace_members
             on workspace_members.organization_id = workspaces.organization_id
            and workspace_members.user_id = team_members.user_id
-        inner join user as users
+        inner join "user" as users
             on users.id = team_members.user_id
            and (users.banned is null or users.banned = 0)
         inner join instance_memberships
@@ -851,7 +853,7 @@ export function createAccessStore(database: PostdotDatabase, options: AccessStor
            and instance_memberships.state = 'enabled'
         where projects.id = ?1
     `)
-    const listProjectUserGrantsStatement = client.query<ProjectUserGrantRow, [projectId: string]>(`
+    const listProjectUserGrantsStatement = sql.statement<ProjectUserGrantRow, [projectId: string]>(`
         select id,
                project_id as projectId,
                user_id as userId,
@@ -862,7 +864,7 @@ export function createAccessStore(database: PostdotDatabase, options: AccessStor
         where project_id = ?1
         order by created_at, id
     `)
-    const listProjectTeamGrantsStatement = client.query<ProjectTeamGrantRow, [projectId: string]>(`
+    const listProjectTeamGrantsStatement = sql.statement<ProjectTeamGrantRow, [projectId: string]>(`
         select grants.id,
                grants.project_id as projectId,
                grants.team_id as teamId,
@@ -875,7 +877,7 @@ export function createAccessStore(database: PostdotDatabase, options: AccessStor
         where grants.project_id = ?1
         order by grants.created_at, grants.id
     `)
-    const loadProjectUserGrantStatement = client.query<
+    const loadProjectUserGrantStatement = sql.statement<
         ProjectUserGrantRow,
         [projectId: string, userId: string]
     >(`
@@ -888,7 +890,7 @@ export function createAccessStore(database: PostdotDatabase, options: AccessStor
         from project_user_grants
         where project_id = ?1 and user_id = ?2
     `)
-    const loadProjectTeamGrantStatement = client.query<
+    const loadProjectTeamGrantStatement = sql.statement<
         ProjectTeamGrantRow,
         [projectId: string, teamId: string]
     >(`
@@ -903,10 +905,10 @@ export function createAccessStore(database: PostdotDatabase, options: AccessStor
         inner join team on team.id = grants.team_id
         where grants.project_id = ?1 and grants.team_id = ?2
     `)
-    const projectExistsStatement = client.query<{ readonly id: string }, [projectId: string]>(`
+    const projectExistsStatement = sql.statement<{ readonly id: string }, [projectId: string]>(`
         select id from projects where id = ?1
     `)
-    const loadProjectWorkspaceStatement = client.query<
+    const loadProjectWorkspaceStatement = sql.statement<
         { readonly workspaceId: string | null },
         [projectId: string]
     >(`
@@ -914,7 +916,7 @@ export function createAccessStore(database: PostdotDatabase, options: AccessStor
         from projects
         where id = ?1
     `)
-    const loadInvitationByHashStatement = client.query<InvitationRow, [tokenHash: string]>(`
+    const loadInvitationByHashStatement = sql.statement<InvitationRow, [tokenHash: string]>(`
         select id,
                target_email as targetEmail,
                instance_role as instanceRole,
@@ -929,7 +931,7 @@ export function createAccessStore(database: PostdotDatabase, options: AccessStor
         from instance_access_invitations
         where token_hash = ?1
     `)
-    const listInvitationsStatement = client.query<InvitationRow, []>(`
+    const listInvitationsStatement = sql.statement<InvitationRow, []>(`
         select id,
                target_email as targetEmail,
                instance_role as instanceRole,
@@ -944,7 +946,7 @@ export function createAccessStore(database: PostdotDatabase, options: AccessStor
         from instance_access_invitations
         order by created_at desc, id desc
     `)
-    const loadInvitationByIdStatement = client.query<InvitationRow, [id: string]>(`
+    const loadInvitationByIdStatement = sql.statement<InvitationRow, [id: string]>(`
         select id,
                target_email as targetEmail,
                instance_role as instanceRole,
@@ -959,7 +961,7 @@ export function createAccessStore(database: PostdotDatabase, options: AccessStor
         from instance_access_invitations
         where id = ?1
     `)
-    const expireInvitationsStatement = client.query<
+    const expireInvitationsStatement = sql.statement<
         { readonly changes: number },
         [updatedAt: number, now: number]
     >(`
@@ -967,7 +969,7 @@ export function createAccessStore(database: PostdotDatabase, options: AccessStor
         set state = 'expired', updated_at = ?1
         where state = 'pending' and expires_at <= ?2
     `)
-    const insertInvitationStatement = client.query<
+    const insertInvitationStatement = sql.statement<
         void,
         [
             id: string,
@@ -983,7 +985,7 @@ export function createAccessStore(database: PostdotDatabase, options: AccessStor
             created_by_user_id, expires_at, created_at, updated_at
         ) values (?1, ?2, ?3, 'member', 'pending', ?4, ?5, ?6, ?6)
     `)
-    const revokeInvitationStatement = client.query<
+    const revokeInvitationStatement = sql.statement<
         { readonly changes: number },
         [updatedAt: number, revokedAt: number, invitationId: string]
     >(`
@@ -991,7 +993,7 @@ export function createAccessStore(database: PostdotDatabase, options: AccessStor
         set state = 'revoked', revoked_at = ?2, updated_at = ?1
         where id = ?3 and state = 'pending'
     `)
-    const acceptInvitationStatement = client.query<
+    const acceptInvitationStatement = sql.statement<
         { readonly changes: number },
         [
             acceptedAt: number,
@@ -1009,7 +1011,7 @@ export function createAccessStore(database: PostdotDatabase, options: AccessStor
           and state = 'pending'
           and expires_at > ?1
     `)
-    const upsertInstanceMembershipStatement = client.query<
+    const upsertInstanceMembershipStatement = sql.statement<
         void,
         [id: string, userId: string, now: number]
     >(`
@@ -1020,7 +1022,7 @@ export function createAccessStore(database: PostdotDatabase, options: AccessStor
             state = 'enabled',
             updated_at = excluded.updated_at
     `)
-    const ensureOrganizationMemberInstanceMembershipStatement = client.query<
+    const ensureOrganizationMemberInstanceMembershipStatement = sql.statement<
         void,
         [id: string, userId: string, now: number]
     >(`
@@ -1031,7 +1033,7 @@ export function createAccessStore(database: PostdotDatabase, options: AccessStor
             state = instance_memberships.state,
             updated_at = excluded.updated_at
     `)
-    const upsertProjectUserGrantStatement = client.query<
+    const upsertProjectUserGrantStatement = sql.statement<
         void,
         [
             id: string,
@@ -1051,14 +1053,14 @@ export function createAccessStore(database: PostdotDatabase, options: AccessStor
             end,
             updated_at = excluded.updated_at
     `)
-    const deleteProjectUserGrantStatement = client.query<
+    const deleteProjectUserGrantStatement = sql.statement<
         { readonly changes: number },
         [projectId: string, userId: string]
     >(`
         delete from project_user_grants
         where project_id = ?1 and user_id = ?2
     `)
-    const upsertProjectTeamGrantStatement = client.query<
+    const upsertProjectTeamGrantStatement = sql.statement<
         void,
         [
             id: string,
@@ -1078,14 +1080,14 @@ export function createAccessStore(database: PostdotDatabase, options: AccessStor
             end,
             updated_at = excluded.updated_at
     `)
-    const deleteProjectTeamGrantStatement = client.query<
+    const deleteProjectTeamGrantStatement = sql.statement<
         { readonly changes: number },
         [projectId: string, teamId: string]
     >(`
         delete from project_team_grants
         where project_id = ?1 and team_id = ?2
     `)
-    const loadProjectTeamGrantTargetStatement = client.query<
+    const loadProjectTeamGrantTargetStatement = sql.statement<
         { readonly projectId: string; readonly teamId: string; readonly organizationId: string },
         [projectId: string, teamId: string]
     >(`
@@ -1099,16 +1101,16 @@ export function createAccessStore(database: PostdotDatabase, options: AccessStor
            and team.organization_id = workspaces.organization_id
         where projects.id = ?1
     `)
-    const listTeamMembersForGrantStatement = client.query<
+    const listTeamMembersForGrantStatement = sql.statement<
         { readonly userId: string; readonly displayName: string },
         [teamId: string]
     >(`
         select team_members.user_id as userId, users.name as displayName
         from team_member as team_members
-        inner join user as users on users.id = team_members.user_id
+        inner join "user" as users on users.id = team_members.user_id
         where team_members.team_id = ?1
     `)
-    const listProjectTeamGrantProjectsForMemberStatement = client.query<
+    const listProjectTeamGrantProjectsForMemberStatement = sql.statement<
         { readonly projectId: string },
         [teamId: string]
     >(`
@@ -1121,7 +1123,7 @@ export function createAccessStore(database: PostdotDatabase, options: AccessStor
            and team.organization_id = workspaces.organization_id
         where grants.team_id = ?1
     `)
-    const loadHumanActorStatement = client.query<
+    const loadHumanActorStatement = sql.statement<
         { readonly id: string },
         [projectId: string, userId: string]
     >(`
@@ -1130,14 +1132,14 @@ export function createAccessStore(database: PostdotDatabase, options: AccessStor
         order by created_at, id
         limit 1
     `)
-    const insertHumanActorStatement = client.query<
+    const insertHumanActorStatement = sql.statement<
         void,
         [id: string, projectId: string, userId: string, displayName: string, now: number]
     >(`
         insert into actors (id, project_id, kind, subject_id, display_name, created_at, updated_at)
         values (?1, ?2, 'human', ?3, ?4, ?5, ?5)
     `)
-    const updateHumanActorStatement = client.query<
+    const updateHumanActorStatement = sql.statement<
         void,
         [displayName: string, updatedAt: number, projectId: string, userId: string]
     >(`
@@ -1148,7 +1150,7 @@ export function createAccessStore(database: PostdotDatabase, options: AccessStor
           and subject_id = ?4
           and kind = 'human'
     `)
-    const listWorkspaceProjectsStatement = client.query<
+    const listWorkspaceProjectsStatement = sql.statement<
         { readonly projectId: string },
         [workspaceId: string]
     >(`
@@ -1156,7 +1158,7 @@ export function createAccessStore(database: PostdotDatabase, options: AccessStor
         from projects
         where workspace_id = ?1
     `)
-    const loadWorkspaceOrganizationStatement = client.query<
+    const loadWorkspaceOrganizationStatement = sql.statement<
         { readonly organizationId: string },
         [workspaceId: string]
     >(`
@@ -1165,83 +1167,93 @@ export function createAccessStore(database: PostdotDatabase, options: AccessStor
         where id = ?1
     `)
 
-    const ensureHumanActor = (input: {
+    const ensureHumanActor = async (input: {
         readonly projectId: string
         readonly userId: string
         readonly displayName: string
-    }): void => {
-        const timestamp = now()
-        if (loadHumanActorStatement.get(input.projectId, input.userId) === null) {
-            insertHumanActorStatement.run(
-                createId(),
+    }): Promise<void> => {
+        return database.sql.transaction(async () => {
+            const timestamp = now()
+            if ((await loadHumanActorStatement.get(input.projectId, input.userId)) === null) {
+                await insertHumanActorStatement.run(
+                    createId(),
+                    input.projectId,
+                    input.userId,
+                    input.displayName,
+                    timestamp
+                )
+            } else {
+                await updateHumanActorStatement.run(
+                    input.displayName,
+                    timestamp,
+                    input.projectId,
+                    input.userId
+                )
+            }
+        }, 'immediate')
+    }
+
+    const syncWorkspaceMemberToProject = async (input: {
+        readonly projectId: string
+        readonly userId: string
+        readonly displayName: string
+    }): Promise<void> => {
+        return database.sql.transaction(async () => {
+            const timestamp = now()
+            await upsertProjectUserGrantStatement.run(
+                `postdot-project-user-grant:${input.projectId}:${input.userId}`,
                 input.projectId,
                 input.userId,
-                input.displayName,
+                'viewer',
+                timestamp,
                 timestamp
             )
-        } else {
-            updateHumanActorStatement.run(
-                input.displayName,
-                timestamp,
-                input.projectId,
-                input.userId
-            )
-        }
+            await ensureHumanActor(input)
+        }, 'immediate')
     }
 
-    const syncWorkspaceMemberToProject = (input: {
-        readonly projectId: string
-        readonly userId: string
-        readonly displayName: string
-    }): void => {
-        const timestamp = now()
-        upsertProjectUserGrantStatement.run(
-            `postdot-project-user-grant:${input.projectId}:${input.userId}`,
-            input.projectId,
-            input.userId,
-            'viewer',
-            timestamp,
-            timestamp
-        )
-        ensureHumanActor(input)
-    }
-
-    const syncWorkspaceMemberToProjects = (input: {
+    const syncWorkspaceMemberToProjects = async (input: {
         readonly workspaceId: string
         readonly userId: string
         readonly displayName: string
-    }): void => {
-        for (const project of listWorkspaceProjectsStatement.all(input.workspaceId)) {
-            syncWorkspaceMemberToProject({
-                projectId: project.projectId,
-                userId: input.userId,
-                displayName: input.displayName,
-            })
-        }
+    }): Promise<void> => {
+        return database.sql.transaction(async () => {
+            for (const project of await listWorkspaceProjectsStatement.all(input.workspaceId)) {
+                await syncWorkspaceMemberToProject({
+                    projectId: project.projectId,
+                    userId: input.userId,
+                    displayName: input.displayName,
+                })
+            }
+        }, 'immediate')
     }
 
-    const syncTeamMemberToProjectGrants = (input: {
+    const syncTeamMemberToProjectGrants = async (input: {
         readonly teamId: string
         readonly userId: string
         readonly displayName: string
-    }): void => {
-        for (const project of listProjectTeamGrantProjectsForMemberStatement.all(input.teamId)) {
-            ensureHumanActor({
-                projectId: project.projectId,
-                userId: input.userId,
-                displayName: input.displayName,
-            })
-        }
+    }): Promise<void> => {
+        return database.sql.transaction(async () => {
+            for (const project of await listProjectTeamGrantProjectsForMemberStatement.all(
+                input.teamId
+            )) {
+                await ensureHumanActor({
+                    projectId: project.projectId,
+                    userId: input.userId,
+                    displayName: input.displayName,
+                })
+            }
+        }, 'immediate')
     }
 
-    const addWorkspaceMemberInCurrentTransaction = (input: {
+    const addWorkspaceMemberInCurrentTransaction = async (input: {
         readonly workspace: AccessWorkspace
         readonly userId: string
         readonly role: 'owner' | 'admin' | 'member'
         readonly displayName: string
-    }): void => {
+    }): Promise<void> => {
         const timestamp = now()
-        insertWorkspaceMemberStatement.run(
+        await insertWorkspaceMemberStatement.run(
             `postdot-workspace-member:${input.workspace.id}:${input.userId}`,
             input.workspace.organizationId,
             input.userId,
@@ -1249,31 +1261,33 @@ export function createAccessStore(database: PostdotDatabase, options: AccessStor
             timestamp
         )
         const viewerTeamId = defaultWorkspaceTeamId(input.workspace.id, 'Viewers')
-        addWorkspaceTeamMemberStatement.run(
+        await addWorkspaceTeamMemberStatement.run(
             `postdot-team-member:${viewerTeamId}:${input.userId}`,
             viewerTeamId,
             input.userId,
             timestamp
         )
-        refreshWorkspaceTeamMemberCountStatement.run(viewerTeamId)
-        syncWorkspaceMemberToProjects({
+        await refreshWorkspaceTeamMemberCountStatement.run(viewerTeamId)
+        await syncWorkspaceMemberToProjects({
             workspaceId: input.workspace.id,
             userId: input.userId,
             displayName: input.displayName,
         })
     }
 
-    const expirePendingInvitations = (timestamp: number): void => {
-        expireInvitationsStatement.run(timestamp, timestamp)
+    const expirePendingInvitations = async (timestamp: number): Promise<void> => {
+        await expireInvitationsStatement.run(timestamp, timestamp)
     }
 
     const defaultWorkspaceTeamId = (workspaceId: string, name: string): string =>
         `postdot-workspace-team:${workspaceId}:${name.toLowerCase()}`
 
-    const ensureDefaultWorkspaceInCurrentTransaction = (userId: string): AccessWorkspace => {
-        const existing = loadDefaultWorkspaceStatement.get()
+    const ensureDefaultWorkspaceInCurrentTransaction = async (
+        userId: string
+    ): Promise<AccessWorkspace> => {
+        const existing = await loadDefaultWorkspaceStatement.get()
         if (existing !== null) {
-            insertWorkspaceMemberStatement.run(
+            await insertWorkspaceMemberStatement.run(
                 `postdot-workspace-member:${existing.id}:${userId}`,
                 existing.organizationId,
                 userId,
@@ -1288,15 +1302,15 @@ export function createAccessStore(database: PostdotDatabase, options: AccessStor
         const organizationId = createId()
         const name = 'My workspace'
         const slug = `postdot-workspace-${workspaceId}`
-        insertWorkspaceOrganizationStatement.run(
+        await insertWorkspaceOrganizationStatement.run(
             organizationId,
             name,
             slug,
             JSON.stringify({ postdotResource: 'workspace', postdotDefault: true }),
             timestamp
         )
-        insertWorkspaceStatement.run(workspaceId, organizationId, name, slug, 1, timestamp)
-        insertWorkspaceMemberStatement.run(
+        await insertWorkspaceStatement.run(workspaceId, organizationId, name, slug, 1, timestamp)
+        await insertWorkspaceMemberStatement.run(
             `postdot-workspace-member:${workspaceId}:${userId}`,
             organizationId,
             userId,
@@ -1306,26 +1320,27 @@ export function createAccessStore(database: PostdotDatabase, options: AccessStor
 
         for (const teamName of ['Administrators', 'Editors', 'Reviewers', 'Viewers']) {
             const teamId = defaultWorkspaceTeamId(workspaceId, teamName)
-            insertWorkspaceTeamStatement.run(teamId, teamName, organizationId, timestamp)
+            await insertWorkspaceTeamStatement.run(teamId, teamName, organizationId, timestamp)
             if (teamName === 'Administrators') {
-                addWorkspaceTeamMemberStatement.run(
+                await addWorkspaceTeamMemberStatement.run(
                     `postdot-team-member:${teamId}:${userId}`,
                     teamId,
                     userId,
                     timestamp
                 )
-                refreshWorkspaceTeamMemberCountStatement.run(teamId)
+                await refreshWorkspaceTeamMemberCountStatement.run(teamId)
             }
         }
 
-        setDefaultWorkspaceStatement.run(workspaceId, timestamp)
-        const workspace = loadDefaultWorkspaceStatement.get()
+        await setDefaultWorkspaceStatement.run(workspaceId, timestamp)
+        const workspace = await loadDefaultWorkspaceStatement.get()
         if (workspace === null) throw new Error('The default Postdot workspace was not persisted')
         return toWorkspace(workspace)
     }
 
-    const createWorkspaceProjectionTransaction = client.transaction(
-        (input: CreateWorkspaceProjectionInput): AccessWorkspace => {
+    const createWorkspaceProjectionTransaction = defineTransaction(
+        database,
+        async (input: CreateWorkspaceProjectionInput): Promise<AccessWorkspace> => {
             const organizationId = requireNonBlank(input.organizationId, 'organizationId')
             const name = requireNonBlank(input.name, 'name')
             const slug = requireNonBlank(input.slug, 'slug')
@@ -1333,8 +1348,15 @@ export function createAccessStore(database: PostdotDatabase, options: AccessStor
             const timestamp = now()
             const workspaceId = createId()
 
-            insertWorkspaceStatement.run(workspaceId, organizationId, name, slug, 0, timestamp)
-            insertWorkspaceMemberStatement.run(
+            await insertWorkspaceStatement.run(
+                workspaceId,
+                organizationId,
+                name,
+                slug,
+                0,
+                timestamp
+            )
+            await insertWorkspaceMemberStatement.run(
                 `postdot-workspace-member:${workspaceId}:${ownerUserId}`,
                 organizationId,
                 ownerUserId,
@@ -1344,19 +1366,19 @@ export function createAccessStore(database: PostdotDatabase, options: AccessStor
 
             for (const teamName of ['Administrators', 'Editors', 'Reviewers', 'Viewers']) {
                 const teamId = defaultWorkspaceTeamId(workspaceId, teamName)
-                insertWorkspaceTeamStatement.run(teamId, teamName, organizationId, timestamp)
+                await insertWorkspaceTeamStatement.run(teamId, teamName, organizationId, timestamp)
                 if (teamName === 'Administrators') {
-                    addWorkspaceTeamMemberStatement.run(
+                    await addWorkspaceTeamMemberStatement.run(
                         `postdot-team-member:${teamId}:${ownerUserId}`,
                         teamId,
                         ownerUserId,
                         timestamp
                     )
-                    refreshWorkspaceTeamMemberCountStatement.run(teamId)
+                    await refreshWorkspaceTeamMemberCountStatement.run(teamId)
                 }
             }
 
-            const workspace = loadWorkspaceStatement.get(workspaceId)
+            const workspace = await loadWorkspaceStatement.get(workspaceId)
             if (workspace === null) {
                 throw new Error('The Postdot workspace projection was not persisted')
             }
@@ -1364,9 +1386,9 @@ export function createAccessStore(database: PostdotDatabase, options: AccessStor
         }
     )
 
-    const hasPendingInvitationForEmail = (email: string): boolean =>
-        client
-            .query<{ readonly id: string }, [email: string, now: number]>(`
+    const hasPendingInvitationForEmail = async (email: string): Promise<boolean> =>
+        (await sql
+            .statement<{ readonly id: string }, [email: string, now: number]>(`
             select id
             from instance_access_invitations
             where target_email = ?1
@@ -1374,45 +1396,47 @@ export function createAccessStore(database: PostdotDatabase, options: AccessStor
               and expires_at > ?2
             limit 1
         `)
-            .get(normalizeEmail(email), now()) !== null
+            .get(normalizeEmail(email), now())) !== null
 
-    const claimFirstAccountInCurrentTransaction = (
+    const claimFirstAccountInCurrentTransaction = async (
         input: BootstrapFirstAccountInput
-    ): BootstrapFirstAccountResult => {
+    ): Promise<BootstrapFirstAccountResult> => {
         const userId = requireNonBlank(input.userId, 'userId')
         const timestamp = now()
-        const update = claimInstanceStatement.run(userId, timestamp, timestamp)
+        const update = await claimInstanceStatement.run(userId, timestamp, timestamp)
         if (update.changes !== 1) return { kind: 'already_claimed' }
 
-        insertInstanceMembershipStatement.run(
+        await insertInstanceMembershipStatement.run(
             `instance-membership:${userId}`,
             userId,
             'admin',
             'enabled',
             timestamp
         )
-        ensureDefaultWorkspaceInCurrentTransaction(userId)
-        const membership = loadInstanceMembershipStatement.get(userId)
+        await ensureDefaultWorkspaceInCurrentTransaction(userId)
+        const membership = await loadInstanceMembershipStatement.get(userId)
         if (membership === null) {
             throw new Error('The first account membership could not be read after claiming Postdot')
         }
         return { kind: 'claimed', membership: toInstanceMembership(membership) }
     }
 
-    const claimFirstAccountTransaction = client.transaction(
-        (input: BootstrapFirstAccountInput): BootstrapFirstAccountResult =>
+    const claimFirstAccountTransaction = defineTransaction(
+        database,
+        async (input: BootstrapFirstAccountInput): Promise<BootstrapFirstAccountResult> =>
             claimFirstAccountInCurrentTransaction(input)
     )
 
-    const updateInstanceMembershipTransaction = client.transaction(
-        (input: UpdateInstanceMembershipInput): UpdateInstanceMembershipResult => {
+    const updateInstanceMembershipTransaction = defineTransaction(
+        database,
+        async (input: UpdateInstanceMembershipInput): Promise<UpdateInstanceMembershipResult> => {
             const actorUserId = requireNonBlank(input.actorUserId, 'actorUserId')
             const userId = requireNonBlank(input.userId, 'userId')
             if (input.role === undefined && input.state === undefined) {
                 throw new Error('At least one instance membership field must be provided')
             }
 
-            const existing = loadInstanceMembershipStatement.get(userId)
+            const existing = await loadInstanceMembershipStatement.get(userId)
             if (existing === null) return { kind: 'not_found' }
 
             const role = input.role ?? existing.role
@@ -1427,7 +1451,7 @@ export function createAccessStore(database: PostdotDatabase, options: AccessStor
                 (role !== 'admin' || state !== 'enabled')
             if (
                 isRemovingEnabledAdmin &&
-                (countEnabledInstanceAdminsStatement.get()?.count ?? 0) <= 1
+                ((await countEnabledInstanceAdminsStatement.get())?.count ?? 0) <= 1
             ) {
                 return { kind: 'last_admin' }
             }
@@ -1441,17 +1465,23 @@ export function createAccessStore(database: PostdotDatabase, options: AccessStor
             }
 
             const timestamp = now()
-            const update = updateInstanceMembershipStatement.run(role, state, timestamp, userId)
+            const update = await updateInstanceMembershipStatement.run(
+                role,
+                state,
+                timestamp,
+                userId
+            )
             if (update.changes !== 1) return { kind: 'not_found' }
 
-            const membership = loadInstanceMembershipStatement.get(userId)
+            const membership = await loadInstanceMembershipStatement.get(userId)
             if (membership === null) throw new Error('The instance membership was not persisted')
             return { kind: 'updated', membership: toInstanceMembership(membership) }
         }
     )
 
-    const createInvitationTransaction = client.transaction(
-        (input: CreateAccessInvitationInput): CreateAccessInvitationResult => {
+    const createInvitationTransaction = defineTransaction(
+        database,
+        async (input: CreateAccessInvitationInput): Promise<CreateAccessInvitationResult> => {
             const targetEmail = normalizeEmail(input.targetEmail)
             const createdByUserId = requireNonBlank(input.createdByUserId, 'createdByUserId')
             const createdAt = now()
@@ -1462,7 +1492,7 @@ export function createAccessStore(database: PostdotDatabase, options: AccessStor
 
             const token = randomBytes(32).toString('base64url')
             const invitationId = createId()
-            insertInvitationStatement.run(
+            await insertInvitationStatement.run(
                 invitationId,
                 targetEmail,
                 hashInvitationToken(token),
@@ -1470,25 +1500,26 @@ export function createAccessStore(database: PostdotDatabase, options: AccessStor
                 expiresAt,
                 createdAt
             )
-            const invitation = loadInvitationByIdStatement.get(invitationId)
+            const invitation = await loadInvitationByIdStatement.get(invitationId)
             if (invitation === null) throw new Error('The invitation was not persisted')
             return { invitation: toInvitation(invitation), token }
         }
     )
 
-    const acceptInvitationTransaction = client.transaction(
-        (input: {
+    const acceptInvitationTransaction = defineTransaction(
+        database,
+        async (input: {
             readonly token: string
             readonly userId: string
             readonly email: string
             readonly displayName: string
-        }): AcceptAccessInvitationResult => {
+        }): Promise<AcceptAccessInvitationResult> => {
             const userId = requireNonBlank(input.userId, 'userId')
             const email = normalizeEmail(input.email)
             const tokenHash = hashInvitationToken(requireNonBlank(input.token, 'token'))
             const timestamp = now()
-            expirePendingInvitations(timestamp)
-            const invitation = loadInvitationByHashStatement.get(tokenHash)
+            await expirePendingInvitations(timestamp)
+            const invitation = await loadInvitationByHashStatement.get(tokenHash)
             if (
                 invitation === null ||
                 invitation.state !== 'pending' ||
@@ -1498,7 +1529,7 @@ export function createAccessStore(database: PostdotDatabase, options: AccessStor
                 return { kind: 'invalid' }
             }
 
-            const accepted = acceptInvitationStatement.run(
+            const accepted = await acceptInvitationStatement.run(
                 timestamp,
                 userId,
                 invitation.id,
@@ -1507,22 +1538,22 @@ export function createAccessStore(database: PostdotDatabase, options: AccessStor
             )
             if (accepted.changes !== 1) return { kind: 'invalid' }
 
-            upsertInstanceMembershipStatement.run(
+            await upsertInstanceMembershipStatement.run(
                 `instance-membership:${userId}`,
                 userId,
                 timestamp
             )
-            const workspace = loadDefaultWorkspaceStatement.get()
+            const workspace = await loadDefaultWorkspaceStatement.get()
             if (workspace !== null) {
-                addWorkspaceMemberInCurrentTransaction({
+                await addWorkspaceMemberInCurrentTransaction({
                     workspace: toWorkspace(workspace),
                     userId,
                     role: 'member',
                     displayName: input.displayName,
                 })
             }
-            const instanceMembership = loadInstanceMembershipStatement.get(userId)
-            const acceptedInvitation = loadInvitationByHashStatement.get(tokenHash)
+            const instanceMembership = await loadInstanceMembershipStatement.get(userId)
+            const acceptedInvitation = await loadInvitationByHashStatement.get(tokenHash)
             if (instanceMembership === null || acceptedInvitation === null) {
                 throw new Error('The invitation acceptance was not persisted')
             }
@@ -1535,117 +1566,150 @@ export function createAccessStore(database: PostdotDatabase, options: AccessStor
     )
 
     return {
-        getInstanceState(): AccessInstanceStateRecord {
-            const row = loadInstanceStateStatement.get()
+        async getInstanceState(): Promise<AccessInstanceStateRecord> {
+            const row = await loadInstanceStateStatement.get()
             if (row === null) throw new Error('The Postdot instance state row is missing')
             return toInstanceState(row)
         },
 
-        getDefaultWorkspace(): AccessWorkspace | null {
-            const row = loadDefaultWorkspaceStatement.get()
+        async getDefaultWorkspace(): Promise<AccessWorkspace | null> {
+            const row = await loadDefaultWorkspaceStatement.get()
             return row === null ? null : toWorkspace(row)
         },
 
-        getWorkspace(workspaceId: string): AccessWorkspace | null {
-            const row = loadWorkspaceStatement.get(requireNonBlank(workspaceId, 'workspaceId'))
+        async getWorkspace(workspaceId: string): Promise<AccessWorkspace | null> {
+            const row = await loadWorkspaceStatement.get(
+                requireNonBlank(workspaceId, 'workspaceId')
+            )
             return row === null ? null : toWorkspace(row)
         },
 
-        getWorkspaceByOrganizationId(organizationId: string): AccessWorkspace | null {
-            const row = loadWorkspaceByOrganizationStatement.get(
+        async getWorkspaceByOrganizationId(
+            organizationId: string
+        ): Promise<AccessWorkspace | null> {
+            const row = await loadWorkspaceByOrganizationStatement.get(
                 requireNonBlank(organizationId, 'organizationId')
             )
             return row === null ? null : toWorkspace(row)
         },
 
-        createWorkspaceProjection(input: CreateWorkspaceProjectionInput): AccessWorkspace {
+        async createWorkspaceProjection(
+            input: CreateWorkspaceProjectionInput
+        ): Promise<AccessWorkspace> {
             return createWorkspaceProjectionTransaction(input)
         },
 
-        listWorkspacesForUser(
+        async listWorkspacesForUser(
             userId: string
-        ): Array<AccessWorkspace & { readonly role: AccessWorkspaceRole }> {
-            return listWorkspacesForUserStatement
-                .all(requireNonBlank(userId, 'userId'))
-                .map(row => ({ ...toWorkspace(row), role: normalizeWorkspaceRole(row.role) }))
+        ): Promise<Array<AccessWorkspace & { readonly role: AccessWorkspaceRole }>> {
+            return (
+                await listWorkspacesForUserStatement.all(requireNonBlank(userId, 'userId'))
+            ).map(row => ({ ...toWorkspace(row), role: normalizeWorkspaceRole(row.role) }))
         },
 
-        getWorkspaceMembership(
+        async getWorkspaceMembership(
             workspaceId: string,
             userId: string
-        ): AccessWorkspaceMembership | null {
-            const row = loadWorkspaceMembershipStatement.get(
+        ): Promise<AccessWorkspaceMembership | null> {
+            const row = await loadWorkspaceMembershipStatement.get(
                 requireNonBlank(workspaceId, 'workspaceId'),
                 requireNonBlank(userId, 'userId')
             )
             return row === null ? null : toWorkspaceMembership(row)
         },
 
-        listWorkspaceTeamMembers(workspaceId: string, teamId: string): AccessWorkspaceTeamMember[] {
-            return listWorkspaceTeamMembersStatement
-                .all(requireNonBlank(workspaceId, 'workspaceId'), requireNonBlank(teamId, 'teamId'))
-                .map(row => ({
-                    id: row.id,
-                    teamId: row.teamId,
-                    userId: row.userId,
-                    createdAt: new Date(row.createdAt),
-                }))
+        async listWorkspaceTeamMembers(
+            workspaceId: string,
+            teamId: string
+        ): Promise<AccessWorkspaceTeamMember[]> {
+            return (
+                await listWorkspaceTeamMembersStatement.all(
+                    requireNonBlank(workspaceId, 'workspaceId'),
+                    requireNonBlank(teamId, 'teamId')
+                )
+            ).map(row => ({
+                id: row.id,
+                teamId: row.teamId,
+                userId: row.userId,
+                createdAt: new Date(row.createdAt),
+            }))
         },
 
-        canAccessWorkspace(workspaceId: string, userId: string): boolean {
-            return this.getWorkspaceMembership(workspaceId, userId) !== null
+        async canAccessWorkspace(workspaceId: string, userId: string): Promise<boolean> {
+            return (await this.getWorkspaceMembership(workspaceId, userId)) !== null
         },
 
-        canManageWorkspace(workspaceId: string, userId: string): boolean {
-            if (this.getInstanceMembership(userId)?.state !== 'enabled') return false
-            const membership = this.getWorkspaceMembership(workspaceId, userId)
-            return membership?.role === 'owner' || membership?.role === 'admin'
+        async canManageWorkspace(workspaceId: string, userId: string): Promise<boolean> {
+            return database.sql.transaction(async () => {
+                if ((await this.getInstanceMembership(userId))?.state !== 'enabled') return false
+                const membership = await this.getWorkspaceMembership(workspaceId, userId)
+                return membership?.role === 'owner' || membership?.role === 'admin'
+            }, 'deferred')
         },
 
         /**
          * Keep the legacy instance membership projection in sync when a user
          * joins a workspace through Better Auth's native invitation flow.
          */
-        ensureInstanceMembershipForWorkspaceMember(input: {
+        async ensureInstanceMembershipForWorkspaceMember(input: {
             readonly organizationId: string
             readonly userId: string
-        }): AccessWorkspace | null {
-            const workspace = this.getWorkspaceByOrganizationId(input.organizationId)
-            if (workspace === null) return null
-            if (loadWorkspaceMemberStatement.get(workspace.organizationId, input.userId) === null) {
-                return null
-            }
-            const timestamp = now()
-            ensureOrganizationMemberInstanceMembershipStatement.run(
-                `instance-membership:${requireNonBlank(input.userId, 'userId')}`,
-                input.userId,
-                timestamp
-            )
-            return workspace
+        }): Promise<AccessWorkspace | null> {
+            return database.sql.transaction(async () => {
+                const workspace = await this.getWorkspaceByOrganizationId(input.organizationId)
+                if (workspace === null) return null
+                if (
+                    (await loadWorkspaceMemberStatement.get(
+                        workspace.organizationId,
+                        input.userId
+                    )) === null
+                ) {
+                    return null
+                }
+                const timestamp = now()
+                await ensureOrganizationMemberInstanceMembershipStatement.run(
+                    `instance-membership:${requireNonBlank(input.userId, 'userId')}`,
+                    input.userId,
+                    timestamp
+                )
+                return workspace
+            }, 'immediate')
         },
 
-        getDefaultWorkspaceForUser(userId: string): AccessWorkspace | null {
-            const workspace = this.getDefaultWorkspace()
-            if (workspace === null) return null
-            return loadWorkspaceMemberStatement.get(workspace.organizationId, userId) === null
-                ? null
-                : workspace
+        async getDefaultWorkspaceForUser(userId: string): Promise<AccessWorkspace | null> {
+            return database.sql.transaction(async () => {
+                const workspace = await this.getDefaultWorkspace()
+                if (workspace === null) return null
+                return (await loadWorkspaceMemberStatement.get(
+                    workspace.organizationId,
+                    userId
+                )) === null
+                    ? null
+                    : workspace
+            }, 'deferred')
         },
 
-        canManageDefaultWorkspace(userId: string): boolean {
-            if (this.getInstanceMembership(userId)?.state !== 'enabled') return false
-            const workspace = this.getDefaultWorkspaceForUser(userId)
-            if (workspace === null) return false
-            const membership = loadWorkspaceMemberStatement.get(workspace.organizationId, userId)
-            return membership?.role === 'owner' || membership?.role === 'admin'
+        async canManageDefaultWorkspace(userId: string): Promise<boolean> {
+            return database.sql.transaction(async () => {
+                if ((await this.getInstanceMembership(userId))?.state !== 'enabled') return false
+                const workspace = await this.getDefaultWorkspaceForUser(userId)
+                if (workspace === null) return false
+                const membership = await loadWorkspaceMemberStatement.get(
+                    workspace.organizationId,
+                    userId
+                )
+                return membership?.role === 'owner' || membership?.role === 'admin'
+            }, 'deferred')
         },
 
-        isSignupAllowed(): boolean {
-            const state = this.getInstanceState()
+        async isSignupAllowed(): Promise<boolean> {
+            const state = await this.getInstanceState()
             return state.state === 'claimable' && !state.bootstrapBlocked
         },
 
-        claimFirstAccount(input: BootstrapFirstAccountInput): BootstrapFirstAccountResult {
+        async claimFirstAccount(
+            input: BootstrapFirstAccountInput
+        ): Promise<BootstrapFirstAccountResult> {
             return claimFirstAccountTransaction(input)
         },
 
@@ -1653,312 +1717,369 @@ export function createAccessStore(database: PostdotDatabase, options: AccessStor
         claimFirstAccountInCurrentTransaction,
 
         /** Test-only fixture helper for independent browser sessions. */
-        ensureTestAdminMembershipInCurrentTransaction(input: BootstrapFirstAccountInput): void {
-            const userId = requireNonBlank(input.userId, 'userId')
-            const timestamp = now()
-            ensureTestAdminMembershipStatement.run(
-                `instance-membership:${userId}`,
-                userId,
-                timestamp
-            )
-            // Test fixtures represent an independent browser session on the
-            // same self-hosted installation. Give that fixture a workspace
-            // owner membership so the production workspace gate remains
-            // exercised, except when the account is being created for a
-            // pending Better Auth invitation. In that case the invitation
-            // acceptance must be the operation that creates its membership;
-            // pre-seeding it would make Better Auth insert the same member a
-            // second time and reject the acceptance.
-            const hasPendingOrganizationInvitation =
-                hasPendingOrganizationInvitationForUserStatement.get(userId, now()) !== null
-            if (!hasPendingOrganizationInvitation) {
-                ensureDefaultWorkspaceInCurrentTransaction(userId)
-            }
-            ensureTestAdminUserStatement.run(userId)
+        async ensureTestAdminMembershipInCurrentTransaction(
+            input: BootstrapFirstAccountInput
+        ): Promise<void> {
+            return database.sql.transaction(async () => {
+                const userId = requireNonBlank(input.userId, 'userId')
+                const timestamp = now()
+                await ensureTestAdminMembershipStatement.run(
+                    `instance-membership:${userId}`,
+                    userId,
+                    timestamp
+                )
+                // Test fixtures represent an independent browser session on the
+                // same self-hosted installation. Give that fixture a workspace
+                // owner membership so the production workspace gate remains
+                // exercised, except when the account is being created for a
+                // pending Better Auth invitation. In that case the invitation
+                // acceptance must be the operation that creates its membership;
+                // pre-seeding it would make Better Auth insert the same member a
+                // second time and reject the acceptance.
+                const hasPendingOrganizationInvitation =
+                    (await hasPendingOrganizationInvitationForUserStatement.get(userId, now())) !==
+                    null
+                if (!hasPendingOrganizationInvitation) {
+                    await ensureDefaultWorkspaceInCurrentTransaction(userId)
+                }
+                await ensureTestAdminUserStatement.run(userId)
+            }, 'immediate')
         },
 
-        updateInstanceMembership(
+        async updateInstanceMembership(
             input: UpdateInstanceMembershipInput
-        ): UpdateInstanceMembershipResult {
+        ): Promise<UpdateInstanceMembershipResult> {
             return updateInstanceMembershipTransaction(input)
         },
 
-        getInstanceMembership(userId: string): AccessInstanceMembership | null {
-            const row = loadInstanceMembershipStatement.get(requireNonBlank(userId, 'userId'))
+        async getInstanceMembership(userId: string): Promise<AccessInstanceMembership | null> {
+            const row = await loadInstanceMembershipStatement.get(requireNonBlank(userId, 'userId'))
             return row === null ? null : toInstanceMembership(row)
         },
 
         hasPendingInvitationForEmail,
 
-        isInstanceAdmin(userId: string): boolean {
-            const membership = this.getInstanceMembership(userId)
+        async isInstanceAdmin(userId: string): Promise<boolean> {
+            const membership = await this.getInstanceMembership(userId)
             return membership?.state === 'enabled' && membership.role === 'admin'
         },
 
-        getProjectMembership(projectId: string, userId: string): AccessProjectMembership | null {
-            const normalizedProjectId = requireNonBlank(projectId, 'projectId')
-            const normalizedUserId = requireNonBlank(userId, 'userId')
-            const row = selectBestProjectMembership([
-                loadProjectUserGrantMembershipStatement.get(normalizedProjectId, normalizedUserId),
-                loadProjectTeamGrantMembershipStatement.get(normalizedProjectId, normalizedUserId),
-            ])
-            return row === null ? null : toProjectMembership(row)
+        async getProjectMembership(
+            projectId: string,
+            userId: string
+        ): Promise<AccessProjectMembership | null> {
+            return database.sql.transaction(async () => {
+                const normalizedProjectId = requireNonBlank(projectId, 'projectId')
+                const normalizedUserId = requireNonBlank(userId, 'userId')
+                const row = selectBestProjectMembership([
+                    await loadProjectUserGrantMembershipStatement.get(
+                        normalizedProjectId,
+                        normalizedUserId
+                    ),
+                    await loadProjectTeamGrantMembershipStatement.get(
+                        normalizedProjectId,
+                        normalizedUserId
+                    ),
+                ])
+                return row === null ? null : toProjectMembership(row)
+            }, 'deferred')
         },
 
-        listProjectUserGrants(projectId: string): AccessProjectUserGrant[] {
-            return listProjectUserGrantsStatement
-                .all(requireNonBlank(projectId, 'projectId'))
-                .map(toProjectUserGrant)
+        async listProjectUserGrants(projectId: string): Promise<AccessProjectUserGrant[]> {
+            return (
+                await listProjectUserGrantsStatement.all(requireNonBlank(projectId, 'projectId'))
+            ).map(toProjectUserGrant)
         },
 
-        listProjectTeamGrants(projectId: string): AccessProjectTeamGrant[] {
-            return listProjectTeamGrantsStatement
-                .all(requireNonBlank(projectId, 'projectId'))
-                .map(toProjectTeamGrant)
+        async listProjectTeamGrants(projectId: string): Promise<AccessProjectTeamGrant[]> {
+            return (
+                await listProjectTeamGrantsStatement.all(requireNonBlank(projectId, 'projectId'))
+            ).map(toProjectTeamGrant)
         },
 
-        grantProjectUserAccess(input: {
+        async grantProjectUserAccess(input: {
             readonly projectId: string
             readonly userId: string
             readonly role: AccessProjectRole
-        }): AccessProjectUserGrant | null {
-            const projectId = requireNonBlank(input.projectId, 'projectId')
-            const userId = requireNonBlank(input.userId, 'userId')
-            if (projectExistsStatement.get(projectId) === null) return null
+        }): Promise<AccessProjectUserGrant | null> {
+            return database.sql.transaction(async () => {
+                const projectId = requireNonBlank(input.projectId, 'projectId')
+                const userId = requireNonBlank(input.userId, 'userId')
+                if ((await projectExistsStatement.get(projectId)) === null) return null
 
-            const instanceMembership = loadInstanceMembershipStatement.get(userId)
-            if (instanceMembership === null || instanceMembership.state !== 'enabled') {
-                return null
-            }
-
-            const workspaceId = loadProjectWorkspaceStatement.get(projectId)?.workspaceId ?? null
-            if (workspaceId !== null) {
-                const organizationId = loadWorkspaceOrganizationStatement.get(workspaceId)
-                if (
-                    organizationId === null ||
-                    loadWorkspaceMemberStatement.get(organizationId.organizationId, userId) === null
-                ) {
+                const instanceMembership = await loadInstanceMembershipStatement.get(userId)
+                if (instanceMembership === null || instanceMembership.state !== 'enabled') {
                     return null
                 }
-            }
 
-            const timestamp = now()
-            upsertProjectUserGrantStatement.run(
-                `postdot-project-user-grant:${projectId}:${userId}`,
-                projectId,
-                userId,
-                input.role,
-                timestamp,
-                timestamp
-            )
-            const identity = client
-                .query<{ readonly name: string }, [userId: string]>(
-                    'select name from user where id = ?1'
+                const workspaceId =
+                    (await loadProjectWorkspaceStatement.get(projectId))?.workspaceId ?? null
+                if (workspaceId !== null) {
+                    const organizationId = await loadWorkspaceOrganizationStatement.get(workspaceId)
+                    if (
+                        organizationId === null ||
+                        (await loadWorkspaceMemberStatement.get(
+                            organizationId.organizationId,
+                            userId
+                        )) === null
+                    ) {
+                        return null
+                    }
+                }
+
+                const timestamp = now()
+                await upsertProjectUserGrantStatement.run(
+                    `postdot-project-user-grant:${projectId}:${userId}`,
+                    projectId,
+                    userId,
+                    input.role,
+                    timestamp,
+                    timestamp
                 )
-                .get(userId)
-            if (identity !== null)
-                ensureHumanActor({ projectId, userId, displayName: identity.name })
+                const identity = await sql
+                    .statement<{ readonly name: string }, [userId: string]>(
+                        'select name from "user" where id = ?1'
+                    )
+                    .get(userId)
+                if (identity !== null)
+                    await ensureHumanActor({ projectId, userId, displayName: identity.name })
 
-            const grant = loadProjectUserGrantStatement.get(projectId, userId)
-            return grant === null ? null : toProjectUserGrant(grant)
+                const grant = await loadProjectUserGrantStatement.get(projectId, userId)
+                return grant === null ? null : toProjectUserGrant(grant)
+            }, 'immediate')
         },
 
-        removeProjectUserAccess(projectId: string, userId: string): boolean {
-            const normalizedProjectId = requireNonBlank(projectId, 'projectId')
-            const normalizedUserId = requireNonBlank(userId, 'userId')
-            const grant = loadProjectUserGrantStatement.get(normalizedProjectId, normalizedUserId)
-            if (grant === null || grant.role === 'owner') return false
-            return (
-                deleteProjectUserGrantStatement.run(normalizedProjectId, normalizedUserId)
-                    .changes === 1
-            )
+        async removeProjectUserAccess(projectId: string, userId: string): Promise<boolean> {
+            return database.sql.transaction(async () => {
+                const normalizedProjectId = requireNonBlank(projectId, 'projectId')
+                const normalizedUserId = requireNonBlank(userId, 'userId')
+                const grant = await loadProjectUserGrantStatement.get(
+                    normalizedProjectId,
+                    normalizedUserId
+                )
+                if (grant === null || grant.role === 'owner') return false
+                return (
+                    (
+                        await deleteProjectUserGrantStatement.run(
+                            normalizedProjectId,
+                            normalizedUserId
+                        )
+                    ).changes === 1
+                )
+            }, 'immediate')
         },
 
-        grantProjectTeamAccess(input: {
+        async grantProjectTeamAccess(input: {
             readonly projectId: string
             readonly teamId: string
             readonly role: AccessProjectRole
-        }): AccessProjectTeamGrant | null {
-            const projectId = requireNonBlank(input.projectId, 'projectId')
-            const teamId = requireNonBlank(input.teamId, 'teamId')
-            const target = loadProjectTeamGrantTargetStatement.get(projectId, teamId)
-            if (target === null) return null
+        }): Promise<AccessProjectTeamGrant | null> {
+            return database.sql.transaction(async () => {
+                const projectId = requireNonBlank(input.projectId, 'projectId')
+                const teamId = requireNonBlank(input.teamId, 'teamId')
+                const target = await loadProjectTeamGrantTargetStatement.get(projectId, teamId)
+                if (target === null) return null
 
-            const timestamp = now()
-            upsertProjectTeamGrantStatement.run(
-                `postdot-project-team-grant:${projectId}:${teamId}`,
-                projectId,
-                teamId,
-                input.role,
-                timestamp,
-                timestamp
-            )
-            for (const member of listTeamMembersForGrantStatement.all(teamId)) {
-                ensureHumanActor({
+                const timestamp = now()
+                await upsertProjectTeamGrantStatement.run(
+                    `postdot-project-team-grant:${projectId}:${teamId}`,
                     projectId,
-                    userId: member.userId,
-                    displayName: member.displayName,
-                })
-            }
+                    teamId,
+                    input.role,
+                    timestamp,
+                    timestamp
+                )
+                for (const member of await listTeamMembersForGrantStatement.all(teamId)) {
+                    await ensureHumanActor({
+                        projectId,
+                        userId: member.userId,
+                        displayName: member.displayName,
+                    })
+                }
 
-            const grant = loadProjectTeamGrantStatement.get(projectId, teamId)
-            return grant === null ? null : toProjectTeamGrant(grant)
+                const grant = await loadProjectTeamGrantStatement.get(projectId, teamId)
+                return grant === null ? null : toProjectTeamGrant(grant)
+            }, 'immediate')
         },
 
-        removeProjectTeamAccess(projectId: string, teamId: string): boolean {
+        async removeProjectTeamAccess(projectId: string, teamId: string): Promise<boolean> {
             return (
-                deleteProjectTeamGrantStatement.run(
-                    requireNonBlank(projectId, 'projectId'),
-                    requireNonBlank(teamId, 'teamId')
+                (
+                    await deleteProjectTeamGrantStatement.run(
+                        requireNonBlank(projectId, 'projectId'),
+                        requireNonBlank(teamId, 'teamId')
+                    )
                 ).changes === 1
             )
         },
 
-        syncTeamMemberToProjectGrants(input: {
+        async syncTeamMemberToProjectGrants(input: {
             readonly teamId: string
             readonly userId: string
             readonly displayName: string
-        }): void {
-            syncTeamMemberToProjectGrants({
-                teamId: requireNonBlank(input.teamId, 'teamId'),
-                userId: requireNonBlank(input.userId, 'userId'),
-                displayName: requireNonBlank(input.displayName, 'displayName'),
-            })
+        }): Promise<void> {
+            return database.sql.transaction(async () => {
+                await syncTeamMemberToProjectGrants({
+                    teamId: requireNonBlank(input.teamId, 'teamId'),
+                    userId: requireNonBlank(input.userId, 'userId'),
+                    displayName: requireNonBlank(input.displayName, 'displayName'),
+                })
+            }, 'immediate')
         },
 
-        getProjectWorkspaceId(projectId: string): string | null {
-            const row = loadProjectWorkspaceStatement.get(requireNonBlank(projectId, 'projectId'))
+        async getProjectWorkspaceId(projectId: string): Promise<string | null> {
+            const row = await loadProjectWorkspaceStatement.get(
+                requireNonBlank(projectId, 'projectId')
+            )
             return row?.workspaceId ?? null
         },
 
-        getProjectWorkspaceOrganizationId(projectId: string): string | null {
-            const workspaceId = this.getProjectWorkspaceId(projectId)
-            if (workspaceId === null) return null
-            const workspace = loadWorkspaceOrganizationStatement.get(workspaceId)
-            return workspace?.organizationId ?? null
+        async getProjectWorkspaceOrganizationId(projectId: string): Promise<string | null> {
+            return database.sql.transaction(async () => {
+                const workspaceId = await this.getProjectWorkspaceId(projectId)
+                if (workspaceId === null) return null
+                const workspace = await loadWorkspaceOrganizationStatement.get(workspaceId)
+                return workspace?.organizationId ?? null
+            }, 'deferred')
         },
 
-        canAccessProject(
+        async canAccessProject(
             projectId: string,
             userId: string,
             minimumRole: AccessProjectRole = 'viewer'
-        ): boolean {
-            const membership = this.getProjectMembership(projectId, userId)
+        ): Promise<boolean> {
+            const membership = await this.getProjectMembership(projectId, userId)
             return membership !== null && hasProjectRole(membership.role, minimumRole)
         },
 
-        ensureProjectOwnerMembership(input: {
+        async ensureProjectOwnerMembership(input: {
             readonly projectId: string
             readonly userId: string
-        }): AccessProjectMembership | null {
-            const projectId = requireNonBlank(input.projectId, 'projectId')
-            const userId = requireNonBlank(input.userId, 'userId')
-            if (projectExistsStatement.get(projectId) === null) return null
+        }): Promise<AccessProjectMembership | null> {
+            return database.sql.transaction(async () => {
+                const projectId = requireNonBlank(input.projectId, 'projectId')
+                const userId = requireNonBlank(input.userId, 'userId')
+                if ((await projectExistsStatement.get(projectId)) === null) return null
 
-            const instanceMembership = loadInstanceMembershipStatement.get(userId)
-            if (instanceMembership === null || instanceMembership.state !== 'enabled') return null
+                const instanceMembership = await loadInstanceMembershipStatement.get(userId)
+                if (instanceMembership === null || instanceMembership.state !== 'enabled')
+                    return null
 
-            const workspaceId = loadProjectWorkspaceStatement.get(projectId)?.workspaceId ?? null
-            if (
-                workspaceId !== null &&
-                loadWorkspaceMemberStatement.get(
-                    loadWorkspaceOrganizationStatement.get(workspaceId)?.organizationId ?? '',
-                    userId
-                ) === null
-            ) {
-                return null
-            }
+                const workspaceId =
+                    (await loadProjectWorkspaceStatement.get(projectId))?.workspaceId ?? null
+                if (
+                    workspaceId !== null &&
+                    (await loadWorkspaceMemberStatement.get(
+                        (await loadWorkspaceOrganizationStatement.get(workspaceId))
+                            ?.organizationId ?? '',
+                        userId
+                    )) === null
+                ) {
+                    return null
+                }
 
-            const timestamp = now()
-            upsertProjectUserGrantStatement.run(
-                `postdot-project-user-grant:${projectId}:${userId}`,
-                projectId,
-                userId,
-                'owner',
-                timestamp,
-                timestamp
-            )
-            const user = client
-                .query<{ readonly name: string }, [userId: string]>(
-                    'select name from user where id = ?1'
+                const timestamp = now()
+                await upsertProjectUserGrantStatement.run(
+                    `postdot-project-user-grant:${projectId}:${userId}`,
+                    projectId,
+                    userId,
+                    'owner',
+                    timestamp,
+                    timestamp
                 )
-                .get(userId)
-            if (user !== null) ensureHumanActor({ projectId, userId, displayName: user.name })
+                const user = await sql
+                    .statement<{ readonly name: string }, [userId: string]>(
+                        'select name from "user" where id = ?1'
+                    )
+                    .get(userId)
+                if (user !== null)
+                    await ensureHumanActor({ projectId, userId, displayName: user.name })
 
-            const membership = this.getProjectMembership(projectId, userId)
-            if (membership === null)
-                throw new Error('The project owner membership was not persisted')
-            return membership
+                const membership = await this.getProjectMembership(projectId, userId)
+                if (membership === null)
+                    throw new Error('The project owner membership was not persisted')
+                return membership
+            }, 'immediate')
         },
 
-        listInstanceMemberships(): AccessInstanceMembership[] {
-            return listInstanceMembershipsStatement.all().map(toInstanceMembership)
+        async listInstanceMemberships(): Promise<AccessInstanceMembership[]> {
+            return (await listInstanceMembershipsStatement.all()).map(toInstanceMembership)
         },
 
-        listProjectMemberships(projectId: string): AccessProjectMembership[] {
-            const normalizedProjectId = requireNonBlank(projectId, 'projectId')
-            const byUser = new Map<string, ProjectMembershipRow>()
-            const candidates = [
-                ...listProjectUserGrantMembershipsStatement.all(normalizedProjectId),
-                ...listProjectTeamGrantMembershipsStatement.all(normalizedProjectId),
-            ]
-            for (const candidate of candidates) {
-                const selected = selectBestProjectMembership([
-                    byUser.get(candidate.userId) ?? null,
-                    candidate,
-                ])
-                if (selected !== null) byUser.set(candidate.userId, selected)
-            }
-            return [...byUser.values()]
-                .sort(
-                    (left, right) =>
-                        left.createdAt - right.createdAt || left.id.localeCompare(right.id)
-                )
-                .map(toProjectMembership)
+        async listProjectMemberships(projectId: string): Promise<AccessProjectMembership[]> {
+            return database.sql.transaction(async () => {
+                const normalizedProjectId = requireNonBlank(projectId, 'projectId')
+                const byUser = new Map<string, ProjectMembershipRow>()
+                const candidates = [
+                    ...(await listProjectUserGrantMembershipsStatement.all(normalizedProjectId)),
+                    ...(await listProjectTeamGrantMembershipsStatement.all(normalizedProjectId)),
+                ]
+                for (const candidate of candidates) {
+                    const selected = selectBestProjectMembership([
+                        byUser.get(candidate.userId) ?? null,
+                        candidate,
+                    ])
+                    if (selected !== null) byUser.set(candidate.userId, selected)
+                }
+                return [...byUser.values()]
+                    .sort(
+                        (left, right) =>
+                            left.createdAt - right.createdAt || left.id.localeCompare(right.id)
+                    )
+                    .map(toProjectMembership)
+            }, 'deferred')
         },
 
-        createInvitation(input: CreateAccessInvitationInput): CreateAccessInvitationResult {
+        async createInvitation(
+            input: CreateAccessInvitationInput
+        ): Promise<CreateAccessInvitationResult> {
             return createInvitationTransaction(input)
         },
 
-        listInvitations(): AccessInvitation[] {
-            expirePendingInvitations(now())
-            return listInvitationsStatement.all().map(toInvitation)
+        async listInvitations(): Promise<AccessInvitation[]> {
+            return database.sql.transaction(async () => {
+                await expirePendingInvitations(now())
+                return (await listInvitationsStatement.all()).map(toInvitation)
+            }, 'deferred')
         },
 
-        getInvitationByToken(token: string): AccessInvitation | null {
-            expirePendingInvitations(now())
-            const tokenHash = hashInvitationToken(requireNonBlank(token, 'token'))
-            const invitation = loadInvitationByHashStatement.get(tokenHash)
-            return invitation === null ? null : toInvitation(invitation)
+        async getInvitationByToken(token: string): Promise<AccessInvitation | null> {
+            return database.sql.transaction(async () => {
+                await expirePendingInvitations(now())
+                const tokenHash = hashInvitationToken(requireNonBlank(token, 'token'))
+                const invitation = await loadInvitationByHashStatement.get(tokenHash)
+                return invitation === null ? null : toInvitation(invitation)
+            }, 'deferred')
         },
 
-        revokeInvitation(invitationId: string): RevokeAccessInvitationResult {
-            const id = requireNonBlank(invitationId, 'invitationId')
-            const timestamp = now()
-            const existing = loadInvitationByIdStatement.get(id)
-            if (existing === null) return { kind: 'not_found' }
-            if (existing.state !== 'pending') return { kind: 'not_pending' }
+        async revokeInvitation(invitationId: string): Promise<RevokeAccessInvitationResult> {
+            return database.sql.transaction(async () => {
+                const id = requireNonBlank(invitationId, 'invitationId')
+                const timestamp = now()
+                const existing = await loadInvitationByIdStatement.get(id)
+                if (existing === null) return { kind: 'not_found' }
+                if (existing.state !== 'pending') return { kind: 'not_pending' }
 
-            const result = revokeInvitationStatement.run(timestamp, timestamp, id)
-            if (result.changes !== 1) return { kind: 'not_pending' }
-            return {
-                kind: 'revoked',
-                invitation: toInvitation({
-                    ...existing,
-                    state: 'revoked',
-                    revokedAt: timestamp,
-                    updatedAt: timestamp,
-                }),
-            }
+                const result = await revokeInvitationStatement.run(timestamp, timestamp, id)
+                if (result.changes !== 1) return { kind: 'not_pending' }
+                return {
+                    kind: 'revoked',
+                    invitation: toInvitation({
+                        ...existing,
+                        state: 'revoked',
+                        revokedAt: timestamp,
+                        updatedAt: timestamp,
+                    }),
+                }
+            }, 'immediate')
         },
 
-        acceptInvitation(input: {
+        async acceptInvitation(input: {
             readonly token: string
             readonly userId: string
             readonly email: string
             readonly displayName: string
-        }): AcceptAccessInvitationResult {
+        }): Promise<AcceptAccessInvitationResult> {
             return acceptInvitationTransaction(input)
         },
     }

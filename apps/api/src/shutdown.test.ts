@@ -77,9 +77,9 @@ describe('createShutdownHandler', () => {
         expect(calls).toEqual([
             'worker',
             'media',
+            'observer',
             'notifications',
             'realtime',
-            'observer',
             'server',
             'close',
             'release',
@@ -113,9 +113,9 @@ describe('createShutdownHandler', () => {
         expect(calls).toEqual([
             'worker',
             'media',
+            'observer',
             'notifications',
             'realtime',
-            'observer',
             'server',
             'close',
             'release',
@@ -158,9 +158,9 @@ describe('createShutdownHandler', () => {
         expect(calls).toEqual([
             'worker',
             'media',
+            'observer',
             'notifications',
             'realtime',
-            'observer',
             'server',
             'close',
             'release',
@@ -185,9 +185,9 @@ describe('createShutdownHandler', () => {
         expect(calls).toEqual([
             'worker',
             'media',
+            'observer',
             'notifications',
             'realtime',
-            'observer',
             'server',
             'close',
             'release',

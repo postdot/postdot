@@ -7,15 +7,16 @@ export interface RecoveryService {
 }
 
 export function createRecoveryService(
-    databaseFilename: string,
+    databaseFilename: string | null,
     onResume: () => void
 ): RecoveryService {
-    let hold = readRecoveryHold(databaseFilename)
+    let hold = databaseFilename === null ? null : readRecoveryHold(databaseFilename)
     return {
         held: () => hold !== null,
         view: () => ({ held: hold !== null, hold }),
         resume(token) {
-            if (hold === null || hold.token !== token) throw new Error('Recovery hold changed')
+            if (hold === null || hold.token !== token || databaseFilename === null)
+                throw new Error('Recovery hold changed')
             releaseRecoveryHold(databaseFilename, token)
             hold = null
             onResume()

@@ -7,7 +7,7 @@ export interface EngagementContext {
     readonly publisher: PublisherRuntime
     readonly signal: AbortSignal
     readonly now: number
-    readonly stillEligible: () => boolean
+    readonly stillEligible: () => Promise<boolean>
     readonly onDispatch: () => void
     readonly restoreSession?: typeof restoreBlueskySession
     readonly contextFetcher?: BlueskyFetcher

@@ -66,24 +66,30 @@ export function registerDiscordPublisherRoutes<const Routes extends Record<strin
                 })
             }
             if (
-                !canAccessProjectRole({
+                !(await canAccessProjectRole({
                     access: options.access,
                     authMethod,
                     minimumRole: 'editor',
                     projectId: params.projectId,
                     userId: user.id,
-                })
+                }))
             ) {
                 return status(403, forbiddenProjectMutation())
             }
 
-            if (!publisherStore.hasChannelAccess(params.projectId, params.channelId, user.id)) {
+            if (
+                !(await publisherStore.hasChannelAccess(
+                    params.projectId,
+                    params.channelId,
+                    user.id
+                ))
+            ) {
                 return status(404, {
                     error: { code: 'not_found', message: 'Project not found' },
                 })
             }
 
-            const existingConnection = publisherStore.getPublisherConnection(
+            const existingConnection = await publisherStore.getPublisherConnection(
                 params.projectId,
                 params.channelId,
                 user.id
@@ -101,7 +107,7 @@ export function registerDiscordPublisherRoutes<const Routes extends Record<strin
                     ? undefined
                     : { id: existingConnection.id, state: existingConnection.state }
 
-            const actorId = publisherStore.getProjectActorId(params.projectId, user.id)
+            const actorId = await publisherStore.getProjectActorId(params.projectId, user.id)
             if (actorId === null) {
                 return status(404, {
                     error: { code: 'not_found', message: 'Project not found' },
@@ -259,7 +265,7 @@ export function registerDiscordPublisherRoutes<const Routes extends Record<strin
                 })
             }
 
-            const connection = publisherStore.createPublisherConnection({
+            const connection = await publisherStore.createPublisherConnection({
                 projectId: params.projectId,
                 channelId: params.channelId,
                 subjectId: user.id,
@@ -274,7 +280,7 @@ export function registerDiscordPublisherRoutes<const Routes extends Record<strin
             })
             if (connection.kind !== 'created') {
                 if (shouldRevokeCredentialOnFailure) {
-                    credentialStore.revokePublisherCredential(params.projectId, credentialId)
+                    await credentialStore.revokePublisherCredential(params.projectId, credentialId)
                 }
                 return connection.kind === 'publisher_exists'
                     ? status(409, {

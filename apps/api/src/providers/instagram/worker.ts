@@ -139,7 +139,7 @@ async function executeInstagramPublication(input: {
               readonly ok: true
               readonly accessToken: string
               readonly graphOrigin?: string
-              readonly markReconnectRequired: () => void
+              readonly markReconnectRequired: () => Promise<void>
           }
         | { readonly ok: false; readonly outcome: ExternalEffectOutcome }
     try {
@@ -153,7 +153,7 @@ async function executeInstagramPublication(input: {
                         outcome: permanentFailure('The Instagram credential is unavailable'),
                     } as const
                 // The granted permissions are the credential's own scopes, never a request.
-                const grants = readCredentialGrants(
+                const grants = await readCredentialGrants(
                     execution.credentials,
                     target.projectId,
                     target.credentialId
@@ -169,7 +169,7 @@ async function executeInstagramPublication(input: {
                     // The stored grants are known and no longer carry the publishing
                     // permissions. The connection lost its grants, so the credential is
                     // marked and Studio can reconnect it.
-                    context.markReconnectRequired()
+                    await context.markReconnectRequired()
                     return {
                         ok: false,
                         outcome: permanentFailure(
@@ -244,7 +244,7 @@ async function resolveInstagramAccessToken(input: {
             : { ok: false, outcome: permanentFailure('The Instagram access token is unavailable') }
     }
     if (expiresAt === null) {
-        context.markReconnectRequired()
+        await context.markReconnectRequired()
         return {
             ok: false,
             outcome: permanentFailure(
@@ -254,7 +254,7 @@ async function resolveInstagramAccessToken(input: {
     }
     if (expiresAt <= context.now()) {
         // An expired token can never be refreshed.
-        context.markReconnectRequired()
+        await context.markReconnectRequired()
         return {
             ok: false,
             outcome: permanentFailure('The Instagram connection expired; reconnect the account'),
@@ -300,7 +300,7 @@ async function resolveInstagramAccessToken(input: {
     } catch (error) {
         const code = error instanceof InstagramOAuthError ? error.code : null
         if (code === 'token_invalid' || code === 'token_expired') {
-            if (!execution.signal?.aborted) context.markReconnectRequired()
+            if (!execution.signal?.aborted) await context.markReconnectRequired()
             return {
                 ok: false,
                 outcome: permanentFailure(
@@ -345,7 +345,7 @@ async function resolveInstagramAccessToken(input: {
  * recreates a container and a lost write acknowledgement is never replayed.
  */
 async function publishInstagramImage(input: {
-    readonly markReconnectRequired: () => void
+    readonly markReconnectRequired: () => Promise<void>
     readonly execution: BuiltInProviderExecutionInput
     readonly publisher: InstagramPublisher
     readonly accessToken: string
@@ -358,7 +358,7 @@ async function publishInstagramImage(input: {
     const target = execution.target
     const store = execution.providerMediaDeliveryStore
 
-    let delivery = store.reserve({
+    let delivery = await store.reserve({
         projectId: target.projectId,
         executionMediaId: input.pinned.id,
         publisherId: target.publisherId,
@@ -370,7 +370,7 @@ async function publishInstagramImage(input: {
             delivery.errorMessage ?? 'The Instagram media delivery requires reconciliation'
         )
     if (delivery.state === 'failed') {
-        const retried = store.retry({
+        const retried = await store.retry({
             projectId: delivery.projectId,
             deliveryId: delivery.id,
             at: execution.now,
@@ -386,7 +386,7 @@ async function publishInstagramImage(input: {
             return ambiguousFailure(
                 'The interrupted Instagram container preparation requires reconciliation'
             )
-        const started = store.start({
+        const started = await store.start({
             projectId: delivery.projectId,
             deliveryId: delivery.id,
             at: execution.now,
@@ -407,7 +407,7 @@ async function publishInstagramImage(input: {
                 : { accessibilityText: input.accessibilityText }),
         })
         if (!created.ok) {
-            const failed = store.fail({
+            const failed = await store.fail({
                 projectId: delivery.projectId,
                 deliveryId: delivery.id,
                 errorCode:
@@ -421,7 +421,7 @@ async function publishInstagramImage(input: {
                 : created.outcome
         }
 
-        const checkpoint = store.recordRemoteMediaId({
+        const checkpoint = await store.recordRemoteMediaId({
             projectId: delivery.projectId,
             deliveryId: delivery.id,
             remoteMediaId: created.containerId,
@@ -429,7 +429,7 @@ async function publishInstagramImage(input: {
         })
         if (checkpoint?.remoteMediaId !== created.containerId)
             return ambiguousFailure('The Instagram container identity could not be persisted')
-        const completed = store.complete({
+        const completed = await store.complete({
             projectId: delivery.projectId,
             deliveryId: delivery.id,
             remoteMediaId: created.containerId,
@@ -440,7 +440,7 @@ async function publishInstagramImage(input: {
         delivery = completed
     } else if (delivery.state === 'uploading') {
         // The container identity was acknowledged before the completion checkpoint.
-        const completed = store.complete({
+        const completed = await store.complete({
             projectId: delivery.projectId,
             deliveryId: delivery.id,
             remoteMediaId: delivery.remoteMediaId,
@@ -472,7 +472,7 @@ async function publishInstagramImage(input: {
     })
     if (!status.ok) {
         // A failed read keeps the checkpoint; the container is never recreated.
-        if (status.outcome.code === 'authentication_required') input.markReconnectRequired()
+        if (status.outcome.code === 'authentication_required') await input.markReconnectRequired()
         return status.outcome
     }
 
@@ -506,7 +506,7 @@ async function publishInstagramImage(input: {
         // Only the provider's own published media identity is a receipt.
         return { type: 'published', externalId: published.externalId }
     if (published.code === 'authentication_required' || published.code === 'permission_denied')
-        input.markReconnectRequired()
+        await input.markReconnectRequired()
     return published
 }
 
@@ -692,16 +692,16 @@ function parseInstagramProviderSession(value: string | null): InstagramProviderS
  * closed without marking the credential, because a static access failure is
  * not something a reconnection would repair.
  */
-function readCredentialGrants(
+async function readCredentialGrants(
     credentials: BuiltInProviderExecutionInput['credentials'],
     projectId: string,
     credentialId: string
-): { readonly scopes: readonly string[] } | null {
+): Promise<{ readonly scopes: readonly string[] } | null> {
     const reader = credentials.getPublisherCredential
     if (typeof reader !== 'function') return null
     let credential: { readonly scopes: readonly string[] } | null
     try {
-        credential = reader.call(credentials, projectId, credentialId)
+        credential = await reader.call(credentials, projectId, credentialId)
     } catch {
         return null
     }

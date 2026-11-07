@@ -4,13 +4,9 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import { createAuth } from '@postdot/auth'
-import {
-    closeDatabase,
-    createAccessStore,
-    createDatabase,
-    createMediaAssetStore,
-    runMigrations,
-} from '@postdot/db'
+import type { DatabaseHandle } from '@postdot/db'
+import { createAccessStore, createMediaAssetStore } from '@postdot/db'
+import { closeTestDatabase, openTestDatabase } from '@postdot/db/testing'
 import { createLocalMediaStore } from '@postdot/media'
 
 import { createApp } from '../../app'
@@ -21,9 +17,8 @@ const secret = 'postdot-test-secret-with-at-least-32-characters'
 const now = 1_800_000_000_000
 const publisherEncryptionKey = new Uint8Array(32).fill(9)
 
-function createFixture() {
-    const database = createDatabase(':memory:')
-    runMigrations(database)
+async function createFixture() {
+    const database = (await openTestDatabase()).database
     const mediaRoot = mkdtempSync(join(tmpdir(), 'access-309-media-'))
     const media = createMediaAssetStore(
         database,
@@ -123,21 +118,23 @@ async function createProject(app: ReturnType<typeof createApp>, cookie: string, 
  * Additional-signup fixtures become workspace owners. Project-surface tests
  * need an ordinary workspace member, so the fixture demotes them explicitly.
  */
-function demoteToWorkspaceMember(
-    database: ReturnType<typeof createDatabase>,
+async function demoteToWorkspaceMember(
+    database: DatabaseHandle,
     access: ReturnType<typeof createAccessStore>,
     email: string
 ) {
-    const workspace = access.getDefaultWorkspace()
+    const workspace = await access.getDefaultWorkspace()
     expect(workspace).not.toBeNull()
     if (workspace === null) throw new Error('The default workspace fixture is missing')
-    const userId = database.$client
-        .query<{ readonly id: string }, [string]>('select id from user where email = ?1')
-        .get(email)?.id
+    const userId = (
+        await database.sql
+            .statement<{ readonly id: string }, [string]>('select id from "user" where email = ?1')
+            .get(email)
+    )?.id
     expect(userId).toBeDefined()
     if (userId === undefined) throw new Error(`The ${email} fixture is missing`)
-    database.$client
-        .query('update member set role = ?1 where organization_id = ?2 and user_id = ?3')
+    await database.sql
+        .statement('update member set role = ?1 where organization_id = ?2 and user_id = ?3')
         .run('member', workspace.organizationId, userId)
     return userId
 }
@@ -173,23 +170,23 @@ const projectReadPaths = (projectId: string) => [
 
 describe('API key project access follows the owner current access (ACCESS-309)', () => {
     it('keeps reads while granted, hides them after removal, and preserves other projects', async () => {
-        const { access, app, database, mediaRoot } = createFixture()
+        const { access, app, database, mediaRoot } = await createFixture()
 
         try {
             const ownerCookie = await signUp(app, 'access-309-owner@postdot.local')
             const memberCookie = await signUp(app, 'access-309-member@postdot.local')
             const retainedCookie = await signUp(app, 'access-309-retained@postdot.local')
-            const memberUserId = demoteToWorkspaceMember(
+            const memberUserId = await demoteToWorkspaceMember(
                 database,
                 access,
                 'access-309-member@postdot.local'
             )
-            const retainedUserId = demoteToWorkspaceMember(
+            const retainedUserId = await demoteToWorkspaceMember(
                 database,
                 access,
                 'access-309-retained@postdot.local'
             )
-            const memberWorkspaceId = access.getProjectWorkspaceId(
+            const memberWorkspaceId = await access.getProjectWorkspaceId(
                 await createProject(app, ownerCookie, 'Placeholder')
             )
             expect(memberWorkspaceId).not.toBeNull()
@@ -197,13 +194,13 @@ describe('API key project access follows the owner current access (ACCESS-309)',
             const revokedProject = await createProject(app, ownerCookie, 'Revoked project')
             const retainedProject = await createProject(app, ownerCookie, 'Retained project')
             for (const projectId of [revokedProject, retainedProject]) {
-                expect(access.getProjectWorkspaceId(projectId)).toBe(memberWorkspaceId)
+                expect(await access.getProjectWorkspaceId(projectId)).toBe(memberWorkspaceId)
             }
 
             // The fixture is an ordinary workspace member, so the project list
             // is driven by project membership alone.
-            expect(access.canManageWorkspace(memberWorkspaceId!, memberUserId)).toBe(false)
-            expect(access.canManageWorkspace(memberWorkspaceId!, retainedUserId)).toBe(false)
+            expect(await access.canManageWorkspace(memberWorkspaceId!, memberUserId)).toBe(false)
+            expect(await access.canManageWorkspace(memberWorkspaceId!, retainedUserId)).toBe(false)
 
             for (const [userId, role] of [
                 [memberUserId, 'editor'],
@@ -254,16 +251,16 @@ describe('API key project access follows the owner current access (ACCESS-309)',
             expect(removal.status).toBe(200)
 
             // Membership authority is gone while historical attribution stays.
-            expect(access.canAccessProject(revokedProject, memberUserId)).toBe(false)
-            expect(access.getProjectMembership(revokedProject, memberUserId)).toBeNull()
-            const grants = database.$client
-                .query<{ readonly count: number }, [string, string]>(
+            expect(await access.canAccessProject(revokedProject, memberUserId)).toBe(false)
+            expect(await access.getProjectMembership(revokedProject, memberUserId)).toBeNull()
+            const grants = await database.sql
+                .statement<{ readonly count: number }, [string, string]>(
                     'select count(*) as count from project_user_grants where project_id = ?1 and user_id = ?2'
                 )
                 .get(revokedProject, memberUserId)
             expect(grants?.count ?? 0).toBe(0)
-            const actors = database.$client
-                .query<{ readonly count: number }, [string, string]>(
+            const actors = await database.sql
+                .statement<{ readonly count: number }, [string, string]>(
                     'select count(*) as count from actors where project_id = ?1 and subject_id = ?2'
                 )
                 .get(revokedProject, memberUserId)
@@ -327,23 +324,23 @@ describe('API key project access follows the owner current access (ACCESS-309)',
                 )
             ).not.toContain(revokedProject)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
             rmSync(mediaRoot, { recursive: true, force: true })
         }
     })
 
     it('keeps team-grant inherited access available to the key', async () => {
-        const { access, app, database, mediaRoot } = createFixture()
+        const { access, app, database, mediaRoot } = await createFixture()
 
         try {
             const ownerCookie = await signUp(app, 'access-309-team-owner@postdot.local')
             const memberCookie = await signUp(app, 'access-309-team-member@postdot.local')
-            const memberUserId = demoteToWorkspaceMember(
+            const memberUserId = await demoteToWorkspaceMember(
                 database,
                 access,
                 'access-309-team-member@postdot.local'
             )
-            const workspace = access.getDefaultWorkspace()
+            const workspace = await access.getDefaultWorkspace()
             expect(workspace).not.toBeNull()
             if (workspace === null) throw new Error('The workspace fixture is incomplete')
 
@@ -373,8 +370,10 @@ describe('API key project access follows the owner current access (ACCESS-309)',
             )
             expect(teamGrant.status).toBe(201)
 
-            expect(access.getProjectMembership(projectId, memberUserId)?.role).toBe('viewer')
-            expect(access.canAccessProject(projectId, memberUserId, 'editor')).toBe(false)
+            expect((await access.getProjectMembership(projectId, memberUserId))?.role).toBe(
+                'viewer'
+            )
+            expect(await access.canAccessProject(projectId, memberUserId, 'editor')).toBe(false)
 
             const key = await createApiKey(app, memberCookie, null)
             for (const path of projectReadPaths(projectId)) {
@@ -398,7 +397,7 @@ describe('API key project access follows the owner current access (ACCESS-309)',
                 { method: 'DELETE' }
             )
             expect(removeMember.status).toBe(200)
-            expect(access.getProjectMembership(projectId, memberUserId)).toBeNull()
+            expect(await access.getProjectMembership(projectId, memberUserId)).toBeNull()
             expect((await keyRequest(app, `/api/projects/${projectId}/channels`, key)).status).toBe(
                 404
             )
@@ -406,18 +405,18 @@ describe('API key project access follows the owner current access (ACCESS-309)',
                 (await keyRequest(app, `/api/projects/${projectId}/analytics`, key)).status
             ).toBe(404)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
             rmSync(mediaRoot, { recursive: true, force: true })
         }
     })
 
     it('still hides a project for a key whose owner was never a member', async () => {
-        const { access, app, database, mediaRoot } = createFixture()
+        const { access, app, database, mediaRoot } = await createFixture()
 
         try {
             const ownerCookie = await signUp(app, 'access-309-outsider-owner@postdot.local')
             const outsiderCookie = await signUp(app, 'access-309-outsider@postdot.local')
-            demoteToWorkspaceMember(database, access, 'access-309-outsider@postdot.local')
+            await demoteToWorkspaceMember(database, access, 'access-309-outsider@postdot.local')
             const projectId = await createProject(app, ownerCookie, 'Outsider project')
             const key = await createApiKey(app, outsiderCookie, null)
 
@@ -431,7 +430,7 @@ describe('API key project access follows the owner current access (ACCESS-309)',
                 (await keyRequest(app, `/api/projects/${projectId}/media?view=library`, key)).status
             ).toBe(404)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
             rmSync(mediaRoot, { recursive: true, force: true })
         }
     })

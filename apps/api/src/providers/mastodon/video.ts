@@ -38,7 +38,7 @@ export async function prepareMastodonVideo(input: {
     if (!execution.media)
         return failed(permanentFailure('The Mastodon media service is unavailable'))
     const store = execution.providerMediaDeliveryStore
-    let delivery = store.reserve({
+    let delivery = await store.reserve({
         projectId: execution.target.projectId,
         executionMediaId: item.id,
         publisherId: execution.target.publisherId,
@@ -50,7 +50,7 @@ export async function prepareMastodonVideo(input: {
             ambiguousFailure(delivery.errorMessage ?? 'The Mastodon video requires reconciliation')
         )
     if (delivery.state === 'failed') {
-        const retried = store.retry({
+        const retried = await store.retry({
             projectId: delivery.projectId,
             deliveryId: delivery.id,
             at: execution.now,
@@ -73,7 +73,7 @@ export async function prepareMastodonVideo(input: {
                     'The video exceeds this Mastodon instance’s supported format, size or pixel limit'
                 )
             )
-        const started = store.start({
+        const started = await store.start({
             projectId: delivery.projectId,
             deliveryId: delivery.id,
             at: execution.now,
@@ -86,7 +86,7 @@ export async function prepareMastodonVideo(input: {
             item
         ).catch(() => null)
         if (!opened) {
-            store.fail({
+            await store.fail({
                 projectId: delivery.projectId,
                 deliveryId: delivery.id,
                 errorCode: 'media_unavailable',
@@ -103,7 +103,7 @@ export async function prepareMastodonVideo(input: {
             stream: opened.stream,
         })
         if (upload.type !== 'uploaded') {
-            store.fail({
+            await store.fail({
                 projectId: delivery.projectId,
                 deliveryId: delivery.id,
                 errorCode: 'video_upload_failed',
@@ -114,7 +114,7 @@ export async function prepareMastodonVideo(input: {
             await opened.stream.cancel().catch(() => undefined)
             return failed(upload)
         }
-        const checkpoint = store.recordRemoteMediaId({
+        const checkpoint = await store.recordRemoteMediaId({
             projectId: delivery.projectId,
             deliveryId: delivery.id,
             remoteMediaId: upload.remoteMediaId,
@@ -124,7 +124,7 @@ export async function prepareMastodonVideo(input: {
             return failed(ambiguousFailure('The Mastodon video identifier could not be persisted'))
         delivery = checkpoint
         if (upload.ready) {
-            const completed = store.complete({
+            const completed = await store.complete({
                 projectId: delivery.projectId,
                 deliveryId: delivery.id,
                 remoteMediaId: upload.remoteMediaId,
@@ -155,7 +155,7 @@ export async function prepareMastodonVideo(input: {
     }
     if (result.value.type !== 'video')
         return failed(permanentFailure('Mastodon returned another media type'))
-    const completed = store.complete({
+    const completed = await store.complete({
         projectId: delivery.projectId,
         deliveryId: delivery.id,
         remoteMediaId: delivery.remoteMediaId,

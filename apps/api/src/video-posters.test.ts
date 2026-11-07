@@ -21,7 +21,7 @@ describe('video poster background runtime', () => {
             held = deferred()
         const calls: string[] = []
         const runtime = createVideoPosterRuntime({
-            pending: () => [{ projectId: 'p', id: 'one' }],
+            pending: async () => [{ projectId: 'p', id: 'one' }],
             generate: async (_, id) => {
                 calls.push(id)
                 entered.resolve()
@@ -30,7 +30,7 @@ describe('video poster background runtime', () => {
             },
             cancel: () => held.resolve(),
         })
-        runtime.start()
+        await runtime.start()
         runtime.enqueue('p', 'one')
         runtime.enqueue('p', 'two')
         await entered.promise
@@ -42,7 +42,7 @@ describe('video poster background runtime', () => {
         const second = deferred()
         const calls: string[] = []
         const runtime = createVideoPosterRuntime({
-            pending: () => [
+            pending: async () => [
                 { projectId: 'p', id: 'one' },
                 { projectId: 'p', id: 'two' },
             ],
@@ -54,7 +54,7 @@ describe('video poster background runtime', () => {
             },
             cancel: () => {},
         })
-        runtime.start()
+        await runtime.start()
         await second.promise
         runtime.enqueue('p', 'one')
         await runtime.stop()

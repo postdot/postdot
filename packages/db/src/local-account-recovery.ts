@@ -4,6 +4,7 @@ import { chmodSync, mkdirSync, statSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 
 import { backupDatabase } from './backup'
+import type { DatabaseHandle } from './client'
 import { acquireRuntimeQuiescenceLock } from './runtime-quiescence'
 
 const SQLITE_BUSY_TIMEOUT_MILLISECONDS = 5_000
@@ -121,7 +122,7 @@ export function recoverLocalAccountPassword(
 function findRecoverableCredential(database: Database, email: string): RecoverableCredential {
     const users = database
         .query<{ readonly id: string }, [email: string]>(
-            'SELECT id FROM user WHERE lower(email) = lower(?1)'
+            'SELECT id FROM "user" WHERE lower(email) = lower(?1)'
         )
         .all(email)
 
@@ -167,7 +168,7 @@ function assertPostdotSchema(database: Database, filename: string): void {
     const migrationsTable = database
         .query<{ readonly name: string }, []>(
             `SELECT name FROM sqlite_master
-             WHERE type = 'table' AND name = '__drizzle_migrations'`
+             WHERE type = 'table' AND name IN ('postdot_migrations', '__drizzle_migrations')`
         )
         .get()
     if (migrationsTable === null || migrationsTable === undefined) {
@@ -178,4 +179,68 @@ function assertPostdotSchema(database: Database, filename: string): void {
 function createRecoveryBackupDirectory(databaseFilename: string, timestamp: number): string {
     const timestampLabel = new Date(timestamp).toISOString().replaceAll(':', '-').replace('.', '-')
     return `${databaseFilename}.before-password-recovery-${timestampLabel}-${randomUUID()}`
+}
+
+export interface DatabaseAccountPasswordRecoveryResult {
+    readonly email: string
+    readonly revokedSessionCount: number
+    readonly invalidatedResetTokenCount: number
+}
+
+/**
+ * Resets one existing email/password account through the persistence port,
+ * for the PostgreSQL profile. One transaction changes the hash, revokes the
+ * account's sessions and invalidates its reset links; nothing else changes.
+ * The operator takes a database backup with the PostgreSQL tooling first.
+ */
+export async function recoverAccountPasswordInDatabase(
+    database: DatabaseHandle,
+    options: { readonly email: string; readonly passwordHash: string; readonly now?: () => number }
+): Promise<DatabaseAccountPasswordRecoveryResult> {
+    const email = options.email.trim()
+    const now = options.now ?? Date.now
+    if (email.length === 0) throw new Error('An account email is required')
+    if (options.passwordHash.length === 0) throw new Error('A password hash is required')
+    const { sql } = database
+    return sql.transaction(async () => {
+        const users = await sql
+            .statement<{ readonly id: string }, [string]>(
+                'SELECT id FROM "user" WHERE lower(email) = lower(?1)'
+            )
+            .all(email)
+        if (users.length === 0) throw new Error('No Postdot account exists for that email address')
+        if (users.length > 1)
+            throw new Error(
+                'More than one account matches that email address; recovery was not applied'
+            )
+        const userId = users[0]!.id
+        const credentials = await sql
+            .statement<{ readonly id: string }, [string]>(
+                "SELECT id FROM account WHERE user_id = ?1 AND provider_id = 'credential'"
+            )
+            .all(userId)
+        if (credentials.length === 0)
+            throw new Error('The selected account has no email/password credential to recover')
+        if (credentials.length > 1)
+            throw new Error('The selected account has ambiguous email/password credentials')
+        const updated = await sql
+            .statement(
+                `UPDATE account SET password = ?1, updated_at = ?2
+                 WHERE id = ?3 AND user_id = ?4 AND provider_id = 'credential'`
+            )
+            .run(options.passwordHash, now(), credentials[0]!.id, userId)
+        if (updated.changes !== 1)
+            throw new Error('The selected email/password credential could not be updated')
+        const revokedSessionCount = (
+            await sql.statement('DELETE FROM session WHERE user_id = ?1').run(userId)
+        ).changes
+        const invalidatedResetTokenCount = (
+            await sql
+                .statement(
+                    "DELETE FROM verification WHERE identifier LIKE 'reset-password:%' AND value = ?1"
+                )
+                .run(userId)
+        ).changes
+        return { email, revokedSessionCount, invalidatedResetTokenCount }
+    }, 'immediate')
 }

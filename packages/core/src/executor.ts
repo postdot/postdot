@@ -49,23 +49,29 @@ export interface ExternalEffectWork {
     readonly attempts: number
 }
 
+/**
+ * Durable claim/lease port of the external-effect executor. Persistence is
+ * asynchronous (ADR-097); every method resolves after its write committed.
+ */
 export interface ExternalEffectExecutorStore<Work extends ExternalEffectWork> {
-    recoverExpiredClaims(now: number): ExpiredClaimRecovery
+    recoverExpiredClaims(now: number): Promise<ExpiredClaimRecovery>
     claimNextDueJob(input: {
         readonly actorId: string
         readonly claimToken: string
         readonly now: number
         readonly leaseExpiresAt: number
         readonly projectId?: string
-    }): Work | null
+    }): Promise<Work | null>
     renewClaim?(input: {
         readonly jobId: string
         readonly claimToken: string
         readonly now: number
         readonly leaseExpiresAt: number
-    }): boolean
-    startExternalEffect(jobId: string, claimToken: string, now: number): boolean
-    completeExternalEffect(input: CompleteExternalEffectInput): PersistedEffectOutcome | null
+    }): Promise<boolean>
+    startExternalEffect(jobId: string, claimToken: string, now: number): Promise<boolean>
+    completeExternalEffect(
+        input: CompleteExternalEffectInput
+    ): Promise<PersistedEffectOutcome | null>
 }
 
 export type WorkflowExecutorStore = ExternalEffectExecutorStore<Job>
@@ -81,7 +87,11 @@ export interface RetryPolicy {
 
 export interface EffectExecutionContext {
     readonly signal: AbortSignal
-    assertActive(): void
+    /**
+     * Verifies, and renews when leased, that this execution still owns its claim.
+     * Await it immediately before each externally visible effect.
+     */
+    assertActive(): Promise<void>
 }
 
 export interface ActiveEffectPolicy {
@@ -192,9 +202,9 @@ export async function processNextExternalEffect<Work extends ExternalEffectWork>
             )
         }
     }
-    const recovery = options.store.recoverExpiredClaims(claimedAt)
+    const recovery = await options.store.recoverExpiredClaims(claimedAt)
     const claimToken = requireNonBlank(options.createClaimToken(), 'claimToken')
-    const work = options.store.claimNextDueJob({
+    const work = await options.store.claimNextDueJob({
         actorId: requireNonBlank(options.actorId, 'actorId'),
         claimToken,
         now: claimedAt,
@@ -205,7 +215,7 @@ export async function processNextExternalEffect<Work extends ExternalEffectWork>
     if (work === null) return { recovery, workId: null, outcome: 'idle' }
 
     const effectStartedAt = requireTimestamp(now(), 'now')
-    if (!options.store.startExternalEffect(work.id, claimToken, effectStartedAt)) {
+    if (!(await options.store.startExternalEffect(work.id, claimToken, effectStartedAt))) {
         return { recovery, workId: work.id, outcome: 'claim_lost' }
     }
 
@@ -216,13 +226,15 @@ export async function processNextExternalEffect<Work extends ExternalEffectWork>
     }
     let renewalTimer: unknown
     let deadlineTimer: unknown
+    let heartbeatPending: Promise<void> | undefined
+    let heartbeatActive = true
     let claimLost = false
-    const renew = () => {
+    const renew = async () => {
         if (!policy) return true
         const at = requireTimestamp(now(), 'now')
         try {
             if (
-                options.store.renewClaim!({
+                await options.store.renewClaim!({
                     jobId: work.id,
                     claimToken,
                     now: at,
@@ -238,7 +250,12 @@ export async function processNextExternalEffect<Work extends ExternalEffectWork>
         return false
     }
     const heartbeat = () => {
-        if (renew()) renewalTimer = timers.set(heartbeat, policy!.renewalIntervalMs)
+        heartbeatPending = (async () => {
+            if ((await renew()) && heartbeatActive) {
+                renewalTimer = timers.set(heartbeat, policy!.renewalIntervalMs)
+            }
+        })()
+        return heartbeatPending
     }
     if (policy) {
         renewalTimer = timers.set(heartbeat, policy.renewalIntervalMs)
@@ -250,10 +267,10 @@ export async function processNextExternalEffect<Work extends ExternalEffectWork>
         // Never race away from an unsettled effect: its slot and shutdown drain remain owned.
         outcome = await options.performExternalEffect(work, {
             signal: controller.signal,
-            assertActive() {
+            async assertActive() {
                 controller.signal.throwIfAborted()
                 if (policy && now() - effectStartedAt >= policy.timeoutMs) controller.abort()
-                if (!renew()) controller.abort()
+                if (!(await renew())) controller.abort()
                 controller.signal.throwIfAborted()
             },
         })
@@ -263,13 +280,15 @@ export async function processNextExternalEffect<Work extends ExternalEffectWork>
             errorMessage: describeUnknownExternalOutcome(error),
         }
     } finally {
+        heartbeatActive = false
         if (renewalTimer !== undefined) timers.clear(renewalTimer)
         if (deadlineTimer !== undefined) timers.clear(deadlineTimer)
+        await heartbeatPending
     }
 
     const completedAt = requireTimestamp(now(), 'now')
-    if (policy && (claimLost || !renew())) {
-        options.store.recoverExpiredClaims(completedAt)
+    if (policy && (claimLost || !(await renew()))) {
+        await options.store.recoverExpiredClaims(completedAt)
         return { recovery, workId: work.id, outcome: 'claim_lost' }
     }
     if (
@@ -296,7 +315,7 @@ export async function processNextExternalEffect<Work extends ExternalEffectWork>
         throw new DomainInvariantError('invalid_time', 'A retry cannot predate its failure')
     }
 
-    const persisted = options.store.completeExternalEffect({
+    const persisted = await options.store.completeExternalEffect({
         jobId: work.id,
         claimToken,
         completedAt,

@@ -879,7 +879,7 @@ function assertPostdotDatabase(database: Database, filename: string) {
         .query<{ name: string }, []>(
             `SELECT name
              FROM sqlite_master
-             WHERE type = 'table' AND name = '__drizzle_migrations'`
+             WHERE type = 'table' AND name IN ('postdot_migrations', '__drizzle_migrations')`
         )
         .get()
 

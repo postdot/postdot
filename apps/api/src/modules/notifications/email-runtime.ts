@@ -35,8 +35,8 @@ export function createNotificationEmailRuntime(options: {
                 : { auth: { user: smtp!.username, pass: smtp!.password! } }),
         })
     const scheduler = new NextEventScheduler({
-        getNextEventAt: () =>
-            getSmtp() === undefined ? null : store.deliveries.getNextAttemptAt(),
+        getNextEventAt: async () =>
+            (await getSmtp()) === undefined ? null : store.deliveries.getNextAttemptAt(),
         onError: () => console.error('[postdot-notification-email] delivery scheduler failed'),
         async processDueEvents() {
             for (let count = 0; count < 100; count++) {
@@ -52,7 +52,7 @@ export function createNotificationEmailRuntime(options: {
                         maximumDelay: 300_000,
                     }),
                     async performExternalEffect(delivery): Promise<ExternalEffectOutcome> {
-                        const email = store.resolveRecipient(delivery)
+                        const email = await store.resolveRecipient(delivery)
                         if (email === null)
                             return {
                                 type: 'permanent_failure',
@@ -80,7 +80,7 @@ export function createNotificationEmailRuntime(options: {
                                 url: url.toString(),
                             })
                             if (
-                                store.resolveRecipient(delivery) !== email ||
+                                (await store.resolveRecipient(delivery)) !== email ||
                                 getSmtp() === undefined
                             )
                                 return {
@@ -103,26 +103,27 @@ export function createNotificationEmailRuntime(options: {
     const projection = createNotificationProjectionRuntime(
         {
             listProjectIds: () => store.deliveries.listProjectIds(),
-            project(projectId) {
-                const result = store.deliveries.project(projectId)
-                if (scheduler.state === 'started') scheduler.replan()
+            async project(projectId) {
+                const result = await store.deliveries.project(projectId)
+                if (scheduler.state === 'started') await scheduler.replan()
                 return result
             },
         },
         { onError: () => console.error('[postdot-notification-email] projection failed') }
     )
     return {
-        start() {
-            store.deliveries.recoverExpiredClaims(Date.now())
-            scheduler.start()
-            projection.start()
+        async start() {
+            await store.deliveries.recoverExpiredClaims(Date.now())
+            await scheduler.start()
+            await projection.start()
         },
         runProjects: projection.runProjects,
-        replan() {
-            if (scheduler.state === 'started' || scheduler.state === 'running') scheduler.replan()
+        async replan() {
+            if (scheduler.state === 'started' || scheduler.state === 'running')
+                await scheduler.replan()
         },
         async stop() {
-            projection.stop()
+            await projection.stop()
             await scheduler.stop()
         },
     }

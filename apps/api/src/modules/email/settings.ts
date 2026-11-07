@@ -47,14 +47,15 @@ export async function createEmailSettingsService(options: {
         sendMail(message: SendMailOptions): Promise<unknown>
     }
 }) {
-    const persisted = await options.store.read()
-    let stored: Static<typeof storedSchema> | null = null
-    if (persisted !== null) {
+    const read = async (): Promise<Static<typeof storedSchema> | null> => {
+        const persisted = await options.store.read()
+        if (persisted === null) return null
         const decoded: unknown = JSON.parse(persisted)
         if (!Value.Check(storedSchema, decoded))
             throw new Error('Stored email configuration is invalid')
-        stored = decoded
+        return decoded
     }
+    let stored = await read()
     const configured = () => stored?.smtp ?? options.initial
     const current = (): PostdotSmtpConfig | undefined =>
         stored?.enabled === false ? undefined : configured()
@@ -71,7 +72,7 @@ export async function createEmailSettingsService(options: {
             source: stored !== null ? 'database' : options.initial ? 'deployment' : 'none',
         }
     }
-    let tail = Promise.resolve()
+    let tail: Promise<unknown> = Promise.resolve()
     const sendMail = async (message: SendMailOptions) => {
         if (options.deliveryAllowed?.() === false)
             throw new Error('Email delivery is suspended during recovery')
@@ -94,6 +95,10 @@ export async function createEmailSettingsService(options: {
         current,
         view,
         sendMail,
+        /** Rereads the stored settings after another instance changed them. */
+        async reload() {
+            stored = await read()
+        },
         async save(input: EmailSettingsInput) {
             const operation = tail.then(async () => {
                 const password =

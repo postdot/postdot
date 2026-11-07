@@ -1,6 +1,6 @@
 import { requireNonBlank, requireTimestamp } from '@postdot/core'
 
-import type { PostdotDatabase } from './client'
+import type { DatabaseHandle } from './client'
 import type {
     EncryptedPublisherSecret,
     PublisherCredentialCipher,
@@ -275,17 +275,17 @@ function providerStateEnvelope(row: AuthorizationAttemptRow): EncryptedPublisher
 }
 
 export function createAuthorizationAttemptStore(
-    database: PostdotDatabase,
+    database: DatabaseHandle,
     options: AuthorizationAttemptStoreOptions
 ) {
-    const client = database.$client
+    const sql = database.sql
     const cipher = options.cipher
     const validateReturnPath = options.validateReturnPath
     const now = options.now ?? Date.now
     const createId = options.createId ?? (() => crypto.randomUUID())
     const ttlMs = requireTtl(options.ttlMs ?? defaultAuthorizationAttemptTtlMs)
 
-    const loadBindingStatement = client.query<
+    const loadBindingStatement = sql.statement<
         { found: number },
         [projectId: string, channelId: string, connectedByActorId: string]
     >(`
@@ -300,7 +300,7 @@ export function createAuthorizationAttemptStore(
         where projects.id = ?1
           and channels.state = 'active'
     `)
-    const loadAttemptByStateStatement = client.query<
+    const loadAttemptByStateStatement = sql.statement<
         AuthorizationAttemptRow,
         [stateDigest: Uint8Array]
     >(`
@@ -308,7 +308,7 @@ export function createAuthorizationAttemptStore(
         from oauth_authorization_attempts
         where state_digest = ?1
     `)
-    const insertAttemptStatement = client.query<
+    const insertAttemptStatement = sql.statement<
         { changes: number },
         [
             id: string,
@@ -363,7 +363,7 @@ export function createAuthorizationAttemptStore(
         )
         on conflict (state_digest) do nothing
     `)
-    const consumeAttemptStatement = client.query<
+    const consumeAttemptStatement = sql.statement<
         { changes: number },
         [
             completedAt: number,
@@ -392,7 +392,7 @@ export function createAuthorizationAttemptStore(
           and status = 'pending'
           and expires_at > ?1
     `)
-    const expireAttemptStatement = client.query<
+    const expireAttemptStatement = sql.statement<
         { changes: number },
         [completedAt: number, id: string]
     >(`
@@ -412,7 +412,7 @@ export function createAuthorizationAttemptStore(
           and status = 'pending'
           and expires_at <= ?1
     `)
-    const expireAllAttemptsStatement = client.query<{ changes: number }, [completedAt: number]>(`
+    const expireAllAttemptsStatement = sql.statement<{ changes: number }, [completedAt: number]>(`
         update oauth_authorization_attempts
         set status = 'expired',
             completed_at = ?1,
@@ -434,178 +434,206 @@ export function createAuthorizationAttemptStore(
         async readPendingAuthorizationProviderState(
             input: ConsumeAuthorizationAttemptInput
         ): Promise<ReadAuthorizationProviderStateResult> {
-            const row = loadAttemptByStateStatement.get(requireStateDigest(input.stateDigest))
-            if (row === null) return { kind: 'not_found' }
-            if (row.status !== 'pending') return { kind: 'already_used' }
-            if (
-                row.connectedByActorId !== input.connectedByActorId ||
-                row.providerId !== input.providerId ||
-                row.callbackUri !== input.callbackUri
-            )
-                return { kind: 'mismatch' }
-            const timestamp = requireTimestamp(now(), 'now')
-            if (row.expiresAt <= timestamp) {
-                expireAttemptStatement.run(timestamp, row.id)
-                return { kind: 'expired' }
-            }
-            if (
-                loadBindingStatement.get(row.projectId, row.channelId, row.connectedByActorId) ===
-                null
-            )
-                return { kind: 'not_found' }
-            const envelope = providerStateEnvelope(row)
-            return {
-                kind: 'ready',
-                attempt: toAttempt(row),
-                providerState:
-                    envelope === null
-                        ? null
-                        : await cipher.decrypt(
-                              {
-                                  recordId: row.id,
-                                  providerId: row.providerId,
-                                  field: 'provider_state',
-                              },
-                              envelope
-                          ),
-            }
+            return database.sql.transaction(async () => {
+                const row = await loadAttemptByStateStatement.get(
+                    requireStateDigest(input.stateDigest)
+                )
+                if (row === null) return { kind: 'not_found' }
+                if (row.status !== 'pending') return { kind: 'already_used' }
+                if (
+                    row.connectedByActorId !== input.connectedByActorId ||
+                    row.providerId !== input.providerId ||
+                    row.callbackUri !== input.callbackUri
+                )
+                    return { kind: 'mismatch' }
+                const timestamp = requireTimestamp(now(), 'now')
+                if (row.expiresAt <= timestamp) {
+                    await expireAttemptStatement.run(timestamp, row.id)
+                    return { kind: 'expired' }
+                }
+                if (
+                    (await loadBindingStatement.get(
+                        row.projectId,
+                        row.channelId,
+                        row.connectedByActorId
+                    )) === null
+                )
+                    return { kind: 'not_found' }
+                const envelope = providerStateEnvelope(row)
+                return {
+                    kind: 'ready',
+                    attempt: toAttempt(row),
+                    providerState:
+                        envelope === null
+                            ? null
+                            : await cipher.decrypt(
+                                  {
+                                      recordId: row.id,
+                                      providerId: row.providerId,
+                                      field: 'provider_state',
+                                  },
+                                  envelope
+                              ),
+                }
+            }, 'deferred')
         },
-        getAuthorizationAttempt(stateDigest: Uint8Array): AuthorizationAttempt | null {
-            const row = loadAttemptByStateStatement.get(requireStateDigest(stateDigest))
+        async getAuthorizationAttempt(
+            stateDigest: Uint8Array
+        ): Promise<AuthorizationAttempt | null> {
+            const row = await loadAttemptByStateStatement.get(requireStateDigest(stateDigest))
             return row === null ? null : toAttempt(row)
         },
 
         async createAuthorizationAttempt(
             input: CreateAuthorizationAttemptInput
         ): Promise<CreateAuthorizationAttemptResult> {
-            const projectId = requireNonBlank(input.projectId, 'projectId')
-            const channelId = requireNonBlank(input.channelId, 'channelId')
-            const connectedByActorId = requireNonBlank(
-                input.connectedByActorId,
-                'connectedByActorId'
-            )
-            const providerId = requireNonBlank(input.providerId, 'providerId')
-            const callbackUri = requireNonBlank(input.callbackUri, 'callbackUri')
-            const returnPath = validateReturnPath(input.returnPath)
-            const scopes = normalizeScopes(input.scopes)
-            const contextJson = serializeContext(input.context)
-            const stateDigest = requireStateDigest(input.stateDigest)
-            const codeVerifier = requireCodeVerifier(input.codeVerifier)
-            const providerState =
-                input.providerState === null || input.providerState === undefined
-                    ? null
-                    : input.providerState
-            if (loadBindingStatement.get(projectId, channelId, connectedByActorId) === null) {
-                return { kind: 'not_found' }
-            }
-            if (loadAttemptByStateStatement.get(stateDigest) !== null) {
-                return { kind: 'state_collision' }
-            }
+            return database.sql.transaction(async () => {
+                const projectId = requireNonBlank(input.projectId, 'projectId')
+                const channelId = requireNonBlank(input.channelId, 'channelId')
+                const connectedByActorId = requireNonBlank(
+                    input.connectedByActorId,
+                    'connectedByActorId'
+                )
+                const providerId = requireNonBlank(input.providerId, 'providerId')
+                const callbackUri = requireNonBlank(input.callbackUri, 'callbackUri')
+                const returnPath = validateReturnPath(input.returnPath)
+                const scopes = normalizeScopes(input.scopes)
+                const contextJson = serializeContext(input.context)
+                const stateDigest = requireStateDigest(input.stateDigest)
+                const codeVerifier = requireCodeVerifier(input.codeVerifier)
+                const providerState =
+                    input.providerState === null || input.providerState === undefined
+                        ? null
+                        : input.providerState
+                if (
+                    (await loadBindingStatement.get(projectId, channelId, connectedByActorId)) ===
+                    null
+                ) {
+                    return { kind: 'not_found' }
+                }
+                if ((await loadAttemptByStateStatement.get(stateDigest)) !== null) {
+                    return { kind: 'state_collision' }
+                }
 
-            const timestamp = requireTimestamp(now(), 'now')
-            const attempt: AuthorizationAttempt = {
-                id: createId(),
-                projectId,
-                channelId,
-                connectedByActorId,
-                providerId,
-                ...(input.providerApplicationId === undefined
-                    ? {}
-                    : { providerApplicationId: input.providerApplicationId }),
-                callbackUri,
-                scopes,
-                returnPath,
-                context: parseContext(contextJson),
-                expiresAt: timestamp + ttlMs,
-                createdAt: timestamp,
-            }
-            const verifier =
-                codeVerifier === null
-                    ? null
-                    : await cipher.encrypt(
-                          { recordId: attempt.id, providerId, field: 'pkce_verifier' },
-                          codeVerifier
-                      )
-            const providerStateEnvelope =
-                providerState === null
-                    ? null
-                    : await cipher.encrypt(
-                          { recordId: attempt.id, providerId, field: 'provider_state' },
-                          providerState
-                      )
-            const inserted = insertAttemptStatement.run(
-                attempt.id,
-                attempt.projectId,
-                attempt.channelId,
-                attempt.connectedByActorId,
-                attempt.providerId,
-                attempt.providerApplicationId ?? null,
-                attempt.callbackUri,
-                JSON.stringify(attempt.scopes),
-                attempt.returnPath,
-                contextJson,
-                stateDigest,
-                verifier?.version ?? null,
-                verifier?.keyId ?? null,
-                verifier?.ciphertext ?? null,
-                verifier?.nonce ?? null,
-                providerStateEnvelope?.version ?? null,
-                providerStateEnvelope?.keyId ?? null,
-                providerStateEnvelope?.ciphertext ?? null,
-                providerStateEnvelope?.nonce ?? null,
-                attempt.expiresAt,
-                timestamp
-            )
+                const timestamp = requireTimestamp(now(), 'now')
+                const attempt: AuthorizationAttempt = {
+                    id: createId(),
+                    projectId,
+                    channelId,
+                    connectedByActorId,
+                    providerId,
+                    ...(input.providerApplicationId === undefined
+                        ? {}
+                        : { providerApplicationId: input.providerApplicationId }),
+                    callbackUri,
+                    scopes,
+                    returnPath,
+                    context: parseContext(contextJson),
+                    expiresAt: timestamp + ttlMs,
+                    createdAt: timestamp,
+                }
+                const verifier =
+                    codeVerifier === null
+                        ? null
+                        : await cipher.encrypt(
+                              { recordId: attempt.id, providerId, field: 'pkce_verifier' },
+                              codeVerifier
+                          )
+                const providerStateEnvelope =
+                    providerState === null
+                        ? null
+                        : await cipher.encrypt(
+                              { recordId: attempt.id, providerId, field: 'provider_state' },
+                              providerState
+                          )
+                const inserted = await insertAttemptStatement.run(
+                    attempt.id,
+                    attempt.projectId,
+                    attempt.channelId,
+                    attempt.connectedByActorId,
+                    attempt.providerId,
+                    attempt.providerApplicationId ?? null,
+                    attempt.callbackUri,
+                    JSON.stringify(attempt.scopes),
+                    attempt.returnPath,
+                    contextJson,
+                    stateDigest,
+                    verifier?.version ?? null,
+                    verifier?.keyId ?? null,
+                    verifier?.ciphertext ?? null,
+                    verifier?.nonce ?? null,
+                    providerStateEnvelope?.version ?? null,
+                    providerStateEnvelope?.keyId ?? null,
+                    providerStateEnvelope?.ciphertext ?? null,
+                    providerStateEnvelope?.nonce ?? null,
+                    attempt.expiresAt,
+                    timestamp
+                )
 
-            return inserted.changes === 1
-                ? { kind: 'created', attempt }
-                : { kind: 'state_collision' }
+                return inserted.changes === 1
+                    ? { kind: 'created', attempt }
+                    : { kind: 'state_collision' }
+            }, 'immediate')
         },
 
         async consumeAuthorizationAttempt(
             input: ConsumeAuthorizationAttemptInput
         ): Promise<ConsumeAuthorizationAttemptResult> {
-            const stateDigest = requireStateDigest(input.stateDigest)
-            const connectedByActorId = requireNonBlank(
-                input.connectedByActorId,
-                'connectedByActorId'
-            )
-            const providerId = requireNonBlank(input.providerId, 'providerId')
-            const callbackUri = requireNonBlank(input.callbackUri, 'callbackUri')
-            const row = loadAttemptByStateStatement.get(stateDigest)
-            if (row === null) return { kind: 'not_found' }
-            if (row.status !== 'pending') return { kind: 'already_used' }
-            if (
-                row.connectedByActorId !== connectedByActorId ||
-                row.providerId !== providerId ||
-                row.callbackUri !== callbackUri
-            ) {
-                return { kind: 'mismatch' }
-            }
+            const consumedAttempt = await database.sql.transaction<
+                | Exclude<ConsumeAuthorizationAttemptResult, { kind: 'consumed' }>
+                | {
+                      kind: 'consumed'
+                      row: AuthorizationAttemptRow
+                      verifier: EncryptedPublisherSecret | null
+                      providerState: EncryptedPublisherSecret | null
+                  }
+            >(async () => {
+                const stateDigest = requireStateDigest(input.stateDigest)
+                const connectedByActorId = requireNonBlank(
+                    input.connectedByActorId,
+                    'connectedByActorId'
+                )
+                const providerId = requireNonBlank(input.providerId, 'providerId')
+                const callbackUri = requireNonBlank(input.callbackUri, 'callbackUri')
+                const row = await loadAttemptByStateStatement.get(stateDigest)
+                if (row === null) return { kind: 'not_found' }
+                if (row.status !== 'pending') return { kind: 'already_used' }
+                if (
+                    row.connectedByActorId !== connectedByActorId ||
+                    row.providerId !== providerId ||
+                    row.callbackUri !== callbackUri
+                ) {
+                    return { kind: 'mismatch' }
+                }
 
-            const timestamp = requireTimestamp(now(), 'now')
-            if (row.expiresAt <= timestamp) {
-                expireAttemptStatement.run(timestamp, row.id)
-                return { kind: 'expired' }
-            }
+                const timestamp = requireTimestamp(now(), 'now')
+                if (row.expiresAt <= timestamp) {
+                    await expireAttemptStatement.run(timestamp, row.id)
+                    return { kind: 'expired' }
+                }
 
-            const verifier = pkceEnvelope(row)
-            const providerState = providerStateEnvelope(row)
-            const consumed = consumeAttemptStatement.run(
-                timestamp,
-                row.id,
-                connectedByActorId,
-                providerId,
-                callbackUri
-            )
-            if (consumed.changes !== 1) {
-                const current = loadAttemptByStateStatement.get(stateDigest)
-                if (current === null) return { kind: 'not_found' }
-                if (current.status !== 'pending') return { kind: 'already_used' }
-                if (current.expiresAt <= timestamp) return { kind: 'expired' }
-                return { kind: 'conflict' }
-            }
+                const verifier = pkceEnvelope(row)
+                const providerState = providerStateEnvelope(row)
+                const consumed = await consumeAttemptStatement.run(
+                    timestamp,
+                    row.id,
+                    connectedByActorId,
+                    providerId,
+                    callbackUri
+                )
+                if (consumed.changes !== 1) {
+                    const current = await loadAttemptByStateStatement.get(stateDigest)
+                    if (current === null) return { kind: 'not_found' }
+                    if (current.status !== 'pending') return { kind: 'already_used' }
+                    if (current.expiresAt <= timestamp) return { kind: 'expired' }
+                    return { kind: 'conflict' }
+                }
 
+                return { kind: 'consumed', row, verifier, providerState }
+            }, 'immediate')
+            if (consumedAttempt.kind !== 'consumed') return consumedAttempt
+            // Consumption and envelope erasure stay committed even if decryption fails.
+            const { row, verifier, providerState } = consumedAttempt
             return {
                 kind: 'consumed',
                 attempt: toAttempt(row),
@@ -634,8 +662,8 @@ export function createAuthorizationAttemptStore(
             }
         },
 
-        expireAuthorizationAttempts(): number {
-            return expireAllAttemptsStatement.run(requireTimestamp(now(), 'now')).changes
+        async expireAuthorizationAttempts(): Promise<number> {
+            return (await expireAllAttemptsStatement.run(requireTimestamp(now(), 'now'))).changes
         },
     }
 }

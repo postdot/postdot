@@ -111,7 +111,7 @@ async function executeDiscordPublication(input: {
             })),
         })
     } catch {
-        failDiscordDeliveries(
+        await failDiscordDeliveries(
             execution.providerMediaDeliveryStore,
             target.projectId,
             mediaResult.attachments.map(attachment => attachment.delivery.id),
@@ -126,7 +126,7 @@ async function executeDiscordPublication(input: {
     if (outcome.type === 'published') {
         const attachmentIds = outcome.attachmentIds ?? []
         if (attachmentIds.length !== mediaResult.attachments.length) {
-            failDiscordDeliveries(
+            await failDiscordDeliveries(
                 execution.providerMediaDeliveryStore,
                 target.projectId,
                 mediaResult.attachments.map(attachment => attachment.delivery.id),
@@ -140,7 +140,7 @@ async function executeDiscordPublication(input: {
         for (const [index, attachment] of mediaResult.attachments.entries()) {
             const remoteMediaId = attachmentIds[index]
             if (remoteMediaId === undefined) continue
-            const completed = execution.providerMediaDeliveryStore.complete({
+            const completed = await execution.providerMediaDeliveryStore.complete({
                 projectId: target.projectId,
                 deliveryId: attachment.delivery.id,
                 remoteMediaId,
@@ -154,14 +154,14 @@ async function executeDiscordPublication(input: {
     }
 
     if (outcome.type === 'permanent_failure' && outcome.code === 'authentication_required') {
-        execution.credentials.markPublisherCredentialReconnectRequired(
+        await execution.credentials.markPublisherCredentialReconnectRequired(
             target.projectId,
             target.credentialId
         )
     }
     // A 403 forbidden outcome (for example a missing Send Messages permission) stays
     // permanent without reconnect: the Bot token is valid, the channel grant is not.
-    failDiscordDeliveries(
+    await failDiscordDeliveries(
         execution.providerMediaDeliveryStore,
         target.projectId,
         mediaResult.attachments.map(attachment => attachment.delivery.id),
@@ -175,7 +175,7 @@ async function executeDiscordPublication(input: {
 
 interface PreparedDiscordAttachment {
     readonly target: PublisherExecutionTarget['media'][number]
-    readonly delivery: ReturnType<ProviderMediaDeliveryPort['reserve']>
+    readonly delivery: Awaited<ReturnType<ProviderMediaDeliveryPort['reserve']>>
     readonly stream: ReadableStream<Uint8Array>
 }
 
@@ -282,7 +282,7 @@ async function prepareDiscordMedia(input: {
             }
         }
 
-        const delivery = input.providerMediaDeliveryStore.reserve({
+        const delivery = await input.providerMediaDeliveryStore.reserve({
             projectId: input.target.projectId,
             executionMediaId: targetMedia.id,
             publisherId: input.target.publisherId,
@@ -308,7 +308,7 @@ async function prepareDiscordMedia(input: {
 
         let current = delivery
         if (current.state === 'failed') {
-            const retried = input.providerMediaDeliveryStore.retry({
+            const retried = await input.providerMediaDeliveryStore.retry({
                 projectId: input.target.projectId,
                 deliveryId: current.id,
                 at: input.now,
@@ -358,7 +358,7 @@ async function prepareDiscordMedia(input: {
                 errorMessage: 'The Discord image upload has no durable provider identifier',
                 now: input.now,
             })
-            failDiscordDeliveries(
+            await failDiscordDeliveries(
                 input.providerMediaDeliveryStore,
                 input.target.projectId,
                 [current.id],
@@ -375,7 +375,7 @@ async function prepareDiscordMedia(input: {
             }
         }
 
-        const started = input.providerMediaDeliveryStore.start({
+        const started = await input.providerMediaDeliveryStore.start({
             projectId: input.target.projectId,
             deliveryId: current.id,
             at: input.now,
@@ -409,7 +409,7 @@ async function prepareDiscordMedia(input: {
                 errorMessage: 'The pinned Discord image could not be read; retry is safe',
                 now: input.now,
             })
-            failDiscordDeliveries(
+            await failDiscordDeliveries(
                 input.providerMediaDeliveryStore,
                 input.target.projectId,
                 [started.id],
@@ -434,7 +434,7 @@ async function prepareDiscordMedia(input: {
                 errorMessage: 'The pinned Discord image representation is unavailable or changed',
                 now: input.now,
             })
-            failDiscordDeliveries(
+            await failDiscordDeliveries(
                 input.providerMediaDeliveryStore,
                 input.target.projectId,
                 [started.id],
@@ -457,7 +457,7 @@ async function prepareDiscordMedia(input: {
     return { kind: 'ready', attachments: prepared }
 }
 
-function failDiscordDeliveries(
+async function failDiscordDeliveries(
     store: ProviderMediaDeliveryPort,
     projectId: string,
     deliveryIds: readonly string[],
@@ -465,10 +465,10 @@ function failDiscordDeliveries(
     errorMessage: string,
     ambiguous: boolean,
     at: number
-): void {
+): Promise<void> {
     for (const deliveryId of deliveryIds) {
         try {
-            store.fail({ projectId, deliveryId, errorCode, errorMessage, ambiguous, at })
+            await store.fail({ projectId, deliveryId, errorCode, errorMessage, ambiguous, at })
         } catch {
             // The caller already classifies the outcome as ambiguous when persistence fails.
         }
@@ -496,7 +496,7 @@ async function abortPreparedMedia(input: {
     readonly now: number
 }): Promise<void> {
     await cancelPreparedStreams(input.prepared)
-    failDiscordDeliveries(
+    await failDiscordDeliveries(
         input.store,
         input.projectId,
         input.prepared.map(attachment => attachment.delivery.id),

@@ -55,7 +55,11 @@ export function registerFacebookPublisherRoutes<const Routes extends Record<stri
     app: AuthenticatedElysia<Routes>,
     publisher: PublisherRuntime,
     options: {
-        readonly canManageChannel: (projectId: string, channelId: string, userId: string) => boolean
+        readonly canManageChannel: (
+            projectId: string,
+            channelId: string,
+            userId: string
+        ) => Promise<boolean>
         readonly access: AccessStore
         readonly channels: Pick<ReturnType<typeof createManualStore>, 'listChannels'>
         readonly onWorkScheduled?: () => void
@@ -76,7 +80,7 @@ export function registerFacebookPublisherRoutes<const Routes extends Record<stri
         })
     }
     async function flowForSelection(selection: string) {
-        const attempt = publisher.authorizationAttemptStore.getAuthorizationAttempt(
+        const attempt = await publisher.authorizationAttemptStore.getAuthorizationAttempt(
             await digestAuthorizationState(selection)
         )
         if (
@@ -154,9 +158,10 @@ export function registerFacebookPublisherRoutes<const Routes extends Record<stri
                         return redirect(fallback)
                     const state = parameters.searchParams.get('state') ?? ''
                     if (!/^[\x21-\x7e]{32,512}$/.test(state)) return redirect(fallback)
-                    const attempt = publisher.authorizationAttemptStore.getAuthorizationAttempt(
-                        await digestAuthorizationState(state)
-                    )
+                    const attempt =
+                        await publisher.authorizationAttemptStore.getAuthorizationAttempt(
+                            await digestAuthorizationState(state)
+                        )
                     if (
                         !attempt ||
                         attempt.providerId !== 'facebook' ||
@@ -164,10 +169,20 @@ export function registerFacebookPublisherRoutes<const Routes extends Record<stri
                     )
                         return redirect(fallback)
                     if (
-                        publisher.publisherStore.getProjectActorId(attempt.projectId, user.id) !==
-                            attempt.connectedByActorId ||
-                        !options.access.canAccessProject(attempt.projectId, user.id, 'editor') ||
-                        !options.canManageChannel(attempt.projectId, attempt.channelId, user.id)
+                        (await publisher.publisherStore.getProjectActorId(
+                            attempt.projectId,
+                            user.id
+                        )) !== attempt.connectedByActorId ||
+                        !(await options.access.canAccessProject(
+                            attempt.projectId,
+                            user.id,
+                            'editor'
+                        )) ||
+                        !(await options.canManageChannel(
+                            attempt.projectId,
+                            attempt.channelId,
+                            user.id
+                        ))
                     )
                         return redirect(fallback)
                     fallback = new URL(attempt.returnPath, publisher.webOrigin)

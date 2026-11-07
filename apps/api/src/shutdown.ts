@@ -26,11 +26,11 @@ export type ShutdownExitCode =
 export interface ShutdownDependencies {
     readonly stopWorker: () => Promise<void>
     readonly stopMediaMaintenance: () => Promise<void>
-    readonly stopNotificationProjection: () => void
-    readonly stopRealtime: () => void
+    readonly stopNotificationProjection: () => Promise<void> | void
+    readonly stopRealtime: () => Promise<void> | void
     readonly clearCommitObserver: () => void
     readonly stopServer: () => Promise<void> | void
-    readonly closeDatabase: () => void
+    readonly closeDatabase: () => Promise<void> | void
     /** Returns true when no runtime marker remains after the call. */
     readonly releaseRuntimeLock: () => boolean
     readonly exit: (code: ShutdownExitCode) => void
@@ -84,27 +84,29 @@ export function createShutdownDependencies(
  */
 export function createShutdownHandler(
     dependencies: ShutdownDependencies
-): (signal: NodeJS.Signals) => Promise<void> {
+): (signal: NodeJS.Signals, minimumExitCode?: ShutdownExitCode) => Promise<void> {
     const log = dependencies.log ?? defaultShutdownLog
     let shuttingDown = false
 
-    return async signal => {
+    // A drain started for a failure (lost topology lock) exits non-zero even
+    // when every step succeeds, so a supervisor restarts the process.
+    return async (signal, minimumExitCode = 0) => {
         if (shuttingDown) return
         shuttingDown = true
 
         log(`${signal} received; draining worker and runtimes`)
-        let exitCode: ShutdownExitCode = 0
+        let exitCode: ShutdownExitCode = minimumExitCode
         let step = 'worker-stop'
         try {
             await dependencies.stopWorker()
             step = 'media-maintenance-stop'
             await dependencies.stopMediaMaintenance()
-            step = 'notification-projection-stop'
-            dependencies.stopNotificationProjection()
-            step = 'realtime-stop'
-            dependencies.stopRealtime()
             step = 'commit-observer-clear'
             dependencies.clearCommitObserver()
+            step = 'notification-projection-stop'
+            await dependencies.stopNotificationProjection()
+            step = 'realtime-stop'
+            await dependencies.stopRealtime()
             step = 'server-stop'
             await dependencies.stopServer()
         } catch (error) {
@@ -112,7 +114,7 @@ export function createShutdownHandler(
             log('drain failed', JSON.stringify(describeShutdownError(step, error)))
         }
         try {
-            dependencies.closeDatabase()
+            await dependencies.closeDatabase()
         } catch (error) {
             exitCode = 2
             log(

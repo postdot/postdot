@@ -1,10 +1,8 @@
 import { describe, expect, it } from 'bun:test'
 
-import { closeDatabase, createDatabase } from './client'
 import { createManualStore } from './manual-store'
-import { runMigrations } from './migrations'
 import { createProviderAnalyticsStore } from './provider-analytics-store'
-import { seedTestWorkspace } from './testing'
+import { closeTestDatabase, openTestDatabase, seedTestWorkspace } from './testing'
 
 const now = 1_800_000_000_000
 const did = 'did:plc:provider-analytics'
@@ -41,19 +39,18 @@ function observation(
 }
 
 describe('provider analytics store', () => {
-    it('records immutable snapshots, deduplicates a repeated fetch, and isolates projects', () => {
-        const database = createDatabase(':memory:')
+    it('records immutable snapshots, deduplicates a repeated fetch, and isolates projects', async () => {
+        const database = (await openTestDatabase()).database
         try {
-            runMigrations(database)
             const manual = createManualStore(database, { now: () => now })
-            const first = manual.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const first = await manual.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'First analytics project',
                 subjectId: 'user-1',
                 displayName: 'First operator',
             })
-            const second = manual.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const second = await manual.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'Second analytics project',
                 subjectId: 'user-2',
                 displayName: 'Second operator',
@@ -65,22 +62,22 @@ describe('provider analytics store', () => {
                 })(),
             })
 
-            const firstFetch = store.recordObservations({
+            const firstFetch = await store.recordObservations({
                 projectId: first.project.id,
                 subjectId: 'user-1',
                 observations: [observation(first.project.id, now, 0)],
             })
-            const duplicateFetch = store.recordObservations({
+            const duplicateFetch = await store.recordObservations({
                 projectId: first.project.id,
                 subjectId: 'user-1',
                 observations: [observation(first.project.id, now, 0)],
             })
-            const secondSnapshot = store.recordObservations({
+            const secondSnapshot = await store.recordObservations({
                 projectId: first.project.id,
                 subjectId: 'user-1',
                 observations: [observation(first.project.id, now + 1_000, null)],
             })
-            const partialSnapshot = store.recordObservations({
+            const partialSnapshot = await store.recordObservations({
                 projectId: first.project.id,
                 subjectId: 'user-1',
                 observations: [
@@ -103,7 +100,7 @@ describe('provider analytics store', () => {
                 fetchedAt: now + 2_000,
             })
 
-            const listed = store.listObservations({
+            const listed = await store.listObservations({
                 projectId: first.project.id,
                 subjectId: 'user-1',
                 provider: 'bluesky',
@@ -115,37 +112,36 @@ describe('provider analytics store', () => {
                 now,
             ])
             expect(
-                store.listObservations({
+                await store.listObservations({
                     projectId: first.project.id,
                     subjectId: 'user-2',
                     provider: 'bluesky',
                 })
             ).toBeNull()
             expect(
-                store.listObservations({
+                await store.listObservations({
                     projectId: second.project.id,
                     subjectId: 'user-2',
                     provider: 'bluesky',
                 })
             ).toMatchObject({ observations: [] })
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
-    it('reads latest metrics before applying the cap and isolates selected publication histories', () => {
-        const database = createDatabase(':memory:')
+    it('reads latest metrics before applying the cap and isolates selected publication histories', async () => {
+        const database = (await openTestDatabase()).database
         try {
-            runMigrations(database)
             const manual = createManualStore(database, { now: () => now })
-            const { project } = manual.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const { project } = await manual.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'Latest reports',
                 subjectId: 'user-1',
                 displayName: 'Operator',
             })
-            const foreign = manual.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const foreign = await manual.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'Other project',
                 subjectId: 'user-2',
                 displayName: 'Other operator',
@@ -166,7 +162,7 @@ describe('provider analytics store', () => {
                 providerSubjectId: 'at://did:plc:report/app.bsky.feed.post/' + publicationId,
                 metricName: 'likeCount',
             })
-            store.recordObservations({
+            await store.recordObservations({
                 projectId: project.id,
                 subjectId: 'user-1',
                 observations: [
@@ -176,7 +172,7 @@ describe('provider analytics store', () => {
                     ),
                 ],
             })
-            store.recordObservations({
+            await store.recordObservations({
                 projectId: project.id,
                 subjectId: 'user-1',
                 observations: [
@@ -193,7 +189,7 @@ describe('provider analytics store', () => {
                 provider: 'bluesky',
                 publicationIds: ['older-publication', 'busy-publication'],
             }
-            const result = store.listLatestContentObservations(input)
+            const result = await store.listLatestContentObservations(input)
             expect(result?.hasMore).toBe(false)
             expect(result?.observations).toHaveLength(2)
             expect(
@@ -202,60 +198,63 @@ describe('provider analytics store', () => {
             expect(
                 result?.observations.find(row => row.postdotEntityId === 'busy-publication')?.value
             ).toBe(5)
-            store.recordObservations({
+            await store.recordObservations({
                 projectId: project.id,
                 subjectId: 'user-1',
                 observations: [content('busy-publication', now + 2000, null)],
             })
-            expect(store.listLatestContentObservations(input)?.observations[0]).toMatchObject({
+            expect(
+                (await store.listLatestContentObservations(input))?.observations[0]
+            ).toMatchObject({
                 value: null,
                 availability: 'not_reported',
             })
             expect(
-                store.listLatestContentObservations({ ...input, subjectId: 'user-2' })
+                await store.listLatestContentObservations({ ...input, subjectId: 'user-2' })
             ).toBeNull()
             expect(
-                store.listLatestContentObservations({
-                    ...input,
-                    projectId: foreign.project.id,
-                    subjectId: 'user-2',
-                })?.observations
+                (
+                    await store.listLatestContentObservations({
+                        ...input,
+                        projectId: foreign.project.id,
+                        subjectId: 'user-2',
+                    })
+                )?.observations
             ).toEqual([])
-            expect(() =>
+            await expect(
                 store.listLatestContentObservations({ ...input, publicationIds: [] })
-            ).toThrow()
-            expect(() =>
+            ).rejects.toThrow()
+            await expect(
                 store.listLatestContentObservations({ ...input, publicationIds: ['same', 'same'] })
-            ).toThrow()
-            expect(() =>
+            ).rejects.toThrow()
+            await expect(
                 store.listLatestContentObservations({
                     ...input,
                     publicationIds: Array.from({ length: 26 }, (_, i) => String(i)),
                 })
-            ).toThrow()
+            ).rejects.toThrow()
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
-    it('lists only known provider publications and never discovers account content', () => {
-        const database = createDatabase(':memory:')
+    it('lists only known provider publications and never discovers account content', async () => {
+        const database = (await openTestDatabase()).database
         try {
-            runMigrations(database)
             const manual = createManualStore(database, { now: () => now })
-            const project = manual.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const project = await manual.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'Known content project',
                 subjectId: 'user-1',
                 displayName: 'Operator',
             })
-            const channel = manual.createChannel({
+            const channel = await manual.createChannel({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 name: 'Bluesky',
             })
             if (channel === null) throw new Error('The test channel is missing')
-            const created = manual.createPost({
+            const created = await manual.createPost({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 sourceContent: {
@@ -268,19 +267,19 @@ describe('provider analytics store', () => {
             const publicationId = created.publications[0]?.id
             if (publicationId === undefined) throw new Error('The publication ID is missing')
 
-            database.$client
-                .query(
+            await database.sql
+                .statement(
                     'insert into publishers (id, workspace_id, channel_id, kind, created_at, updated_at) ' +
                         "values (?1, (select workspace_id from projects where id = ?2), ?3, 'bluesky', ?4, ?4)"
                 )
                 .run('publisher-1', project.project.id, channel.id, now)
-            database.$client
-                .query('update publications set external_id = ?1 where id = ?2')
+            await database.sql
+                .statement('update publications set external_id = ?1 where id = ?2')
                 .run('at://did:plc:provider-analytics/app.bsky.feed.post/3known', publicationId)
 
             const store = createProviderAnalyticsStore(database)
             expect(
-                store.listKnownProviderContent({
+                await store.listKnownProviderContent({
                     projectId: project.project.id,
                     subjectId: 'user-1',
                     provider: 'bluesky',
@@ -296,7 +295,7 @@ describe('provider analytics store', () => {
                 },
             ])
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 })

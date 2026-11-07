@@ -73,7 +73,9 @@ try {
         ? await (
               await import('./cli-qualification-container')
           ).createContainerCliFixture(directory, image)
-        : (await import('./cli-qualification-source')).createSourceCliFixture(directory, clock)
+        : await (
+              await import('./cli-qualification-source')
+          ).createSourceCliFixture(directory, clock)
     let installSpec = packageSpec
     if (!released) {
         await child([process.execPath, 'run', '--cwd', 'packages/cli', 'build'], root)
@@ -399,6 +401,15 @@ try {
     console.log(
         'Help works without credentials or network; the npm artifact has no runtime workspace dependencies.'
     )
+} catch (error) {
+    if (server?.diagnostics !== undefined) {
+        try {
+            console.error(await server.diagnostics())
+        } catch (diagnosticError) {
+            console.error('Could not read qualification server diagnostics', diagnosticError)
+        }
+    }
+    throw error
 } finally {
     await server?.stop()
     await rm(directory, { recursive: true, force: true })

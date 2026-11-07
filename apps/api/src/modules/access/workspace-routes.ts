@@ -1,6 +1,7 @@
 import type { PostdotAuth } from '@postdot/auth'
 import type { ResourceLifecycleStore } from '@postdot/db'
 import type { AccessStore } from '@postdot/db'
+import { filterSequential } from '@postdot/db'
 import { Type } from 'typebox'
 
 import { sessionSecurity, type AuthenticatedElysia } from '../../plugins/auth'
@@ -176,7 +177,9 @@ const workspaceLastAdminResponse = () => ({
     },
 })
 
-function toWorkspaceResponse(workspace: NonNullable<ReturnType<AccessStore['getWorkspace']>>) {
+function toWorkspaceResponse(
+    workspace: NonNullable<Awaited<ReturnType<AccessStore['getWorkspace']>>>
+) {
     const { organizationId: _organizationId, ...publicWorkspace } = workspace
     return publicWorkspace
 }
@@ -248,7 +251,7 @@ function isDefaultWorkspaceTeam(workspaceId: string, teamId: string): boolean {
 
 async function findWorkspaceTeam(
     auth: PostdotAuth,
-    workspace: NonNullable<ReturnType<AccessStore['getWorkspace']>>,
+    workspace: NonNullable<Awaited<ReturnType<AccessStore['getWorkspace']>>>,
     teamId: string,
     headers: Headers
 ) {
@@ -281,16 +284,16 @@ function toWorkspaceInvitation(invitation: {
     }
 }
 
-function hasWorkspaceRole(
+async function hasWorkspaceRole(
     access: AccessStore,
     workspaceId: string,
     userId: string,
     required: 'member' | 'admin'
-): boolean {
-    const membership = access.getWorkspaceMembership(workspaceId, userId)
+): Promise<boolean> {
+    const membership = await access.getWorkspaceMembership(workspaceId, userId)
     if (membership === null) return false
     if (required === 'member') return true
-    return access.canManageWorkspace(workspaceId, userId)
+    return await access.canManageWorkspace(workspaceId, userId)
 }
 
 function hasOrganizationRole(role: string, expected: 'owner' | 'admin'): boolean {
@@ -326,7 +329,7 @@ export function registerWorkspaceRoutes<const Routes extends Record<string, unkn
             },
             async ({ authMethod, body, request, status, user }) => {
                 if (authMethod !== 'session') return status(403, sessionOnlyForbiddenResponse())
-                if (!access.isInstanceAdmin(user.id)) {
+                if (!(await access.isInstanceAdmin(user.id))) {
                     return status(403, {
                         error: {
                             code: 'forbidden',
@@ -374,7 +377,7 @@ export function registerWorkspaceRoutes<const Routes extends Record<string, unkn
                 }
 
                 try {
-                    const workspace = access.createWorkspaceProjection({
+                    const workspace = await access.createWorkspaceProjection({
                         organizationId: organization.id,
                         name,
                         slug,
@@ -418,23 +421,22 @@ export function registerWorkspaceRoutes<const Routes extends Record<string, unkn
                     security: sessionSecurity,
                 },
             },
-            ({ authMethod, status, user, query }) => {
+            async ({ authMethod, status, user, query }) => {
                 if (authMethod !== 'session') return status(403, sessionOnlyForbiddenResponse())
                 return {
-                    canCreateWorkspace: access.isInstanceAdmin(user.id),
-                    workspaces: access
-                        .listWorkspacesForUser(user.id)
-                        .filter(
-                            workspace =>
+                    canCreateWorkspace: await access.isInstanceAdmin(user.id),
+                    workspaces: (
+                        await filterSequential(
+                            await access.listWorkspacesForUser(user.id),
+                            async workspace =>
                                 query.includeArchived ||
                                 !lifecycle ||
-                                lifecycle.state('workspace', workspace.id) === 'active'
+                                (await lifecycle.state('workspace', workspace.id)) === 'active'
                         )
-                        .map(workspace => {
-                            const { organizationId: _organizationId, ...publicWorkspace } =
-                                workspace
-                            return publicWorkspace
-                        }),
+                    ).map(workspace => {
+                        const { organizationId: _organizationId, ...publicWorkspace } = workspace
+                        return publicWorkspace
+                    }),
                 }
             }
         )
@@ -459,13 +461,13 @@ export function registerWorkspaceRoutes<const Routes extends Record<string, unkn
             },
             async ({ authMethod, params, request, status, user }) => {
                 if (authMethod !== 'session') return status(403, sessionOnlyForbiddenResponse())
-                const workspace = access.getWorkspace(params.workspaceId)
+                const workspace = await access.getWorkspace(params.workspaceId)
                 if (workspace === null) {
                     return status(404, {
                         error: { code: 'not_found', message: 'Workspace not found' },
                     })
                 }
-                if (!hasWorkspaceRole(access, workspace.id, user.id, 'member')) {
+                if (!(await hasWorkspaceRole(access, workspace.id, user.id, 'member'))) {
                     return status(403, workspaceForbiddenResponse())
                 }
 
@@ -484,8 +486,8 @@ export function registerWorkspaceRoutes<const Routes extends Record<string, unkn
                         workspace: toWorkspaceResponse(workspace),
                         membership: {
                             role:
-                                access.getWorkspaceMembership(workspace.id, user.id)?.role ??
-                                'member',
+                                (await access.getWorkspaceMembership(workspace.id, user.id))
+                                    ?.role ?? 'member',
                         },
                         members: members.members.map(toWorkspaceMember),
                         teams: teams.map(team => toWorkspaceTeam(team, workspace.id)),
@@ -518,13 +520,13 @@ export function registerWorkspaceRoutes<const Routes extends Record<string, unkn
             },
             async ({ authMethod, body, params, request, status, user }) => {
                 if (authMethod !== 'session') return status(403, sessionOnlyForbiddenResponse())
-                const workspace = access.getWorkspace(params.workspaceId)
+                const workspace = await access.getWorkspace(params.workspaceId)
                 if (workspace === null) {
                     return status(404, {
                         error: { code: 'not_found', message: 'Workspace not found' },
                     })
                 }
-                if (!hasWorkspaceRole(access, workspace.id, user.id, 'admin')) {
+                if (!(await hasWorkspaceRole(access, workspace.id, user.id, 'admin'))) {
                     return status(403, workspaceAdminForbiddenResponse())
                 }
 
@@ -610,13 +612,13 @@ export function registerWorkspaceRoutes<const Routes extends Record<string, unkn
             },
             async ({ authMethod, params, request, status, user }) => {
                 if (authMethod !== 'session') return status(403, sessionOnlyForbiddenResponse())
-                const workspace = access.getWorkspace(params.workspaceId)
+                const workspace = await access.getWorkspace(params.workspaceId)
                 if (workspace === null) {
                     return status(404, {
                         error: { code: 'not_found', message: 'Workspace not found' },
                     })
                 }
-                if (!hasWorkspaceRole(access, workspace.id, user.id, 'admin')) {
+                if (!(await hasWorkspaceRole(access, workspace.id, user.id, 'admin'))) {
                     return status(403, workspaceAdminForbiddenResponse())
                 }
 
@@ -644,12 +646,16 @@ export function registerWorkspaceRoutes<const Routes extends Record<string, unkn
                         query: { organizationId: workspace.organizationId },
                         headers: request.headers,
                     })
-                    const teamMemberships = teams.flatMap(team =>
-                        access
-                            .listWorkspaceTeamMembers(workspace.id, team.id)
-                            .filter(teamMember => teamMember.userId === member.userId)
-                            .map(teamMember => ({ teamId: team.id, userId: teamMember.userId }))
-                    )
+                    const teamMemberships: { teamId: string; userId: string }[] = []
+                    for (const team of teams) {
+                        for (const teamMember of await access.listWorkspaceTeamMembers(
+                            workspace.id,
+                            team.id
+                        )) {
+                            if (teamMember.userId === member.userId)
+                                teamMemberships.push({ teamId: team.id, userId: teamMember.userId })
+                        }
+                    }
                     await Promise.all(
                         teamMemberships.map(teamMember =>
                             auth.api.removeTeamMember({
@@ -698,13 +704,13 @@ export function registerWorkspaceRoutes<const Routes extends Record<string, unkn
             },
             async ({ authMethod, body, params, request, status, user }) => {
                 if (authMethod !== 'session') return status(403, sessionOnlyForbiddenResponse())
-                const workspace = access.getWorkspace(params.workspaceId)
+                const workspace = await access.getWorkspace(params.workspaceId)
                 if (workspace === null) {
                     return status(404, {
                         error: { code: 'not_found', message: 'Workspace not found' },
                     })
                 }
-                if (!hasWorkspaceRole(access, workspace.id, user.id, 'admin')) {
+                if (!(await hasWorkspaceRole(access, workspace.id, user.id, 'admin'))) {
                     return status(403, workspaceAdminForbiddenResponse())
                 }
                 const name = body.name.trim()
@@ -748,13 +754,13 @@ export function registerWorkspaceRoutes<const Routes extends Record<string, unkn
             },
             async ({ authMethod, body, params, request, status, user }) => {
                 if (authMethod !== 'session') return status(403, sessionOnlyForbiddenResponse())
-                const workspace = access.getWorkspace(params.workspaceId)
+                const workspace = await access.getWorkspace(params.workspaceId)
                 if (workspace === null) {
                     return status(404, {
                         error: { code: 'not_found', message: 'Workspace not found' },
                     })
                 }
-                if (!hasWorkspaceRole(access, workspace.id, user.id, 'admin')) {
+                if (!(await hasWorkspaceRole(access, workspace.id, user.id, 'admin'))) {
                     return status(403, workspaceAdminForbiddenResponse())
                 }
                 const name = body.name.trim()
@@ -810,13 +816,13 @@ export function registerWorkspaceRoutes<const Routes extends Record<string, unkn
             },
             async ({ authMethod, params, request, status, user }) => {
                 if (authMethod !== 'session') return status(403, sessionOnlyForbiddenResponse())
-                const workspace = access.getWorkspace(params.workspaceId)
+                const workspace = await access.getWorkspace(params.workspaceId)
                 if (workspace === null) {
                     return status(404, {
                         error: { code: 'not_found', message: 'Workspace not found' },
                     })
                 }
-                if (!hasWorkspaceRole(access, workspace.id, user.id, 'member')) {
+                if (!(await hasWorkspaceRole(access, workspace.id, user.id, 'member'))) {
                     return status(403, workspaceForbiddenResponse())
                 }
 
@@ -833,9 +839,9 @@ export function registerWorkspaceRoutes<const Routes extends Record<string, unkn
                         })
                     }
                     return {
-                        members: access
-                            .listWorkspaceTeamMembers(workspace.id, team.id)
-                            .map(toWorkspaceTeamMember),
+                        members: (await access.listWorkspaceTeamMembers(workspace.id, team.id)).map(
+                            toWorkspaceTeamMember
+                        ),
                     }
                 } catch {
                     return status(503, workspaceOperationFailedResponse())
@@ -865,13 +871,13 @@ export function registerWorkspaceRoutes<const Routes extends Record<string, unkn
             },
             async ({ authMethod, body, params, request, status, user }) => {
                 if (authMethod !== 'session') return status(403, sessionOnlyForbiddenResponse())
-                const workspace = access.getWorkspace(params.workspaceId)
+                const workspace = await access.getWorkspace(params.workspaceId)
                 if (workspace === null) {
                     return status(404, {
                         error: { code: 'not_found', message: 'Workspace not found' },
                     })
                 }
-                if (!hasWorkspaceRole(access, workspace.id, user.id, 'admin')) {
+                if (!(await hasWorkspaceRole(access, workspace.id, user.id, 'admin'))) {
                     return status(403, workspaceAdminForbiddenResponse())
                 }
 
@@ -887,7 +893,7 @@ export function registerWorkspaceRoutes<const Routes extends Record<string, unkn
                             error: { code: 'not_found', message: 'Workspace group not found' },
                         })
                     }
-                    if (access.getWorkspaceMembership(workspace.id, body.userId) === null) {
+                    if ((await access.getWorkspaceMembership(workspace.id, body.userId)) === null) {
                         return status(404, {
                             error: {
                                 code: 'workspace_member_not_found',
@@ -930,13 +936,13 @@ export function registerWorkspaceRoutes<const Routes extends Record<string, unkn
             },
             async ({ authMethod, params, request, status, user }) => {
                 if (authMethod !== 'session') return status(403, sessionOnlyForbiddenResponse())
-                const workspace = access.getWorkspace(params.workspaceId)
+                const workspace = await access.getWorkspace(params.workspaceId)
                 if (workspace === null) {
                     return status(404, {
                         error: { code: 'not_found', message: 'Workspace not found' },
                     })
                 }
-                if (!hasWorkspaceRole(access, workspace.id, user.id, 'admin')) {
+                if (!(await hasWorkspaceRole(access, workspace.id, user.id, 'admin'))) {
                     return status(403, workspaceAdminForbiddenResponse())
                 }
 
@@ -987,13 +993,13 @@ export function registerWorkspaceRoutes<const Routes extends Record<string, unkn
             },
             async ({ authMethod, params, request, status, user }) => {
                 if (authMethod !== 'session') return status(403, sessionOnlyForbiddenResponse())
-                const workspace = access.getWorkspace(params.workspaceId)
+                const workspace = await access.getWorkspace(params.workspaceId)
                 if (workspace === null) {
                     return status(404, {
                         error: { code: 'not_found', message: 'Workspace not found' },
                     })
                 }
-                if (!hasWorkspaceRole(access, workspace.id, user.id, 'admin')) {
+                if (!(await hasWorkspaceRole(access, workspace.id, user.id, 'admin'))) {
                     return status(403, workspaceAdminForbiddenResponse())
                 }
 
@@ -1036,13 +1042,13 @@ export function registerWorkspaceRoutes<const Routes extends Record<string, unkn
             },
             async ({ authMethod, body, params, request, status, user }) => {
                 if (authMethod !== 'session') return status(403, sessionOnlyForbiddenResponse())
-                const workspace = access.getWorkspace(params.workspaceId)
+                const workspace = await access.getWorkspace(params.workspaceId)
                 if (workspace === null) {
                     return status(404, {
                         error: { code: 'not_found', message: 'Workspace not found' },
                     })
                 }
-                if (!hasWorkspaceRole(access, workspace.id, user.id, 'admin')) {
+                if (!(await hasWorkspaceRole(access, workspace.id, user.id, 'admin'))) {
                     return status(403, workspaceAdminForbiddenResponse())
                 }
 
@@ -1085,13 +1091,13 @@ export function registerWorkspaceRoutes<const Routes extends Record<string, unkn
             },
             async ({ authMethod, params, request, status, user }) => {
                 if (authMethod !== 'session') return status(403, sessionOnlyForbiddenResponse())
-                const workspace = access.getWorkspace(params.workspaceId)
+                const workspace = await access.getWorkspace(params.workspaceId)
                 if (workspace === null) {
                     return status(404, {
                         error: { code: 'not_found', message: 'Workspace not found' },
                     })
                 }
-                if (!hasWorkspaceRole(access, workspace.id, user.id, 'admin')) {
+                if (!(await hasWorkspaceRole(access, workspace.id, user.id, 'admin'))) {
                     return status(403, workspaceAdminForbiddenResponse())
                 }
 
@@ -1138,7 +1144,7 @@ export function registerWorkspaceRoutes<const Routes extends Record<string, unkn
             },
             async ({ authMethod, params, request, status, user }) => {
                 if (authMethod !== 'session') return status(403, sessionOnlyForbiddenResponse())
-                const workspace = access.getWorkspace(params.workspaceId)
+                const workspace = await access.getWorkspace(params.workspaceId)
                 if (workspace === null) {
                     return status(404, {
                         error: { code: 'not_found', message: 'Workspace not found' },
@@ -1160,7 +1166,7 @@ export function registerWorkspaceRoutes<const Routes extends Record<string, unkn
                         body: { invitationId: params.invitationId },
                         headers: request.headers,
                     })
-                    const membership = access.getWorkspaceMembership(workspace.id, user.id)
+                    const membership = await access.getWorkspaceMembership(workspace.id, user.id)
                     if (membership === null) {
                         return status(503, workspaceOperationFailedResponse())
                     }

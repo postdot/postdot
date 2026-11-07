@@ -38,11 +38,12 @@ export function createPublicInstanceRoutes(
                     security: [],
                 },
             },
-            () => ({
+            async () => ({
                 // The E2E runtime may explicitly allow additional isolated
                 // accounts after bootstrap. Production never enables this
                 // escape hatch, so first-run setup remains single-use there.
-                setupAvailable: options.allowAdditionalSignups === true || access.isSignupAllowed(),
+                setupAvailable:
+                    options.allowAdditionalSignups === true || (await access.isSignupAllowed()),
             })
         )
         .get(
@@ -60,8 +61,8 @@ export function createPublicInstanceRoutes(
                     security: [],
                 },
             },
-            ({ params, status }) => {
-                const invitation = access.getInvitationByToken(params.token)
+            async ({ params, status }) => {
+                const invitation = await access.getInvitationByToken(params.token)
                 if (invitation === null || invitation.state !== 'pending') {
                     return status(404, {
                         error: {

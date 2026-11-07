@@ -4,7 +4,6 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import { createManualChannelProfile } from '@postdot/core'
-import { eq } from 'drizzle-orm'
 
 import { closeDatabase, createDatabase } from './client'
 import { createManualStore } from './manual-store'
@@ -12,20 +11,26 @@ import { runMigrations } from './migrations'
 import { createPublisherCredentialCipher } from './publisher-credential-crypto'
 import { createPublisherCredentialStore } from './publisher-credential-store'
 import { createPublisherStore } from './publisher-store'
-import { projects, publisherCredentials, workspaces } from './schema'
-import { seedTestWorkspace } from './testing'
+import { describeSchema } from './sql/schema-introspection'
+import {
+    closeTestDatabase,
+    fromDbRow,
+    openTestDatabase,
+    seedTestWorkspace,
+    testEngine,
+    type TestRow,
+} from './testing'
 
 const now = 1_800_000_000_000
 
-function createFixture() {
-    const database = createDatabase(':memory:')
-    runMigrations(database)
+async function createFixture() {
+    const database = (await openTestDatabase()).database
 
     let timestamp = now
     let sequence = 0
     const manualStore = createManualStore(database, { now: () => timestamp })
-    const project = manualStore.createProject({
-        workspaceId: seedTestWorkspace(database),
+    const project = await manualStore.createProject({
+        workspaceId: await seedTestWorkspace(database),
         name: 'Credential Project',
         subjectId: 'user-1',
         displayName: 'Postdot Operator',
@@ -44,59 +49,62 @@ function createFixture() {
 }
 
 describe('publisher credential store', () => {
-    it('never writes plaintext token bytes to the SQLite file', async () => {
-        const directory = await mkdtemp(join(tmpdir(), 'postdot-credentials-'))
-        const databasePath = join(directory, 'postdot.sqlite')
-        const database = createDatabase(databasePath)
-        let databaseClosed = false
+    it.skipIf(testEngine === 'postgres')(
+        'never writes plaintext token bytes to the SQLite file',
+        async () => {
+            const directory = await mkdtemp(join(tmpdir(), 'postdot-credentials-'))
+            const databasePath = join(directory, 'postdot.sqlite')
+            const database = createDatabase(databasePath)
+            await runMigrations(database)
+            let databaseClosed = false
 
-        try {
-            runMigrations(database)
-            const manualStore = createManualStore(database, { now: () => now })
-            const project = manualStore.createProject({
-                workspaceId: seedTestWorkspace(database),
-                name: 'Credential File',
-                subjectId: 'user-1',
-                displayName: 'Postdot Operator',
-            })
-            const store = createPublisherCredentialStore(database, {
-                cipher: createPublisherCredentialCipher({
-                    keyId: 'primary',
-                    key: new Uint8Array(32).fill(1),
-                }),
-            })
-            const accessToken = 'unique-plaintext-access-token-for-file-scan'
-            const refreshToken = 'unique-plaintext-refresh-token-for-file-scan'
-            const providerSession = 'unique-plaintext-provider-session-for-file-scan'
+            try {
+                const manualStore = createManualStore(database, { now: () => now })
+                const project = await manualStore.createProject({
+                    workspaceId: await seedTestWorkspace(database),
+                    name: 'Credential File',
+                    subjectId: 'user-1',
+                    displayName: 'Postdot Operator',
+                })
+                const store = createPublisherCredentialStore(database, {
+                    cipher: createPublisherCredentialCipher({
+                        keyId: 'primary',
+                        key: new Uint8Array(32).fill(1),
+                    }),
+                })
+                const accessToken = 'unique-plaintext-access-token-for-file-scan'
+                const refreshToken = 'unique-plaintext-refresh-token-for-file-scan'
+                const providerSession = 'unique-plaintext-provider-session-for-file-scan'
 
-            expect(
-                (
-                    await store.createPublisherCredential({
-                        projectId: project.project.id,
-                        connectedByActorId: project.actor.id,
-                        providerId: 'linkedin',
-                        externalAccountId: 'member-file',
-                        accessToken,
-                        refreshToken,
-                        providerSession,
-                    })
-                ).kind
-            ).toBe('created')
-            closeDatabase(database)
-            databaseClosed = true
+                expect(
+                    (
+                        await store.createPublisherCredential({
+                            projectId: project.project.id,
+                            connectedByActorId: project.actor.id,
+                            providerId: 'linkedin',
+                            externalAccountId: 'member-file',
+                            accessToken,
+                            refreshToken,
+                            providerSession,
+                        })
+                    ).kind
+                ).toBe('created')
+                closeDatabase(database)
+                databaseClosed = true
 
-            const databaseBytes = Buffer.from(await Bun.file(databasePath).arrayBuffer())
-            expect(databaseBytes.includes(Buffer.from(accessToken))).toBe(false)
-            expect(databaseBytes.includes(Buffer.from(refreshToken))).toBe(false)
-            expect(databaseBytes.includes(Buffer.from(providerSession))).toBe(false)
-        } finally {
-            if (!databaseClosed) closeDatabase(database)
-            await rm(directory, { recursive: true, force: true })
+                const databaseBytes = Buffer.from(await Bun.file(databasePath).arrayBuffer())
+                expect(databaseBytes.includes(Buffer.from(accessToken))).toBe(false)
+                expect(databaseBytes.includes(Buffer.from(refreshToken))).toBe(false)
+                expect(databaseBytes.includes(Buffer.from(providerSession))).toBe(false)
+            } finally {
+                if (!databaseClosed) closeDatabase(database)
+                await rm(directory, { recursive: true, force: true })
+            }
         }
-    })
+    )
 
     it('stores project-owned encrypted secrets while exposing metadata separately', async () => {
-        const fixture = createFixture()
+        const fixture = await createFixture()
 
         try {
             const result = await fixture.store.createPublisherCredential({
@@ -116,11 +124,13 @@ describe('publisher credential store', () => {
             if (result.kind !== 'created') return
             // Attribution is a workspace actor snapshot whose provenance is the project actor.
             expect(
-                fixture.database.$client
-                    .query<{ origin: string }, [string]>(
-                        'select origin_actor_id as origin from actors where id = ?'
-                    )
-                    .get(result.credential.connectedByActorId)?.origin
+                (
+                    await fixture.database.sql
+                        .statement<{ origin: string }, [string]>(
+                            'select origin_actor_id as origin from actors where id = ?'
+                        )
+                        .get(result.credential.connectedByActorId)
+                )?.origin
             ).toBe(fixture.project.actor.id)
             expect(result.credential).toMatchObject({
                 projectId: fixture.project.project.id,
@@ -132,12 +142,12 @@ describe('publisher credential store', () => {
             expect(result.credential).not.toHaveProperty('accessToken')
             expect(result.credential).not.toHaveProperty('refreshToken')
             expect(result.credential).not.toHaveProperty('ciphertext')
-            expect(fixture.store.listPublisherCredentials(fixture.project.project.id)).toEqual([
-                result.credential,
-            ])
+            expect(
+                await fixture.store.listPublisherCredentials(fixture.project.project.id)
+            ).toEqual([result.credential])
 
-            const stored = fixture.database.$client
-                .query<
+            const stored = await fixture.database.sql
+                .statement<
                     {
                         accessToken: Uint8Array
                         refreshToken: Uint8Array
@@ -185,14 +195,22 @@ describe('publisher credential store', () => {
                 kind: 'already_exists',
                 credential: result.credential,
             })
-            expect(fixture.database.select().from(publisherCredentials).all()).toHaveLength(1)
+            expect(
+                (
+                    await fixture.database.sql
+                        .statement<TestRow>(
+                            'select "publisher_credentials"."id" as "id", "publisher_credentials"."workspace_id" as "workspaceId", "publisher_credentials"."provider_id" as "providerId", "publisher_credentials"."external_account_id" as "externalAccountId", "publisher_credentials"."external_account_name" as "externalAccountName", "publisher_credentials"."scopes" as "scopes", "publisher_credentials"."state" as "state", "publisher_credentials"."expires_at" as "expiresAt", "publisher_credentials"."connected_by_actor_id" as "connectedByActorId", "publisher_credentials"."provider_application_id" as "providerApplicationId", "publisher_credentials"."encryption_version" as "encryptionVersion", "publisher_credentials"."encryption_key_id" as "encryptionKeyId", "publisher_credentials"."access_token_ciphertext" as "accessTokenCiphertext", "publisher_credentials"."access_token_nonce" as "accessTokenNonce", "publisher_credentials"."refresh_token_ciphertext" as "refreshTokenCiphertext", "publisher_credentials"."refresh_token_nonce" as "refreshTokenNonce", "publisher_credentials"."provider_session_ciphertext" as "providerSessionCiphertext", "publisher_credentials"."provider_session_nonce" as "providerSessionNonce", "publisher_credentials"."revision" as "revision", "publisher_credentials"."created_at" as "createdAt", "publisher_credentials"."updated_at" as "updatedAt" from "publisher_credentials"'
+                        )
+                        .all()
+                ).map(row => fromDbRow<TestRow>(row, { scopes: 'json' }))
+            ).toHaveLength(1)
         } finally {
-            closeDatabase(fixture.database)
+            await closeTestDatabase(fixture.database)
         }
     })
 
     it('preserves workspace ownership independently from application users and source projects', async () => {
-        const fixture = createFixture()
+        const fixture = await createFixture()
 
         try {
             const created = await fixture.store.createPublisherCredential({
@@ -205,38 +223,49 @@ describe('publisher credential store', () => {
             expect(created.kind).toBe('created')
             if (created.kind !== 'created') return
 
-            const foreignKeys = fixture.database.$client
-                .query<{ table: string }, []>(`pragma foreign_key_list('publisher_credentials')`)
-                .all()
-                .map(row => row.table)
+            const foreignKeys = (await describeSchema(fixture.database)).tables
+                .publisher_credentials!.foreignKeys.map(key => /->(\w+)\(/.exec(key)![1])
+                .sort()
             expect(foreignKeys).toEqual([
-                'provider_application_configurations',
-                'provider_application_configurations',
                 'actors',
-                'actors',
+                'provider_application_configurations',
                 'workspaces',
             ])
             expect(foreignKeys).not.toContain('user')
             expect(foreignKeys).not.toContain('account')
 
             // The credential belongs to the workspace: its source project is provenance, not its owner.
-            fixture.database
-                .delete(projects)
-                .where(eq(projects.id, fixture.project.project.id))
-                .run()
-            expect(fixture.database.select().from(publisherCredentials).all()).toHaveLength(1)
-            fixture.database
-                .delete(workspaces)
-                .where(eq(workspaces.id, fixture.project.project.workspaceId!))
-                .run()
-            expect(fixture.database.select().from(publisherCredentials).all()).toEqual([])
+            await fixture.database.sql
+                .statement('delete from "projects" where "projects"."id" = ?1')
+                .run(fixture.project.project.id)
+            expect(
+                (
+                    await fixture.database.sql
+                        .statement<TestRow>(
+                            'select "publisher_credentials"."id" as "id", "publisher_credentials"."workspace_id" as "workspaceId", "publisher_credentials"."provider_id" as "providerId", "publisher_credentials"."external_account_id" as "externalAccountId", "publisher_credentials"."external_account_name" as "externalAccountName", "publisher_credentials"."scopes" as "scopes", "publisher_credentials"."state" as "state", "publisher_credentials"."expires_at" as "expiresAt", "publisher_credentials"."connected_by_actor_id" as "connectedByActorId", "publisher_credentials"."provider_application_id" as "providerApplicationId", "publisher_credentials"."encryption_version" as "encryptionVersion", "publisher_credentials"."encryption_key_id" as "encryptionKeyId", "publisher_credentials"."access_token_ciphertext" as "accessTokenCiphertext", "publisher_credentials"."access_token_nonce" as "accessTokenNonce", "publisher_credentials"."refresh_token_ciphertext" as "refreshTokenCiphertext", "publisher_credentials"."refresh_token_nonce" as "refreshTokenNonce", "publisher_credentials"."provider_session_ciphertext" as "providerSessionCiphertext", "publisher_credentials"."provider_session_nonce" as "providerSessionNonce", "publisher_credentials"."revision" as "revision", "publisher_credentials"."created_at" as "createdAt", "publisher_credentials"."updated_at" as "updatedAt" from "publisher_credentials"'
+                        )
+                        .all()
+                ).map(row => fromDbRow<TestRow>(row, { scopes: 'json' }))
+            ).toHaveLength(1)
+            await fixture.database.sql
+                .statement('delete from "workspaces" where "workspaces"."id" = ?1')
+                .run(fixture.project.project.workspaceId!)
+            expect(
+                (
+                    await fixture.database.sql
+                        .statement<TestRow>(
+                            'select "publisher_credentials"."id" as "id", "publisher_credentials"."workspace_id" as "workspaceId", "publisher_credentials"."provider_id" as "providerId", "publisher_credentials"."external_account_id" as "externalAccountId", "publisher_credentials"."external_account_name" as "externalAccountName", "publisher_credentials"."scopes" as "scopes", "publisher_credentials"."state" as "state", "publisher_credentials"."expires_at" as "expiresAt", "publisher_credentials"."connected_by_actor_id" as "connectedByActorId", "publisher_credentials"."provider_application_id" as "providerApplicationId", "publisher_credentials"."encryption_version" as "encryptionVersion", "publisher_credentials"."encryption_key_id" as "encryptionKeyId", "publisher_credentials"."access_token_ciphertext" as "accessTokenCiphertext", "publisher_credentials"."access_token_nonce" as "accessTokenNonce", "publisher_credentials"."refresh_token_ciphertext" as "refreshTokenCiphertext", "publisher_credentials"."refresh_token_nonce" as "refreshTokenNonce", "publisher_credentials"."provider_session_ciphertext" as "providerSessionCiphertext", "publisher_credentials"."provider_session_nonce" as "providerSessionNonce", "publisher_credentials"."revision" as "revision", "publisher_credentials"."created_at" as "createdAt", "publisher_credentials"."updated_at" as "updatedAt" from "publisher_credentials"'
+                        )
+                        .all()
+                ).map(row => fromDbRow<TestRow>(row, { scopes: 'json' }))
+            ).toEqual([])
         } finally {
-            closeDatabase(fixture.database)
+            await closeTestDatabase(fixture.database)
         }
     })
 
     it('rotates tokens atomically, preserves refresh tokens, and detects conflicts', async () => {
-        const fixture = createFixture()
+        const fixture = await createFixture()
 
         try {
             const created = await fixture.store.createPublisherCredential({
@@ -298,12 +327,12 @@ describe('publisher credential store', () => {
                 providerSession: 'provider-session-2',
             })
         } finally {
-            closeDatabase(fixture.database)
+            await closeTestDatabase(fixture.database)
         }
     })
 
     it('serializes concurrent connection attempts for the same external account', async () => {
-        const fixture = createFixture()
+        const fixture = await createFixture()
 
         try {
             const input = {
@@ -319,14 +348,22 @@ describe('publisher credential store', () => {
             ])
 
             expect(results.map(result => result.kind).sort()).toEqual(['already_exists', 'created'])
-            expect(fixture.database.select().from(publisherCredentials).all()).toHaveLength(1)
+            expect(
+                (
+                    await fixture.database.sql
+                        .statement<TestRow>(
+                            'select "publisher_credentials"."id" as "id", "publisher_credentials"."workspace_id" as "workspaceId", "publisher_credentials"."provider_id" as "providerId", "publisher_credentials"."external_account_id" as "externalAccountId", "publisher_credentials"."external_account_name" as "externalAccountName", "publisher_credentials"."scopes" as "scopes", "publisher_credentials"."state" as "state", "publisher_credentials"."expires_at" as "expiresAt", "publisher_credentials"."connected_by_actor_id" as "connectedByActorId", "publisher_credentials"."provider_application_id" as "providerApplicationId", "publisher_credentials"."encryption_version" as "encryptionVersion", "publisher_credentials"."encryption_key_id" as "encryptionKeyId", "publisher_credentials"."access_token_ciphertext" as "accessTokenCiphertext", "publisher_credentials"."access_token_nonce" as "accessTokenNonce", "publisher_credentials"."refresh_token_ciphertext" as "refreshTokenCiphertext", "publisher_credentials"."refresh_token_nonce" as "refreshTokenNonce", "publisher_credentials"."provider_session_ciphertext" as "providerSessionCiphertext", "publisher_credentials"."provider_session_nonce" as "providerSessionNonce", "publisher_credentials"."revision" as "revision", "publisher_credentials"."created_at" as "createdAt", "publisher_credentials"."updated_at" as "updatedAt" from "publisher_credentials"'
+                        )
+                        .all()
+                ).map(row => fromDbRow<TestRow>(row, { scopes: 'json' }))
+            ).toHaveLength(1)
         } finally {
-            closeDatabase(fixture.database)
+            await closeTestDatabase(fixture.database)
         }
     })
 
     it('removes secret usability on reconnect-required and revocation states', async () => {
-        const fixture = createFixture()
+        const fixture = await createFixture()
 
         try {
             const created = await fixture.store.createPublisherCredential({
@@ -341,9 +378,11 @@ describe('publisher credential store', () => {
             if (created.kind !== 'created') return
 
             expect(
-                fixture.store.markPublisherCredentialReconnectRequired(
-                    fixture.project.project.id,
-                    created.credential.id
+                (
+                    await fixture.store.markPublisherCredentialReconnectRequired(
+                        fixture.project.project.id,
+                        created.credential.id
+                    )
                 )?.state
             ).toBe('reconnect_required')
             expect(
@@ -371,7 +410,7 @@ describe('publisher credential store', () => {
                 providerSession: null,
             })
 
-            const revoked = fixture.store.revokePublisherCredential(
+            const revoked = await fixture.store.revokePublisherCredential(
                 fixture.project.project.id,
                 created.credential.id
             )
@@ -383,7 +422,14 @@ describe('publisher credential store', () => {
                 )
             ).toBeNull()
 
-            const stored = fixture.database.select().from(publisherCredentials).get()
+            const stored = (row =>
+                row === null ? undefined : fromDbRow<TestRow>(row, { scopes: 'json' }))(
+                await fixture.database.sql
+                    .statement<TestRow>(
+                        'select "publisher_credentials"."id" as "id", "publisher_credentials"."workspace_id" as "workspaceId", "publisher_credentials"."provider_id" as "providerId", "publisher_credentials"."external_account_id" as "externalAccountId", "publisher_credentials"."external_account_name" as "externalAccountName", "publisher_credentials"."scopes" as "scopes", "publisher_credentials"."state" as "state", "publisher_credentials"."expires_at" as "expiresAt", "publisher_credentials"."connected_by_actor_id" as "connectedByActorId", "publisher_credentials"."provider_application_id" as "providerApplicationId", "publisher_credentials"."encryption_version" as "encryptionVersion", "publisher_credentials"."encryption_key_id" as "encryptionKeyId", "publisher_credentials"."access_token_ciphertext" as "accessTokenCiphertext", "publisher_credentials"."access_token_nonce" as "accessTokenNonce", "publisher_credentials"."refresh_token_ciphertext" as "refreshTokenCiphertext", "publisher_credentials"."refresh_token_nonce" as "refreshTokenNonce", "publisher_credentials"."provider_session_ciphertext" as "providerSessionCiphertext", "publisher_credentials"."provider_session_nonce" as "providerSessionNonce", "publisher_credentials"."revision" as "revision", "publisher_credentials"."created_at" as "createdAt", "publisher_credentials"."updated_at" as "updatedAt" from "publisher_credentials"'
+                    )
+                    .get()
+            )
             expect(stored).toMatchObject({
                 state: 'revoked',
                 encryptionVersion: null,
@@ -396,12 +442,12 @@ describe('publisher credential store', () => {
                 providerSessionNonce: null,
             })
         } finally {
-            closeDatabase(fixture.database)
+            await closeTestDatabase(fixture.database)
         }
     })
 
     it('reactivates a revoked credential with the scopes from a fresh grant', async () => {
-        const fixture = createFixture()
+        const fixture = await createFixture()
 
         try {
             const created = await fixture.store.createPublisherCredential({
@@ -415,7 +461,7 @@ describe('publisher credential store', () => {
             expect(created.kind).toBe('created')
             if (created.kind !== 'created') return
 
-            fixture.store.revokePublisherCredential(
+            await fixture.store.revokePublisherCredential(
                 fixture.project.project.id,
                 created.credential.id
             )
@@ -447,12 +493,12 @@ describe('publisher credential store', () => {
                 providerSession: null,
             })
         } finally {
-            closeDatabase(fixture.database)
+            await closeTestDatabase(fixture.database)
         }
     })
 
     it('fails closed when the database envelope or deployment key is wrong', async () => {
-        const fixture = createFixture()
+        const fixture = await createFixture()
 
         try {
             const created = await fixture.store.createPublisherCredential({
@@ -480,16 +526,22 @@ describe('publisher credential store', () => {
                 code: 'decryption_failed',
             })
 
-            const row = fixture.database.select().from(publisherCredentials).get()
+            const row = (row =>
+                row === null ? undefined : fromDbRow<TestRow>(row, { scopes: 'json' }))(
+                await fixture.database.sql
+                    .statement<TestRow>(
+                        'select "publisher_credentials"."id" as "id", "publisher_credentials"."workspace_id" as "workspaceId", "publisher_credentials"."provider_id" as "providerId", "publisher_credentials"."external_account_id" as "externalAccountId", "publisher_credentials"."external_account_name" as "externalAccountName", "publisher_credentials"."scopes" as "scopes", "publisher_credentials"."state" as "state", "publisher_credentials"."expires_at" as "expiresAt", "publisher_credentials"."connected_by_actor_id" as "connectedByActorId", "publisher_credentials"."provider_application_id" as "providerApplicationId", "publisher_credentials"."encryption_version" as "encryptionVersion", "publisher_credentials"."encryption_key_id" as "encryptionKeyId", "publisher_credentials"."access_token_ciphertext" as "accessTokenCiphertext", "publisher_credentials"."access_token_nonce" as "accessTokenNonce", "publisher_credentials"."refresh_token_ciphertext" as "refreshTokenCiphertext", "publisher_credentials"."refresh_token_nonce" as "refreshTokenNonce", "publisher_credentials"."provider_session_ciphertext" as "providerSessionCiphertext", "publisher_credentials"."provider_session_nonce" as "providerSessionNonce", "publisher_credentials"."revision" as "revision", "publisher_credentials"."created_at" as "createdAt", "publisher_credentials"."updated_at" as "updatedAt" from "publisher_credentials"'
+                    )
+                    .get()
+            )
             if (row?.accessTokenCiphertext === null || row?.accessTokenCiphertext === undefined) {
                 throw new Error('Expected encrypted access token')
             }
             const tampered = Buffer.from(row.accessTokenCiphertext)
             tampered[0] = (tampered[0] ?? 0) ^ 1
-            fixture.database
-                .update(publisherCredentials)
-                .set({ accessTokenCiphertext: tampered })
-                .run()
+            await fixture.database.sql
+                .statement('update "publisher_credentials" set "access_token_ciphertext" = ?1')
+                .run(tampered)
 
             await expect(
                 fixture.store.resolvePublisherCredentialSecrets(
@@ -500,14 +552,14 @@ describe('publisher credential store', () => {
                 code: 'decryption_failed',
             })
         } finally {
-            closeDatabase(fixture.database)
+            await closeTestDatabase(fixture.database)
         }
     })
 })
 
 describe('coordinated publisher credential renewal', () => {
     async function fixture() {
-        const f = createFixture()
+        const f = await createFixture()
         const result = await f.store.createPublisherCredential({
             projectId: f.project.project.id,
             connectedByActorId: f.project.actor.id,
@@ -525,13 +577,13 @@ describe('coordinated publisher credential renewal', () => {
         const f = await fixture()
         try {
             const manual = createManualStore(f.database, { now: () => now })
-            const target = manual.createProject({
+            const target = await manual.createProject({
                 workspaceId: f.project.project.workspaceId!,
                 name: 'Shared renewal',
                 subjectId: 'user-1',
                 displayName: 'Operator',
             })
-            const channel = manual.createChannel({
+            const channel = (await manual.createChannel({
                 projectId: f.project.project.id,
                 subjectId: 'user-1',
                 name: 'Shared account',
@@ -540,43 +592,47 @@ describe('coordinated publisher credential renewal', () => {
                     id: 'x',
                     execution: { kind: 'built_in', contractId: 'x', revision: 'text-v1' },
                 },
-            })!
-            const context = manual.sharedChannels.contextFor({
+            }))!
+            const context = (await manual.sharedChannels.contextFor({
                 subjectId: 'user-1',
                 contextProjectId: f.project.project.id,
                 authorization: {
-                    authorizeProject: () => true,
-                    authorizeWorkspace: () => false,
-                    authorizeSharing: () => true,
+                    authorizeProject: async () => true,
+                    authorizeWorkspace: async () => false,
+                    authorizeSharing: async () => true,
                 },
-            })!
+            }))!
             expect(
-                manual.sharedChannels.attach(context, {
-                    channelId: channel.id,
-                    projectId: target.project.id,
-                    expectedRevision: 1,
-                }).kind
+                (
+                    await manual.sharedChannels.attach(context, {
+                        channelId: channel.id,
+                        projectId: target.project.id,
+                        expectedRevision: 1,
+                    })
+                ).kind
             ).toBe('changed')
             expect(
-                createPublisherStore(f.database, {
-                    credentialRevoker: f.store,
-                    connectionPolicies: {
-                        x: {
-                            defaultDestination: credential => ({
-                                type: 'account',
-                                id: credential.externalAccountId,
-                                name: credential.externalAccountName,
-                            }),
-                            validateDestination: destination => destination.type === 'account',
+                (
+                    await createPublisherStore(f.database, {
+                        credentialRevoker: f.store,
+                        connectionPolicies: {
+                            x: {
+                                defaultDestination: credential => ({
+                                    type: 'account',
+                                    id: credential.externalAccountId,
+                                    name: credential.externalAccountName,
+                                }),
+                                validateDestination: destination => destination.type === 'account',
+                            },
                         },
-                    },
-                }).createPublisherConnection({
-                    projectId: f.project.project.id,
-                    channelId: channel.id,
-                    subjectId: 'user-1',
-                    kind: 'x',
-                    credentialId: f.credential.id,
-                }).kind
+                    }).createPublisherConnection({
+                        projectId: f.project.project.id,
+                        channelId: channel.id,
+                        subjectId: 'user-1',
+                        kind: 'x',
+                        credentialId: f.credential.id,
+                    })
+                ).kind
             ).toBe('created')
             const entered = Promise.withResolvers<void>()
             const release = Promise.withResolvers<void>()
@@ -629,7 +685,7 @@ describe('coordinated publisher credential renewal', () => {
                 )?.refreshToken
             ).toBe('rotated-refresh')
         } finally {
-            closeDatabase(f.database)
+            await closeTestDatabase(f.database)
         }
     })
 
@@ -668,7 +724,7 @@ describe('coordinated publisher credential renewal', () => {
                 await first
             }
         } finally {
-            closeDatabase(f.database)
+            await closeTestDatabase(f.database)
         }
     })
 
@@ -697,11 +753,11 @@ describe('coordinated publisher credential renewal', () => {
                             expiresAt: now + 30000,
                         })
                     ).toEqual({ kind: 'conflict' })
-                    context.markReconnectRequired()
+                    await context.markReconnectRequired()
                 }
             )
             expect(
-                f.store.getPublisherCredential(f.project.project.id, f.credential.id)?.state
+                (await f.store.getPublisherCredential(f.project.project.id, f.credential.id))?.state
             ).toBe('active')
             expect(
                 (
@@ -712,7 +768,7 @@ describe('coordinated publisher credential renewal', () => {
                 )?.accessToken
             ).toBe('new-owner-grant')
         } finally {
-            closeDatabase(f.database)
+            await closeTestDatabase(f.database)
         }
     })
 
@@ -724,18 +780,18 @@ describe('coordinated publisher credential renewal', () => {
                 f.credential.id,
                 async context => {
                     if (!context) throw new Error('Missing context')
-                    f.store.revokePublisherCredential(f.project.project.id, f.credential.id)
+                    await f.store.revokePublisherCredential(f.project.project.id, f.credential.id)
                     expect(
                         await context.replaceTokens({
                             accessToken: 'late-renewal',
                             expiresAt: null,
                         })
                     ).toEqual({ kind: 'conflict' })
-                    context.markReconnectRequired()
+                    await context.markReconnectRequired()
                 }
             )
             expect(
-                f.store.getPublisherCredential(f.project.project.id, f.credential.id)?.state
+                (await f.store.getPublisherCredential(f.project.project.id, f.credential.id))?.state
             ).toBe('revoked')
             expect(
                 await f.store.resolvePublisherCredentialSecrets(
@@ -744,7 +800,7 @@ describe('coordinated publisher credential renewal', () => {
                 )
             ).toBeNull()
         } finally {
-            closeDatabase(f.database)
+            await closeTestDatabase(f.database)
         }
     })
 
@@ -788,7 +844,7 @@ describe('coordinated publisher credential renewal', () => {
             await Promise.all([first, third])
             expect(order).toEqual(['first', 'first-done', 'third'])
         } finally {
-            closeDatabase(f.database)
+            await closeTestDatabase(f.database)
         }
     })
 
@@ -819,7 +875,7 @@ describe('coordinated publisher credential renewal', () => {
                 )
             ).toBeNull()
         } finally {
-            closeDatabase(f.database)
+            await closeTestDatabase(f.database)
         }
     })
 })

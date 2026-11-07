@@ -6,6 +6,7 @@ import { join } from 'node:path'
 import { closeDatabase, createDatabase } from './client'
 import { createManualStore } from './manual-store'
 import { runMigrations } from './migrations'
+import { mapSequential } from './sql/sequential'
 import { seedTestWorkspace } from './testing'
 
 it('serializes independent project planners against one shared cadence without partially committing the loser', async () => {
@@ -28,7 +29,7 @@ it('serializes independent project planners against one shared cadence without p
                 await Bun.sleep(5);
             }
             try {
-                const created=createManualStore(database,{now:()=>${now}}).createPost({
+                const created=await createManualStore(database,{now:()=>${now}}).createPost({
                     projectId,subjectId:'operator',
                     sourceContent:{body:{format:'plain_text',text:'Concurrent plan'},media:[]},
                     publications:[{channelId,deliveryMode:'manual',scheduledAt:${now + 86400000}}]
@@ -51,38 +52,41 @@ it('serializes independent project planners against one shared cadence without p
         )
     let children: ReturnType<typeof launch>[] = []
     try {
-        runMigrations(database)
+        await runMigrations(database)
         const manual = createManualStore(database, { now: () => now })
-        const workspaceId = seedTestWorkspace(database)
-        const projects = ['First', 'Second'].map(
-            name =>
-                manual.createProject({
-                    workspaceId,
-                    name,
-                    subjectId: 'operator',
-                    displayName: 'Operator',
-                }).project
+        const workspaceId = await seedTestWorkspace(database)
+        const projects = await mapSequential(
+            ['First', 'Second'],
+            async name =>
+                (
+                    await manual.createProject({
+                        workspaceId,
+                        name,
+                        subjectId: 'operator',
+                        displayName: 'Operator',
+                    })
+                ).project
         )
-        const channel = manual.createChannel({
+        const channel = (await manual.createChannel({
             projectId: projects[0]!.id,
             subjectId: 'operator',
             name: 'Shared',
-        })!
-        const context = manual.sharedChannels.contextFor({
+        }))!
+        const context = (await manual.sharedChannels.contextFor({
             subjectId: 'operator',
             contextProjectId: projects[0]!.id,
             authorization: {
-                authorizeProject: () => true,
-                authorizeWorkspace: () => false,
-                authorizeSharing: () => true,
+                authorizeProject: async () => true,
+                authorizeWorkspace: async () => false,
+                authorizeSharing: async () => true,
             },
-        })!
-        manual.sharedChannels.attach(context, {
+        }))!
+        await manual.sharedChannels.attach(context, {
             channelId: channel.id,
             projectId: projects[1]!.id,
             expectedRevision: 1,
         })
-        manual.sharedChannels.configureCadence(context, {
+        await manual.sharedChannels.configureCadence(context, {
             channelId: channel.id,
             expectedRevision: 0,
             timeZone: 'UTC',

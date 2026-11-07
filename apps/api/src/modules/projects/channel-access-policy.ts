@@ -31,39 +31,42 @@ export function createChannelAccessPolicy(input: ChannelAccessPolicyInput): Chan
         !scoped || (input.apiKeyProjectIds?.includes(projectId) ?? false)
 
     return {
-        authorizeProject(projectId, action) {
+        async authorizeProject(projectId, action) {
             if (!inScope(projectId)) return false
             switch (action) {
                 case 'read_channels':
-                    return capable('project:read') && access.canAccessProject(projectId, userId)
+                    return (
+                        capable('project:read') &&
+                        (await access.canAccessProject(projectId, userId))
+                    )
                 case 'create_channels':
                 case 'manage_channels':
                     return (
                         capable('channel:manage') &&
-                        access.canAccessProject(projectId, userId, 'editor')
+                        (await access.canAccessProject(projectId, userId, 'editor'))
                     )
                 case 'share_channels':
                 case 'attach_channels':
                 case 'accept_channel_management':
                     return (
                         capable('channel:share') &&
-                        access.canAccessProject(projectId, userId, 'editor')
+                        (await access.canAccessProject(projectId, userId, 'editor'))
                     )
                 case 'withdraw_channels':
                     return (
                         capable('channel:share') &&
-                        access.canAccessProject(projectId, userId, 'owner')
+                        (await access.canAccessProject(projectId, userId, 'owner'))
                     )
             }
         },
-        authorizeWorkspace(workspaceId, intent) {
+        async authorizeWorkspace(workspaceId, intent) {
             if (scoped) return false
             return (
                 capable(intent === 'share_channels' ? 'channel:share' : 'channel:manage') &&
-                access.canManageWorkspace(workspaceId, userId)
+                (await access.canManageWorkspace(workspaceId, userId))
             )
         },
-        authorizeSharing(projectIds) {
+        async authorizeSharing(projectIds) {
             return capable('channel:share') && projectIds.every(inScope)
         },
     }

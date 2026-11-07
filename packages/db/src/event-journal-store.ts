@@ -9,11 +9,8 @@ import {
     type DomainEvent,
 } from '@postdot/core'
 
-import {
-    createDatabaseTransaction,
-    recordDatabaseCommitProject,
-    type PostdotDatabase,
-} from './client'
+import { recordDatabaseCommitProject, type DatabaseHandle } from './client'
+import { auditEventSequenceHighWaterSql } from './sql/dialect'
 
 const cursorPrefix = 'event-sequence:'
 const defaultReadLimit = 100
@@ -83,13 +80,13 @@ interface EventJournalRow {
 }
 
 export function createEventJournalStore(
-    database: PostdotDatabase,
+    database: DatabaseHandle,
     options: EventJournalStoreOptions = {}
 ) {
-    const client = database.$client
+    const sql = database.sql
     const createId = options.createId ?? (() => crypto.randomUUID())
-    const appendStatement = client.query<
-        void,
+    const appendStatement = sql.statement<
+        { readonly sequence: number },
         [
             id: string,
             projectId: string | null,
@@ -119,8 +116,9 @@ export function createEventJournalStore(
             created_at,
             workspace_id
         ) values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)
+        returning sequence
     `)
-    const readStatement = client.query<
+    const readStatement = sql.statement<
         EventJournalRow,
         [projectId: string, afterSequence: number, limit: number]
     >(`
@@ -143,7 +141,7 @@ export function createEventJournalStore(
         order by sequence
         limit ?3
     `)
-    const readWorkspaceStatement = client.query<
+    const readWorkspaceStatement = sql.statement<
         EventJournalRow,
         [workspaceId: string, afterSequence: number, limit: number]
     >(`
@@ -166,7 +164,10 @@ export function createEventJournalStore(
         order by sequence
         limit ?3
     `)
-    const readAllStatement = client.query<EventJournalRow, [afterSequence: number, limit: number]>(`
+    const readAllStatement = sql.statement<
+        EventJournalRow,
+        [afterSequence: number, limit: number]
+    >(`
         select sequence as cursorSequence,
                id,
                project_id as projectId,
@@ -185,18 +186,16 @@ export function createEventJournalStore(
         order by sequence
         limit ?2
     `)
-    const latestSequenceStatement = client.query<{ readonly sequence: number | null }, []>(`
-        select seq as sequence
-        from sqlite_sequence
-        where name = 'audit_events'
-    `)
+    const latestSequenceStatement = sql.statement<{ readonly sequence: number | null }, []>(
+        auditEventSequenceHighWaterSql(sql.dialect)
+    )
 
     return {
-        append(input: AppendDomainEventInput): EventJournalEntry {
+        async append(input: AppendDomainEventInput): Promise<EventJournalEntry> {
             const event = createDomainEvent({ ...input, id: input.id ?? createId() })
-            const appendCommitted = () => {
+            const appendCommitted = async () => {
                 recordDatabaseCommitProject(database, event.projectId)
-                const result = appendStatement.run(
+                const result = await appendStatement.get(
                     event.id,
                     event.projectId,
                     event.actorId,
@@ -211,18 +210,20 @@ export function createEventJournalStore(
                     null
                 )
 
-                return { ...event, cursor: encodeCursor(result.lastInsertRowid) }
+                return { ...event, cursor: encodeCursor(requireAppended(result).sequence) }
             }
 
-            return client.inTransaction
-                ? appendCommitted()
-                : createDatabaseTransaction(database, appendCommitted)()
+            return database.sql.inTransaction()
+                ? await appendCommitted()
+                : await database.sql.transaction(appendCommitted)
         },
 
-        appendWorkspace(input: AppendWorkspaceDomainEventInput): WorkspaceEventJournalEntry {
+        async appendWorkspace(
+            input: AppendWorkspaceDomainEventInput
+        ): Promise<WorkspaceEventJournalEntry> {
             const event = createWorkspaceDomainEvent({ ...input, id: input.id ?? createId() })
-            const append = () => {
-                const result = appendStatement.run(
+            const append = async () => {
+                const result = await appendStatement.get(
                     event.id,
                     null,
                     event.actorId,
@@ -236,46 +237,48 @@ export function createEventJournalStore(
                     event.occurredAt,
                     event.workspaceId
                 )
-                return { ...event, cursor: encodeCursor(result.lastInsertRowid) }
+                return { ...event, cursor: encodeCursor(requireAppended(result).sequence) }
             }
-            return client.inTransaction ? append() : createDatabaseTransaction(database, append)()
+            return database.sql.inTransaction()
+                ? await append()
+                : await database.sql.transaction(append)
         },
 
-        readWorkspaceAfter(
+        async readWorkspaceAfter(
             input: ReadWorkspaceEventJournalInput
-        ): readonly WorkspaceEventJournalEntry[] {
+        ): Promise<readonly WorkspaceEventJournalEntry[]> {
             const workspaceId = requireNonBlank(input.workspaceId, 'workspaceId')
             const limit = requireReadLimit(input.limit)
-            return readWorkspaceStatement
-                .all(workspaceId, decodeCursor(input.after), limit)
-                .map(row => {
-                    const event = toEventJournalEntry(row)
-                    if (event.projectId !== null) throw new Error('Expected a workspace event')
-                    return event
-                })
+            return (
+                await readWorkspaceStatement.all(workspaceId, decodeCursor(input.after), limit)
+            ).map(row => {
+                const event = toEventJournalEntry(row)
+                if (event.projectId !== null) throw new Error('Expected a workspace event')
+                return event
+            })
         },
 
-        readAfter(input: ReadEventJournalInput): readonly EventJournalEntry[] {
+        async readAfter(input: ReadEventJournalInput): Promise<readonly EventJournalEntry[]> {
             const projectId = requireNonBlank(input.projectId, 'projectId')
             const afterSequence = decodeCursor(input.after)
             const limit = requireReadLimit(input.limit)
 
-            return readStatement.all(projectId, afterSequence, limit).map(row => {
+            return (await readStatement.all(projectId, afterSequence, limit)).map(row => {
                 const event = toEventJournalEntry(row)
                 if (event.projectId === null) throw new Error('Expected a project event')
                 return event
             })
         },
 
-        readAllAfter(input: ReadAllEventJournalInput = {}): readonly JournalEntry[] {
+        async readAllAfter(input: ReadAllEventJournalInput = {}): Promise<readonly JournalEntry[]> {
             const afterSequence = decodeCursor(input.after)
             const limit = requireReadLimit(input.limit)
 
-            return readAllStatement.all(afterSequence, limit).map(toEventJournalEntry)
+            return (await readAllStatement.all(afterSequence, limit)).map(toEventJournalEntry)
         },
 
-        latestCursor(): EventJournalCursor | null {
-            const sequence = latestSequenceStatement.get()?.sequence ?? null
+        async latestCursor(): Promise<EventJournalCursor | null> {
+            const sequence = (await latestSequenceStatement.get())?.sequence ?? null
             return sequence === null || sequence < 1 ? null : encodeCursor(sequence)
         },
     }
@@ -321,6 +324,11 @@ function requireReadLimit(value: number | undefined): number {
         )
     }
     return limit
+}
+
+function requireAppended<T>(row: T | null): T {
+    if (row === null) throw new Error('The appended event returned no sequence')
+    return row
 }
 
 function encodeCursor(sequence: number | bigint): EventJournalCursor {

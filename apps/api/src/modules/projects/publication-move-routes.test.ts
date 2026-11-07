@@ -1,21 +1,15 @@
 import { expect, it } from 'bun:test'
 
 import { createAuth } from '@postdot/auth'
-import {
-    closeDatabase,
-    createAccessStore,
-    createDatabase,
-    runMigrations,
-    type PublicationEditorState,
-} from '@postdot/db'
+import { createAccessStore, type PublicationEditorState } from '@postdot/db'
+import { closeTestDatabase, openTestDatabase } from '@postdot/db/testing'
 
 import { createApp } from '../../app'
 import { createPublisherRuntime } from '../publishers/runtime'
 const origin = 'http://localhost:3000'
 const now = 1_800_000_000_000
 async function fixture(scheduled = true) {
-    const database = createDatabase(':memory:')
-    runMigrations(database)
+    const database = (await openTestDatabase()).database
     const access = createAccessStore(database, { now: () => now })
     const auth = createAuth(database, {
         baseURL: origin,
@@ -109,8 +103,8 @@ it('requires dispatch permission for scheduled moves and preserves the original 
         const manageOnly = await f.key(['publication:manage'])
         expect((await f.call(`${f.path}/move`, 'POST', f.input, manageOnly)).status).toBe(403)
         expect(
-            f.database.$client
-                .query('select state from publications where id=?')
+            await f.database.sql
+                .statement('select state from publications where id=?')
                 .get(f.publication.id)
         ).toEqual({ state: 'scheduled' })
         const dispatchOnly = await f.key(['publication:dispatch'])
@@ -126,13 +120,13 @@ it('requires dispatch permission for scheduled moves and preserves the original 
         })
         expect(editor.movement?.fromPublicationId).toBe(f.publication.id)
         expect(
-            f.database.$client
-                .query('select state from publications where id=?')
+            await f.database.sql
+                .statement('select state from publications where id=?')
                 .get(f.publication.id)
         ).toEqual({ state: 'cancelled' })
         expect((await f.call(`${f.path}/move`, 'POST', f.input, allowed)).status).toBe(409)
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 it('masks unavailable destinations and rejects stale edits before cancellation', async () => {
@@ -151,13 +145,13 @@ it('masks unavailable destinations and rejects stale edits before cancellation',
                 .status
         ).toBe(409)
         expect(
-            f.database.$client
-                .query('select state from publications where id=?')
+            await f.database.sql
+                .statement('select state from publications where id=?')
                 .get(f.publication.id)
         ).toEqual({ state: 'scheduled' })
-        expect(f.database.$client.query('select * from publication_moves').all()).toEqual([])
+        expect(await f.database.sql.statement('select * from publication_moves').all()).toEqual([])
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
@@ -175,6 +169,6 @@ it('allows management-only keys to move an unscheduled draft without dispatch au
         })
         expect(editor.movement?.fromPublicationId).toBe(f.publication.id)
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })

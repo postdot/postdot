@@ -1,10 +1,8 @@
 import { describe, expect, it } from 'bun:test'
 
-import { closeDatabase, createDatabase } from '../client'
 import { createManualStore } from '../manual-store'
-import { runMigrations } from '../migrations'
 import { createTaxonomyStore } from '../taxonomy-store'
-import { seedTestWorkspace } from '../testing'
+import { closeTestDatabase, openTestDatabase, seedTestWorkspace } from '../testing'
 
 const sourceContent = (text: string) => ({
     body: { text, format: 'plain_text' as const },
@@ -12,28 +10,27 @@ const sourceContent = (text: string) => ({
 })
 
 describe('publication draft lifecycle store', () => {
-    it('duplicates a draft as a new draft and deletes the original post when it is orphaned', () => {
-        const database = createDatabase(':memory:')
+    it('duplicates a draft as a new draft and deletes the original post when it is orphaned', async () => {
+        const database = (await openTestDatabase()).database
 
         try {
-            runMigrations(database)
             const now = 1_800_000_000_000
             const store = createManualStore(database, { now: () => now })
             const taxonomy = createTaxonomyStore(database, { now: () => now })
-            const project = store.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const project = await store.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'Draft lifecycle project',
                 subjectId: 'user-1',
                 displayName: 'Draft lifecycle operator',
             })
-            const channel = store.createChannel({
+            const channel = await store.createChannel({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 name: 'Draft lifecycle channel',
             })
             expect(channel).not.toBeNull()
 
-            const created = store.createPost({
+            const created = await store.createPost({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 title: 'A reusable draft',
@@ -50,21 +47,21 @@ describe('publication draft lifecycle store', () => {
             const publication = created?.publications[0]
             expect(publication).toMatchObject({ state: 'draft', deliveryMode: 'manual' })
             if (publication === undefined) throw new Error('Draft publication was not created')
-            const tag = taxonomy.createTag({
+            const tag = await taxonomy.createTag({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 name: 'Reusable',
             })
             expect(tag).not.toBeNull()
             if (tag === null) throw new Error('Publication tag was not created')
-            taxonomy.replacePublicationTags({
+            await taxonomy.replacePublicationTags({
                 projectId: project.project.id,
                 publicationId: publication.id,
                 subjectId: 'user-1',
                 tagIds: [tag.id],
             })
 
-            const duplicated = store.duplicateDraftPublication({
+            const duplicated = await store.duplicateDraftPublication({
                 projectId: project.project.id,
                 publicationId: publication.id,
                 subjectId: 'user-1',
@@ -78,12 +75,12 @@ describe('publication draft lifecycle store', () => {
             expect(duplicated.post.id).not.toBe(publication.postId)
             expect(duplicated.publication.id).not.toBe(publication.id)
             expect(
-                store
-                    .listPublicationSummaries(project.project.id, 'user-1')
-                    ?.find(item => item.id === duplicated.publication.id)?.tagIds
+                (await store.listPublicationSummaries(project.project.id, 'user-1'))?.find(
+                    item => item.id === duplicated.publication.id
+                )?.tagIds
             ).toEqual([tag.id])
             expect(
-                store.getPublicationEditorState(
+                await store.getPublicationEditorState(
                     project.project.id,
                     duplicated.publication.id,
                     'user-1'
@@ -94,24 +91,24 @@ describe('publication draft lifecycle store', () => {
             })
 
             expect(
-                store.deleteDraftPublication({
+                await store.deleteDraftPublication({
                     projectId: project.project.id,
                     publicationId: publication.id,
                     subjectId: 'user-1',
                 })
             ).toEqual({ kind: 'deleted', postDeleted: true })
             expect(
-                store.getPublicationEditorState(project.project.id, publication.id, 'user-1')
+                await store.getPublicationEditorState(project.project.id, publication.id, 'user-1')
             ).toBeNull()
             expect(
-                store.deleteDraftPublication({
+                await store.deleteDraftPublication({
                     projectId: project.project.id,
                     publicationId: publication.id,
                     subjectId: 'user-1',
                 })
             ).toEqual({ kind: 'not_found' })
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 })

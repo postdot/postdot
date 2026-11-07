@@ -111,16 +111,16 @@ export interface ProjectModuleOptions {
 export function createProjectModule(options: ProjectModuleOptions) {
     const authenticated = createAuthenticatedElysia(options.auth, {
         resourceLifecycle: options.resourceLifecycle,
-        authorizeRetirementReceipt: (projectId, userId, path) =>
+        authorizeRetirementReceipt: async (projectId, userId, path) =>
             path === `/api/projects/${projectId}/lifecycle` &&
-            options.resourceLifecycle.canReadReceipt('project', projectId, userId),
+            (await options.resourceLifecycle.canReadReceipt('project', projectId, userId)),
         authenticateBetterAuthProjectApiKey: createUserApiKeyAuthenticator(options.auth),
         authorizeUserApiKeyRequest: canApiKeyAccessRequest,
         // One shared decision for sessions and API keys: live project access
         // first, then the documented workspace-manager reach limited to the
         // project access surface.
-        authorizeProjectAccess: (projectId, userId, requestPath, requestContext) => {
-            if (options.access.canAccessProject(projectId, userId)) {
+        authorizeProjectAccess: async (projectId, userId, requestPath, requestContext) => {
+            if (await options.access.canAccessProject(projectId, userId)) {
                 const channelId = requestPath.match(
                     /^\/api\/projects\/[^/]+\/channels\/([^/]+)/
                 )?.[1]
@@ -133,9 +133,9 @@ export function createProjectModule(options: ProjectModuleOptions) {
                     channelId &&
                     managementWrite &&
                     (!options.resourceLifecycle ||
-                        options.resourceLifecycle.projectState(projectId) === 'active')
+                        (await options.resourceLifecycle.projectState(projectId)) === 'active')
                 ) {
-                    const ctx = options.manualStore.sharedChannels.contextFor({
+                    const ctx = await options.manualStore.sharedChannels.contextFor({
                         contextProjectId: projectId,
                         subjectId: userId,
                         authorization: createChannelAccessPolicy({
@@ -148,15 +148,18 @@ export function createProjectModule(options: ProjectModuleOptions) {
                     })
                     return (
                         ctx !== null &&
-                        options.manualStore.sharedChannels.getCadence(ctx, channelId)?.canManage ===
-                            true
+                        (await options.manualStore.sharedChannels.getCadence(ctx, channelId))
+                            ?.canManage === true
                     )
                 }
                 return true
             }
             if (!isProjectAccessPath(projectId, requestPath)) return false
-            const workspaceId = options.access.getProjectWorkspaceId(projectId)
-            return workspaceId !== null && options.access.canManageWorkspace(workspaceId, userId)
+            const workspaceId = await options.access.getProjectWorkspaceId(projectId)
+            return (
+                workspaceId !== null &&
+                (await options.access.canManageWorkspace(workspaceId, userId))
+            )
         },
     })
     const emailSettingsRoutes = registerEmailSettingsRoutes(

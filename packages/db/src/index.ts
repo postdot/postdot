@@ -1,7 +1,10 @@
 export {
+    acquirePostgresInstanceLock,
     closeDatabase,
+    closePostgresDatabase,
     createDatabase,
-    createDatabaseTransaction,
+    createPostgresDatabase,
+    defineTransaction,
     recordDatabaseCommitProject,
     setDatabaseCommitObserver,
 } from './client'
@@ -9,10 +12,26 @@ export type {
     DatabaseCommitErrorHandler,
     DatabaseCommitObserver,
     DatabaseTransaction,
+    DatabaseHandle,
     PostdotDatabase,
+    PostgresDatabase,
+    PostgresInstanceLock,
 } from './client'
+export type {
+    SqlCommitScope,
+    SqlDatabase,
+    SqlParams,
+    SqlRunResult,
+    SqlStatement,
+    SqlTransactionMode,
+    SqlValue,
+} from './sql/port'
 export { backupDatabase, backupWithMedia, restoreDatabase, restoreWithMedia } from './backup'
-export { recoverLocalAccountPassword } from './local-account-recovery'
+export {
+    recoverAccountPasswordInDatabase,
+    recoverLocalAccountPassword,
+} from './local-account-recovery'
+export type { DatabaseAccountPasswordRecoveryResult } from './local-account-recovery'
 export type {
     MediaBackupManifest,
     MediaBackupOptions,
@@ -24,9 +43,15 @@ export type {
     LocalAccountPasswordRecoveryResult,
 } from './local-account-recovery'
 export { acquireRuntimeQuiescenceLock } from './runtime-quiescence'
+export { createLocalCoordination, createPostgresCoordination } from './coordination'
+export type {
+    CoordinationHandlers,
+    CoordinationSignal,
+    InstanceCoordination,
+    LeadershipHandlers,
+} from './coordination'
 export type { RuntimeQuiescenceLock, RuntimeQuiescenceOwner } from './runtime-quiescence'
-export { defaultMigrationsFolder, runMigrations, rehearseMigrations } from './migrations'
-export type { MigrationChecks, MigrationRehearsal } from './migrations'
+export { defaultMigrationsFolder, runMigrations } from './migrations'
 export { createWorkflowStore } from './workflow-store'
 export {
     createEventJournalStore,
@@ -338,7 +363,6 @@ export type {
     PublisherExecutionTarget,
     PublisherStoreOptions,
 } from './publisher-store'
-export * from './schema'
 export { createUserAvatarStore, AvatarValidationError, avatarMaxBytes } from './user-avatar-store'
 export type { UserAvatarStore } from './user-avatar-store'
 
@@ -399,3 +423,6 @@ export type {
 export * from './channel-cadence'
 
 export type { MovePublicationInput } from './manual-store/publication-move-store'
+export { everySequential, filterSequential, mapSequential, someSequential } from './sql/sequential'
+export { isResourceReadOnlyTriggerError, isUniqueConstraintError } from './sql/dialect'
+export * from './transfer'

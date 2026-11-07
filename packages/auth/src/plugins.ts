@@ -124,7 +124,8 @@ export type PostdotAuthPlugins = [
 
 export function createPostdotAuthPlugins(
     hooks: PostdotAuthPluginHooks = {},
-    invitationOptions: PostdotAuthInvitationOptions = {}
+    invitationOptions: PostdotAuthInvitationOptions = {},
+    fixtureMode = false
 ): PostdotAuthPlugins {
     const requireEmailVerification = invitationOptions.requireEmailVerificationOnInvitation
 
@@ -136,6 +137,8 @@ export function createPostdotAuthPlugins(
             cancelPendingInvitationsOnReInvite: true,
             creatorRole: 'owner',
             invitationExpiresIn: 7 * 24 * 60 * 60,
+            // Fixture signups share one workspace across the browser matrix.
+            ...(fixtureMode ? { membershipLimit: 10_000 } : {}),
             schema: {
                 invitation: {
                     additionalFields: {

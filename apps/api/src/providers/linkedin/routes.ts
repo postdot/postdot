@@ -30,7 +30,11 @@ export function registerLinkedInPublisherRoutes<const Routes extends Record<stri
     app: AuthenticatedElysia<Routes>,
     publisher: PublisherRuntime,
     options: {
-        readonly canManageChannel: (projectId: string, channelId: string, userId: string) => boolean
+        readonly canManageChannel: (
+            projectId: string,
+            channelId: string,
+            userId: string
+        ) => Promise<boolean>
         readonly access: AccessStore
         readonly logger?: Logger
         readonly onWorkScheduled?: () => void
@@ -74,24 +78,30 @@ export function registerLinkedInPublisherRoutes<const Routes extends Record<stri
                     })
                 }
                 if (
-                    !canAccessProjectRole({
+                    !(await canAccessProjectRole({
                         access: options.access,
                         authMethod,
                         minimumRole: 'editor',
                         projectId: params.projectId,
                         userId: user.id,
-                    })
+                    }))
                 ) {
                     return status(403, forbiddenProjectMutation())
                 }
 
-                if (!publisherStore.hasChannelAccess(params.projectId, params.channelId, user.id)) {
+                if (
+                    !(await publisherStore.hasChannelAccess(
+                        params.projectId,
+                        params.channelId,
+                        user.id
+                    ))
+                ) {
                     return status(404, {
                         error: { code: 'not_found', message: 'Project not found' },
                     })
                 }
 
-                const existingConnection = publisherStore.getPublisherConnection(
+                const existingConnection = await publisherStore.getPublisherConnection(
                     params.projectId,
                     params.channelId,
                     user.id
@@ -127,7 +137,7 @@ export function registerLinkedInPublisherRoutes<const Routes extends Record<stri
                     })
                 }
 
-                const actorId = publisherStore.getProjectActorId(params.projectId, user.id)
+                const actorId = await publisherStore.getProjectActorId(params.projectId, user.id)
                 if (actorId === null) {
                     return status(404, {
                         error: { code: 'not_found', message: 'Project not found' },
@@ -239,24 +249,24 @@ export function registerLinkedInPublisherRoutes<const Routes extends Record<stri
                 }
 
                 const pendingAttempt =
-                    authorizationAttemptStore.getAuthorizationAttempt(stateDigest)
+                    await authorizationAttemptStore.getAuthorizationAttempt(stateDigest)
                 if (pendingAttempt === null || pendingAttempt.providerId !== LINKEDIN_PROVIDER) {
                     return redirectPublisher(publisher.webOrigin, '/dashboard', 'invalid_callback')
                 }
 
                 if (
-                    !options.canManageChannel(
+                    !(await options.canManageChannel(
                         pendingAttempt.projectId,
                         pendingAttempt.channelId,
                         user.id
-                    ) ||
-                    !canAccessProjectRole({
+                    )) ||
+                    !(await canAccessProjectRole({
                         access: options.access,
                         authMethod,
                         minimumRole: 'editor',
                         projectId: pendingAttempt.projectId,
                         userId: user.id,
-                    })
+                    }))
                 ) {
                     return redirectPublisher(
                         publisher.webOrigin,
@@ -285,7 +295,10 @@ export function registerLinkedInPublisherRoutes<const Routes extends Record<stri
                     )
                 }
 
-                const actorId = publisherStore.getProjectActorId(pendingAttempt.projectId, user.id)
+                const actorId = await publisherStore.getProjectActorId(
+                    pendingAttempt.projectId,
+                    user.id
+                )
                 if (actorId !== pendingAttempt.connectedByActorId) {
                     return redirectPublisher(
                         publisher.webOrigin,
@@ -360,7 +373,7 @@ export function registerLinkedInPublisherRoutes<const Routes extends Record<stri
                         id: destination.id,
                         name: destination.name,
                     }
-                    const existingConnection = publisherStore.getPublisherConnection(
+                    const existingConnection = await publisherStore.getPublisherConnection(
                         consumed.attempt.projectId,
                         consumed.attempt.channelId,
                         user.id
@@ -372,11 +385,11 @@ export function registerLinkedInPublisherRoutes<const Routes extends Record<stri
                     const expiresAt = tokenExpiry(publisher.now(), tokenSet.expiresInSeconds)
                     callbackStage = 'save_credential'
                     if (
-                        !options.canManageChannel(
+                        !(await options.canManageChannel(
                             pendingAttempt.projectId,
                             pendingAttempt.channelId,
                             user.id
-                        )
+                        ))
                     )
                         return redirectPublisher(
                             publisher.webOrigin,
@@ -405,18 +418,18 @@ export function registerLinkedInPublisherRoutes<const Routes extends Record<stri
 
                     callbackStage = 'create_connection'
                     if (
-                        !options.canManageChannel(
+                        !(await options.canManageChannel(
                             pendingAttempt.projectId,
                             pendingAttempt.channelId,
                             user.id
-                        )
+                        ))
                     )
                         return redirectPublisher(
                             publisher.webOrigin,
                             pendingAttempt.returnPath,
                             'invalid_callback'
                         )
-                    const connection = publisherStore.createPublisherConnection({
+                    const connection = await publisherStore.createPublisherConnection({
                         projectId: consumed.attempt.projectId,
                         channelId: consumed.attempt.channelId,
                         subjectId: user.id,

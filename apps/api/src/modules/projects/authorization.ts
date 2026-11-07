@@ -12,13 +12,13 @@ interface ProjectRoleCheck {
     readonly userId: string
 }
 
-export function canAccessProjectRole({
+export async function canAccessProjectRole({
     access,
     minimumRole,
     projectId,
     userId,
-}: ProjectRoleCheck): boolean {
-    return access.canAccessProject(projectId, userId, minimumRole)
+}: ProjectRoleCheck): Promise<boolean> {
+    return await access.canAccessProject(projectId, userId, minimumRole)
 }
 
 export function forbiddenProjectMutation() {

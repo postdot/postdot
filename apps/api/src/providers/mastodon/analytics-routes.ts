@@ -61,8 +61,8 @@ export function registerMastodonAnalyticsRoutes<const Routes extends Record<stri
                     tags: ['Provider Analytics'],
                 },
             },
-            ({ params, query, status, user }) => {
-                const result = providerAnalytics.listObservations({
+            async ({ params, query, status, user }) => {
+                const result = await providerAnalytics.listObservations({
                     projectId: params.projectId,
                     subjectId: user.id,
                     provider: 'mastodon',
@@ -97,8 +97,8 @@ export function registerMastodonAnalyticsRoutes<const Routes extends Record<stri
                     tags: ['Provider Analytics'],
                 },
             },
-            ({ params, query, status, user }) => {
-                const result = providerAnalytics.listLatestContentObservations({
+            async ({ params, query, status, user }) => {
+                const result = await providerAnalytics.listLatestContentObservations({
                     projectId: params.projectId,
                     subjectId: user.id,
                     provider: 'mastodon',
@@ -131,13 +131,13 @@ export function registerMastodonAnalyticsRoutes<const Routes extends Record<stri
             },
             async ({ authMethod, body, params, status, user }) => {
                 if (
-                    !canAccessProjectRole({
+                    !(await canAccessProjectRole({
                         access,
                         authMethod,
                         minimumRole: 'editor',
                         projectId: params.projectId,
                         userId: user.id,
-                    })
+                    }))
                 ) {
                     return status(403, forbiddenProjectMutation())
                 }

@@ -62,7 +62,7 @@ test('keeps publication detail actions aligned with the scheduled lifecycle', as
     await expect(delivery).not.toHaveAttribute('open', '')
     await expect(page.locator('#deliver-at')).not.toBeVisible()
     await expect(
-        page.getByRole('button', { name: 'Update scheduled publication', exact: true })
+        page.getByRole('button', { name: /^Update scheduled publication(?:\s*(?:Ctrl|⌘)↵)?$/ })
     ).toBeVisible()
     await expect(
         page.locator('[data-composer-settings]').locator('[data-publication-delivery-disclosure]')
@@ -70,7 +70,7 @@ test('keeps publication detail actions aligned with the scheduled lifecycle', as
     await expect(
         page
             .locator('[data-composer-actions]')
-            .getByRole('button', { name: 'Update scheduled publication', exact: true })
+            .getByRole('button', { name: /^Update scheduled publication(?:\s*(?:Ctrl|⌘)↵)?$/ })
     ).toBeVisible()
     await expect(
         page.locator('[data-composer-editor]').locator('[data-publication-delivery-disclosure]')
@@ -303,7 +303,7 @@ test('shows the active-profile refusal when promotion rejects a superseded draft
     const editorUrl = `/dashboard/projects/${projectId}/publications/${publication.id}`
     await page.goto(editorUrl)
 
-    const action = page.getByRole('button', { name: 'Use this version', exact: true })
+    const action = page.getByRole('button', { name: /^Use this version(?:\s*(?:Ctrl|⌘)↵)?$/ })
     await expect(action).toBeEnabled()
     const bodyField = page.locator('[data-target-field="body"] textarea')
     await expect(bodyField).toHaveValue(initialBody)
@@ -722,12 +722,12 @@ test('requires destination confirmation after reconnecting while retaining the s
                 const actor = db.$client.query("select id, subject_id as subjectId from actors where project_id = ? and kind = 'human' limit 1").get(projectId);
                 const credentials = createPublisherCredentialStore(db, {cipher: createPublisherCredentialCipher({keyId:'e2e-v1', key: new Uint8Array(Buffer.from('0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef','hex'))})});
                 const store = createPublisherStore(db, {credentialRevoker: credentials, connectionPolicies: {linkedin: {validateDestination: () => true}}});
-                const existing = store.getPublisherConnection(projectId, channelId, actor.subjectId);
-                if (existing) credentials.markPublisherCredentialReconnectRequired(projectId, existing.credentialId);
+                const existing = await store.getPublisherConnection(projectId, channelId, actor.subjectId);
+                if (existing) await credentials.markPublisherCredentialReconnectRequired(projectId, existing.credentialId);
                 const id = replace === 'true' ? 'replacement-account' : 'original-account';
                 const credential = await credentials.createPublisherCredential({projectId, connectedByActorId:actor.id, providerId:'linkedin',externalAccountId:id,externalAccountName:id,scopes:['w_member_social'],accessToken:'synthetic-never-dispatched'});
                 if (credential.kind !== 'created') throw new Error(credential.kind);
-                const connected = store.createPublisherConnection({projectId,channelId,subjectId:actor.subjectId,kind:'linkedin',credentialId:credential.credential.id,destination:{type:'member',id,name:replace==='true'?'Replacement destination':'Original destination'}, ...(existing ? {replaceNonActiveConnection:{id:existing.id,state:'reconnect_required'}} : {})});
+                const connected = await store.createPublisherConnection({projectId,channelId,subjectId:actor.subjectId,kind:'linkedin',credentialId:credential.credential.id,destination:{type:'member',id,name:replace==='true'?'Replacement destination':'Original destination'}, ...(existing ? {replaceNonActiveConnection:{id:existing.id,state:'reconnect_required'}} : {})});
                 if (connected.kind !== 'created') throw new Error(connected.kind);
             } finally {closeDatabase(db)}
         `,

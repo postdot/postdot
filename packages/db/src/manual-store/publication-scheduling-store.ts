@@ -7,8 +7,9 @@ import {
 } from '@postdot/core'
 
 import { createChannelCadenceStore } from '../channel-cadence'
-import { createDatabaseTransaction, type PostdotDatabase } from '../client'
+import { defineTransaction, type DatabaseHandle } from '../client'
 import type { ReschedulePublicationsInput } from '../manual-store'
+import { mapSequential } from '../sql/sequential'
 import { toActor, toPublication } from './mappers'
 import type { ActorRow, PublicationRow } from './rows'
 
@@ -31,25 +32,31 @@ interface AuditEventInsert {
 export interface PublicationSchedulingStoreOptions {
     readonly now: () => number
     readonly createId: () => string
-    readonly loadActor: (projectId: string, subjectId: string) => ActorRow | null
-    readonly loadPublication: (projectId: string, publicationId: string) => PublicationRow | null
-    readonly loadActiveJob: (projectId: string, publicationId: string) => ActiveJobRow | null
+    readonly loadActor: (projectId: string, subjectId: string) => Promise<ActorRow | null>
+    readonly loadPublication: (
+        projectId: string,
+        publicationId: string
+    ) => Promise<PublicationRow | null>
+    readonly loadActiveJob: (
+        projectId: string,
+        publicationId: string
+    ) => Promise<ActiveJobRow | null>
     readonly updatePendingJob: (
         projectId: string,
         jobId: string,
         runAt: number,
         updatedAt: number
-    ) => boolean
-    readonly insertAuditEvent: (input: AuditEventInsert) => void
+    ) => Promise<boolean>
+    readonly insertAuditEvent: (input: AuditEventInsert) => Promise<unknown>
 }
 
 export function createPublicationSchedulingStore(
-    database: PostdotDatabase,
+    database: DatabaseHandle,
     options: PublicationSchedulingStoreOptions
 ) {
     const cadence = createChannelCadenceStore(database)
-    const client = database.$client
-    const reschedulePublicationStatement = client.query<
+    const sql = database.sql
+    const reschedulePublicationStatement = sql.statement<
         { changes: number },
         [
             scheduledAt: number,
@@ -72,10 +79,10 @@ export function createPublicationSchedulingStore(
           and updated_at = ?7
     `)
 
-    const reschedulePublicationsTransaction = createDatabaseTransaction(
+    const reschedulePublicationsTransaction = defineTransaction(
         database,
-        (input: ReschedulePublicationsInput): Publication[] | null => {
-            const actorRow = options.loadActor(input.projectId, input.subjectId)
+        async (input: ReschedulePublicationsInput): Promise<Publication[] | null> => {
+            const actorRow = await options.loadActor(input.projectId, input.subjectId)
             if (actorRow === null) return null
 
             const timestamp = requireTimestamp(options.now(), 'now')
@@ -83,14 +90,14 @@ export function createPublicationSchedulingStore(
             const currentPublications: PublicationRow[] = []
 
             for (const publicationId of input.publicationIds) {
-                const row = options.loadPublication(input.projectId, publicationId)
+                const row = await options.loadPublication(input.projectId, publicationId)
                 if (row === null) return null
                 currentPublications.push(row)
             }
 
-            const candidates = currentPublications.map(row => {
+            const candidates = await mapSequential(currentPublications, async row => {
                 const publication = toPublication(row)
-                const activeJob = options.loadActiveJob(input.projectId, publication.id)
+                const activeJob = await options.loadActiveJob(input.projectId, publication.id)
                 if (activeJob?.state === 'running') {
                     throw new DomainInvariantError(
                         'invalid_transition',
@@ -105,7 +112,7 @@ export function createPublicationSchedulingStore(
                 }
             })
 
-            cadence.check({
+            await cadence.check({
                 projectId: input.projectId,
                 actorId: actor.id,
                 now: timestamp,
@@ -118,7 +125,7 @@ export function createPublicationSchedulingStore(
             })
             for (const candidate of candidates) {
                 const { current, next } = candidate
-                const result = reschedulePublicationStatement.run(
+                const result = await reschedulePublicationStatement.run(
                     next.scheduledAt as number,
                     next.scheduledByActorId as string,
                     next.stateChangedByActorId,
@@ -136,12 +143,12 @@ export function createPublicationSchedulingStore(
 
                 if (candidate.activeJob !== null) {
                     if (
-                        !options.updatePendingJob(
+                        !(await options.updatePendingJob(
                             input.projectId,
                             candidate.activeJob.id,
                             next.scheduledAt as number,
                             timestamp
-                        )
+                        ))
                     ) {
                         throw new DomainInvariantError(
                             'claim_mismatch',
@@ -150,7 +157,7 @@ export function createPublicationSchedulingStore(
                     }
                 }
 
-                options.insertAuditEvent({
+                await options.insertAuditEvent({
                     id: options.createId(),
                     projectId: input.projectId,
                     actorId: actor.id,
@@ -171,7 +178,9 @@ export function createPublicationSchedulingStore(
     )
 
     return {
-        reschedulePublications(input: ReschedulePublicationsInput): Publication[] | null {
+        async reschedulePublications(
+            input: ReschedulePublicationsInput
+        ): Promise<Publication[] | null> {
             const publicationIds = input.publicationIds.map(id =>
                 requireNonBlank(id, 'publicationId')
             )

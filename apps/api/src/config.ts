@@ -15,7 +15,7 @@ export const defaultDatabaseFileName = fileURLToPath(
     new URL('../../../postdot.sqlite', import.meta.url)
 )
 const defaultMigrationsDirectory = fileURLToPath(
-    new URL('../../../packages/db/drizzle', import.meta.url)
+    new URL('../../../packages/db/migrations', import.meta.url)
 )
 const defaultWebAssetsDirectory = fileURLToPath(new URL('../../../apps/web/dist', import.meta.url))
 export const defaultMediaDirectory = fileURLToPath(new URL('../../../data/media', import.meta.url))
@@ -60,6 +60,8 @@ const environmentDefinitions = {
     }),
     PORT: env.integer({ defaultValue: 3000, minimum: 1, maximum: 65_535 }),
     POSTDOT_MIGRATIONS_DIR: env.string({ defaultValue: defaultMigrationsDirectory }),
+    POSTDOT_DATABASE_URL: env.optionalString({ minLength: 1 }),
+    POSTDOT_DATABASE_POOL_SIZE: env.integer({ defaultValue: 10, minimum: 1, maximum: 100 }),
     POSTDOT_WEB_ASSETS_DIR: env.string({ defaultValue: defaultWebAssetsDirectory }),
     ...mediaEnvironmentDefinitions,
     BETTER_AUTH_URL: env.url({
@@ -113,15 +115,59 @@ export interface PostdotLoggingConfig {
     readonly pretty: boolean
 }
 
+/**
+ * The persistence profile chosen at startup (ADR-097): SQLite in one file, or
+ * PostgreSQL when `POSTDOT_DATABASE_URL` is set. One image serves both.
+ */
+export type PostdotDatabaseConfig =
+    | {
+          readonly engine: 'sqlite'
+          readonly fileName: string
+          readonly migrationsDirectory: string
+      }
+    | {
+          readonly engine: 'postgres'
+          readonly url: string
+          readonly poolSize: number
+          readonly migrationsDirectory: string
+      }
+
+/**
+ * `POSTDOT_DATABASE_URL` selects PostgreSQL and takes precedence: the image
+ * always sets `DB_FILE_NAME` for its SQLite default, so that file is then
+ * unused. The startup log names the engine in use.
+ */
+export function createDatabaseConfig(values: {
+    readonly DB_FILE_NAME: string
+    readonly POSTDOT_DATABASE_URL: string | undefined
+    readonly POSTDOT_DATABASE_POOL_SIZE: number
+    readonly POSTDOT_MIGRATIONS_DIR: string
+}): PostdotDatabaseConfig {
+    const url = values.POSTDOT_DATABASE_URL
+    if (url === undefined) {
+        return {
+            engine: 'sqlite',
+            fileName: values.DB_FILE_NAME,
+            migrationsDirectory: values.POSTDOT_MIGRATIONS_DIR,
+        }
+    }
+    if (!/^postgres(?:ql)?:\/\//.test(url)) {
+        throw new Error('POSTDOT_DATABASE_URL must be a postgres:// or postgresql:// URL')
+    }
+    return {
+        engine: 'postgres',
+        url,
+        poolSize: values.POSTDOT_DATABASE_POOL_SIZE,
+        migrationsDirectory: values.POSTDOT_MIGRATIONS_DIR,
+    }
+}
+
 export interface PostdotConfig {
     readonly environment: PostdotEnvironment['NODE_ENV']
     readonly server: {
         readonly port: number
     }
-    readonly database: {
-        readonly fileName: string
-        readonly migrationsDirectory: string
-    }
+    readonly database: PostdotDatabaseConfig
     readonly media: {
         readonly driver: 'local' | 's3'
         readonly directory: string
@@ -201,6 +247,65 @@ type PostdotMediaEnvironment = Omit<
     'DB_FILE_NAME'
 >
 
+/** Configuration of the offline transfer commands (ADR-097 §8). */
+export interface PostdotTransferConfig {
+    /** The configured database: the source of an export, the target of an import. */
+    readonly database: PostdotDatabaseConfig
+    /** The configured media store: the destination of a media transfer. */
+    readonly media: PostdotConfig['media']
+    /** The store media are copied from, described by `SOURCE_`-prefixed variables. */
+    readonly sourceMedia: PostdotConfig['media'] | undefined
+}
+
+/** Prefix naming the source store of a media transfer: `SOURCE_POSTDOT_MEDIA_STORE`, ... */
+export const transferSourcePrefix = 'SOURCE_'
+
+export function createPostdotTransferConfig(
+    source: EnvironmentSource = Bun.env
+): PostdotTransferConfig {
+    const environment = createEnvironment(
+        {
+            ...mediaEnvironmentDefinitions,
+            POSTDOT_MIGRATIONS_DIR: environmentDefinitions.POSTDOT_MIGRATIONS_DIR,
+            POSTDOT_DATABASE_URL: environmentDefinitions.POSTDOT_DATABASE_URL,
+            POSTDOT_DATABASE_POOL_SIZE: environmentDefinitions.POSTDOT_DATABASE_POOL_SIZE,
+        },
+        source
+    )
+    const sourceValues: Record<string, string | undefined> = {}
+    for (const [name, value] of Object.entries(source)) {
+        if (name.startsWith(`${transferSourcePrefix}POSTDOT_MEDIA_`)) {
+            sourceValues[name.slice(transferSourcePrefix.length)] = value
+        }
+    }
+    let sourceMedia: PostdotConfig['media'] | undefined
+    if (Object.keys(sourceValues).length > 0) {
+        // No defaults for the identity of the source: it must be named explicitly.
+        if (
+            sourceValues.POSTDOT_MEDIA_STORE === undefined ||
+            sourceValues.POSTDOT_MEDIA_STORE_ID === undefined ||
+            (sourceValues.POSTDOT_MEDIA_STORE === 'local' &&
+                sourceValues.POSTDOT_MEDIA_DIRECTORY === undefined)
+        ) {
+            throw new Error(
+                'The media transfer source needs SOURCE_POSTDOT_MEDIA_STORE, SOURCE_POSTDOT_MEDIA_STORE_ID ' +
+                    'and, for a local store, SOURCE_POSTDOT_MEDIA_DIRECTORY'
+            )
+        }
+        sourceMedia = createMediaConfig(
+            createEnvironment(mediaEnvironmentDefinitions, {
+                POSTDOT_MEDIA_MAX_OBJECT_BYTES: source.POSTDOT_MEDIA_MAX_OBJECT_BYTES,
+                ...sourceValues,
+            })
+        )
+    }
+    return {
+        database: createDatabaseConfig(environment),
+        media: createMediaConfig(environment),
+        sourceMedia,
+    }
+}
+
 export function createPostdotBootstrapConfig(source: EnvironmentSource = Bun.env) {
     return createEnvironment(
         {
@@ -213,6 +318,13 @@ export function createPostdotBootstrapConfig(source: EnvironmentSource = Bun.env
 export function createPostdotMaintenanceConfig(
     source: EnvironmentSource = Bun.env
 ): PostdotMaintenanceConfig {
+    if (source.POSTDOT_DATABASE_URL !== undefined) {
+        throw new Error(
+            'This maintenance command works on the SQLite profile. With PostgreSQL ' +
+                '(POSTDOT_DATABASE_URL), back up and restore the database with pg_dump/pg_restore ' +
+                'and the media with the storage tooling.'
+        )
+    }
     const environment = createEnvironment(mediaEnvironmentDefinitions, source)
     return {
         databaseFileName: environment.DB_FILE_NAME,
@@ -296,10 +408,7 @@ export function createPostdotConfig(source: EnvironmentSource = Bun.env): Postdo
         server: {
             port: environment.PORT,
         },
-        database: {
-            fileName: environment.DB_FILE_NAME,
-            migrationsDirectory: environment.POSTDOT_MIGRATIONS_DIR,
-        },
+        database: createDatabaseConfig(environment),
         media: createMediaConfig(environment),
         auth: {
             baseURL: environment.BETTER_AUTH_URL,

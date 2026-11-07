@@ -7,6 +7,7 @@ import {
 import type {
     Channel,
     ChannelProfilePreset,
+    Post,
     ChannelProfileDefinition,
     Publication,
     PublicationApprovalRequest,
@@ -23,34 +24,20 @@ import type {
     PublicationTargetRevision,
     PublicationWorkingDraft,
 } from '@postdot/db'
-import {
-    auditEvents,
-    channels,
-    posts,
-    projects,
-    publications,
-    publicationApprovalRequests,
-} from '@postdot/db/schema'
-import type { Table } from 'drizzle-orm'
-import { createSchemaFactory } from 'drizzle-typebox'
-import { Type, type Static, type TProperties, type TSchema } from 'typebox'
+import { Type, type Static } from 'typebox'
 
 import { serverProviders } from '../../providers/registry'
 import { resolveBuiltInChannelProfile } from './channel-profile-presets'
+import {
+    auditEventRowSchema,
+    channelRowSchema,
+    postRowSchema,
+    projectRowSchema,
+    publicationApprovalRequestRowSchema,
+    publicationRowSchema,
+} from './persistence-schemas'
 
-const { createSelectSchema: createDrizzleSelectSchema } = createSchemaFactory({
-    typeboxInstance: Type,
-})
-
-function createElysiaSelectSchema<const TableType extends Table>(table: TableType) {
-    const generated = createDrizzleSelectSchema(table) as unknown as {
-        properties: Record<string, TSchema>
-    }
-    const schema = Type.Object(generated.properties as TProperties)
-    return Type.Unsafe<TableType['$inferSelect']>(schema)
-}
-
-export const projectSchema = createElysiaSelectSchema(projects)
+export const projectSchema = projectRowSchema
 const taxonomyStateSchema = Type.Union([Type.Literal('active'), Type.Literal('archived')])
 export const projectCategorySchema = Type.Object({
     id: Type.String({ minLength: 1 }),
@@ -81,7 +68,7 @@ export type ProjectCategoryResponse = Static<typeof projectCategorySchema>
 export type ProjectTagResponse = Static<typeof projectTagSchema>
 export const channelSchema = Type.Unsafe<Channel>(
     Type.Intersect([
-        Type.Omit(createElysiaSelectSchema(channels), [
+        Type.Omit(channelRowSchema, [
             'workspaceId',
             'destinationRevision',
             'destinationIdentityJson',
@@ -109,8 +96,8 @@ export const channelListItemSchema = Type.Intersect([
         ]),
     }),
 ])
-export const postSchema = createElysiaSelectSchema(posts)
-const publicationPersistenceSchema = createElysiaSelectSchema(publications)
+export const postSchema = Type.Unsafe<Post>(postRowSchema)
+const publicationPersistenceSchema = publicationRowSchema
 export const publicationSchema = Type.Unsafe<Publication>(
     Type.Intersect([
         Type.Omit(publicationPersistenceSchema, [
@@ -125,12 +112,12 @@ export const publicationSchema = Type.Unsafe<Publication>(
     ])
 )
 export const publicationApprovalRequestSchema = Type.Unsafe<PublicationApprovalRequest>(
-    createElysiaSelectSchema(publicationApprovalRequests)
+    publicationApprovalRequestRowSchema
 )
 export const publicationApprovalRequestsResponseSchema = Type.Object({
     requests: Type.Array(publicationApprovalRequestSchema),
 })
-const auditEventPersistenceSchema = createElysiaSelectSchema(auditEvents)
+const auditEventPersistenceSchema = auditEventRowSchema
 export const auditEventSchema = Type.Unsafe<AuditEvent>(
     Type.Pick(auditEventPersistenceSchema, [
         'id',

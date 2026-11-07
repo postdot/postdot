@@ -13,7 +13,8 @@ import {
     type PersistedEffectOutcome,
 } from '@postdot/core'
 
-import type { PostdotDatabase } from './client'
+import type { DatabaseHandle } from './client'
+import { defineTransaction } from './client'
 import { createEventJournalStore, parseEventJournalCursor } from './event-journal-store'
 
 const defaultProjectionName = 'external-notification-delivery-v1'
@@ -161,14 +162,14 @@ export interface NotificationDeliveryStoreOptions {
         subjectId: string
         configuration: Readonly<Record<string, unknown>>
         cursor: string
-    }) => boolean
+    }) => Promise<boolean>
 }
 
 export function createNotificationDeliveryStore(
-    database: PostdotDatabase,
+    database: DatabaseHandle,
     options: NotificationDeliveryStoreOptions = {}
 ) {
-    const client = database.$client
+    const sql = database.sql
     const transportId =
         options.transportId === undefined
             ? null
@@ -179,10 +180,10 @@ export function createNotificationDeliveryStore(
     const createId = options.createId ?? (() => crypto.randomUUID())
     const now = options.now ?? Date.now
 
-    const listProjectIdsStatement = client.query<{ readonly id: string }, []>(`
+    const listProjectIdsStatement = sql.statement<{ readonly id: string }, []>(`
         select id from projects order by created_at, id
     `)
-    const loadHumanActorStatement = client.query<
+    const loadHumanActorStatement = sql.statement<
         HumanActorRow,
         [projectId: string, subjectId: string]
     >(`
@@ -190,14 +191,14 @@ export function createNotificationDeliveryStore(
         where project_id = ?1 and subject_id = ?2 and kind = 'human'
         order by created_at, id limit 1
     `)
-    const loadDestinationStatement = client.query<
+    const loadDestinationStatement = sql.statement<
         DestinationRow,
         [projectId: string, destinationId: string]
     >(destinationSelect('where d.project_id = ?1 and d.id = ?2'))
-    const listDestinationsStatement = client.query<DestinationRow, [projectId: string]>(
+    const listDestinationsStatement = sql.statement<DestinationRow, [projectId: string]>(
         destinationSelect('where d.project_id = ?1 order by d.created_at, d.id')
     )
-    const insertDestinationStatement = client.query<
+    const insertDestinationStatement = sql.statement<
         void,
         [
             id: string,
@@ -214,7 +215,7 @@ export function createNotificationDeliveryStore(
             created_at, updated_at
         ) values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?7)
     `)
-    const updateDestinationStateStatement = client.query<
+    const updateDestinationStateStatement = sql.statement<
         { readonly changes: number },
         [
             state: NotificationDestinationState,
@@ -226,7 +227,7 @@ export function createNotificationDeliveryStore(
         update notification_destinations set state = ?1, updated_at = ?2
         where project_id = ?3 and id = ?4
     `)
-    const upsertSubscriptionStatement = client.query<
+    const upsertSubscriptionStatement = sql.statement<
         void,
         [
             id: string,
@@ -243,7 +244,7 @@ export function createNotificationDeliveryStore(
         on conflict(project_id, destination_id, kind) do update set
             enabled = excluded.enabled, updated_at = excluded.updated_at
     `)
-    const listProjectionCandidatesStatement = client.query<
+    const listProjectionCandidatesStatement = sql.statement<
         ProjectionCandidateRow,
         [projectId: string]
     >(`
@@ -272,11 +273,11 @@ export function createNotificationDeliveryStore(
           and a.subject_id is not null
         order by d.created_at, d.id, s.kind
     `)
-    const loadCursorStatement = client.query<CursorRow, [projectId: string, projection: string]>(`
+    const loadCursorStatement = sql.statement<CursorRow, [projectId: string, projection: string]>(`
         select cursor from notification_delivery_projection_cursors
         where project_id = ?1 and projection = ?2
     `)
-    const insertDeliveryStatement = client.query<
+    const insertDeliveryStatement = sql.statement<
         { readonly changes: number },
         [
             id: string,
@@ -302,7 +303,7 @@ export function createNotificationDeliveryStore(
         ) values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?14, ?14)
         on conflict(project_id, destination_id, source_event_id) do nothing
     `)
-    const upsertCursorStatement = client.query<
+    const upsertCursorStatement = sql.statement<
         void,
         [id: string, projectId: string, projection: string, cursor: string, updatedAt: number]
     >(`
@@ -312,7 +313,10 @@ export function createNotificationDeliveryStore(
         on conflict(project_id, projection) do update set
             cursor = excluded.cursor, updated_at = excluded.updated_at
     `)
-    const listDeliveryStatement = client.query<DeliveryRow, [projectId: string, subjectId: string]>(
+    const listDeliveryStatement = sql.statement<
+        DeliveryRow,
+        [projectId: string, subjectId: string]
+    >(
         deliverySelect(`
         where d.project_id = ?1
           and exists (
@@ -327,16 +331,16 @@ export function createNotificationDeliveryStore(
         order by d.created_at desc, d.id desc
     `)
     )
-    const expiredDeliveryStatement = client.query<
+    const expiredDeliveryStatement = sql.statement<
         ExpiredDeliveryRow,
         [now: number, transportId: string | null]
     >(`
         select id, effect_started_at as effectStartedAt, created_at as createdAt
         from notification_deliveries
-        where state = 'running' and lease_expires_at <= ?1 and (?2 is null or transport_id = ?2)
+        where state = 'running' and lease_expires_at <= ?1 and (cast(?2 as text) is null or transport_id = ?2)
         order by lease_expires_at, id
     `)
-    const requeueExpiredDeliveryStatement = client.query<
+    const requeueExpiredDeliveryStatement = sql.statement<
         { readonly changes: number },
         [nextAttemptAt: number, updatedAt: number, id: string]
     >(`
@@ -345,7 +349,7 @@ export function createNotificationDeliveryStore(
             next_attempt_at = ?1, updated_at = ?2
         where id = ?3 and state = 'running'
     `)
-    const markExpiredAmbiguousStatement = client.query<
+    const markExpiredAmbiguousStatement = sql.statement<
         { readonly changes: number },
         [ambiguousAt: number, updatedAt: number, error: string, id: string]
     >(`
@@ -354,7 +358,7 @@ export function createNotificationDeliveryStore(
             ambiguous_at = ?1, last_error = ?3, updated_at = ?2
         where id = ?4 and state = 'running'
     `)
-    const claimDeliveryStatement = client.query<
+    const claimDeliveryStatement = sql.statement<
         { readonly changes: number },
         [claimToken: string, leaseExpiresAt: number, now: number, transportId: string | null]
     >(`
@@ -371,16 +375,16 @@ export function createNotificationDeliveryStore(
               and not exists (select 1 from resource_lifecycles where kind = 'project' and resource_id = d.project_id and state <> 'active')
               and d.next_attempt_at <= ?3
               and destination.state = 'active'
-              and (?4 is null or d.transport_id = ?4)
+              and (cast(?4 as text) is null or d.transport_id = ?4)
             order by d.next_attempt_at, d.created_at, d.id
             limit 1
         )
           and state = 'pending'
     `)
-    const loadClaimedDeliveryStatement = client.query<DeliveryRow, [claimToken: string]>(
+    const loadClaimedDeliveryStatement = sql.statement<DeliveryRow, [claimToken: string]>(
         deliverySelect("where d.lease_token = ?1 and d.state = 'running'")
     )
-    const startDeliveryEffectStatement = client.query<
+    const startDeliveryEffectStatement = sql.statement<
         { readonly changes: number },
         [startedAt: number, id: string, claimToken: string]
     >(`
@@ -388,11 +392,11 @@ export function createNotificationDeliveryStore(
         set effect_started_at = coalesce(effect_started_at, ?1), updated_at = ?1
         where id = ?2 and state = 'running' and lease_token = ?3
     `)
-    const loadCompletionDeliveryStatement = client.query<
+    const loadCompletionDeliveryStatement = sql.statement<
         DeliveryRow,
         [id: string, claimToken: string]
     >(deliverySelect("where d.id = ?1 and d.state = 'running' and d.lease_token = ?2"))
-    const completePublishedStatement = client.query<
+    const completePublishedStatement = sql.statement<
         { readonly changes: number },
         [completedAt: number, externalId: string | null, id: string, claimToken: string]
     >(`
@@ -401,7 +405,7 @@ export function createNotificationDeliveryStore(
             lease_token = null, lease_expires_at = null, last_error = null, updated_at = ?1
         where id = ?3 and state = 'running' and lease_token = ?4
     `)
-    const completeRetryableStatement = client.query<
+    const completeRetryableStatement = sql.statement<
         { readonly changes: number },
         [nextAttemptAt: number, completedAt: number, error: string, id: string, claimToken: string]
     >(`
@@ -410,7 +414,7 @@ export function createNotificationDeliveryStore(
             lease_expires_at = null, effect_started_at = null, last_error = ?3, updated_at = ?2
         where id = ?4 and state = 'running' and lease_token = ?5
     `)
-    const completeFailedStatement = client.query<
+    const completeFailedStatement = sql.statement<
         { readonly changes: number },
         [failedAt: number, error: string, id: string, claimToken: string]
     >(`
@@ -419,7 +423,7 @@ export function createNotificationDeliveryStore(
             lease_expires_at = null, last_error = ?2, updated_at = ?1
         where id = ?3 and state = 'running' and lease_token = ?4
     `)
-    const completeAmbiguousStatement = client.query<
+    const completeAmbiguousStatement = sql.statement<
         { readonly changes: number },
         [ambiguousAt: number, error: string, id: string, claimToken: string]
     >(`
@@ -428,7 +432,7 @@ export function createNotificationDeliveryStore(
             lease_expires_at = null, last_error = ?2, updated_at = ?1
         where id = ?3 and state = 'running' and lease_token = ?4
     `)
-    const getNextDeliveryAtStatement = client.query<
+    const getNextDeliveryAtStatement = sql.statement<
         { readonly nextAttemptAt: number | null },
         [transportId: string | null]
     >(`
@@ -437,17 +441,19 @@ export function createNotificationDeliveryStore(
         inner join notification_destinations destination
             on destination.project_id = d.project_id and destination.id = d.destination_id
         where d.state in ('pending', 'running') and destination.state = 'active'
-          and (?1 is null or d.transport_id = ?1)
+          and (cast(?1 as text) is null or d.transport_id = ?1)
     `)
 
-    const projectTransaction = client.transaction(
-        (projectId: string, limit: number): NotificationDeliveryProjectionResult => {
-            const storedCursor = loadCursorStatement.get(projectId, projectionName)?.cursor ?? null
+    const projectTransaction = defineTransaction(
+        database,
+        async (projectId: string, limit: number): Promise<NotificationDeliveryProjectionResult> => {
+            const storedCursor =
+                (await loadCursorStatement.get(projectId, projectionName))?.cursor ?? null
             const after = storedCursor === null ? null : parseEventJournalCursor(storedCursor)
-            const events = journal.readAfter({ projectId, after, limit })
+            const events = await journal.readAfter({ projectId, after, limit })
             if (events.length === 0) return { scanned: 0, created: 0, hasMore: false }
 
-            const candidates = listProjectionCandidatesStatement.all(projectId)
+            const candidates = await listProjectionCandidatesStatement.all(projectId)
             let created = 0
             for (const event of events) {
                 const template = projectNotificationTemplate(event)
@@ -461,12 +467,12 @@ export function createNotificationDeliveryStore(
                         continue
                     const configuration = parseConfiguration(candidate.configurationJson)
                     if (
-                        options.acceptDestination?.({
+                        (await options.acceptDestination?.({
                             projectId,
                             subjectId: candidate.subjectId,
                             configuration,
                             cursor: event.cursor,
-                        }) === false
+                        })) === false
                     )
                         continue
                     const notification = createProjectNotification({
@@ -481,21 +487,23 @@ export function createNotificationDeliveryStore(
                         body: template.body,
                         createdAt: event.occurredAt,
                     })
-                    created += insertDeliveryStatement.run(
-                        notification.id,
-                        projectId,
-                        candidate.destinationId,
-                        candidate.secretId,
-                        event.id,
-                        candidate.transportId,
-                        JSON.stringify(configuration),
-                        notification.kind,
-                        notification.severity,
-                        notification.subject.type,
-                        notification.subject.id,
-                        notification.title,
-                        notification.body,
-                        event.occurredAt
+                    created += (
+                        await insertDeliveryStatement.run(
+                            notification.id,
+                            projectId,
+                            candidate.destinationId,
+                            candidate.secretId,
+                            event.id,
+                            candidate.transportId,
+                            JSON.stringify(configuration),
+                            notification.kind,
+                            notification.severity,
+                            notification.subject.type,
+                            notification.subject.id,
+                            notification.title,
+                            notification.body,
+                            event.occurredAt
+                        )
                     ).changes
                 }
             }
@@ -507,7 +515,7 @@ export function createNotificationDeliveryStore(
                     'notification delivery cursor is missing'
                 )
             }
-            upsertCursorStatement.run(
+            await upsertCursorStatement.run(
                 createId(),
                 projectId,
                 projectionName,
@@ -518,43 +526,53 @@ export function createNotificationDeliveryStore(
         }
     )
 
-    const recoverExpiredTransaction = client.transaction((at: number): ExpiredClaimRecovery => {
-        const requeuedJobIds: string[] = []
-        const ambiguousJobIds: string[] = []
-        for (const delivery of expiredDeliveryStatement.all(at, transportId)) {
-            const recoveredAt = Math.max(at, delivery.createdAt)
-            if (delivery.effectStartedAt === null) {
-                if (
-                    requeueExpiredDeliveryStatement.run(recoveredAt, recoveredAt, delivery.id)
-                        .changes === 1
-                ) {
-                    requeuedJobIds.push(delivery.id)
+    const recoverExpiredTransaction = defineTransaction(
+        database,
+        async (at: number): Promise<ExpiredClaimRecovery> => {
+            const requeuedJobIds: string[] = []
+            const ambiguousJobIds: string[] = []
+            for (const delivery of await expiredDeliveryStatement.all(at, transportId)) {
+                const recoveredAt = Math.max(at, delivery.createdAt)
+                if (delivery.effectStartedAt === null) {
+                    if (
+                        (
+                            await requeueExpiredDeliveryStatement.run(
+                                recoveredAt,
+                                recoveredAt,
+                                delivery.id
+                            )
+                        ).changes === 1
+                    ) {
+                        requeuedJobIds.push(delivery.id)
+                    }
+                    continue
                 }
-                continue
+                if (
+                    (
+                        await markExpiredAmbiguousStatement.run(
+                            Math.max(recoveredAt, delivery.effectStartedAt),
+                            Math.max(recoveredAt, delivery.effectStartedAt),
+                            'The notification delivery lease expired after the external-effect boundary',
+                            delivery.id
+                        )
+                    ).changes === 1
+                ) {
+                    ambiguousJobIds.push(delivery.id)
+                }
             }
-            if (
-                markExpiredAmbiguousStatement.run(
-                    Math.max(recoveredAt, delivery.effectStartedAt),
-                    Math.max(recoveredAt, delivery.effectStartedAt),
-                    'The notification delivery lease expired after the external-effect boundary',
-                    delivery.id
-                ).changes === 1
-            ) {
-                ambiguousJobIds.push(delivery.id)
-            }
+            return { requeuedJobIds, ambiguousJobIds }
         }
-        return { requeuedJobIds, ambiguousJobIds }
-    })
+    )
 
     const store = {
-        listProjectIds(): readonly string[] {
-            return listProjectIdsStatement.all().map(row => row.id)
+        async listProjectIds(): Promise<readonly string[]> {
+            return (await listProjectIdsStatement.all()).map(row => row.id)
         },
 
-        project(
+        async project(
             projectId: string,
             limit = defaultProjectionLimit
-        ): NotificationDeliveryProjectionResult {
+        ): Promise<NotificationDeliveryProjectionResult> {
             const normalizedProjectId = requireNonBlank(projectId, 'projectId')
             if (!Number.isSafeInteger(limit) || limit < 1 || limit > maximumProjectionLimit) {
                 throw new DomainInvariantError(
@@ -565,17 +583,17 @@ export function createNotificationDeliveryStore(
             return projectTransaction.immediate(normalizedProjectId, limit)
         },
 
-        createDestination(
+        async createDestination(
             input: CreateNotificationDestinationInput
-        ): NotificationDestination | null {
-            const actor = resolveHumanActor(input.projectId, input.subjectId)
+        ): Promise<NotificationDestination | null> {
+            const actor = await resolveHumanActor(input.projectId, input.subjectId)
             if (actor === null) return null
             const id = requireNonBlank(input.transportId, 'transportId')
             const label = requireNonBlank(input.label, 'label')
             const configuration = parseConfiguration(input.configuration)
             const destinationId = createId()
             const timestamp = requireTimestamp(now(), 'now')
-            insertDestinationStatement.run(
+            await insertDestinationStatement.run(
                 destinationId,
                 input.projectId,
                 actor.id,
@@ -584,52 +602,58 @@ export function createNotificationDeliveryStore(
                 JSON.stringify(configuration),
                 timestamp
             )
-            return toDestination(loadDestinationStatement.get(input.projectId, destinationId)!)
+            return toDestination(
+                (await loadDestinationStatement.get(input.projectId, destinationId))!
+            )
         },
 
-        listDestinations(
+        async listDestinations(
             projectId: string,
             subjectId: string
-        ): readonly NotificationDestination[] | null {
-            const actor = resolveHumanActor(projectId, subjectId)
+        ): Promise<readonly NotificationDestination[] | null> {
+            const actor = await resolveHumanActor(projectId, subjectId)
             if (actor === null) return null
-            return listDestinationsStatement
-                .all(projectId)
+            return (await listDestinationsStatement.all(projectId))
                 .filter(destination => destination.recipientActorId === actor.id)
                 .map(toDestination)
         },
 
-        setDestinationState(
+        async setDestinationState(
             projectId: string,
             destinationId: string,
             subjectId: string,
             state: NotificationDestinationState
-        ): NotificationDestination | null {
-            const actor = resolveHumanActor(projectId, subjectId)
+        ): Promise<NotificationDestination | null> {
+            const actor = await resolveHumanActor(projectId, subjectId)
             if (actor === null) return null
-            const destination = loadDestinationStatement.get(
+            const destination = await loadDestinationStatement.get(
                 projectId,
                 requireNonBlank(destinationId, 'destinationId')
             )
             if (destination === null || destination.recipientActorId !== actor.id) return null
-            updateDestinationStateStatement.run(
+            await updateDestinationStateStatement.run(
                 state,
                 Math.max(requireTimestamp(now(), 'now'), destination.createdAt),
                 projectId,
                 destination.id
             )
-            return toDestination(loadDestinationStatement.get(projectId, destination.id)!)
+            return toDestination((await loadDestinationStatement.get(projectId, destination.id))!)
         },
 
-        subscribe(input: SubscribeNotificationDestinationInput): NotificationKind | null {
-            const actor = resolveHumanActor(input.projectId, input.subjectId)
+        async subscribe(
+            input: SubscribeNotificationDestinationInput
+        ): Promise<NotificationKind | null> {
+            const actor = await resolveHumanActor(input.projectId, input.subjectId)
             if (actor === null) return null
             if (!notificationKinds.includes(input.kind)) {
                 throw new DomainInvariantError('invalid_input', 'notification kind is invalid')
             }
-            const destination = loadDestinationStatement.get(input.projectId, input.destinationId)
+            const destination = await loadDestinationStatement.get(
+                input.projectId,
+                input.destinationId
+            )
             if (destination === null || destination.recipientActorId !== actor.id) return null
-            upsertSubscriptionStatement.run(
+            await upsertSubscriptionStatement.run(
                 createId(),
                 input.projectId,
                 destination.id,
@@ -640,16 +664,16 @@ export function createNotificationDeliveryStore(
             return input.kind
         },
 
-        recoverExpiredClaims(at: number): ExpiredClaimRecovery {
+        async recoverExpiredClaims(at: number): Promise<ExpiredClaimRecovery> {
             return recoverExpiredTransaction.immediate(requireTimestamp(at, 'now'))
         },
 
-        claimNextDueJob(input: {
+        async claimNextDueJob(input: {
             readonly actorId: string
             readonly claimToken: string
             readonly now: number
             readonly leaseExpiresAt: number
-        }): NotificationDelivery | null {
+        }): Promise<NotificationDelivery | null> {
             requireNonBlank(input.actorId, 'actorId')
             const claimToken = requireNonBlank(input.claimToken, 'claimToken')
             const timestamp = requireTimestamp(input.now, 'now')
@@ -657,31 +681,37 @@ export function createNotificationDeliveryStore(
             if (leaseExpiresAt <= timestamp) {
                 throw new DomainInvariantError('invalid_time', 'leaseExpiresAt must be after now')
             }
-            claimDeliveryStatement.run(claimToken, leaseExpiresAt, timestamp, transportId)
-            const row = loadClaimedDeliveryStatement.get(claimToken)
+            await claimDeliveryStatement.run(claimToken, leaseExpiresAt, timestamp, transportId)
+            const row = await loadClaimedDeliveryStatement.get(claimToken)
             return row === null ? null : toDelivery(row)
         },
 
-        startExternalEffect(deliveryId: string, claimToken: string, at: number): boolean {
+        async startExternalEffect(
+            deliveryId: string,
+            claimToken: string,
+            at: number
+        ): Promise<boolean> {
             return (
-                startDeliveryEffectStatement.run(
-                    requireTimestamp(at, 'effectStartedAt'),
-                    requireNonBlank(deliveryId, 'deliveryId'),
-                    requireNonBlank(claimToken, 'claimToken')
+                (
+                    await startDeliveryEffectStatement.run(
+                        requireTimestamp(at, 'effectStartedAt'),
+                        requireNonBlank(deliveryId, 'deliveryId'),
+                        requireNonBlank(claimToken, 'claimToken')
+                    )
                 ).changes === 1
             )
         },
 
-        completeExternalEffect(input: {
+        async completeExternalEffect(input: {
             readonly jobId: string
             readonly claimToken: string
             readonly completedAt: number
             readonly outcome: ExternalEffectOutcome
             readonly retryAt?: number | null
-        }): PersistedEffectOutcome | null {
+        }): Promise<PersistedEffectOutcome | null> {
             const id = requireNonBlank(input.jobId, 'jobId')
             const claimToken = requireNonBlank(input.claimToken, 'claimToken')
-            const existing = loadCompletionDeliveryStatement.get(id, claimToken)
+            const existing = await loadCompletionDeliveryStatement.get(id, claimToken)
             if (existing === null) return null
             const completedAt = Math.max(
                 requireTimestamp(input.completedAt, 'completedAt'),
@@ -694,11 +724,13 @@ export function createNotificationDeliveryStore(
                 )
             }
             if (input.outcome.type === 'published') {
-                return completePublishedStatement.run(
-                    completedAt,
-                    input.outcome.externalId ?? null,
-                    id,
-                    claimToken
+                return (
+                    await completePublishedStatement.run(
+                        completedAt,
+                        input.outcome.externalId ?? null,
+                        id,
+                        claimToken
+                    )
                 ).changes === 1
                     ? 'published'
                     : null
@@ -710,49 +742,58 @@ export function createNotificationDeliveryStore(
             ) {
                 const errorMessage = requireNonBlank(input.outcome.errorMessage, 'errorMessage')
                 const retryAt = Math.max(requireTimestamp(input.retryAt, 'retryAt'), completedAt)
-                return completeRetryableStatement.run(
-                    retryAt,
-                    completedAt,
-                    errorMessage,
-                    id,
-                    claimToken
+                return (
+                    await completeRetryableStatement.run(
+                        retryAt,
+                        completedAt,
+                        errorMessage,
+                        id,
+                        claimToken
+                    )
                 ).changes === 1
                     ? 'retry_scheduled'
                     : null
             }
             if (input.outcome.type === 'ambiguous') {
                 const errorMessage = requireNonBlank(input.outcome.errorMessage, 'errorMessage')
-                return completeAmbiguousStatement.run(completedAt, errorMessage, id, claimToken)
-                    .changes === 1
+                return (
+                    await completeAmbiguousStatement.run(completedAt, errorMessage, id, claimToken)
+                ).changes === 1
                     ? 'ambiguous'
                     : null
             }
             const errorMessage = requireNonBlank(input.outcome.errorMessage, 'errorMessage')
-            return completeFailedStatement.run(completedAt, errorMessage, id, claimToken)
+            return (await completeFailedStatement.run(completedAt, errorMessage, id, claimToken))
                 .changes === 1
                 ? 'failed'
                 : null
         },
 
-        list(projectId: string, subjectId: string): readonly NotificationDelivery[] | null {
-            const actor = resolveHumanActor(projectId, subjectId)
+        async list(
+            projectId: string,
+            subjectId: string
+        ): Promise<readonly NotificationDelivery[] | null> {
+            const actor = await resolveHumanActor(projectId, subjectId)
             if (actor === null) return null
-            return listDeliveryStatement.all(projectId, subjectId).map(toDelivery)
+            return (await listDeliveryStatement.all(projectId, subjectId)).map(toDelivery)
         },
 
-        getNextAttemptAt(): number | null {
-            return getNextDeliveryAtStatement.get(transportId)?.nextAttemptAt ?? null
+        async getNextAttemptAt(): Promise<number | null> {
+            return (await getNextDeliveryAtStatement.get(transportId))?.nextAttemptAt ?? null
         },
     }
 
     return store
 
-    function resolveHumanActor(projectId: string, subjectId: string): HumanActorRow | null {
+    async function resolveHumanActor(
+        projectId: string,
+        subjectId: string
+    ): Promise<HumanActorRow | null> {
         return (
-            loadHumanActorStatement.get(
+            (await loadHumanActorStatement.get(
                 requireNonBlank(projectId, 'projectId'),
                 requireNonBlank(subjectId, 'subjectId')
-            ) ?? null
+            )) ?? null
         )
     }
 }

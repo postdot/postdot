@@ -109,8 +109,6 @@ license texts or a transitive dependency review.
 | `clsx`                                  | 2.1.1             | MIT                       |
 | `cmdk`                                  | 1.1.1             | MIT                       |
 | `date-fns`                              | 4.4.0             | MIT                       |
-| `drizzle-orm`                           | 0.45.3            | Apache-2.0                |
-| `drizzle-typebox`                       | 0.3.3             | Apache-2.0                |
 | `elysia`                                | 2.0.0-exp.64      | MIT                       |
 | `exact-mirror`                          | 1.2.6             | MIT                       |
 | `frimousse`                             | 0.4.0             | MIT                       |

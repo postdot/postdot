@@ -1,18 +1,11 @@
 import { createExponentialRetryPolicy, processNextWorkflowEvent } from '../../packages/core/src'
 import {
-    actors,
     closeDatabase,
     createDatabase,
     createWorkflowStore,
-    jobs,
-    posts,
-    projects,
-    publicationTargetRevisions,
-    publications,
-    publishers,
     runMigrations,
 } from '../../packages/db/src'
-import { seedTestWorkspace, seedWorkspaceChannel } from '../../packages/db/src/testing'
+import { insertRow, seedTestWorkspace, seedWorkspaceChannel } from '../../packages/db/src/testing'
 
 const databaseFilename = Bun.env.PUBLICATION_JOB_DB
 if (!databaseFilename) throw new Error('PUBLICATION_JOB_DB is required')
@@ -52,33 +45,27 @@ const fixtureProfile = {
 const database = createDatabase(databaseFilename)
 
 try {
-    runMigrations(database, migrationsFolder)
-    database
-        .insert(projects)
-        .values({
-            id: 'project',
-            name: 'Footprint project',
-            workspaceId: seedTestWorkspace(database),
-        })
-        .run()
-    database
-        .insert(actors)
-        .values([
-            {
-                id: 'human',
-                projectId: 'project',
-                kind: 'human',
-                displayName: 'Footprint editor',
-            },
-            {
-                id: 'system',
-                projectId: 'project',
-                kind: 'system',
-                displayName: 'Footprint worker',
-            },
-        ])
-        .run()
-    const owned = seedWorkspaceChannel(database, {
+    await runMigrations(database, migrationsFolder)
+    await insertRow(database, 'projects', {
+        id: 'project',
+        name: 'Footprint project',
+        workspaceId: await seedTestWorkspace(database),
+    })
+    await insertRow(database, 'actors', [
+        {
+            id: 'human',
+            projectId: 'project',
+            kind: 'human',
+            displayName: 'Footprint editor',
+        },
+        {
+            id: 'system',
+            projectId: 'project',
+            kind: 'system',
+            displayName: 'Footprint worker',
+        },
+    ])
+    const owned = await seedWorkspaceChannel(database, {
         projectId: 'project',
         channelId: 'channel',
         name: 'Footprint channel',
@@ -86,73 +73,58 @@ try {
         profile: fixtureProfile,
         createdByActorId: 'human',
     })
-    database
-        .insert(publishers)
-        .values({
-            id: 'publisher',
-            workspaceId: owned.workspaceId,
-            channelId: 'channel',
-            kind: 'fixture',
-        })
-        .run()
-    database
-        .insert(posts)
-        .values({
-            id: 'post',
-            projectId: 'project',
-            sourceContent: {
-                body: { text: 'Footprint post', format: 'plain_text' },
-                media: [],
-            },
-            sourceRevision: 1,
-            createdByActorId: 'human',
-        })
-        .run()
-    database
-        .insert(publications)
-        .values({
-            id: 'publication',
-            projectId: 'project',
-            postId: 'post',
-            channelId: 'channel',
-            targetRevisionId,
-            deliveryMode: 'automatic',
-            reviewState: 'compatible',
-            state: 'scheduled',
-            scheduledAt: dueAt,
-            createdByActorId: 'human',
-            scheduledByActorId: 'human',
-            stateChangedByActorId: 'human',
-        })
-        .run()
-    database
-        .insert(publicationTargetRevisions)
-        .values({
-            id: targetRevisionId,
-            projectId: 'project',
-            publicationId: 'publication',
-            sequence: 1,
-            profileVersionId,
-            sourceRevision: 1,
-            deliveryMode: 'automatic',
-            contentJson: { body: 'Footprint publication' },
-            contentHash: 'sha256:footprint-content',
-            profileHash: fixtureProfile.profileHash,
-            schemaHash: fixtureProfile.schemaHash,
-            validationIssuesJson: [],
-            createdByActorId: 'human',
-        })
-        .run()
-    database
-        .insert(jobs)
-        .values({
-            id: 'job',
-            projectId: 'project',
-            publicationId: 'publication',
-            state: 'pending',
-            runAt: dueAt,
-        })
-        .run()
+    await insertRow(database, 'publishers', {
+        id: 'publisher',
+        workspaceId: owned.workspaceId,
+        channelId: 'channel',
+        kind: 'fixture',
+    })
+    await insertRow(database, 'posts', {
+        id: 'post',
+        projectId: 'project',
+        sourceContent: {
+            body: { text: 'Footprint post', format: 'plain_text' },
+            media: [],
+        },
+        sourceRevision: 1,
+        createdByActorId: 'human',
+    })
+    await insertRow(database, 'publications', {
+        id: 'publication',
+        projectId: 'project',
+        postId: 'post',
+        channelId: 'channel',
+        targetRevisionId,
+        deliveryMode: 'automatic',
+        reviewState: 'compatible',
+        state: 'scheduled',
+        scheduledAt: dueAt,
+        createdByActorId: 'human',
+        scheduledByActorId: 'human',
+        stateChangedByActorId: 'human',
+    })
+    await insertRow(database, 'publication_target_revisions', {
+        id: targetRevisionId,
+        projectId: 'project',
+        publicationId: 'publication',
+        sequence: 1,
+        profileVersionId,
+        sourceRevision: 1,
+        deliveryMode: 'automatic',
+        contentJson: { body: 'Footprint publication' },
+        contentHash: 'sha256:footprint-content',
+        profileHash: fixtureProfile.profileHash,
+        schemaHash: fixtureProfile.schemaHash,
+        validationIssuesJson: [],
+        createdByActorId: 'human',
+    })
+    await insertRow(database, 'jobs', {
+        id: 'job',
+        projectId: 'project',
+        publicationId: 'publication',
+        state: 'pending',
+        runAt: dueAt,
+    })
 
     const beforeJobPeakRssKib = await readPeakRssKib()
     const result = await processNextWorkflowEvent({

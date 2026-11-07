@@ -137,6 +137,7 @@ export function loadPrefixed() {
         expect(classifySpecifier('/opt/app/module')).toBe('absolute')
         expect(classifySpecifier('file:///opt/app/module')).toBe('absolute')
         expect(classifySpecifier('node:fs')).toBe('builtin')
+        expect(classifySpecifier('bun')).toBe('builtin')
         expect(classifySpecifier('bun:sqlite')).toBe('builtin')
         expect(classifySpecifier('fs')).toBe('builtin')
         expect(classifySpecifier('typebox/system')).toBe('package')

@@ -91,7 +91,7 @@ test('authors a Mastodon poll, retains it through reload and selects an immutabl
         })
         .toBe(true)
     await page.setViewportSize({ width: 390, height: 844 })
-    await page.getByRole('button', { name: 'Switch language to French', exact: true }).click()
+    await page.getByRole('button', { name: 'Language', exact: true }).click()
     await page.getByRole('menuitem', { name: 'French', exact: true }).click()
     await expect(
         details.getByRole('checkbox', { name: frenchTranslation('poll_multiple'), exact: true })

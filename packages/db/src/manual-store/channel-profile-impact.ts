@@ -2,10 +2,11 @@ import {
     assessChannelProfileChange,
     type ChannelProfileDefinition,
     type ChannelProfileImpactAssessment,
+    type ChannelProfileImpactCandidate,
     type ValidationIssue,
 } from '@postdot/core'
 
-import type { PostdotDatabase } from '../client'
+import type { DatabaseHandle } from '../client'
 import { invalidProfileError, parseJsonObject } from './content-codec'
 import type {
     ProfileImpactTargetRow,
@@ -21,14 +22,14 @@ export interface ChannelProfileImpactAssessorOptions {
         content: unknown,
         projectId: string,
         subjectId: string
-    ) => readonly ValidationIssue[]
+    ) => Promise<readonly ValidationIssue[]>
     readonly validatePinnedTargetMedia: (
         profile: ChannelProfileDefinition,
         content: unknown,
         projectId: string,
         subjectId: string,
         pinnedMedia: readonly TargetRevisionMediaRow[]
-    ) => readonly ValidationIssue[]
+    ) => Promise<readonly ValidationIssue[]>
 }
 
 export interface ChannelProfileImpactResult {
@@ -38,12 +39,12 @@ export interface ChannelProfileImpactResult {
 }
 
 export function createChannelProfileImpactAssessor(
-    database: PostdotDatabase,
+    database: DatabaseHandle,
     options: ChannelProfileImpactAssessorOptions
 ) {
-    const client = database.$client
+    const sql = database.sql
 
-    const listProfileImpactWorkingDraftsStatement = client.query<
+    const listProfileImpactWorkingDraftsStatement = sql.statement<
         ProfileImpactWorkingDraftRow,
         [projectId: string, channelId: string]
     >(`
@@ -61,7 +62,7 @@ export function createChannelProfileImpactAssessor(
           and publications.state in ('draft', 'scheduled', 'failed')
         order by drafts.id
     `)
-    const listProfileImpactTargetsStatement = client.query<
+    const listProfileImpactTargetsStatement = sql.statement<
         ProfileImpactTargetRow,
         [projectId: string, channelId: string]
     >(`
@@ -91,7 +92,7 @@ export function createChannelProfileImpactAssessor(
           )
         order by publications.scheduled_at, publications.id
     `)
-    const listTargetRevisionMediaStatement = client.query<
+    const listTargetRevisionMediaStatement = sql.statement<
         TargetRevisionMediaRow,
         [projectId: string, targetRevisionId: string]
     >(`
@@ -110,25 +111,28 @@ export function createChannelProfileImpactAssessor(
         order by position, id
     `)
 
-    return (
+    return async (
         projectId: string,
         channelId: string,
         currentProfileRow: ProfileRow,
         proposedProfileRow: ProfileRow,
         subjectId: string
-    ): ChannelProfileImpactResult => {
-        const workingDraftRows = listProfileImpactWorkingDraftsStatement.all(projectId, channelId)
-        const targetRows = listProfileImpactTargetsStatement.all(projectId, channelId)
+    ): Promise<ChannelProfileImpactResult> => {
+        const workingDraftRows = await listProfileImpactWorkingDraftsStatement.all(
+            projectId,
+            channelId
+        )
+        const targetRows = await listProfileImpactTargetsStatement.all(projectId, channelId)
         const targetMediaByPublicationId = new Map<string, readonly TargetRevisionMediaRow[]>()
 
         for (const target of targetRows) {
             targetMediaByPublicationId.set(
                 target.publicationId,
-                listTargetRevisionMediaStatement.all(projectId, target.targetRevisionId)
+                await listTargetRevisionMediaStatement.all(projectId, target.targetRevisionId)
             )
         }
 
-        const assessmentResult = assessChannelProfileChange({
+        const assessmentInput = {
             currentProfile: options.parseProfile(currentProfileRow.profileJson),
             proposedProfile: options.parseProfile(proposedProfileRow.profileJson),
             workingDrafts: workingDraftRows.map(row => ({
@@ -143,35 +147,42 @@ export function createChannelProfileImpactAssessor(
                 content: parseJsonObject(row.contentJson, 'publication target content'),
                 deliveryMode: row.deliveryMode,
             })),
-            validateMedia: (candidate, profile) => {
-                if (candidate.kind === 'working_draft') {
-                    return options.validateWorkingDraftMedia(
-                        profile,
-                        candidate.content,
-                        projectId,
-                        subjectId
-                    )
-                }
-
-                const target = targetRows.find(row => row.publicationId === candidate.id)
-                if (target === undefined) {
-                    return [
-                        profileAssessmentIssue(
-                            'profile.target_missing',
-                            'The pending target could not be loaded during profile assessment'
-                        ),
-                    ]
-                }
-
-                return options.validatePinnedTargetMedia(
+        }
+        const validateMedia = async (
+            candidate: ChannelProfileImpactCandidate,
+            profile: ChannelProfileDefinition
+        ): Promise<readonly ValidationIssue[]> => {
+            if (candidate.kind === 'working_draft') {
+                return options.validateWorkingDraftMedia(
                     profile,
                     candidate.content,
                     projectId,
-                    subjectId,
-                    targetMediaByPublicationId.get(target.publicationId) ?? []
+                    subjectId
                 )
-            },
-        })
+            }
+
+            const target = targetRows.find(row => row.publicationId === candidate.id)
+            if (target === undefined) {
+                return [
+                    profileAssessmentIssue(
+                        'profile.target_missing',
+                        'The pending target could not be loaded during profile assessment'
+                    ),
+                ]
+            }
+
+            return options.validatePinnedTargetMedia(
+                profile,
+                candidate.content,
+                projectId,
+                subjectId,
+                targetMediaByPublicationId.get(target.publicationId) ?? []
+            )
+        }
+        const assessmentResult = await assessChannelProfileChangeAsync(
+            assessmentInput,
+            validateMedia
+        )
         if (!assessmentResult.ok) throw invalidProfileError(assessmentResult.issues)
 
         return {
@@ -184,4 +195,38 @@ export function createChannelProfileImpactAssessor(
 
 function profileAssessmentIssue(code: string, message: string, path = '/media'): ValidationIssue {
     return { path, code, message, severity: 'error', source: 'capability' }
+}
+
+type ChannelProfileChangeInput = Parameters<typeof assessChannelProfileChange>[0]
+
+/**
+ * Runs the synchronous, pure domain assessment with media validation that
+ * reads the database (ADR-097). A first pass records which candidates the
+ * domain validates against which profile; their media issues are computed
+ * sequentially and the assessment is repeated with those results, so media
+ * validation applies exactly where the domain asks for it.
+ */
+export async function assessChannelProfileChangeAsync(
+    input: Omit<ChannelProfileChangeInput, 'validateMedia'>,
+    validateMedia: (
+        candidate: ChannelProfileImpactCandidate,
+        profile: ChannelProfileDefinition
+    ) => Promise<readonly ValidationIssue[]>
+): Promise<ReturnType<typeof assessChannelProfileChange>> {
+    const requested: [ChannelProfileImpactCandidate, ChannelProfileDefinition][] = []
+    assessChannelProfileChange({
+        ...input,
+        validateMedia: (candidate, profile) => {
+            requested.push([candidate, profile])
+            return []
+        },
+    })
+    const mediaIssues = new Map<ChannelProfileImpactCandidate, readonly ValidationIssue[]>()
+    for (const [candidate, profile] of requested) {
+        mediaIssues.set(candidate, await validateMedia(candidate, profile))
+    }
+    return assessChannelProfileChange({
+        ...input,
+        validateMedia: candidate => mediaIssues.get(candidate) ?? [],
+    })
 }

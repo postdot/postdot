@@ -9,9 +9,10 @@ import {
 
 import { createChannelCadenceStore } from '../channel-cadence'
 import { publicationDestinationConfirmed } from '../channel-destination'
-import { createDatabaseTransaction, type PostdotDatabase } from '../client'
+import { defineTransaction, type DatabaseHandle } from '../client'
 import type { RetryFailedPublicationInput, RetryFailedPublicationResult } from '../manual-store'
 import { createRetainedTargetAssessor } from '../retained-target-assessment'
+import { jsonExtractIntSql } from '../sql/dialect'
 import { toActor, toPublication } from './mappers'
 import type { ActorRow, PublicationRow } from './rows'
 
@@ -48,23 +49,26 @@ export interface PublicationRetryStoreOptions {
     readonly publicMediaUrlAvailable?: boolean
     readonly now: () => number
     readonly createId: () => string
-    readonly loadActor: (projectId: string, subjectId: string) => ActorRow | null
-    readonly loadPublication: (projectId: string, publicationId: string) => PublicationRow | null
-    readonly insertAuditEvent: (input: AuditEventInsert) => void
+    readonly loadActor: (projectId: string, subjectId: string) => Promise<ActorRow | null>
+    readonly loadPublication: (
+        projectId: string,
+        publicationId: string
+    ) => Promise<PublicationRow | null>
+    readonly insertAuditEvent: (input: AuditEventInsert) => Promise<unknown>
 }
 
 export function createPublicationRetryStore(
-    database: PostdotDatabase,
+    database: DatabaseHandle,
     options: PublicationRetryStoreOptions
 ) {
     const cadence = createChannelCadenceStore(database)
-    const client = database.$client
+    const sql = database.sql
     const assessRetainedTarget = createRetainedTargetAssessor(
         database,
         options.publicMediaUrlAvailable
     )
 
-    const loadLatestFailedJobStatement = client.query<
+    const loadLatestFailedJobStatement = sql.statement<
         FailedJobRow,
         [projectId: string, publicationId: string]
     >(`
@@ -90,7 +94,7 @@ export function createPublicationRetryStore(
         order by coalesce(completed_at, updated_at) desc, id desc
         limit 1
     `)
-    const loadActiveJobStatement = client.query<
+    const loadActiveJobStatement = sql.statement<
         { readonly id: string },
         [projectId: string, publicationId: string]
     >(`
@@ -101,7 +105,7 @@ export function createPublicationRetryStore(
           and state in ('pending', 'running')
         limit 1
     `)
-    const loadTargetRevisionStatement = client.query<
+    const loadTargetRevisionStatement = sql.statement<
         { readonly id: string },
         [projectId: string, publicationId: string, targetRevisionId: string]
     >(`
@@ -113,7 +117,7 @@ export function createPublicationRetryStore(
           and delivery_mode = 'automatic'
         limit 1
     `)
-    const updatePublicationStatement = client.query<
+    const updatePublicationStatement = sql.statement<
         { readonly changes: number },
         [actorId: string, updatedAt: number, projectId: string, publicationId: string]
     >(`
@@ -127,7 +131,7 @@ export function createPublicationRetryStore(
           and state = 'failed'
           and delivery_mode = 'automatic'
     `)
-    const updateJobStatement = client.query<
+    const updateJobStatement = sql.statement<
         { readonly changes: number },
         [runAt: number, updatedAt: number, projectId: string, jobId: string, publicationId: string]
     >(`
@@ -149,27 +153,31 @@ export function createPublicationRetryStore(
           and state = 'failed'
     `)
 
-    const retryFailedPublicationTransaction = createDatabaseTransaction(
+    const retryFailedPublicationTransaction = defineTransaction(
         database,
-        (input: RetryFailedPublicationInput): RetryFailedPublicationResult => {
-            const actorRow = options.loadActor(input.projectId, input.subjectId)
-            let publicationRow = options.loadPublication(input.projectId, input.publicationId)
+        async (input: RetryFailedPublicationInput): Promise<RetryFailedPublicationResult> => {
+            const actorRow = await options.loadActor(input.projectId, input.subjectId)
+            let publicationRow = await options.loadPublication(input.projectId, input.publicationId)
             if (actorRow === null || publicationRow === null) return { kind: 'not_found' }
             if (
                 publicationRow.state !== 'failed' ||
-                !publicationDestinationConfirmed(database, input.projectId, input.publicationId)
+                !(await publicationDestinationConfirmed(
+                    database,
+                    input.projectId,
+                    input.publicationId
+                ))
             )
                 return { kind: 'not_retryable' }
             if (
-                !assessRetainedTarget(
+                !(await assessRetainedTarget(
                     input.projectId,
                     input.publicationId,
                     actorRow.id,
                     options.now()
-                )
+                ))
             )
                 return { kind: 'not_retryable' }
-            publicationRow = options.loadPublication(input.projectId, input.publicationId)!
+            publicationRow = (await options.loadPublication(input.projectId, input.publicationId))!
 
             if (
                 publicationRow.state !== 'failed' ||
@@ -180,17 +188,17 @@ export function createPublicationRetryStore(
                 return { kind: 'not_retryable' }
             }
             if (
-                loadTargetRevisionStatement.get(
+                (await loadTargetRevisionStatement.get(
                     input.projectId,
                     input.publicationId,
                     publicationRow.targetRevisionId
-                ) === null ||
-                loadActiveJobStatement.get(input.projectId, input.publicationId) !== null
+                )) === null ||
+                (await loadActiveJobStatement.get(input.projectId, input.publicationId)) !== null
             ) {
                 return { kind: 'not_retryable' }
             }
 
-            const failedJobRow = loadLatestFailedJobStatement.get(
+            const failedJobRow = await loadLatestFailedJobStatement.get(
                 input.projectId,
                 input.publicationId
             )
@@ -217,7 +225,7 @@ export function createPublicationRetryStore(
                 createdAt: failedJobRow.createdAt,
                 updatedAt: failedJobRow.updatedAt,
             }
-            cadence.check({
+            await cadence.check({
                 projectId: input.projectId,
                 actorId: actor.id,
                 now: timestamp,
@@ -244,17 +252,23 @@ export function createPublicationRetryStore(
             })
 
             if (
-                updatePublicationStatement.run(actor.id, ready.updatedAt, input.projectId, ready.id)
-                    .changes !== 1
+                (
+                    await updatePublicationStatement.run(
+                        actor.id,
+                        ready.updatedAt,
+                        input.projectId,
+                        ready.id
+                    )
+                ).changes !== 1
             ) {
                 throw new DomainInvariantError(
                     'claim_mismatch',
                     `Could not retry publication ${ready.id}`
                 )
             }
-            const previousExecution = client
-                .query<{ revision: number | null; expected: number }, [string, string]>(`
-                select json_extract(e.destination_snapshot_json, '$.revision') as revision,
+            const previousExecution = await sql
+                .statement<{ revision: number | null; expected: number }, [string, string]>(`
+                select ${jsonExtractIntSql(sql.dialect, 'e.destination_snapshot_json', ['revision'])} as revision,
                        p.confirmed_destination_revision as expected
                 from publications p join publication_execution_revisions e on e.project_id = p.project_id and e.publication_id = p.id
                 where p.project_id = ? and e.job_id = ?
@@ -265,8 +279,8 @@ export function createPublicationRetryStore(
                 (previousExecution.revision ?? 0) !== previousExecution.expected
             ) {
                 pending = { ...pending, id: options.createId(), attempts: 0, createdAt: timestamp }
-                client
-                    .query(`insert into jobs (id,project_id,publication_id,state,run_at,created_at,updated_at)
+                await sql
+                    .statement(`insert into jobs (id,project_id,publication_id,state,run_at,created_at,updated_at)
                     values (?,?,?,'pending',?,?,?)`)
                     .run(
                         pending.id,
@@ -277,12 +291,14 @@ export function createPublicationRetryStore(
                         timestamp
                     )
             } else if (
-                updateJobStatement.run(
-                    pending.runAt,
-                    pending.updatedAt,
-                    input.projectId,
-                    pending.id,
-                    pending.publicationId
+                (
+                    await updateJobStatement.run(
+                        pending.runAt,
+                        pending.updatedAt,
+                        input.projectId,
+                        pending.id,
+                        pending.publicationId
+                    )
                 ).changes !== 1
             ) {
                 throw new DomainInvariantError(
@@ -291,7 +307,7 @@ export function createPublicationRetryStore(
                 )
             }
 
-            options.insertAuditEvent({
+            await options.insertAuditEvent({
                 id: options.createId(),
                 projectId: ready.projectId,
                 actorId: actor.id,
@@ -310,7 +326,7 @@ export function createPublicationRetryStore(
                 createdAt: timestamp,
             })
 
-            const updated = options.loadPublication(input.projectId, input.publicationId)
+            const updated = await options.loadPublication(input.projectId, input.publicationId)
             return updated === null
                 ? { kind: 'not_found' }
                 : { kind: 'retried', publication: toPublication(updated) }
@@ -318,7 +334,9 @@ export function createPublicationRetryStore(
     )
 
     return {
-        retryFailedPublication(input: RetryFailedPublicationInput): RetryFailedPublicationResult {
+        async retryFailedPublication(
+            input: RetryFailedPublicationInput
+        ): Promise<RetryFailedPublicationResult> {
             return retryFailedPublicationTransaction.immediate({
                 ...input,
                 projectId: requireNonBlank(input.projectId, 'projectId'),

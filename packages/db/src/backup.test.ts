@@ -23,7 +23,7 @@ describe('SQLite backup and restore', () => {
 
         try {
             const source = createDatabase(sourcePath)
-            runMigrations(source)
+            await runMigrations(source)
             source.$client.run('create table records (value text not null)')
             source.$client.run('insert into records values (?)', ['from-backup'])
             closeDatabase(source)
@@ -31,7 +31,7 @@ describe('SQLite backup and restore', () => {
             backupDatabase(sourcePath, backupPath)
 
             const target = createDatabase(restoredPath)
-            runMigrations(target)
+            await runMigrations(target)
             target.$client.run('create table records (value text not null)')
             target.$client.run('insert into records values (?)', ['before-restore'])
             closeDatabase(target)
@@ -56,7 +56,7 @@ describe('SQLite backup and restore', () => {
 
         try {
             const source = createDatabase(sourcePath)
-            runMigrations(source)
+            await runMigrations(source)
             source.$client.run('create table records (value text not null)')
             closeDatabase(source)
 
@@ -80,7 +80,7 @@ describe('SQLite backup and restore', () => {
 
         try {
             const source = createDatabase(sourcePath)
-            runMigrations(source)
+            await runMigrations(source)
             closeDatabase(source)
 
             const serverLock = acquireRuntimeQuiescenceLock(restoredPath, 'server')
@@ -106,7 +106,7 @@ describe('SQLite backup and restore', () => {
 
         try {
             const source = createDatabase(sourcePath)
-            runMigrations(source)
+            await runMigrations(source)
             source.$client.run(
                 `insert into projects (id, name, created_at, updated_at) values ('project-1', 'Backup project', ?, ?)`,
                 [now, now]
@@ -129,7 +129,7 @@ describe('SQLite backup and restore', () => {
                 })(),
             })
             const bytes = previewFixturePng(4, 3)
-            const reservation = media.reserveUpload({
+            const reservation = await media.reserveUpload({
                 projectId: 'project-1',
                 subjectId: 'subject-1',
                 originalFilename: 'backup.png',
@@ -170,7 +170,7 @@ describe('SQLite backup and restore', () => {
                 maxObjectBytes: 2_000_000,
             })
             const existingTarget = createDatabase(restoredPath)
-            runMigrations(existingTarget)
+            await runMigrations(existingTarget)
             existingTarget.$client.run('create table restore_sentinel (value text not null)')
             existingTarget.$client.run('insert into restore_sentinel values (?)', [
                 'before-restore',

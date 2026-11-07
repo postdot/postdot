@@ -17,6 +17,7 @@ import type { MediaStore } from '@postdot/media'
 
 import { runLocalAccountBootstrap } from './local-account-bootstrap'
 import { runLocalAccountPasswordRecovery } from './local-account-recovery'
+import { transferUsage } from './transfer'
 
 const maintenanceUsage = {
     backup: `Usage: bun /app/postdot.js backup --output <path> [--media] [--database <path>]
@@ -38,6 +39,7 @@ Generate missing image previews against an existing offline database.
 Stop the server first. --dry-run reports work without generating previews.`,
     account: `Usage: bun /app/postdot.js account bootstrap --database <path> --input <private-json-file>
        bun /app/postdot.js account recover-password --database <path>
+       bun /app/postdot.js account recover-password --database-url <postgres-url>
 
 Bootstrap creates the first administrator offline from a private JSON file with
 name, email and password. Stop the server; existing installations are refused.
@@ -56,15 +58,19 @@ Commands:
   recovery        Inspect, enable or resume recovery hold
   media-previews  Generate missing image previews offline
   account         Bootstrap an administrator or recover an account offline
+  export          Export the database to an engine-neutral directory
+  import          Import an export into an empty database
+  media transfer  Copy media to another store and point the database at it
 
 Use --version [--json] for packaged release identification.
 Use <command> --help for its options and operating requirements.`)
         return true
     }
     const command = args[0]
-    if (command === undefined || !Object.hasOwn(maintenanceUsage, command)) return false
+    const usage: Readonly<Record<string, string>> = { ...maintenanceUsage, ...transferUsage }
+    if (command === undefined || !Object.hasOwn(usage, command)) return false
     if (!args.includes('--help') && !args.includes('-h')) return false
-    console.log(maintenanceUsage[command as keyof typeof maintenanceUsage])
+    console.log(usage[command])
     return true
 }
 

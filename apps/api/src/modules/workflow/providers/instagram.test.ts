@@ -5,24 +5,18 @@ import { join } from 'node:path'
 import { deflateSync } from 'node:zlib'
 
 import {
-    closeDatabase,
-    createDatabase,
     createManualStore,
     createMediaAssetStore,
     createProviderMediaDeliveryStore,
     createPublisherCredentialStore,
     createPublisherCredentialCipher,
     createWorkflowStore,
-    mediaAssets,
-    mediaRepresentations,
-    publicationExecutionRevisionMedia,
-    publishers,
-    runMigrations,
     type PublisherExecutionMedia,
     type PublisherCredentialRefreshContext,
     type PublisherExecutionTarget,
     type ReplacePublisherCredentialTokensInput,
 } from '@postdot/db'
+import { closeTestDatabase, fromDbRow, openTestDatabase, type TestRow } from '@postdot/db/testing'
 import { seedTestWorkspace, workspaceOf } from '@postdot/db/testing'
 import {
     createInstagramOAuth,
@@ -121,7 +115,7 @@ interface Fixture {
 
 async function fixture(options: FixtureOptions = {}): Promise<Fixture> {
     const directory = await mkdtemp(join(tmpdir(), 'postdot-instagram-'))
-    const database = createDatabase(':memory:')
+    const database = (await openTestDatabase()).database
     const mediaStore = createLocalMediaStore({
         storeId: 'local-default',
         rootDirectory: join(directory, 'media'),
@@ -132,7 +126,6 @@ async function fixture(options: FixtureOptions = {}): Promise<Fixture> {
     const replacements: ReplacePublisherCredentialTokensInput[] = []
 
     try {
-        runMigrations(database)
         const media = createMediaAssetStore(database, mediaStore, {
             now: () => now,
             createId: (() => {
@@ -146,31 +139,32 @@ async function fixture(options: FixtureOptions = {}): Promise<Fixture> {
             // The Instagram image contract requires public media delivery.
             publicMediaUrlAvailable: true,
         })
-        const project = manualStore.createProject({
-            workspaceId: seedTestWorkspace(database),
+        const project = await manualStore.createProject({
+            workspaceId: await seedTestWorkspace(database),
             name: 'Instagram publication project',
             subjectId: 'subject-1',
             displayName: 'Instagram operator',
         })
-        const channel = manualStore.createChannel({
+        const channel = await manualStore.createChannel({
             projectId: project.project.id,
             subjectId: 'subject-1',
             name: 'Instagram channel',
             profile: instagramChannelProfile,
         })
         if (channel === null) throw new Error('Channel was not created')
-        database
-            .insert(publishers)
-            .values({
-                id: 'publisher-instagram',
-                workspaceId: workspaceOf(database, project.project.id),
-                channelId: channel.id,
-                kind: 'instagram',
-            })
-            .run()
+        await database.sql
+            .statement(
+                'insert into "publishers" ("id", "workspace_id", "channel_id", "kind") values (?1, ?2, ?3, ?4)'
+            )
+            .run(
+                'publisher-instagram',
+                await workspaceOf(database, project.project.id),
+                channel.id,
+                'instagram'
+            )
 
         const bytes = await decodableJpeg(120, 90)
-        const reservation = media.reserveUpload({
+        const reservation = await media.reserveUpload({
             projectId: project.project.id,
             subjectId: 'subject-1',
             originalFilename: 'photo.jpg',
@@ -191,7 +185,7 @@ async function fixture(options: FixtureOptions = {}): Promise<Fixture> {
         })
         expect(finalized.kind).toBe('ready')
 
-        const created = manualStore.createPost({
+        const created = await manualStore.createPost({
             projectId: project.project.id,
             subjectId: 'subject-1',
             sourceContent: {
@@ -211,31 +205,43 @@ async function fixture(options: FixtureOptions = {}): Promise<Fixture> {
         if (publication === undefined) throw new Error('Publication was not created')
 
         const workflow = createWorkflowStore(database)
-        const systemActorId = workflow.ensureSystemActor(project.project.id, now)
+        const systemActorId = await workflow.ensureSystemActor(project.project.id, now)
         if (systemActorId === null) throw new Error('System actor was not created')
-        const claimed = workflow.claimNextDueJob({
+        const claimed = await workflow.claimNextDueJob({
             actorId: systemActorId,
             claimToken: 'claim-instagram',
             now,
             leaseExpiresAt: now + 60_000,
         })
         if (claimed === null) throw new Error('Job was not claimed')
-        expect(workflow.startExternalEffect(claimed.id, 'claim-instagram', now + 1)).toBe(true)
+        expect(await workflow.startExternalEffect(claimed.id, 'claim-instagram', now + 1)).toBe(
+            true
+        )
 
-        const executionMedia = database.select().from(publicationExecutionRevisionMedia).all()
+        const executionMedia = await database.sql
+            .statement<TestRow>(
+                'select "publication_execution_revision_media"."id" as "id", "publication_execution_revision_media"."project_id" as "projectId", "publication_execution_revision_media"."execution_revision_id" as "executionRevisionId", "publication_execution_revision_media"."target_revision_media_id" as "targetRevisionMediaId", "publication_execution_revision_media"."asset_id" as "assetId", "publication_execution_revision_media"."representation_id" as "representationId", "publication_execution_revision_media"."position" as "position", "publication_execution_revision_media"."content_path" as "contentPath", "publication_execution_revision_media"."role" as "role", "publication_execution_revision_media"."accessibility_text" as "accessibilityText", "publication_execution_revision_media"."created_at" as "createdAt" from "publication_execution_revision_media"'
+            )
+            .all()
         const executionRow = executionMedia[0]
         if (executionRow === undefined) throw new Error('Execution media was not created')
-        const representation = database
-            .select()
-            .from(mediaRepresentations)
-            .all()
+        const representation = (
+            await database.sql
+                .statement<TestRow>(
+                    'select "media_representations"."id" as "id", "media_representations"."project_id" as "projectId", "media_representations"."asset_id" as "assetId", "media_representations"."kind" as "kind", "media_representations"."source_representation_id" as "sourceRepresentationId", "media_representations"."state" as "state", "media_representations"."deletion_restore_state" as "deletionRestoreState", "media_representations"."deletion_restore_failure_code" as "deletionRestoreFailureCode", "media_representations"."deletion_restore_failure_message" as "deletionRestoreFailureMessage", "media_representations"."store_id" as "storeId", "media_representations"."object_key" as "objectKey", "media_representations"."declared_content_type" as "declaredContentType", "media_representations"."detected_content_type" as "detectedContentType", "media_representations"."detected_format" as "detectedFormat", "media_representations"."family" as "family", "media_representations"."byte_size" as "byteSize", "media_representations"."sha256" as "sha256", "media_representations"."width" as "width", "media_representations"."height" as "height", "media_representations"."duration_ms" as "durationMs", "media_representations"."page_count" as "pageCount", "media_representations"."is_animated" as "isAnimated", "media_representations"."processor_id" as "processorId", "media_representations"."processor_version" as "processorVersion", "media_representations"."recipe_json" as "recipeJson", "media_representations"."failure_code" as "failureCode", "media_representations"."failure_message" as "failureMessage", "media_representations"."created_at" as "createdAt", "media_representations"."updated_at" as "updatedAt" from "media_representations"'
+                )
+                .all()
+        )
+            .map(row => fromDbRow<TestRow>(row, { isAnimated: 'boolean', recipeJson: 'json' }))
             .find(row => row.id === executionRow.representationId)
         if (representation === undefined) throw new Error('Media representation was not created')
-        const asset = database
-            .select()
-            .from(mediaAssets)
-            .all()
-            .find(row => row.id === executionRow.assetId)
+        const asset = (
+            await database.sql
+                .statement<TestRow>(
+                    'select "media_assets"."id" as "id", "media_assets"."project_id" as "projectId", "media_assets"."original_filename" as "originalFilename", "media_assets"."default_accessibility_text" as "defaultAccessibilityText", "media_assets"."state" as "state", "media_assets"."archived_at" as "archivedAt", "media_assets"."deletion_requested_at" as "deletionRequestedAt", "media_assets"."deletion_restore_state" as "deletionRestoreState", "media_assets"."deletion_restore_failure_code" as "deletionRestoreFailureCode", "media_assets"."deletion_restore_failure_message" as "deletionRestoreFailureMessage", "media_assets"."deleted_at" as "deletedAt", "media_assets"."failure_code" as "failureCode", "media_assets"."failure_message" as "failureMessage", "media_assets"."created_by_actor_id" as "createdByActorId", "media_assets"."created_at" as "createdAt", "media_assets"."updated_at" as "updatedAt" from "media_assets"'
+                )
+                .all()
+        ).find(row => row.id === executionRow.assetId)
         if (asset === undefined) throw new Error('Media asset was not created')
         const pinned: PublisherExecutionMedia = {
             id: executionRow.id,
@@ -359,7 +365,7 @@ async function fixture(options: FixtureOptions = {}): Promise<Fixture> {
                             projectId,
                             credentialId,
                         }),
-                    markReconnectRequired: () =>
+                    markReconnectRequired: async () =>
                         credentialPort.markPublisherCredentialReconnectRequired(projectId),
                 })
             },
@@ -436,12 +442,12 @@ async function fixture(options: FixtureOptions = {}): Promise<Fixture> {
             replacements,
             execute,
             cleanup: async () => {
-                closeDatabase(database)
+                await closeTestDatabase(database)
                 await rm(directory, { recursive: true, force: true })
             },
         }
     } catch (error) {
-        closeDatabase(database)
+        await closeTestDatabase(database)
         await rm(directory, { recursive: true, force: true })
         throw error
     }
@@ -471,9 +477,11 @@ test('publishes one JPEG and reports the provider media receipt', async () => {
         expect(item.requests[2]?.url.pathname).toBe(`/v26.0/${accountId}/media_publish`)
         expect(body(item.requests[2]!).get('creation_id')).toBe(containerId)
 
-        const delivery = item.deliveries.listByExecutionMedia(
-            item.target.projectId,
-            item.target.media[0]!.id
+        const delivery = (
+            await item.deliveries.listByExecutionMedia(
+                item.target.projectId,
+                item.target.media[0]!.id
+            )
         )[0]
         expect(delivery).toMatchObject({
             state: 'uploaded',
@@ -548,9 +556,11 @@ test('bounds the container preparation to the documented polling window', async 
         expect(item.requests).toHaveLength(6)
 
         // The container identity stays durable for reconciliation.
-        const delivery = item.deliveries.listByExecutionMedia(
-            item.target.projectId,
-            item.target.media[0]!.id
+        const delivery = (
+            await item.deliveries.listByExecutionMedia(
+                item.target.projectId,
+                item.target.media[0]!.id
+            )
         )[0]
         expect(delivery).toMatchObject({
             state: 'uploaded',
@@ -571,19 +581,19 @@ test('publishes an existing container that finishes inside the preparation windo
     })
     try {
         // The container identity was acknowledged by an earlier execution.
-        const reserved = item.deliveries.reserve({
+        const reserved = await item.deliveries.reserve({
             projectId: item.target.projectId,
             executionMediaId: item.target.media[0]!.id,
             publisherId: item.target.publisherId,
             providerId: 'instagram',
             at: now,
         })
-        item.deliveries.start({
+        await item.deliveries.start({
             projectId: item.target.projectId,
             deliveryId: reserved.id,
             at: now,
         })
-        item.deliveries.recordRemoteMediaId({
+        await item.deliveries.recordRemoteMediaId({
             projectId: item.target.projectId,
             deliveryId: reserved.id,
             remoteMediaId: containerId,
@@ -837,14 +847,14 @@ test('refreshes an expiring credential and publishes with the new token', async 
 test('keeps an interrupted container preparation ambiguous instead of recreating it', async () => {
     const item = await fixture()
     try {
-        const reserved = item.deliveries.reserve({
+        const reserved = await item.deliveries.reserve({
             projectId: item.target.projectId,
             executionMediaId: item.target.media[0]!.id,
             publisherId: item.target.publisherId,
             providerId: 'instagram',
             at: now,
         })
-        item.deliveries.start({
+        await item.deliveries.start({
             projectId: item.target.projectId,
             deliveryId: reserved.id,
             at: now,
@@ -864,19 +874,19 @@ test('reuses an acknowledged container identity instead of recreating it', async
                 : Response.json({ id: containerId, status_code: 'FINISHED' }),
     })
     try {
-        const reserved = item.deliveries.reserve({
+        const reserved = await item.deliveries.reserve({
             projectId: item.target.projectId,
             executionMediaId: item.target.media[0]!.id,
             publisherId: item.target.publisherId,
             providerId: 'instagram',
             at: now,
         })
-        item.deliveries.start({
+        await item.deliveries.start({
             projectId: item.target.projectId,
             deliveryId: reserved.id,
             at: now,
         })
-        item.deliveries.recordRemoteMediaId({
+        await item.deliveries.recordRemoteMediaId({
             projectId: item.target.projectId,
             deliveryId: reserved.id,
             remoteMediaId: containerId,
@@ -899,9 +909,11 @@ test('treats a lost container acknowledgement as ambiguous and never recreates i
     try {
         expect(await item.execute()).toMatchObject({ type: 'ambiguous' })
         expect(item.requests).toHaveLength(1)
-        const delivery = item.deliveries.listByExecutionMedia(
-            item.target.projectId,
-            item.target.media[0]!.id
+        const delivery = (
+            await item.deliveries.listByExecutionMedia(
+                item.target.projectId,
+                item.target.media[0]!.id
+            )
         )[0]
         expect(delivery).toMatchObject({ state: 'ambiguous', remoteMediaId: null })
         expect(await item.execute()).toMatchObject({ type: 'ambiguous' })
@@ -999,9 +1011,11 @@ test('a rejected container creation can be retried through the store lifecycle',
             effectOccurred: false,
             code: 'request_rejected',
         })
-        const delivery = item.deliveries.listByExecutionMedia(
-            item.target.projectId,
-            item.target.media[0]!.id
+        const delivery = (
+            await item.deliveries.listByExecutionMedia(
+                item.target.projectId,
+                item.target.media[0]!.id
+            )
         )[0]
         expect(delivery).toMatchObject({ state: 'failed', remoteMediaId: null })
         expect(await item.execute()).toEqual({ type: 'published', externalId: mediaId })
@@ -1068,9 +1082,11 @@ test('coordinates real Instagram renewal across concurrent preparation with stal
             )?.accessToken
         ).toBe('renewed-once')
         expect(
-            item.credentialStore!.getPublisherCredential(
-                item.target.projectId,
-                item.target.credentialId
+            (
+                await item.credentialStore!.getPublisherCredential(
+                    item.target.projectId,
+                    item.target.credentialId
+                )
             )?.expiresAt
         ).toBe(now + 5184000 * 1000)
         for (const request of item.requests)

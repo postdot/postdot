@@ -1,24 +1,28 @@
 # Postdot database package
 
-This package owns Postdot's Drizzle ORM schema, Bun SQLite connection, and
-migrations. The runtime uses Bun's native `bun:sqlite` driver.
+This package owns Postdot's persistence: the engine-neutral SQL port (`src/sql`),
+its SQLite (`bun:sqlite`) and PostgreSQL (`Bun.SQL`) adapters, and the schema as
+portable SQL migrations (ADR-097).
 
-## Commands
+## Migrations
 
 ```sh
-bun run db:generate
 bun run db:migrate
 ```
 
-Run `db:generate` after changing the schema, review the generated SQL, and use
-`db:migrate` to apply migrations through the Bun runtime.
+`migrations/NNNN_name.sql` files run in order. Sections open with
+`-- postdot:common`, `-- postdot:sqlite` or `-- postdot:postgres`; only `common`
+and the current engine's sections apply. To change the schema, add the next
+numbered file: an applied migration is recorded with a checksum and must never be
+edited. `src/sql/schema-parity.test.ts` proves both engines produce the same
+schema, and the store suites run on both (`POSTDOT_TEST_ENGINE=postgres` with
+`POSTDOT_TEST_POSTGRES_URL`).
 
-The development migration directory intentionally starts with one generated
-baseline for the current schema. The runner never resets a database or hides a
-history conflict. If a disposable local database still belongs to an earlier
-development model, stop Postdot and move that file aside so a fresh database can be
-created; a database with data that must be preserved needs a separately approved
-production migration plan.
+A SQLite database created by an earlier release (the frozen Drizzle chain in
+`legacy-migrations/`) is adopted in place on first start when its chain is
+complete and its schema is exactly the baseline. Anything else is refused before
+any change; an incomplete legacy database must first be started once with the
+previous release. The runner never resets a database or hides a history conflict.
 
 The production API bundle also exposes SQLite recovery commands. A database-only
 backup remains available for low-level recovery:

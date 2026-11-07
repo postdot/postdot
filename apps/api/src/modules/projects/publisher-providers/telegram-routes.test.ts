@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'bun:test'
 
 import { createAuth } from '@postdot/auth'
-import { closeDatabase, createDatabase, createNotificationStore, runMigrations } from '@postdot/db'
+import { createNotificationStore } from '@postdot/db'
+import { closeTestDatabase, openTestDatabase } from '@postdot/db/testing'
 import type { TelegramFetcher } from '@postdot/telegram'
 
 import { createApp } from '../../../app'
@@ -59,9 +60,8 @@ function membershipResponse(): Response {
     })
 }
 
-function createFixture(telegramFetcher?: TelegramFetcher) {
-    const database = createDatabase(':memory:')
-    runMigrations(database)
+async function createFixture(telegramFetcher?: TelegramFetcher) {
+    const database = (await openTestDatabase()).database
     const publisher = createPublisherRuntime(database, {
         apiOrigin: baseURL,
         webOrigin: 'http://localhost:5173',
@@ -161,7 +161,7 @@ describe('Telegram publisher connection routes', () => {
             channelResponse(),
             membershipResponse(),
         ])
-        const { app, database, publisher } = createFixture(transport.fetcher)
+        const { app, database, publisher } = await createFixture(transport.fetcher)
         try {
             const cookie = await signUp(app, 'telegram@postdot.local')
             const { projectId, channelId: localId } = await createTelegramChannel(
@@ -188,7 +188,7 @@ describe('Telegram publisher connection routes', () => {
                     body.connection.credentialId
                 )
             ).toMatchObject({ accessToken: botToken })
-            const stored = database.$client.query('SELECT * FROM publisher_credentials').all()
+            const stored = await database.sql.statement('SELECT * FROM publisher_credentials').all()
             expect(stored).toHaveLength(1)
             expect(JSON.stringify(stored)).not.toContain(botToken)
             const list = await jsonRequest(app, `/api/projects/${projectId}/publishers`, cookie)
@@ -201,7 +201,7 @@ describe('Telegram publisher connection routes', () => {
             expect(duplicate.status).toBe(409)
             expect(transport.calls).toBe(3)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
     it('reconnects a credential requiring attention only after a fresh verification', async () => {
@@ -213,7 +213,7 @@ describe('Telegram publisher connection routes', () => {
             channelResponse(),
             membershipResponse(),
         ])
-        const { app, database, publisher } = createFixture(transport.fetcher)
+        const { app, database, publisher } = await createFixture(transport.fetcher)
         try {
             const cookie = await signUp(app, 'telegram-reconnect@postdot.local')
             const local = await createTelegramChannel(app, cookie, 'Reconnect')
@@ -223,7 +223,7 @@ describe('Telegram publisher connection routes', () => {
             })
             expect(first.status).toBe(200)
             const { connection } = (await first.json()) as { connection: { credentialId: string } }
-            publisher.credentialStore.markPublisherCredentialReconnectRequired(
+            await publisher.credentialStore.markPublisherCredentialReconnectRequired(
                 local.projectId,
                 connection.credentialId
             )
@@ -237,12 +237,12 @@ describe('Telegram publisher connection routes', () => {
             })
             expect(transport.calls).toBe(6)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
     it('requires authentication and masks a channel from a different project before provider access', async () => {
         const transport = createTelegramFetcher([])
-        const { app, database } = createFixture(transport.fetcher)
+        const { app, database } = await createFixture(transport.fetcher)
         try {
             const cookie = await signUp(app, 'telegram-access@postdot.local')
             const first = await createTelegramChannel(app, cookie, 'First')
@@ -265,7 +265,7 @@ describe('Telegram publisher connection routes', () => {
             ).toBe(404)
             expect(transport.calls).toBe(0)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
     it('persists nothing after rejected permissions or provider unavailability', async () => {
@@ -282,7 +282,7 @@ describe('Telegram publisher connection routes', () => {
             [jsonResponse({ ok: false, error_code: 500, description: botToken }, 500)],
         ].entries()) {
             const transport = createTelegramFetcher(responses)
-            const { app, database } = createFixture(transport.fetcher)
+            const { app, database } = await createFixture(transport.fetcher)
             try {
                 const cookie = await signUp(app, 'telegram-failure@postdot.local')
                 const local = await createTelegramChannel(app, cookie, 'Failure')
@@ -296,11 +296,13 @@ describe('Telegram publisher connection routes', () => {
                 expect(response.status).toBe(index === 0 ? 400 : index === 1 ? 403 : 503)
                 expect(await response.text()).not.toContain(botToken)
                 expect(
-                    database.$client.query('SELECT * FROM publisher_credentials').all()
+                    await database.sql.statement('SELECT * FROM publisher_credentials').all()
                 ).toHaveLength(0)
-                expect(database.$client.query('SELECT * FROM publishers').all()).toHaveLength(0)
+                expect(await database.sql.statement('SELECT * FROM publishers').all()).toHaveLength(
+                    0
+                )
             } finally {
-                closeDatabase(database)
+                await closeTestDatabase(database)
             }
         }
     })

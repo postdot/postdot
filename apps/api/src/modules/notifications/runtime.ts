@@ -15,9 +15,11 @@ export type NotificationProjectionRuntimeState =
 export interface NotificationProjectionRuntime {
     readonly state: NotificationProjectionRuntimeState
     start(): void
-    stop(): void
-    runNow(): void
-    runProjects(projectIds: readonly string[]): void
+    stop(): Promise<void>
+    /** Resolves when a projection run covering this request has finished. */
+    runNow(): Promise<void>
+    /** Resolves when a projection run covering these projects has finished. */
+    runProjects(projectIds: readonly string[]): Promise<void>
 }
 
 export interface NotificationProjectionRuntimeOptions {
@@ -43,18 +45,43 @@ export function createNotificationProjectionRuntime(
     let recoveryRequired = false
     let state: NotificationProjectionRuntimeState = 'idle'
     const handleError = options.onError ?? defaultNotificationProjectionErrorHandler
+    // Requests that arrive while a run is in progress (post-commit wakeups)
+    // are merged and replayed once it finishes; null means every project.
+    let queuedProjectIds: Set<string> | null | undefined
+    let queuedRun: Promise<void> | undefined
+    let releaseQueuedRun: (() => void) | undefined
+    const pendingRuns = new Set<Promise<void>>()
 
-    const project = (projectIds?: readonly string[]) => {
-        if (running) return
+    const enqueue = (projectIds?: readonly string[]): Promise<void> => {
+        if (projectIds === undefined) queuedProjectIds = null
+        else if (queuedProjectIds === undefined) queuedProjectIds = new Set(projectIds)
+        else if (queuedProjectIds !== null)
+            for (const projectId of projectIds) queuedProjectIds.add(projectId)
+        queuedRun ??= new Promise<void>(resolve => {
+            releaseQueuedRun = resolve
+        })
+        return queuedRun
+    }
+
+    // Never rejects: failures are reported and scheduled for recovery.
+    const project = (projectIds?: readonly string[]): Promise<void> => {
+        const run = performProjection(projectIds)
+        pendingRuns.add(run)
+        void run.finally(() => pendingRuns.delete(run))
+        return run
+    }
+
+    const performProjection = async (projectIds?: readonly string[]): Promise<void> => {
+        if (running) return enqueue(projectIds)
         running = true
         state = recoveryRequired ? 'recovering' : 'running'
         let needsContinuation = false
         try {
-            for (const projectId of projectIds ?? notifications.listProjectIds()) {
+            for (const projectId of projectIds ?? (await notifications.listProjectIds())) {
                 let batches = 0
                 let hasMore = false
                 do {
-                    hasMore = notifications.project(projectId).hasMore
+                    hasMore = (await notifications.project(projectId)).hasMore
                     batches += 1
                 } while (hasMore && batches < maximumBatchesPerProject)
                 if (hasMore) needsContinuation = true
@@ -75,6 +102,15 @@ export function createNotificationProjectionRuntime(
         } finally {
             running = false
         }
+        if (queuedProjectIds !== undefined) {
+            const next = queuedProjectIds
+            const release = releaseQueuedRun
+            queuedProjectIds = undefined
+            queuedRun = undefined
+            releaseQueuedRun = undefined
+            await project(next === null ? undefined : [...next])
+            release?.()
+        }
     }
 
     function scheduleContinuation(projectIds: readonly string[] | undefined, delayMs: number) {
@@ -93,7 +129,7 @@ export function createNotificationProjectionRuntime(
             continuationTimer = undefined
             const pendingProjectIds = continuationProjectIds
             continuationProjectIds = undefined
-            project(
+            void project(
                 pendingProjectIds === null || pendingProjectIds === undefined
                     ? undefined
                     : [...pendingProjectIds]
@@ -114,23 +150,25 @@ export function createNotificationProjectionRuntime(
         start() {
             if (started) return
             started = true
-            if (intervalMs !== undefined) intervalTimer = setInterval(project, intervalMs)
+            if (intervalMs !== undefined)
+                intervalTimer = setInterval(() => void project(), intervalMs)
             state = recoveryRequired ? 'recovering' : 'started'
             queueMicrotask(() => {
-                if (started) project()
+                if (started) void project()
             })
         },
-        stop() {
+        async stop() {
             if (intervalTimer !== undefined) clearInterval(intervalTimer)
             intervalTimer = undefined
             cancelContinuation()
             started = false
             state = 'stopped'
+            await Promise.all(pendingRuns)
+            cancelContinuation()
+            state = 'stopped'
         },
-        runNow: project,
-        runProjects(projectIds: readonly string[]) {
-            project([...new Set(projectIds)])
-        },
+        runNow: () => project(),
+        runProjects: (projectIds: readonly string[]) => project([...new Set(projectIds)]),
     }
 }
 

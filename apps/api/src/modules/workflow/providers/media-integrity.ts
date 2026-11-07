@@ -10,7 +10,7 @@ export type PinnedMedia = Pick<
 >
 
 export type OpenedMediaContent = Awaited<
-    ReturnType<ProviderMediaContentStore['openRepresentationContent']>
+    Awaited<ReturnType<ProviderMediaContentStore['openRepresentationContent']>>
 >
 
 export async function verifyPinnedMediaContent(

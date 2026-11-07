@@ -2,13 +2,8 @@ import { expect, test } from 'bun:test'
 
 import { createAuth } from '@postdot/auth'
 import { blueskyChannelProfile, type BlueskyThreadRead } from '@postdot/bluesky'
-import {
-    closeDatabase,
-    createAccessStore,
-    createDatabase,
-    createManualStore,
-    runMigrations,
-} from '@postdot/db'
+import { createAccessStore, createManualStore } from '@postdot/db'
+import { closeTestDatabase, openTestDatabase } from '@postdot/db/testing'
 import { mastodonChannelProfile, createMastodonThreadReader } from '@postdot/mastodon'
 
 import { createApp } from '../../app'
@@ -16,8 +11,7 @@ import { createPublisherRuntime } from '../publishers/runtime'
 
 for (const provider of ['bluesky', 'mastodon'] as const)
     test(`${provider}: stored reads, retention, unavailable roots, and live access`, async () => {
-        const database = createDatabase(':memory:')
-        runMigrations(database)
+        const database = (await openTestDatabase()).database
         const baseURL = 'http://localhost:3000'
         const auth = createAuth(database, {
             baseURL,
@@ -32,7 +26,7 @@ for (const provider of ['bluesky', 'mastodon'] as const)
         })
         let calls = 0
         let mode: 'available' | 'failure' | 'blocked' = 'available'
-        let beforeReturn: (() => void) | undefined
+        let beforeReturn: (() => unknown) | undefined
         let clock = 1_800_000_000_000
         const externalId =
             provider === 'bluesky' ? 'at://did:plc:comments/app.bsky.feed.post/root' : '100'
@@ -65,7 +59,7 @@ for (const provider of ['bluesky', 'mastodon'] as const)
                             ],
                         })
                     calls++
-                    beforeReturn?.()
+                    await beforeReturn?.()
                     if (mode === 'failure') return new Response('', { status: 503 })
                     if (mode === 'blocked') return new Response('', { status: 404 })
                     return Response.json({ id: '100', visibility: 'public' })
@@ -74,7 +68,7 @@ for (const provider of ['bluesky', 'mastodon'] as const)
             blueskyCommentsReader: {
                 async getPostThread(uri): Promise<BlueskyThreadRead> {
                     calls++
-                    beforeReturn?.()
+                    await beforeReturn?.()
                     expect(uri).toBe(rootUri)
                     if (mode === 'failure')
                         return {
@@ -148,21 +142,25 @@ for (const provider of ['bluesky', 'mastodon'] as const)
             expect(made.status).toBe(201)
             const { project } = (await made.json()) as { project: { id: string } }
             const manual = createManualStore(database)
-            const channel = manual.createChannel({
+            const channel = (await manual.createChannel({
                 projectId: project.id,
                 subjectId: owner.id,
                 name: 'Bluesky',
                 profile: provider === 'bluesky' ? blueskyChannelProfile : mastodonChannelProfile,
-            })!
-            const created = manual.createPost({
+            }))!
+            const created = (await manual.createPost({
                 projectId: project.id,
                 subjectId: owner.id,
                 sourceContent: { body: { format: 'plain_text', text: 'Source' }, media: [] },
                 publications: [{ channelId: channel.id, deliveryMode: 'manual' }],
-            })!
+            }))!
             const publicationId = created.publications[0]!.id
-            const editor = manual.getPublicationEditorState(project.id, publicationId, owner.id)!
-            manual.promotePublicationDraft({
+            const editor = (await manual.getPublicationEditorState(
+                project.id,
+                publicationId,
+                owner.id
+            ))!
+            await manual.promotePublicationDraft({
                 projectId: project.id,
                 publicationId,
                 subjectId: owner.id,
@@ -170,8 +168,8 @@ for (const provider of ['bluesky', 'mastodon'] as const)
                 scheduledAt: clock + 1000,
             })
             // Model an already delivered item; never execute a provider publication.
-            database.$client
-                .query(
+            await database.sql
+                .statement(
                     "update publications set state = 'published', external_id = ?1, published_at = ?2, published_by_actor_id = created_by_actor_id, external_url = ?4 where id = ?3"
                 )
                 .run(externalId, clock, publicationId, externalUrl)
@@ -207,22 +205,24 @@ for (const provider of ['bluesky', 'mastodon'] as const)
             mode = 'available'
             await request(path + '/refresh', owner.cookie, 'POST', {})
             expect(
-                database.$client
-                    .query<{ count: number }, []>(
-                        'select count(*) as count from publication_comment_snapshots'
-                    )
-                    .get()?.count
+                (
+                    await database.sql
+                        .statement<{ count: number }, []>(
+                            'select count(*) as count from publication_comment_snapshots'
+                        )
+                        .get()
+                )?.count
             ).toBe(1)
             const viewer = await signup('comments-viewer@postdot.local')
             await request('/api/projects', viewer.cookie)
             const access = createAccessStore(database)
-            access.updateInstanceMembership({
+            await access.updateInstanceMembership({
                 actorUserId: owner.id,
                 userId: viewer.id,
                 role: 'member',
             })
             expect(
-                access.grantProjectUserAccess({
+                await access.grantProjectUserAccess({
                     projectId: project.id,
                     userId: viewer.id,
                     role: 'viewer',
@@ -245,13 +245,13 @@ for (const provider of ['bluesky', 'mastodon'] as const)
                 lastError: null,
             })
             const savedBeforeRevocation = await (await request(path, owner.cookie)).json()
-            access.grantProjectUserAccess({
+            await access.grantProjectUserAccess({
                 projectId: project.id,
                 userId: viewer.id,
                 role: 'editor',
             })
-            beforeReturn = () => {
-                access.grantProjectUserAccess({
+            beforeReturn = async () => {
+                await access.grantProjectUserAccess({
                     projectId: project.id,
                     userId: viewer.id,
                     role: 'viewer',
@@ -263,9 +263,9 @@ for (const provider of ['bluesky', 'mastodon'] as const)
             beforeReturn = undefined
             if (provider === 'mastodon') {
                 // A changed retained origin must neither reveal the previous server's snapshot nor save an in-flight result.
-                beforeReturn = () =>
-                    database.$client
-                        .query('update publications set external_url = ?1 where id = ?2')
+                beforeReturn = async () =>
+                    await database.sql
+                        .statement('update publications set external_url = ?1 where id = ?2')
                         .run('https://replacement.example/@owner/100', publicationId)
                 expect((await request(path + '/refresh', owner.cookie, 'POST', {})).status).toBe(
                     404
@@ -274,8 +274,8 @@ for (const provider of ['bluesky', 'mastodon'] as const)
                     provider: 'mastodon',
                     snapshot: null,
                 })
-                database.$client
-                    .query('update publications set external_url = null where id = ?1')
+                await database.sql
+                    .statement('update publications set external_url = null where id = ?1')
                     .run(publicationId)
                 const callsBefore = calls
                 expect((await request(path + '/refresh', owner.cookie, 'POST', {})).status).toBe(
@@ -283,15 +283,19 @@ for (const provider of ['bluesky', 'mastodon'] as const)
                 )
                 expect(calls).toBe(callsBefore)
             }
-            database.$client.query('delete from publications where id = ?1').run(publicationId)
+            await database.sql
+                .statement('delete from publications where id = ?1')
+                .run(publicationId)
             expect(
-                database.$client
-                    .query<{ count: number }, []>(
-                        'select count(*) as count from publication_comment_snapshots'
-                    )
-                    .get()?.count
+                (
+                    await database.sql
+                        .statement<{ count: number }, []>(
+                            'select count(*) as count from publication_comment_snapshots'
+                        )
+                        .get()
+                )?.count
             ).toBe(0)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })

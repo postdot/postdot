@@ -1,7 +1,9 @@
 import { expect, it } from 'bun:test'
 
 import { createAuth } from '@postdot/auth'
-import { closeDatabase, createAccessStore, createDatabase, runMigrations } from '@postdot/db'
+import type { DatabaseHandle } from '@postdot/db'
+import { createAccessStore } from '@postdot/db'
+import { closeTestDatabase, openTestDatabase } from '@postdot/db/testing'
 
 import { createApp } from '../../app'
 import { createPublisherRuntime } from '../publishers/runtime'
@@ -16,15 +18,14 @@ async function fixture(
         ) => Promise<Response>,
         cookie: string,
         context: {
-            database: ReturnType<typeof createDatabase>
+            database: DatabaseHandle
             access: ReturnType<typeof createAccessStore>
             app: ReturnType<typeof createApp>
         }
     ) => Promise<void>,
     allowAdditionalSignups = false
 ) {
-    const database = createDatabase(':memory:')
-    runMigrations(database)
+    const database = (await openTestDatabase()).database
     const baseURL = 'http://localhost:3000'
     const access = createAccessStore(database)
     const auth = createAuth(database, {
@@ -70,7 +71,7 @@ async function fixture(
             .join('; ')
         await run(request, cookie, { database, access, app })
     } finally {
-        closeDatabase(database)
+        await closeTestDatabase(database)
     }
 }
 it('archives through a scoped machine key, rejects writes, restores and permanently deletes with live impact', async () => {
@@ -246,26 +247,28 @@ it('requires live ownership even for former initiators and hides unknown project
                 })
             )
         // Remove the test-only additional-signup grants before checking real role boundaries.
-        database.$client.query('delete from team_member where user_id = ?').run(user.id)
-        database.$client.query('delete from member where user_id = ?').run(user.id)
+        await database.sql.statement('delete from team_member where user_id = ?').run(user.id)
+        await database.sql.statement('delete from member where user_id = ?').run(user.id)
         expect((await other('GET')).status).toBe(404)
-        const workspace = access.getDefaultWorkspace()!
-        database.$client
-            .query(
-                "insert or ignore into member(id,organization_id,user_id,role,created_at) values (?,?,?,'member',?)"
+        const workspace = (await access.getDefaultWorkspace())!
+        await database.sql
+            .statement(
+                "insert into member(id,organization_id,user_id,role,created_at) values (?,?,?,'member',?) on conflict do nothing"
             )
             .run(crypto.randomUUID(), workspace.organizationId, user.id, Date.now())
-        database.$client.query("update member set role = 'member' where user_id = ?").run(user.id)
-        database.$client
-            .query("update instance_memberships set role = 'member' where user_id = ?")
+        await database.sql
+            .statement("update member set role = 'member' where user_id = ?")
             .run(user.id)
-        access.grantProjectUserAccess({
+        await database.sql
+            .statement("update instance_memberships set role = 'member' where user_id = ?")
+            .run(user.id)
+        await access.grantProjectUserAccess({
             projectId: created.project.id,
             userId: user.id,
             role: 'viewer',
         })
         expect((await other('GET')).status).toBe(403)
-        access.grantProjectUserAccess({
+        await access.grantProjectUserAccess({
             projectId: created.project.id,
             userId: user.id,
             role: 'owner',
@@ -283,12 +286,12 @@ it('requires live ownership even for former initiators and hides unknown project
             })
         )
         expect(archived.status).toBe(200)
-        database.$client
-            .query(
+        await database.sql
+            .statement(
                 "update project_user_grants set role = 'viewer' where project_id = ? and user_id = ?"
             )
             .run(created.project.id, user.id)
-        expect(access.canAccessProject(created.project.id, user.id, 'owner')).toBe(false)
+        expect(await access.canAccessProject(created.project.id, user.id, 'owner')).toBe(false)
         // The original initiator cannot use a receipt exception to regain live resource access.
         expect((await other('GET')).status).toBe(403)
     }, true)

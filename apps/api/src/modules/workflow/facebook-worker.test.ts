@@ -5,16 +5,13 @@ import { join } from 'node:path'
 
 import { ChannelProfileCompiler } from '@postdot/core'
 import {
-    createDatabase,
-    closeDatabase,
-    runMigrations,
     createManualStore,
     createMediaAssetStore,
     createPublisherCredentialCipher,
     createPublisherCredentialStore,
     createPublisherStore,
 } from '@postdot/db'
-import { seedTestWorkspace } from '@postdot/db/testing'
+import { closeTestDatabase, openTestDatabase, seedTestWorkspace } from '@postdot/db/testing'
 import {
     createFacebookPublisher,
     facebookChannelProfile,
@@ -30,8 +27,7 @@ import { createPublicationWorker } from './worker'
 for (const photo of [false, true])
     for (const scenario of ['published', 'ambiguous', 'authentication', 'retry'] as const) {
         test(`Facebook worker persists ${photo ? 'photo' : 'text'} ${scenario} without replay`, async () => {
-            const database = createDatabase(':memory:')
-            runMigrations(database)
+            const database = (await openTestDatabase()).database
             const directory = await mkdtemp(join(tmpdir(), 'postdot-facebook-worker-'))
             const now = 1_800_000_000_000
             let clock = now
@@ -64,18 +60,18 @@ for (const photo of [false, true])
                 now: () => clock,
             })
             try {
-                const project = store.createProject({
-                    workspaceId: seedTestWorkspace(database),
+                const project = (await store.createProject({
+                    workspaceId: await seedTestWorkspace(database),
                     name: 'Facebook worker',
                     subjectId: 'operator',
                     displayName: 'Operator',
-                })!
-                const channel = store.createChannel({
+                }))!
+                const channel = (await store.createChannel({
                     projectId: project.project.id,
                     subjectId: 'operator',
                     name: 'Announcements',
                     profile: facebookChannelProfile,
-                })!
+                }))!
                 const credential = await credentials.createPublisherCredential({
                     projectId: project.project.id,
                     connectedByActorId: project.actor.id,
@@ -86,14 +82,16 @@ for (const photo of [false, true])
                 })
                 if (credential.kind !== 'created') throw new Error('Expected credential')
                 expect(
-                    publishers.createPublisherConnection({
-                        projectId: project.project.id,
-                        channelId: channel.id,
-                        subjectId: 'operator',
-                        kind: 'facebook',
-                        credentialId: credential.credential.id,
-                        destination: { type: 'channel', id: '123456', name: 'Announcements' },
-                    }).kind
+                    (
+                        await publishers.createPublisherConnection({
+                            projectId: project.project.id,
+                            channelId: channel.id,
+                            subjectId: 'operator',
+                            kind: 'facebook',
+                            credentialId: credential.credential.id,
+                            destination: { type: 'channel', id: '123456', name: 'Announcements' },
+                        })
+                    ).kind
                 ).toBe('created')
                 const bytes = new Uint8Array(
                     Buffer.from(
@@ -103,13 +101,13 @@ for (const photo of [false, true])
                 )
                 let assetId: string | undefined
                 if (photo) {
-                    const reserved = media.reserveUpload({
+                    const reserved = (await media.reserveUpload({
                         projectId: project.project.id,
                         subjectId: 'operator',
                         originalFilename: 'photo.png',
                         contentType: 'image/png',
                         expectedSize: bytes.length,
-                    })!
+                    }))!
                     expect(
                         await media.upload({
                             projectId: project.project.id,
@@ -130,7 +128,7 @@ for (const photo of [false, true])
                 const references = assetId
                     ? [{ assetId, accessibilityText: 'Product announcement' }]
                     : []
-                const post = store.createPost({
+                const post = await store.createPost({
                     projectId: project.project.id,
                     subjectId: 'operator',
                     sourceContent: {
@@ -194,8 +192,8 @@ for (const photo of [false, true])
                         await worker.processDueEvents(clock)
                     }
                     expect(
-                        database.$client
-                            .query('select state, external_id as externalId from publications')
+                        await database.sql
+                            .statement('select state, external_id as externalId from publications')
                             .all()
                     ).toEqual([
                         {
@@ -213,8 +211,8 @@ for (const photo of [false, true])
                     ])
                     if (photo)
                         expect(
-                            database.$client
-                                .query(
+                            await database.sql
+                                .statement(
                                     'select state, remote_media_id as remoteId from provider_media_deliveries'
                                 )
                                 .all()
@@ -255,14 +253,18 @@ for (const photo of [false, true])
                             ).toBe('Hello Facebook')
                     }
                     expect(
-                        publishers.listPublisherConnections(project.project.id, 'operator')?.[0]
-                            ?.state
+                        (
+                            await publishers.listPublisherConnections(
+                                project.project.id,
+                                'operator'
+                            )
+                        )?.[0]?.state
                     ).toBe(scenario === 'authentication' ? 'reconnect_required' : 'active')
                 } finally {
                     await worker.stop()
                 }
             } finally {
-                closeDatabase(database)
+                await closeTestDatabase(database)
                 await rm(directory, { recursive: true, force: true })
             }
         })

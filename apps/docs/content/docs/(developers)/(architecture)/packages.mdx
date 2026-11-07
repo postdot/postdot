@@ -14,16 +14,16 @@ description: Where each responsibility lives in the monorepo.
 
 ## Shared packages
 
-| Path              | Responsibility                                               |
-| ----------------- | ------------------------------------------------------------ |
-| `packages/core`   | Shared publication contracts and domain behavior.            |
-| `packages/db`     | Drizzle schema, SQLite persistence and durable-work storage. |
-| `packages/client` | Typed API client used by other clients.                      |
-| `packages/auth`   | Application authentication and session configuration.        |
-| `packages/oauth`  | Publisher authorization-flow mechanics.                      |
-| `packages/media`  | Local and S3-compatible object-storage adapters.             |
-| `packages/ui`     | Shared components, typography and interface tokens.          |
-| `packages/email`  | Account and notification email templates.                    |
+| Path              | Responsibility                                                                              |
+| ----------------- | ------------------------------------------------------------------------------------------- |
+| `packages/core`   | Shared publication contracts and domain behavior.                                           |
+| `packages/db`     | Persistence port (SQLite and PostgreSQL), portable SQL migrations and durable-work storage. |
+| `packages/client` | Typed API client used by other clients.                                                     |
+| `packages/auth`   | Application authentication and session configuration.                                       |
+| `packages/oauth`  | Publisher authorization-flow mechanics.                                                     |
+| `packages/media`  | Local and S3-compatible object-storage adapters.                                            |
+| `packages/ui`     | Shared components, typography and interface tokens.                                         |
+| `packages/email`  | Account and notification email templates.                                                   |
 
 Provider packages include `bluesky`, `devto`, `discord`, `facebook`, `instagram`,
 `linkedin`, `mastodon`, `telegram` and `x`. `custom-http` covers custom HTTP delivery. A provider package is an internal

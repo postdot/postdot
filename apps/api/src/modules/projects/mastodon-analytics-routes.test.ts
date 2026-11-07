@@ -1,21 +1,15 @@
 import { expect, test } from 'bun:test'
 
 import { createAuth } from '@postdot/auth'
-import {
-    closeDatabase,
-    createAccessStore,
-    createDatabase,
-    createManualStore,
-    runMigrations,
-} from '@postdot/db'
+import { createAccessStore, createManualStore } from '@postdot/db'
+import { closeTestDatabase, openTestDatabase } from '@postdot/db/testing'
 import { createMastodonAnalyticsReader, mastodonChannelProfile } from '@postdot/mastodon'
 
 import { createApp } from '../../app'
 import { createPublisherRuntime } from '../publishers/runtime'
 
 async function fixture() {
-    const database = createDatabase(':memory:')
-    runMigrations(database)
+    const database = (await openTestDatabase()).database
     const origin = 'http://localhost:3000'
     const auth = createAuth(database, {
         baseURL: origin,
@@ -31,14 +25,14 @@ async function fixture() {
     const access = createAccessStore(database)
     let calls = 0
     let mode: 'available' | 'failure' = 'available'
-    let beforeReturn: (() => void) | undefined
+    let beforeReturn: (() => void | Promise<void>) | undefined
     const requests: { url: string; init?: RequestInit }[] = []
     let clock = 1_800_000_000_000
     const reader = createMastodonAnalyticsReader({
         fetcher: async (input, init) => {
             calls++
             requests.push({ url: String(input), init })
-            beforeReturn?.()
+            await beforeReturn?.()
             if (mode === 'failure') return new Response('', { status: 503 })
             return Response.json({
                 id: '100',
@@ -90,21 +84,21 @@ async function fixture() {
     expect(made.status).toBe(201)
     const { project } = (await made.json()) as { project: { id: string } }
     const manual = createManualStore(database)
-    const channel = manual.createChannel({
+    const channel = (await manual.createChannel({
         projectId: project.id,
         subjectId: owner.id,
         name: 'Mastodon',
         profile: mastodonChannelProfile,
-    })!
-    const post = manual.createPost({
+    }))!
+    const post = (await manual.createPost({
         projectId: project.id,
         subjectId: owner.id,
         sourceContent: { body: { format: 'plain_text', text: 'Source' }, media: [] },
         publications: [{ channelId: channel.id, deliveryMode: 'manual' }],
-    })!
+    }))!
     const publicationId = post.publications[0]!.id
-    const editor = manual.getPublicationEditorState(project.id, publicationId, owner.id)!
-    manual.promotePublicationDraft({
+    const editor = (await manual.getPublicationEditorState(project.id, publicationId, owner.id))!
+    await manual.promotePublicationDraft({
         projectId: project.id,
         publicationId,
         subjectId: owner.id,
@@ -112,8 +106,8 @@ async function fixture() {
         scheduledAt: clock + 1000,
     })
     // Seed a retained delivered receipt in this isolated DB; never send a real status.
-    database.$client
-        .query(
+    await database.sql
+        .statement(
             "update publications set state = 'published', external_id = '100', external_url = 'https://original.example/@owner/100', published_at = ?1, published_by_actor_id = created_by_actor_id where id = ?2"
         )
         .run(clock, publicationId)
@@ -135,7 +129,7 @@ async function fixture() {
         fail() {
             mode = 'failure'
         },
-        duringRead(callback: () => void) {
+        duringRead(callback: () => void | Promise<void>) {
             beforeReturn = callback
         },
     }
@@ -195,12 +189,12 @@ test('Mastodon metrics are collected manually and persisted with real zero, unkn
             )
         ).toBe(true)
         expect(
-            f.database.$client
-                .query('select count(*) as count from provider_analytics_observations')
+            await f.database.sql
+                .statement('select count(*) as count from provider_analytics_observations')
                 .get()
         ).toEqual({ count: 6 })
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
@@ -208,12 +202,12 @@ test('Mastodon metrics enforce project roles and recheck access after an asynchr
     const f = await fixture()
     try {
         const viewer = await f.signup('analytics-viewer@postdot.local')
-        f.access.updateInstanceMembership({
+        await f.access.updateInstanceMembership({
             actorUserId: f.owner.id,
             userId: viewer.id,
             role: 'member',
         })
-        f.access.grantProjectUserAccess({
+        await f.access.grantProjectUserAccess({
             projectId: f.projectId,
             userId: viewer.id,
             role: 'viewer',
@@ -235,13 +229,13 @@ test('Mastodon metrics enforce project roles and recheck access after an asynchr
             ).status
         ).toBe(404)
         expect(f.calls).toBe(0)
-        f.access.grantProjectUserAccess({
+        await f.access.grantProjectUserAccess({
             projectId: f.projectId,
             userId: viewer.id,
             role: 'editor',
         })
-        f.duringRead(() => {
-            f.access.grantProjectUserAccess({
+        f.duringRead(async () => {
+            await f.access.grantProjectUserAccess({
                 projectId: f.projectId,
                 userId: viewer.id,
                 role: 'viewer',
@@ -252,32 +246,32 @@ test('Mastodon metrics enforce project roles and recheck access after an asynchr
         )
         expect(f.calls).toBe(1)
         expect(
-            f.database.$client
-                .query('select count(*) as count from provider_analytics_observations')
+            await f.database.sql
+                .statement('select count(*) as count from provider_analytics_observations')
                 .get()
         ).toEqual({ count: 0 })
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
 test('Mastodon metrics never attach an in-flight response to a changed provider receipt', async () => {
     const f = await fixture()
     try {
-        f.duringRead(() => {
-            f.database.$client
-                .query('update publications set external_url = ?1 where id = ?2')
+        f.duringRead(async () => {
+            await f.database.sql
+                .statement('update publications set external_url = ?1 where id = ?2')
                 .run('https://different.example/@owner/100', f.publicationId)
         })
         expect((await f.request(f.path + '/collect', f.owner.cookie, 'POST', f.body)).status).toBe(
             404
         )
         expect(
-            f.database.$client
-                .query('select count(*) as count from provider_analytics_observations')
+            await f.database.sql
+                .statement('select count(*) as count from provider_analytics_observations')
                 .get()
         ).toEqual({ count: 0 })
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })

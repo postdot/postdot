@@ -36,23 +36,17 @@ export async function accounts(page: Page) {
             })
         ).status()
     ).toBe(200)
-    const invited = await admin.request.post(`/api/projects/${project.id}/invitations`, {
-        data: { email: memberEmail, role: 'editor' },
-    })
-    expect(invited.status()).toBe(201)
-    const { invitation } = await invited.json()
     const registered = await member.request.post('/api/auth/sign-up/email', {
         data: { name: 'Second author', email: memberEmail, password },
     })
     expect(registered.status()).toBe(200)
     const second = (await registered.json()).user as { id: string }
-    expect(
-        (
-            await member.request.post('/api/auth/organization/accept-invitation', {
-                data: { invitationId: invitation.id },
-            })
-        ).status()
-    ).toBe(200)
+    // The E2E signup seam already joins the shared workspace. These scenarios
+    // need a second project author, independently of invitation/member limits.
+    const granted = await admin.request.post(`/api/projects/${project.id}/user-grants`, {
+        data: { userId: second.id, role: 'editor' },
+    })
+    expect(granted.status()).toBe(201)
     return {
         owner,
         second,

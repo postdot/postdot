@@ -76,7 +76,11 @@ export function createFacebookConnectionFlow(options: {
     readonly publishers: ReturnType<typeof createPublisherStore>
     readonly channels: Pick<ReturnType<typeof createManualStore>, 'listChannels'>
     readonly access: Pick<ReturnType<typeof createAccessStore>, 'canAccessProject'>
-    readonly canManageChannel: (projectId: string, channelId: string, userId: string) => boolean
+    readonly canManageChannel: (
+        projectId: string,
+        channelId: string,
+        userId: string
+    ) => Promise<boolean>
     readonly oauth: ReturnType<typeof createFacebookOAuth>
     readonly graph: ReturnType<typeof createFacebookPublisher>
     readonly applicationId?: string | null
@@ -93,30 +97,41 @@ export function createFacebookConnectionFlow(options: {
             await crypto.subtle.digest('SHA-256', new TextEncoder().encode(state))
         )
     }
-    function authorize(binding: Binding) {
+    async function authorize(binding: Binding) {
         if (binding.authMethod !== 'session') return fail('forbidden')
         if (
-            !options.publishers.hasChannelAccess(
+            !(await options.publishers.hasChannelAccess(
                 binding.projectId,
                 binding.channelId,
                 binding.subjectId
-            )
+            ))
         )
             return fail('not_found')
         if (
-            !options.access.canAccessProject(binding.projectId, binding.subjectId, 'editor') ||
-            !options.canManageChannel(binding.projectId, binding.channelId, binding.subjectId)
+            !(await options.access.canAccessProject(
+                binding.projectId,
+                binding.subjectId,
+                'editor'
+            )) ||
+            !(await options.canManageChannel(
+                binding.projectId,
+                binding.channelId,
+                binding.subjectId
+            ))
         )
             return fail('forbidden')
-        const channel = options.channels
-            .listChannels(binding.projectId, binding.subjectId)
-            ?.find(value => value.id === binding.channelId)
+        const channel = (
+            await options.channels.listChannels(binding.projectId, binding.subjectId)
+        )?.find(value => value.id === binding.channelId)
         if (!channel || channel.state !== 'active') return fail('not_found')
         if (channel.execution.kind !== 'built_in' || channel.execution.contractId !== 'facebook')
             return fail('conflict')
-        const actorId = options.publishers.getProjectActorId(binding.projectId, binding.subjectId)
+        const actorId = await options.publishers.getProjectActorId(
+            binding.projectId,
+            binding.subjectId
+        )
         if (!actorId) return fail('not_found')
-        const connection = options.publishers.getPublisherConnection(
+        const connection = await options.publishers.getPublisherConnection(
             binding.projectId,
             binding.channelId,
             binding.subjectId
@@ -149,10 +164,10 @@ export function createFacebookConnectionFlow(options: {
         return attempt
     }
     async function pending(binding: Binding, state: string) {
-        const authorization = authorize(binding)
+        const authorization = await authorize(binding)
         const stateDigest = await digest(state)
         verifyAttempt(
-            options.attempts.getAuthorizationAttempt(stateDigest),
+            await options.attempts.getAuthorizationAttempt(stateDigest),
             binding,
             authorization.actorId,
             selectionProvider,
@@ -166,13 +181,13 @@ export function createFacebookConnectionFlow(options: {
         }
         const stored = await options.attempts.readPendingAuthorizationProviderState(input)
         if (stored.kind !== 'ready' || !stored.providerState) return fail('invalid_attempt')
-        const providerState = parsePendingProviderState(stored.providerState, now())
+        const providerState = await parsePendingProviderState(stored.providerState, now())
         if (providerState === null) return fail('invalid_attempt')
         return { authorization, input, token: providerState.token }
     }
     return {
         async start(binding: Binding, returnPath: string) {
-            const { actorId } = authorize(binding)
+            const { actorId } = await authorize(binding)
             const request = await options.oauth.createAuthorizationRequest()
             const result = await options.attempts.createAuthorizationAttempt({
                 projectId: binding.projectId,
@@ -191,12 +206,12 @@ export function createFacebookConnectionFlow(options: {
             return { url: request.url.toString() }
         },
         async complete(binding: Binding, parameters: URL) {
-            const { actorId } = authorize(binding)
+            const { actorId } = await authorize(binding)
             if (parameters.searchParams.getAll('state').length !== 1) return fail('invalid_attempt')
             const state = parameters.searchParams.get('state') ?? ''
             const stateDigest = await digest(state)
             const attempt = verifyAttempt(
-                options.attempts.getAuthorizationAttempt(stateDigest),
+                await options.attempts.getAuthorizationAttempt(stateDigest),
                 binding,
                 actorId,
                 'facebook',
@@ -235,7 +250,7 @@ export function createFacebookConnectionFlow(options: {
             // A known deadline that the permission probe crossed is not a usable pending choice.
             if (providerExpiresAt !== null && now() >= providerExpiresAt)
                 return fail('invalid_attempt')
-            authorize(binding)
+            await authorize(binding)
             const selection = crypto.randomUUID() + crypto.randomUUID()
             const created = await options.attempts.createAuthorizationAttempt({
                 projectId: binding.projectId,
@@ -265,7 +280,7 @@ export function createFacebookConnectionFlow(options: {
             const { token } = await pending(binding, selection)
             const result = await options.graph.listPages({ userToken: token, after })
             if (!result.ok) return fail('provider_unavailable')
-            authorize(binding)
+            await authorize(binding)
             return {
                 pages: result.value.pages.map(({ id, name, hasPublishTask }) => ({
                     id,
@@ -279,7 +294,7 @@ export function createFacebookConnectionFlow(options: {
             const { token, input } = await pending(binding, selection)
             const selected = await options.graph.selectPage({ userToken: token, pageId, after })
             if (!selected.ok) return fail('provider_unavailable')
-            const { actorId, replacement } = authorize(binding)
+            const { actorId, replacement } = await authorize(binding)
             const consumed = await options.attempts.consumeAuthorizationAttempt(input)
             if (consumed.kind !== 'consumed') return fail('invalid_attempt')
             const { page, grantedPermissions } = selected.value
@@ -306,8 +321,8 @@ export function createFacebookConnectionFlow(options: {
                 if (replaced.kind !== 'updated') return fail('conflict')
             }
             try {
-                authorize(binding)
-                const connected = options.publishers.createPublisherConnection({
+                await authorize(binding)
+                const connected = await options.publishers.createPublisherConnection({
                     projectId: binding.projectId,
                     channelId: binding.channelId,
                     subjectId: binding.subjectId,
@@ -320,7 +335,10 @@ export function createFacebookConnectionFlow(options: {
                 return { connection: connected.connection }
             } catch {
                 if (saved.kind === 'created')
-                    options.credentials.revokePublisherCredential(binding.projectId, credentialId)
+                    await options.credentials.revokePublisherCredential(
+                        binding.projectId,
+                        credentialId
+                    )
                 return fail('conflict')
             }
         },

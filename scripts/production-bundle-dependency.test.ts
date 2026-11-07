@@ -30,7 +30,7 @@ import { collectExternalRequires, isPackageSpecifier } from './bundle-requires'
 
 const repositoryRoot = resolve(import.meta.dir, '..')
 const apiEntrypoint = join(repositoryRoot, 'apps/api/src/index.ts')
-const migrationsDirectory = join(repositoryRoot, 'packages/db/drizzle')
+const migrationsDirectory = join(repositoryRoot, 'packages/db/migrations')
 
 const startupDeadlineMilliseconds = 30_000
 const shutdownDeadlineMilliseconds = 15_000

@@ -1,24 +1,20 @@
 import { describe, expect, it } from 'bun:test'
 
-import { closeDatabase, createDatabase } from './client'
 import { createManualStore } from './manual-store'
-import { runMigrations } from './migrations'
-import { publishers } from './schema'
-import { seedTestWorkspace, workspaceOf } from './testing'
+import { closeTestDatabase, openTestDatabase, seedTestWorkspace, workspaceOf } from './testing'
 
 const now = 1_800_000_000_000
 
-function createFixture() {
-    const database = createDatabase(':memory:')
-    runMigrations(database)
+async function createFixture() {
+    const database = (await openTestDatabase()).database
     const store = createManualStore(database, { now: () => now })
-    const project = store.createProject({
-        workspaceId: seedTestWorkspace(database),
+    const project = await store.createProject({
+        workspaceId: await seedTestWorkspace(database),
         name: 'Channel lifecycle project',
         subjectId: 'user-1',
         displayName: 'Postdot Operator',
     })
-    const channel = store.createChannel({
+    const channel = await store.createChannel({
         projectId: project.project.id,
         subjectId: 'user-1',
         name: 'Release notes',
@@ -28,8 +24,8 @@ function createFixture() {
 }
 
 describe('channel lifecycle store', () => {
-    it('renames, archives, restores, and deletes an empty channel with revisions', () => {
-        const fixture = createFixture()
+    it('renames, archives, restores, and deletes an empty channel with revisions', async () => {
+        const fixture = await createFixture()
 
         try {
             expect(fixture.channel).toMatchObject({
@@ -39,7 +35,7 @@ describe('channel lifecycle store', () => {
                 revision: 1,
             })
 
-            const renamed = fixture.store.renameChannel({
+            const renamed = await fixture.store.renameChannel({
                 projectId: fixture.project.project.id,
                 channelId: fixture.channel.id,
                 subjectId: 'user-1',
@@ -48,7 +44,7 @@ describe('channel lifecycle store', () => {
             })
             expect(renamed).toMatchObject({ name: 'Product updates', revision: 2 })
 
-            const archived = fixture.store.archiveChannel({
+            const archived = await fixture.store.archiveChannel({
                 projectId: fixture.project.project.id,
                 channelId: fixture.channel.id,
                 subjectId: 'user-1',
@@ -58,7 +54,7 @@ describe('channel lifecycle store', () => {
                 kind: 'updated',
                 channel: { state: 'archived', archivedAt: now, revision: 3 },
             })
-            expect(() =>
+            await expect(
                 fixture.store.createPost({
                     projectId: fixture.project.project.id,
                     subjectId: 'user-1',
@@ -73,9 +69,9 @@ describe('channel lifecycle store', () => {
                         },
                     ],
                 })
-            ).toThrow('archived channel')
+            ).rejects.toThrow('archived channel')
 
-            const restored = fixture.store.restoreChannel({
+            const restored = await fixture.store.restoreChannel({
                 projectId: fixture.project.project.id,
                 channelId: fixture.channel.id,
                 subjectId: 'user-1',
@@ -86,7 +82,7 @@ describe('channel lifecycle store', () => {
                 channel: { state: 'active', archivedAt: null, revision: 4 },
             })
 
-            const archivedAgain = fixture.store.archiveChannel({
+            const archivedAgain = await fixture.store.archiveChannel({
                 projectId: fixture.project.project.id,
                 channelId: fixture.channel.id,
                 subjectId: 'user-1',
@@ -98,18 +94,20 @@ describe('channel lifecycle store', () => {
             })
 
             expect(
-                fixture.store.deleteChannel({
+                await fixture.store.deleteChannel({
                     projectId: fixture.project.project.id,
                     channelId: fixture.channel.id,
                     subjectId: 'user-1',
                     expectedRevision: 5,
                 })
             ).toEqual({ kind: 'deleted' })
-            expect(fixture.store.listChannels(fixture.project.project.id, 'user-1')).toEqual([])
+            expect(await fixture.store.listChannels(fixture.project.project.id, 'user-1')).toEqual(
+                []
+            )
             expect(
-                fixture.store
-                    .listAuditEvents(fixture.project.project.id, 'user-1')
-                    ?.map(event => event.action)
+                (await fixture.store.listAuditEvents(fixture.project.project.id, 'user-1'))?.map(
+                    event => event.action
+                )
             ).toEqual([
                 'channel.deleted',
                 'channel.archived',
@@ -120,15 +118,15 @@ describe('channel lifecycle store', () => {
                 'project.created',
             ])
         } finally {
-            closeDatabase(fixture.database)
+            await closeTestDatabase(fixture.database)
         }
     })
 
-    it('blocks archive on active work and deletion on retained references', () => {
-        const fixture = createFixture()
+    it('blocks archive on active work and deletion on retained references', async () => {
+        const fixture = await createFixture()
 
         try {
-            const created = fixture.store.createPost({
+            const created = await fixture.store.createPost({
                 projectId: fixture.project.project.id,
                 subjectId: 'user-1',
                 sourceContent: {
@@ -146,7 +144,7 @@ describe('channel lifecycle store', () => {
             expect(created?.publications[0]?.state).toBe('scheduled')
 
             expect(
-                fixture.store.archiveChannel({
+                await fixture.store.archiveChannel({
                     projectId: fixture.project.project.id,
                     channelId: fixture.channel.id,
                     subjectId: 'user-1',
@@ -154,32 +152,33 @@ describe('channel lifecycle store', () => {
                 })
             ).toEqual({ kind: 'blocked', blockers: ['active_work'] })
         } finally {
-            closeDatabase(fixture.database)
+            await closeTestDatabase(fixture.database)
         }
     })
 
-    it('blocks deletion while a publisher reference is retained', () => {
-        const fixture = createFixture()
+    it('blocks deletion while a publisher reference is retained', async () => {
+        const fixture = await createFixture()
 
         try {
-            fixture.store.archiveChannel({
+            await fixture.store.archiveChannel({
                 projectId: fixture.project.project.id,
                 channelId: fixture.channel.id,
                 subjectId: 'user-1',
                 expectedRevision: 1,
             })
-            fixture.database
-                .insert(publishers)
-                .values({
-                    id: 'publisher-1',
-                    workspaceId: workspaceOf(fixture.database, fixture.project.project.id),
-                    channelId: fixture.channel.id,
-                    kind: 'manual',
-                })
-                .run()
+            await fixture.database.sql
+                .statement<never, [string, string, string, string]>(
+                    'insert into publishers (id, workspace_id, channel_id, kind) values (?1, ?2, ?3, ?4)'
+                )
+                .run(
+                    'publisher-1',
+                    await workspaceOf(fixture.database, fixture.project.project.id),
+                    fixture.channel.id,
+                    'manual'
+                )
 
             expect(
-                fixture.store.deleteChannel({
+                await fixture.store.deleteChannel({
                     projectId: fixture.project.project.id,
                     channelId: fixture.channel.id,
                     subjectId: 'user-1',
@@ -187,11 +186,11 @@ describe('channel lifecycle store', () => {
                 })
             ).toEqual({ kind: 'blocked', blockers: ['publisher'] })
 
-            fixture.database.$client
-                .query('delete from publishers where id = ?1')
+            await fixture.database.sql
+                .statement('delete from publishers where id = ?1')
                 .run('publisher-1')
             expect(
-                fixture.store.deleteChannel({
+                await fixture.store.deleteChannel({
                     projectId: fixture.project.project.id,
                     channelId: fixture.channel.id,
                     subjectId: 'user-1',
@@ -199,21 +198,21 @@ describe('channel lifecycle store', () => {
                 })
             ).toEqual({ kind: 'deleted' })
         } finally {
-            closeDatabase(fixture.database)
+            await closeTestDatabase(fixture.database)
         }
     })
 
-    it('fails closed on stale revisions and project-scoped access', () => {
-        const fixture = createFixture()
-        const otherProject = fixture.store.createProject({
-            workspaceId: seedTestWorkspace(fixture.database),
+    it('fails closed on stale revisions and project-scoped access', async () => {
+        const fixture = await createFixture()
+        const otherProject = await fixture.store.createProject({
+            workspaceId: await seedTestWorkspace(fixture.database),
             name: 'Other project',
             subjectId: 'user-2',
             displayName: 'Other operator',
         })
 
         try {
-            expect(() =>
+            await expect(
                 fixture.store.renameChannel({
                     projectId: fixture.project.project.id,
                     channelId: fixture.channel.id,
@@ -221,9 +220,9 @@ describe('channel lifecycle store', () => {
                     name: 'Stale rename',
                     expectedRevision: 2,
                 })
-            ).toThrow('changed after revision 2')
+            ).rejects.toThrow('changed after revision 2')
             expect(
-                fixture.store.renameChannel({
+                await fixture.store.renameChannel({
                     projectId: otherProject.project.id,
                     channelId: fixture.channel.id,
                     subjectId: 'user-2',
@@ -232,7 +231,7 @@ describe('channel lifecycle store', () => {
                 })
             ).toBeNull()
         } finally {
-            closeDatabase(fixture.database)
+            await closeTestDatabase(fixture.database)
         }
     })
 })

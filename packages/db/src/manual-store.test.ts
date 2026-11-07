@@ -1,28 +1,22 @@
 import { describe, expect, it } from 'bun:test'
 
 import type { ChannelProfileDefinition, MediaFamily } from '@postdot/core'
-import { eq } from 'drizzle-orm'
 
-import { closeDatabase, createDatabase } from './client'
+import { type DatabaseHandle } from './client'
 import { createManualStore } from './manual-store'
 import type { MediaAssetReference } from './media-asset-store'
-import { runMigrations } from './migrations'
-import {
-    auditEvents,
-    channelProfileVersions,
-    jobs,
-    mediaAssets,
-    mediaRepresentations,
-    posts,
-    publicationApprovalRequests,
-    publicationRevisionMedia,
-    publicationTargetRevisions,
-    publicationWorkingDrafts,
-    publications,
-    publishers,
-} from './schema'
 import { createTaxonomyStore } from './taxonomy-store'
-import { seedTestWorkspace, workspaceOf } from './testing'
+import {
+    closeTestDatabase,
+    dropRejectingTrigger,
+    fromDbRow,
+    insertRow,
+    installRejectingTrigger,
+    openTestDatabase,
+    seedTestWorkspace,
+    type TestRow,
+    workspaceOf,
+} from './testing'
 
 const automaticTestProfile: ChannelProfileDefinition = {
     id: 'future-provider',
@@ -172,13 +166,13 @@ function createReadyMedia(
     }
 }
 
-function createApprovalDraft(
-    database: ReturnType<typeof createDatabase>,
+async function createApprovalDraft(
+    database: DatabaseHandle,
     store: ReturnType<typeof createManualStore>,
     projectId: string,
     suffix: string
 ) {
-    const channel = store.createChannel({
+    const channel = await store.createChannel({
         projectId,
         subjectId: 'user-1',
         name: `Approval Channel ${suffix}`,
@@ -186,17 +180,18 @@ function createApprovalDraft(
     })
     if (channel === null) throw new Error('The approval channel was not created')
 
-    database
-        .insert(publishers)
-        .values({
-            id: `approval-publisher-${suffix}`,
-            workspaceId: workspaceOf(database, projectId),
-            channelId: channel.id,
-            kind: 'future-provider',
-        })
-        .run()
+    await database.sql
+        .statement(
+            'insert into "publishers" ("id", "workspace_id", "channel_id", "kind") values (?1, ?2, ?3, ?4)'
+        )
+        .run(
+            `approval-publisher-${suffix}`,
+            await workspaceOf(database, projectId),
+            channel.id,
+            'future-provider'
+        )
 
-    const created = store.createPost({
+    const created = await store.createPost({
         projectId,
         subjectId: 'user-1',
         sourceContent: sourceContent(`Approval source ${suffix}`),
@@ -213,7 +208,7 @@ function createApprovalDraft(
     return publication
 }
 
-function activateApprovalProfileLimit(
+async function activateApprovalProfileLimit(
     store: ReturnType<typeof createManualStore>,
     projectId: string,
     channelId: string,
@@ -238,7 +233,7 @@ function activateApprovalProfileLimit(
             })),
         },
     }
-    const draft = store.createChannelProfileDraft({
+    const draft = await store.createChannelProfileDraft({
         projectId,
         channelId,
         subjectId: 'user-1',
@@ -254,24 +249,61 @@ function activateApprovalProfileLimit(
     })
 }
 
-function snapshotApprovalState(database: ReturnType<typeof createDatabase>) {
+async function snapshotApprovalState(database: DatabaseHandle) {
     return {
-        publications: database.select().from(publications).all(),
-        drafts: database.select().from(publicationWorkingDrafts).all(),
-        targets: database.select().from(publicationTargetRevisions).all(),
-        requests: database.select().from(publicationApprovalRequests).all(),
-        jobs: database.select().from(jobs).all(),
-        audit: database.select().from(auditEvents).all(),
+        publications: (
+            await database.sql
+                .statement<TestRow>(
+                    'select "publications"."id" as "id", "publications"."project_id" as "projectId", "publications"."post_id" as "postId", "publications"."channel_id" as "channelId", "publications"."confirmed_destination_revision" as "confirmedDestinationRevision", "publications"."target_revision_id" as "targetRevisionId", "publications"."delivery_mode" as "deliveryMode", "publications"."review_state" as "reviewState", "publications"."state" as "state", "publications"."scheduled_at" as "scheduledAt", "publications"."published_at" as "publishedAt", "publications"."external_id" as "externalId", "publications"."external_url" as "externalUrl", "publications"."error_message" as "errorMessage", "publications"."created_by_actor_id" as "createdByActorId", "publications"."scheduled_by_actor_id" as "scheduledByActorId", "publications"."state_changed_by_actor_id" as "stateChangedByActorId", "publications"."published_by_actor_id" as "publishedByActorId", "publications"."last_assessed_profile_version_id" as "lastAssessedProfileVersionId", "publications"."profile_assessment_issues_json" as "profileAssessmentIssuesJson", "publications"."created_at" as "createdAt", "publications"."updated_at" as "updatedAt" from "publications"'
+                )
+                .all()
+        ).map(row => fromDbRow<TestRow>(row, { profileAssessmentIssuesJson: 'json' })),
+        drafts: (
+            await database.sql
+                .statement<TestRow>(
+                    'select "publication_working_drafts"."id" as "id", "publication_working_drafts"."project_id" as "projectId", "publication_working_drafts"."publication_id" as "publicationId", "publication_working_drafts"."profile_version_id" as "profileVersionId", "publication_working_drafts"."source_revision" as "sourceRevision", "publication_working_drafts"."base_source_content" as "baseSourceContent", "publication_working_drafts"."content_json" as "contentJson", "publication_working_drafts"."review_state" as "reviewState", "publication_working_drafts"."validation_issues_json" as "validationIssuesJson", "publication_working_drafts"."last_assessed_profile_version_id" as "lastAssessedProfileVersionId", "publication_working_drafts"."revision" as "revision", "publication_working_drafts"."updated_by_actor_id" as "updatedByActorId", "publication_working_drafts"."created_at" as "createdAt", "publication_working_drafts"."updated_at" as "updatedAt" from "publication_working_drafts"'
+                )
+                .all()
+        ).map(row =>
+            fromDbRow<TestRow>(row, {
+                baseSourceContent: 'json',
+                contentJson: 'json',
+                validationIssuesJson: 'json',
+            })
+        ),
+        targets: (
+            await database.sql
+                .statement<TestRow>(
+                    'select "publication_target_revisions"."id" as "id", "publication_target_revisions"."project_id" as "projectId", "publication_target_revisions"."publication_id" as "publicationId", "publication_target_revisions"."sequence" as "sequence", "publication_target_revisions"."profile_version_id" as "profileVersionId", "publication_target_revisions"."source_revision" as "sourceRevision", "publication_target_revisions"."delivery_mode" as "deliveryMode", "publication_target_revisions"."media_reference_count" as "mediaReferenceCount", "publication_target_revisions"."content_json" as "contentJson", "publication_target_revisions"."content_hash" as "contentHash", "publication_target_revisions"."profile_hash" as "profileHash", "publication_target_revisions"."schema_hash" as "schemaHash", "publication_target_revisions"."validation_issues_json" as "validationIssuesJson", "publication_target_revisions"."created_by_actor_id" as "createdByActorId", "publication_target_revisions"."created_at" as "createdAt" from "publication_target_revisions"'
+                )
+                .all()
+        ).map(row =>
+            fromDbRow<TestRow>(row, { contentJson: 'json', validationIssuesJson: 'json' })
+        ),
+        requests: await database.sql
+            .statement<TestRow>(
+                'select "publication_approval_requests"."id" as "id", "publication_approval_requests"."project_id" as "projectId", "publication_approval_requests"."publication_id" as "publicationId", "publication_approval_requests"."target_revision_id" as "targetRevisionId", "publication_approval_requests"."draft_revision" as "draftRevision", "publication_approval_requests"."proposed_scheduled_at" as "proposedScheduledAt", "publication_approval_requests"."state" as "state", "publication_approval_requests"."requested_by_actor_id" as "requestedByActorId", "publication_approval_requests"."decided_by_actor_id" as "decidedByActorId", "publication_approval_requests"."decided_at" as "decidedAt", "publication_approval_requests"."scheduled_at" as "scheduledAt", "publication_approval_requests"."rejection_reason" as "rejectionReason", "publication_approval_requests"."created_at" as "createdAt", "publication_approval_requests"."updated_at" as "updatedAt" from "publication_approval_requests"'
+            )
+            .all(),
+        jobs: await database.sql
+            .statement<TestRow>(
+                'select "jobs"."id" as "id", "jobs"."project_id" as "projectId", "jobs"."publication_id" as "publicationId", "jobs"."state" as "state", "jobs"."run_at" as "runAt", "jobs"."attempts" as "attempts", "jobs"."claim_token" as "claimToken", "jobs"."claimed_by_actor_id" as "claimedByActorId", "jobs"."claimed_at" as "claimedAt", "jobs"."lease_expires_at" as "leaseExpiresAt", "jobs"."effect_started_at" as "effectStartedAt", "jobs"."started_at" as "startedAt", "jobs"."completed_at" as "completedAt", "jobs"."error_message" as "errorMessage", "jobs"."created_at" as "createdAt", "jobs"."updated_at" as "updatedAt" from "jobs"'
+            )
+            .all(),
+        audit: await database.sql
+            .statement<TestRow>(
+                'select "audit_events"."sequence" as "sequence", "audit_events"."id" as "id", "audit_events"."project_id" as "projectId", "audit_events"."workspace_id" as "workspaceId", "audit_events"."actor_id" as "actorId", "audit_events"."action" as "action", "audit_events"."entity_type" as "entityType", "audit_events"."entity_id" as "entityId", "audit_events"."metadata_json" as "metadataJson", "audit_events"."event_version" as "eventVersion", "audit_events"."correlation_id" as "correlationId", "audit_events"."causation_id" as "causationId", "audit_events"."created_at" as "createdAt" from "audit_events"'
+            )
+            .all(),
     }
 }
 
 describe('manual workflow store', () => {
-    it('creates a project, tracks manual publications, and records attribution', () => {
-        const database = createDatabase(':memory:')
+    it('creates a project, tracks manual publications, and records attribution', async () => {
+        const database = (await openTestDatabase()).database
         const now = 1_800_000_000_000
 
         try {
-            runMigrations(database)
             const store = createManualStore(database, {
                 now: () => now,
                 createId: (() => {
@@ -280,18 +312,18 @@ describe('manual workflow store', () => {
                 })(),
             })
 
-            const createdProject = store.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const createdProject = await store.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'Postdot Launch',
                 subjectId: 'user-1',
                 displayName: 'Postdot Operator',
             })
-            const manualChannel = store.createChannel({
+            const manualChannel = await store.createChannel({
                 projectId: createdProject.project.id,
                 subjectId: 'user-1',
                 name: 'Custom Manual Destination',
             })
-            const secondChannel = store.createChannel({
+            const secondChannel = await store.createChannel({
                 projectId: createdProject.project.id,
                 subjectId: 'user-1',
                 name: 'Secondary Destination',
@@ -300,7 +332,7 @@ describe('manual workflow store', () => {
             expect(manualChannel).not.toBeNull()
             expect(secondChannel).not.toBeNull()
 
-            const createdPost = store.createPost({
+            const createdPost = await store.createPost({
                 projectId: createdProject.project.id,
                 subjectId: 'user-1',
                 title: 'Postdot is ready',
@@ -329,11 +361,15 @@ describe('manual workflow store', () => {
                 'draft',
             ])
             expect(createdPost?.publications[0]?.targetRevisionId).not.toBeNull()
-            expect(store.listProjects('user-1')).toHaveLength(1)
-            expect(store.listProjects('other-user')).toEqual([])
-            expect(store.listChannels(createdProject.project.id, 'other-user')).toBeNull()
+            expect(await store.listProjects('user-1')).toHaveLength(1)
+            expect(await store.listProjects('other-user')).toEqual([])
+            expect(await store.listChannels(createdProject.project.id, 'other-user')).toBeNull()
 
-            const due = store.listDueManualPublications(createdProject.project.id, 'user-1', now)
+            const due = await store.listDueManualPublications(
+                createdProject.project.id,
+                'user-1',
+                now
+            )
             expect(due).toHaveLength(1)
             expect(due?.[0]).toMatchObject({
                 channelName: 'Custom Manual Destination',
@@ -345,7 +381,7 @@ describe('manual workflow store', () => {
                 state: 'scheduled',
             })
 
-            const published = store.publishManualPublication({
+            const published = await store.publishManualPublication({
                 projectId: createdProject.project.id,
                 publicationId: due?.[0]?.id ?? '',
                 subjectId: 'user-1',
@@ -359,12 +395,11 @@ describe('manual workflow store', () => {
                 state: 'published',
             })
             expect(
-                store.listDueManualPublications(createdProject.project.id, 'user-1', now)
+                await store.listDueManualPublications(createdProject.project.id, 'user-1', now)
             ).toEqual([])
 
             expect(
-                store
-                    .listAuditEvents(createdProject.project.id, 'user-1')
+                (await store.listAuditEvents(createdProject.project.id, 'user-1'))
                     ?.map(event => event.action)
                     .sort()
             ).toEqual([
@@ -378,35 +413,34 @@ describe('manual workflow store', () => {
                 'publication.ready',
             ])
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
-    it('filters publication summaries by all selected project-scoped tag IDs', () => {
-        const database = createDatabase(':memory:')
+    it('filters publication summaries by all selected project-scoped tag IDs', async () => {
+        const database = (await openTestDatabase()).database
         const now = 1_800_000_000_000
 
         try {
-            runMigrations(database)
             const store = createManualStore(database, { now: () => now })
             const taxonomy = createTaxonomyStore(database, { now: () => now })
-            const project = store.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const project = await store.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'Queue Filter Project',
                 subjectId: 'user-1',
                 displayName: 'Operator',
             })
-            const firstChannel = store.createChannel({
+            const firstChannel = await store.createChannel({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 name: 'First destination',
             })
-            const secondChannel = store.createChannel({
+            const secondChannel = await store.createChannel({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 name: 'Second destination',
             })
-            const created = store.createPost({
+            const created = await store.createPost({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 title: 'Queue filter source',
@@ -427,47 +461,47 @@ describe('manual workflow store', () => {
             expect(firstPublication).toBeDefined()
             expect(secondPublication).toBeDefined()
 
-            const alpha = taxonomy.createTag({
+            const alpha = await taxonomy.createTag({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 name: 'Alpha',
             })
-            const beta = taxonomy.createTag({
+            const beta = await taxonomy.createTag({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 name: 'Beta',
             })
             expect(alpha).not.toBeNull()
             expect(beta).not.toBeNull()
-            taxonomy.replacePublicationTags({
+            await taxonomy.replacePublicationTags({
                 projectId: project.project.id,
                 publicationId: firstPublication?.id ?? '',
                 subjectId: 'user-1',
                 tagIds: [beta?.id ?? '', alpha?.id ?? ''],
             })
-            taxonomy.replacePublicationTags({
+            await taxonomy.replacePublicationTags({
                 projectId: project.project.id,
                 publicationId: secondPublication?.id ?? '',
                 subjectId: 'user-1',
                 tagIds: [alpha?.id ?? ''],
             })
 
-            const otherProject = store.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const otherProject = await store.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'Other Queue Filter Project',
                 subjectId: 'user-1',
                 displayName: 'Operator',
             })
-            const foreignTag = taxonomy.createTag({
+            const foreignTag = await taxonomy.createTag({
                 projectId: otherProject.project.id,
                 subjectId: 'user-1',
                 name: 'Foreign',
             })
 
             expect(
-                store
-                    .listPublicationSummaries(project.project.id, 'user-1')
-                    ?.map(publication => ({ id: publication.id, tagIds: publication.tagIds }))
+                (await store.listPublicationSummaries(project.project.id, 'user-1'))?.map(
+                    publication => ({ id: publication.id, tagIds: publication.tagIds })
+                )
             ).toEqual(
                 expect.arrayContaining([
                     { id: firstPublication?.id, tagIds: [alpha?.id, beta?.id] },
@@ -475,46 +509,49 @@ describe('manual workflow store', () => {
                 ])
             )
             expect(
-                store
-                    .listPublicationSummaries(project.project.id, 'user-1', {
+                (
+                    await store.listPublicationSummaries(project.project.id, 'user-1', {
                         tagIds: [beta?.id ?? '', alpha?.id ?? ''],
                     })
-                    ?.map(publication => publication.id)
+                )?.map(publication => publication.id)
             ).toEqual([firstPublication?.id ?? ''])
             expect(
-                store.listPublicationSummaryPage(project.project.id, 'user-1', {
-                    filter: { tagIds: [beta?.id ?? '', alpha?.id ?? ''] },
-                })?.summary
+                (
+                    await store.listPublicationSummaryPage(project.project.id, 'user-1', {
+                        filter: { tagIds: [beta?.id ?? '', alpha?.id ?? ''] },
+                    })
+                )?.summary
             ).toEqual({ total: 1, manual: 1, automatic: 0, scheduled: 0, draft: 1 })
             expect(
-                store.listPublicationSummaries(project.project.id, 'user-1', {
+                await store.listPublicationSummaries(project.project.id, 'user-1', {
                     tagIds: [foreignTag?.id ?? ''],
                 })
             ).toEqual([])
             expect(
-                store.listPublicationSummaryPage(project.project.id, 'user-1', {
-                    filter: { tagIds: [foreignTag?.id ?? ''] },
-                })?.summary
+                (
+                    await store.listPublicationSummaryPage(project.project.id, 'user-1', {
+                        filter: { tagIds: [foreignTag?.id ?? ''] },
+                    })
+                )?.summary
             ).toEqual({ total: 0, manual: 0, automatic: 0, scheduled: 0, draft: 0 })
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
-    it('pages publication summaries without dropping the tail and supports scheduled ranges', () => {
-        const database = createDatabase(':memory:')
+    it('pages publication summaries without dropping the tail and supports scheduled ranges', async () => {
+        const database = (await openTestDatabase()).database
         const now = 1_800_000_000_000
 
         try {
-            runMigrations(database)
             const store = createManualStore(database, { now: () => now })
-            const project = store.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const project = await store.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'Publication Pagination Project',
                 subjectId: 'user-1',
                 displayName: 'Operator',
             })
-            const channel = store.createChannel({
+            const channel = await store.createChannel({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 name: 'Pagination destination',
@@ -523,7 +560,7 @@ describe('manual workflow store', () => {
             if (channel === null) throw new Error('The pagination channel was not created')
 
             for (let index = 0; index < 100; index += 1) {
-                store.createPost({
+                await store.createPost({
                     projectId: project.project.id,
                     subjectId: 'user-1',
                     title: `Scheduled ${index}`,
@@ -537,7 +574,7 @@ describe('manual workflow store', () => {
                     ],
                 })
             }
-            const unscheduled = store.createPost({
+            const unscheduled = await store.createPost({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 title: 'Unscheduled tail',
@@ -548,7 +585,7 @@ describe('manual workflow store', () => {
                     },
                 ],
             })
-            const firstPage = store.listPublicationSummaryPage(project.project.id, 'user-1', {
+            const firstPage = await store.listPublicationSummaryPage(project.project.id, 'user-1', {
                 limit: 100,
             })
             expect(firstPage?.publications).toHaveLength(100)
@@ -561,18 +598,24 @@ describe('manual workflow store', () => {
                 draft: 1,
             })
 
-            const secondPage = store.listPublicationSummaryPage(project.project.id, 'user-1', {
-                cursor: firstPage?.nextCursor,
-                limit: 100,
-            })
+            const secondPage = await store.listPublicationSummaryPage(
+                project.project.id,
+                'user-1',
+                {
+                    cursor: firstPage?.nextCursor,
+                    limit: 100,
+                }
+            )
             expect(secondPage?.publications.map(publication => publication.id)).toEqual([
                 unscheduled?.publications[0]?.id ?? '',
             ])
             expect(secondPage?.nextCursor).toBeNull()
             expect(secondPage?.summary).toEqual(firstPage?.summary)
-            expect(store.listPublicationSummaries(project.project.id, 'user-1')).toHaveLength(101)
+            expect(await store.listPublicationSummaries(project.project.id, 'user-1')).toHaveLength(
+                101
+            )
 
-            const range = store.listPublicationSummaryPage(project.project.id, 'user-1', {
+            const range = await store.listPublicationSummaryPage(project.project.id, 'user-1', {
                 from: now + 10 * 60_000,
                 to: now + 11 * 60_000,
                 limit: 1,
@@ -589,7 +632,7 @@ describe('manual workflow store', () => {
                 draft: 0,
             })
 
-            const drafts = store.listPublicationSummaryPage(project.project.id, 'user-1', {
+            const drafts = await store.listPublicationSummaryPage(project.project.id, 'user-1', {
                 state: 'draft',
                 sort: 'updated_desc',
             })
@@ -598,55 +641,54 @@ describe('manual workflow store', () => {
             ])
             expect(drafts?.summary.draft).toBe(1)
 
-            const soonest = store.listPublicationSummaryPage(project.project.id, 'user-1', {
+            const soonest = await store.listPublicationSummaryPage(project.project.id, 'user-1', {
                 limit: 1,
                 sort: 'scheduled_asc',
             })
             expect(soonest?.publications[0]?.postTitle).toBe('Scheduled 0')
-            const latest = store.listPublicationSummaryPage(project.project.id, 'user-1', {
+            const latest = await store.listPublicationSummaryPage(project.project.id, 'user-1', {
                 limit: 1,
                 sort: 'scheduled_desc',
             })
             expect(latest?.publications[0]?.postTitle).toBe('Scheduled 99')
 
-            expect(() =>
+            await expect(
                 store.listPublicationSummaryPage(project.project.id, 'user-1', {
                     cursor: 'publication-v1:invalid',
                 })
-            ).toThrow('publication cursor is invalid')
-            expect(() =>
+            ).rejects.toThrow('publication cursor is invalid')
+            await expect(
                 store.listPublicationSummaryPage(project.project.id, 'user-1', {
                     from: now + 1,
                     to: now,
                 })
-            ).toThrow('publication list range')
+            ).rejects.toThrow('publication list range')
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
-    it('rolls back publication outcomes when their audit persistence fails', () => {
-        const database = createDatabase(':memory:')
+    it('rolls back publication outcomes when their audit persistence fails', async () => {
+        const database = (await openTestDatabase()).database
         const now = 1_800_000_000_000
         let triggerInstalled = false
 
         try {
-            runMigrations(database)
             const store = createManualStore(database, { now: () => now })
-            const project = store.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const project = await store.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'Outcome Rollback Project',
                 subjectId: 'user-1',
                 displayName: 'Operator',
             })
-            const channel = store.createChannel({
+            const channel = await store.createChannel({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 name: 'Manual Channel',
             })
             if (channel === null) throw new Error('The outcome rollback channel was not created')
 
-            const manualPublication = store.createPost({
+            const manualPublication = await store.createPost({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 sourceContent: sourceContent('The manual publication must remain due'),
@@ -656,44 +698,40 @@ describe('manual workflow store', () => {
             if (manualPublicationId === undefined)
                 throw new Error('The manual outcome publication is missing')
 
-            database.$client.run(`
-                create temp trigger fail_publication_outcome_audit
-                before insert on audit_events
-                when NEW.action in ('publication.ready', 'publication.reconciled')
-                begin
-                    select raise(abort, 'forced publication outcome failure');
-                end
-            `)
+            await installRejectingTrigger(database, {
+                name: 'fail_publication_outcome_audit',
+                table: 'audit_events',
+                timing: 'before',
+                event: 'insert',
+                when: "NEW.action in ('publication.ready', 'publication.reconciled')",
+                message: 'forced publication outcome failure',
+            })
             triggerInstalled = true
 
-            expect(() =>
+            await expect(
                 store.publishManualPublication({
                     projectId: project.project.id,
                     publicationId: manualPublicationId,
                     subjectId: 'user-1',
                     externalId: 'manual-outcome-1',
                 })
-            ).toThrow('forced publication outcome failure')
+            ).rejects.toThrow('forced publication outcome failure')
             expect(
-                database
-                    .select({
-                        state: publications.state,
-                        publishedAt: publications.publishedAt,
-                        externalId: publications.externalId,
-                    })
-                    .from(publications)
-                    .where(eq(publications.id, manualPublicationId))
-                    .all()
+                await database.sql
+                    .statement<TestRow>(
+                        'select "publications"."state" as "state", "publications"."published_at" as "publishedAt", "publications"."external_id" as "externalId" from "publications" where "publications"."id" = ?1'
+                    )
+                    .all(manualPublicationId)
             ).toEqual([{ state: 'scheduled', publishedAt: null, externalId: null }])
             expect(
-                database
-                    .select()
-                    .from(auditEvents)
-                    .where(eq(auditEvents.action, 'publication.ready'))
-                    .all()
+                await database.sql
+                    .statement<TestRow>(
+                        'select "audit_events"."sequence" as "sequence", "audit_events"."id" as "id", "audit_events"."project_id" as "projectId", "audit_events"."workspace_id" as "workspaceId", "audit_events"."actor_id" as "actorId", "audit_events"."action" as "action", "audit_events"."entity_type" as "entityType", "audit_events"."entity_id" as "entityId", "audit_events"."metadata_json" as "metadataJson", "audit_events"."event_version" as "eventVersion", "audit_events"."correlation_id" as "correlationId", "audit_events"."causation_id" as "causationId", "audit_events"."created_at" as "createdAt" from "audit_events" where "audit_events"."action" = ?1'
+                    )
+                    .all('publication.ready')
             ).toHaveLength(0)
 
-            const ambiguousPublication = store.createPost({
+            const ambiguousPublication = await store.createPost({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 sourceContent: sourceContent('The ambiguous publication must remain unresolved'),
@@ -702,13 +740,13 @@ describe('manual workflow store', () => {
             const ambiguousPublicationId = ambiguousPublication?.publications[0]?.id
             if (ambiguousPublicationId === undefined)
                 throw new Error('The ambiguous outcome publication is missing')
-            database
-                .update(publications)
-                .set({ state: 'ambiguous', errorMessage: 'The provider response was lost' })
-                .where(eq(publications.id, ambiguousPublicationId))
-                .run()
+            await database.sql
+                .statement(
+                    'update "publications" set "state" = ?1, "error_message" = ?2 where "publications"."id" = ?3'
+                )
+                .run('ambiguous', 'The provider response was lost', ambiguousPublicationId)
 
-            expect(() =>
+            await expect(
                 store.reconcileAmbiguousPublication({
                     projectId: project.project.id,
                     publicationId: ambiguousPublicationId,
@@ -716,17 +754,13 @@ describe('manual workflow store', () => {
                     resolution: 'published',
                     externalId: 'ambiguous-outcome-1',
                 })
-            ).toThrow('forced publication outcome failure')
+            ).rejects.toThrow('forced publication outcome failure')
             expect(
-                database
-                    .select({
-                        state: publications.state,
-                        errorMessage: publications.errorMessage,
-                        externalId: publications.externalId,
-                    })
-                    .from(publications)
-                    .where(eq(publications.id, ambiguousPublicationId))
-                    .all()
+                await database.sql
+                    .statement<TestRow>(
+                        'select "publications"."state" as "state", "publications"."error_message" as "errorMessage", "publications"."external_id" as "externalId" from "publications" where "publications"."id" = ?1'
+                    )
+                    .all(ambiguousPublicationId)
             ).toEqual([
                 {
                     state: 'ambiguous',
@@ -735,77 +769,77 @@ describe('manual workflow store', () => {
                 },
             ])
             expect(
-                database
-                    .select()
-                    .from(auditEvents)
-                    .where(eq(auditEvents.action, 'publication.reconciled'))
-                    .all()
+                await database.sql
+                    .statement<TestRow>(
+                        'select "audit_events"."sequence" as "sequence", "audit_events"."id" as "id", "audit_events"."project_id" as "projectId", "audit_events"."workspace_id" as "workspaceId", "audit_events"."actor_id" as "actorId", "audit_events"."action" as "action", "audit_events"."entity_type" as "entityType", "audit_events"."entity_id" as "entityId", "audit_events"."metadata_json" as "metadataJson", "audit_events"."event_version" as "eventVersion", "audit_events"."correlation_id" as "correlationId", "audit_events"."causation_id" as "causationId", "audit_events"."created_at" as "createdAt" from "audit_events" where "audit_events"."action" = ?1'
+                    )
+                    .all('publication.reconciled')
             ).toHaveLength(0)
         } finally {
             if (triggerInstalled)
-                database.$client.run('drop trigger fail_publication_outcome_audit')
-            closeDatabase(database)
+                await dropRejectingTrigger(database, 'fail_publication_outcome_audit')
+            await closeTestDatabase(database)
         }
     })
 
-    it('rolls back an invalid post instead of leaving partial records', () => {
-        const database = createDatabase(':memory:')
+    it('rolls back an invalid post instead of leaving partial records', async () => {
+        const database = (await openTestDatabase()).database
 
         try {
-            runMigrations(database)
             const store = createManualStore(database, { now: () => 1_800_000_000_000 })
-            const project = store.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const project = await store.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'Rollback Project',
                 subjectId: 'user-1',
                 displayName: 'Operator',
             })
 
-            expect(() =>
+            await expect(
                 store.createPost({
                     projectId: project.project.id,
                     subjectId: 'user-1',
                     sourceContent: sourceContent('This must not persist'),
                     publications: [{ channelId: 'missing-channel' }],
                 })
-            ).toThrow('does not belong to project')
-            expect(database.$client.query('select count(*) as count from posts').get()).toEqual({
+            ).rejects.toThrow('does not belong to project')
+            expect(
+                await database.sql.statement('select count(*) as count from posts').get()
+            ).toEqual({
                 count: 0,
             })
             expect(
-                database.$client.query('select count(*) as count from audit_events').get()
+                await database.sql.statement('select count(*) as count from audit_events').get()
             ).toEqual({
                 count: 1,
             })
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
-    it('rolls back all creation records when a late persistence effect fails', () => {
-        const database = createDatabase(':memory:')
+    it('rolls back all creation records when a late persistence effect fails', async () => {
+        const database = (await openTestDatabase()).database
         const now = 1_800_000_000_000
         let triggerInstalled = false
 
         try {
-            runMigrations(database)
             const media = {
-                getAsset(
+                async getAsset(
                     currentProjectId: string,
                     assetId: string,
                     _subjectId: string
-                ): MediaAssetReference | null {
+                ): Promise<MediaAssetReference | null> {
                     return assetId === 'asset-1' ? createReadyMedia(currentProjectId, now) : null
                 },
             }
             const store = createManualStore(database, { now: () => now, media })
-            const project = store.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const project = await store.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'Creation Rollback Project',
                 subjectId: 'user-1',
                 displayName: 'Operator',
             })
-            const channel = store.createChannel({
+            const channel = await store.createChannel({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 name: 'Automatic Media Channel',
@@ -814,36 +848,37 @@ describe('manual workflow store', () => {
             if (channel === null) throw new Error('The creation rollback channel was not created')
 
             const readyMedia = createReadyMedia(project.project.id, now, project.actor.id)
-            database.insert(mediaAssets).values(readyMedia.asset).run()
+            await insertRow(database, 'media_assets', readyMedia.asset)
             const readyRepresentation = readyMedia.representations[0]
             if (readyRepresentation === undefined) {
                 throw new Error('The creation rollback media representation is missing')
             }
-            database
-                .insert(mediaRepresentations)
-                .values({ ...readyRepresentation, recipeJson: null })
-                .run()
-            database
-                .insert(publishers)
-                .values({
-                    id: 'creation-rollback-publisher',
-                    workspaceId: workspaceOf(database, project.project.id),
-                    channelId: channel.id,
-                    kind: 'media-provider',
-                })
-                .run()
+            await insertRow(database, 'media_representations', {
+                ...readyRepresentation,
+                recipeJson: null,
+            })
+            await database.sql
+                .statement(
+                    'insert into "publishers" ("id", "workspace_id", "channel_id", "kind") values (?1, ?2, ?3, ?4)'
+                )
+                .run(
+                    'creation-rollback-publisher',
+                    await workspaceOf(database, project.project.id),
+                    channel.id,
+                    'media-provider'
+                )
 
-            database.$client.run(`
-                create temp trigger fail_publication_creation_audit
-                before insert on audit_events
-                when NEW.action = 'publication.created'
-                begin
-                    select raise(abort, 'forced publication creation failure');
-                end
-            `)
+            await installRejectingTrigger(database, {
+                name: 'fail_publication_creation_audit',
+                table: 'audit_events',
+                timing: 'before',
+                event: 'insert',
+                when: "NEW.action = 'publication.created'",
+                message: 'forced publication creation failure',
+            })
             triggerInstalled = true
 
-            expect(() =>
+            await expect(
                 store.createPost({
                     projectId: project.project.id,
                     subjectId: 'user-1',
@@ -863,65 +898,117 @@ describe('manual workflow store', () => {
                         },
                     ],
                 })
-            ).toThrow('forced publication creation failure')
+            ).rejects.toThrow('forced publication creation failure')
 
-            expect(database.select().from(posts).all()).toHaveLength(0)
-            expect(database.select().from(publications).all()).toHaveLength(0)
-            expect(database.select().from(publicationWorkingDrafts).all()).toHaveLength(0)
-            expect(database.select().from(publicationTargetRevisions).all()).toHaveLength(0)
-            expect(database.select().from(publicationRevisionMedia).all()).toHaveLength(0)
-            expect(database.select().from(jobs).all()).toHaveLength(0)
             expect(
-                database
-                    .select()
-                    .from(auditEvents)
-                    .where(eq(auditEvents.action, 'post.created'))
+                (
+                    await database.sql
+                        .statement<TestRow>(
+                            'select "posts"."id" as "id", "posts"."project_id" as "projectId", "posts"."title" as "title", "posts"."source_content" as "sourceContent", "posts"."source_revision" as "sourceRevision", "posts"."created_by_actor_id" as "createdByActorId", "posts"."created_at" as "createdAt", "posts"."updated_at" as "updatedAt" from "posts"'
+                        )
+                        .all()
+                ).map(row => fromDbRow<TestRow>(row, { sourceContent: 'json' }))
+            ).toHaveLength(0)
+            expect(
+                (
+                    await database.sql
+                        .statement<TestRow>(
+                            'select "publications"."id" as "id", "publications"."project_id" as "projectId", "publications"."post_id" as "postId", "publications"."channel_id" as "channelId", "publications"."confirmed_destination_revision" as "confirmedDestinationRevision", "publications"."target_revision_id" as "targetRevisionId", "publications"."delivery_mode" as "deliveryMode", "publications"."review_state" as "reviewState", "publications"."state" as "state", "publications"."scheduled_at" as "scheduledAt", "publications"."published_at" as "publishedAt", "publications"."external_id" as "externalId", "publications"."external_url" as "externalUrl", "publications"."error_message" as "errorMessage", "publications"."created_by_actor_id" as "createdByActorId", "publications"."scheduled_by_actor_id" as "scheduledByActorId", "publications"."state_changed_by_actor_id" as "stateChangedByActorId", "publications"."published_by_actor_id" as "publishedByActorId", "publications"."last_assessed_profile_version_id" as "lastAssessedProfileVersionId", "publications"."profile_assessment_issues_json" as "profileAssessmentIssuesJson", "publications"."created_at" as "createdAt", "publications"."updated_at" as "updatedAt" from "publications"'
+                        )
+                        .all()
+                ).map(row => fromDbRow<TestRow>(row, { profileAssessmentIssuesJson: 'json' }))
+            ).toHaveLength(0)
+            expect(
+                (
+                    await database.sql
+                        .statement<TestRow>(
+                            'select "publication_working_drafts"."id" as "id", "publication_working_drafts"."project_id" as "projectId", "publication_working_drafts"."publication_id" as "publicationId", "publication_working_drafts"."profile_version_id" as "profileVersionId", "publication_working_drafts"."source_revision" as "sourceRevision", "publication_working_drafts"."base_source_content" as "baseSourceContent", "publication_working_drafts"."content_json" as "contentJson", "publication_working_drafts"."review_state" as "reviewState", "publication_working_drafts"."validation_issues_json" as "validationIssuesJson", "publication_working_drafts"."last_assessed_profile_version_id" as "lastAssessedProfileVersionId", "publication_working_drafts"."revision" as "revision", "publication_working_drafts"."updated_by_actor_id" as "updatedByActorId", "publication_working_drafts"."created_at" as "createdAt", "publication_working_drafts"."updated_at" as "updatedAt" from "publication_working_drafts"'
+                        )
+                        .all()
+                ).map(row =>
+                    fromDbRow<TestRow>(row, {
+                        baseSourceContent: 'json',
+                        contentJson: 'json',
+                        validationIssuesJson: 'json',
+                    })
+                )
+            ).toHaveLength(0)
+            expect(
+                (
+                    await database.sql
+                        .statement<TestRow>(
+                            'select "publication_target_revisions"."id" as "id", "publication_target_revisions"."project_id" as "projectId", "publication_target_revisions"."publication_id" as "publicationId", "publication_target_revisions"."sequence" as "sequence", "publication_target_revisions"."profile_version_id" as "profileVersionId", "publication_target_revisions"."source_revision" as "sourceRevision", "publication_target_revisions"."delivery_mode" as "deliveryMode", "publication_target_revisions"."media_reference_count" as "mediaReferenceCount", "publication_target_revisions"."content_json" as "contentJson", "publication_target_revisions"."content_hash" as "contentHash", "publication_target_revisions"."profile_hash" as "profileHash", "publication_target_revisions"."schema_hash" as "schemaHash", "publication_target_revisions"."validation_issues_json" as "validationIssuesJson", "publication_target_revisions"."created_by_actor_id" as "createdByActorId", "publication_target_revisions"."created_at" as "createdAt" from "publication_target_revisions"'
+                        )
+                        .all()
+                ).map(row =>
+                    fromDbRow<TestRow>(row, { contentJson: 'json', validationIssuesJson: 'json' })
+                )
+            ).toHaveLength(0)
+            expect(
+                await database.sql
+                    .statement<TestRow>(
+                        'select "publication_revision_media"."id" as "id", "publication_revision_media"."project_id" as "projectId", "publication_revision_media"."target_revision_id" as "targetRevisionId", "publication_revision_media"."asset_id" as "assetId", "publication_revision_media"."representation_id" as "representationId", "publication_revision_media"."position" as "position", "publication_revision_media"."content_path" as "contentPath", "publication_revision_media"."role" as "role", "publication_revision_media"."accessibility_text" as "accessibilityText", "publication_revision_media"."created_at" as "createdAt" from "publication_revision_media"'
+                    )
                     .all()
             ).toHaveLength(0)
             expect(
-                database
-                    .select()
-                    .from(auditEvents)
-                    .where(eq(auditEvents.action, 'publication.created'))
+                await database.sql
+                    .statement<TestRow>(
+                        'select "jobs"."id" as "id", "jobs"."project_id" as "projectId", "jobs"."publication_id" as "publicationId", "jobs"."state" as "state", "jobs"."run_at" as "runAt", "jobs"."attempts" as "attempts", "jobs"."claim_token" as "claimToken", "jobs"."claimed_by_actor_id" as "claimedByActorId", "jobs"."claimed_at" as "claimedAt", "jobs"."lease_expires_at" as "leaseExpiresAt", "jobs"."effect_started_at" as "effectStartedAt", "jobs"."started_at" as "startedAt", "jobs"."completed_at" as "completedAt", "jobs"."error_message" as "errorMessage", "jobs"."created_at" as "createdAt", "jobs"."updated_at" as "updatedAt" from "jobs"'
+                    )
                     .all()
+            ).toHaveLength(0)
+            expect(
+                await database.sql
+                    .statement<TestRow>(
+                        'select "audit_events"."sequence" as "sequence", "audit_events"."id" as "id", "audit_events"."project_id" as "projectId", "audit_events"."workspace_id" as "workspaceId", "audit_events"."actor_id" as "actorId", "audit_events"."action" as "action", "audit_events"."entity_type" as "entityType", "audit_events"."entity_id" as "entityId", "audit_events"."metadata_json" as "metadataJson", "audit_events"."event_version" as "eventVersion", "audit_events"."correlation_id" as "correlationId", "audit_events"."causation_id" as "causationId", "audit_events"."created_at" as "createdAt" from "audit_events" where "audit_events"."action" = ?1'
+                    )
+                    .all('post.created')
+            ).toHaveLength(0)
+            expect(
+                await database.sql
+                    .statement<TestRow>(
+                        'select "audit_events"."sequence" as "sequence", "audit_events"."id" as "id", "audit_events"."project_id" as "projectId", "audit_events"."workspace_id" as "workspaceId", "audit_events"."actor_id" as "actorId", "audit_events"."action" as "action", "audit_events"."entity_type" as "entityType", "audit_events"."entity_id" as "entityId", "audit_events"."metadata_json" as "metadataJson", "audit_events"."event_version" as "eventVersion", "audit_events"."correlation_id" as "correlationId", "audit_events"."causation_id" as "causationId", "audit_events"."created_at" as "createdAt" from "audit_events" where "audit_events"."action" = ?1'
+                    )
+                    .all('publication.created')
             ).toHaveLength(0)
         } finally {
             if (triggerInstalled)
-                database.$client.run('drop trigger fail_publication_creation_audit')
-            closeDatabase(database)
+                await dropRejectingTrigger(database, 'fail_publication_creation_audit')
+            await closeTestDatabase(database)
         }
     })
 
-    it('creates durable work for an automated channel', () => {
-        const database = createDatabase(':memory:')
+    it('creates durable work for an automated channel', async () => {
+        const database = (await openTestDatabase()).database
 
         try {
-            runMigrations(database)
             const store = createManualStore(database, { now: () => 1_800_000_000_000 })
-            const project = store.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const project = await store.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'Automatic Project',
                 subjectId: 'user-1',
                 displayName: 'Operator',
             })
-            const channel = store.createChannel({
+            const channel = await store.createChannel({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 name: 'Automatic Channel',
                 profile: automaticTestProfile,
             })
 
-            database
-                .insert(publishers)
-                .values({
-                    id: 'publisher-1',
-                    workspaceId: workspaceOf(database, project.project.id),
-                    channelId: channel?.id ?? '',
-                    kind: 'future-provider',
-                })
-                .run()
+            await database.sql
+                .statement(
+                    'insert into "publishers" ("id", "workspace_id", "channel_id", "kind") values (?1, ?2, ?3, ?4)'
+                )
+                .run(
+                    'publisher-1',
+                    await workspaceOf(database, project.project.id),
+                    channel?.id ?? '',
+                    'future-provider'
+                )
 
-            const created = store.createPost({
+            const created = await store.createPost({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 sourceContent: sourceContent('This belongs to PUB-09'),
@@ -934,26 +1021,31 @@ describe('manual workflow store', () => {
                 ],
             })
             expect(created?.publications[0]?.state).toBe('scheduled')
-            expect(database.select().from(jobs).all()).toHaveLength(1)
+            expect(
+                await database.sql
+                    .statement<TestRow>(
+                        'select "jobs"."id" as "id", "jobs"."project_id" as "projectId", "jobs"."publication_id" as "publicationId", "jobs"."state" as "state", "jobs"."run_at" as "runAt", "jobs"."attempts" as "attempts", "jobs"."claim_token" as "claimToken", "jobs"."claimed_by_actor_id" as "claimedByActorId", "jobs"."claimed_at" as "claimedAt", "jobs"."lease_expires_at" as "leaseExpiresAt", "jobs"."effect_started_at" as "effectStartedAt", "jobs"."started_at" as "startedAt", "jobs"."completed_at" as "completedAt", "jobs"."error_message" as "errorMessage", "jobs"."created_at" as "createdAt", "jobs"."updated_at" as "updatedAt" from "jobs"'
+                    )
+                    .all()
+            ).toHaveLength(1)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
-    it('requeues a failed automatic publication without changing its target', () => {
-        const database = createDatabase(':memory:')
+    it('requeues a failed automatic publication without changing its target', async () => {
+        const database = (await openTestDatabase()).database
         const now = 1_800_000_000_000
 
         try {
-            runMigrations(database)
             const store = createManualStore(database, { now: () => now })
-            const project = store.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const project = await store.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'Retry Project',
                 subjectId: 'user-1',
                 displayName: 'Operator',
             })
-            const channel = store.createChannel({
+            const channel = await store.createChannel({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 name: 'Automatic Channel',
@@ -961,17 +1053,18 @@ describe('manual workflow store', () => {
             })
             if (channel === null) throw new Error('The retry test channel was not created')
 
-            database
-                .insert(publishers)
-                .values({
-                    id: 'retry-publisher',
-                    workspaceId: workspaceOf(database, project.project.id),
-                    channelId: channel.id,
-                    kind: 'future-provider',
-                })
-                .run()
+            await database.sql
+                .statement(
+                    'insert into "publishers" ("id", "workspace_id", "channel_id", "kind") values (?1, ?2, ?3, ?4)'
+                )
+                .run(
+                    'retry-publisher',
+                    await workspaceOf(database, project.project.id),
+                    channel.id,
+                    'future-provider'
+                )
 
-            const created = store.createPost({
+            const created = await store.createPost({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 sourceContent: sourceContent('Retry this publication'),
@@ -985,38 +1078,36 @@ describe('manual workflow store', () => {
             })
             if (created === null) throw new Error('The retry test post was not created')
             const publication = created.publications[0]
-            const job = database.select().from(jobs).all()[0]
+            const job = (
+                await database.sql
+                    .statement<TestRow>(
+                        'select "jobs"."id" as "id", "jobs"."project_id" as "projectId", "jobs"."publication_id" as "publicationId", "jobs"."state" as "state", "jobs"."run_at" as "runAt", "jobs"."attempts" as "attempts", "jobs"."claim_token" as "claimToken", "jobs"."claimed_by_actor_id" as "claimedByActorId", "jobs"."claimed_at" as "claimedAt", "jobs"."lease_expires_at" as "leaseExpiresAt", "jobs"."effect_started_at" as "effectStartedAt", "jobs"."started_at" as "startedAt", "jobs"."completed_at" as "completedAt", "jobs"."error_message" as "errorMessage", "jobs"."created_at" as "createdAt", "jobs"."updated_at" as "updatedAt" from "jobs"'
+                    )
+                    .all()
+            )[0]
             if (publication === undefined || publication.targetRevisionId === null) {
                 throw new Error('The retry test publication is missing its target')
             }
             if (job === undefined) throw new Error('The retry test job is missing')
 
-            database
-                .update(publications)
-                .set({
-                    state: 'failed',
-                    errorMessage: 'Provider rejected the payload',
-                    stateChangedByActorId: project.actor.id,
-                    updatedAt: now,
-                })
-                .where(eq(publications.id, publication.id))
-                .run()
-            database
-                .update(jobs)
-                .set({
-                    state: 'failed',
-                    attempts: 2,
-                    claimedAt: now,
-                    effectStartedAt: now,
-                    startedAt: now,
-                    completedAt: now,
-                    errorMessage: 'Provider rejected the payload',
-                    updatedAt: now,
-                })
-                .where(eq(jobs.id, job.id))
-                .run()
+            await database.sql
+                .statement(
+                    'update "publications" set "state" = ?1, "error_message" = ?2, "state_changed_by_actor_id" = ?3, "updated_at" = ?4 where "publications"."id" = ?5'
+                )
+                .run(
+                    'failed',
+                    'Provider rejected the payload',
+                    project.actor.id,
+                    now,
+                    publication.id
+                )
+            await database.sql
+                .statement(
+                    'update "jobs" set "state" = ?1, "attempts" = ?2, "claimed_at" = ?3, "effect_started_at" = ?4, "started_at" = ?5, "completed_at" = ?6, "error_message" = ?7, "updated_at" = ?8 where "jobs"."id" = ?9'
+                )
+                .run('failed', 2, now, now, now, now, 'Provider rejected the payload', now, job.id)
 
-            const retried = store.retryFailedPublication({
+            const retried = await store.retryFailedPublication({
                 projectId: project.project.id,
                 publicationId: publication.id,
                 subjectId: 'user-1',
@@ -1030,7 +1121,13 @@ describe('manual workflow store', () => {
                     targetRevisionId: publication.targetRevisionId,
                 },
             })
-            expect(database.select().from(jobs).all()).toMatchObject([
+            expect(
+                await database.sql
+                    .statement<TestRow>(
+                        'select "jobs"."id" as "id", "jobs"."project_id" as "projectId", "jobs"."publication_id" as "publicationId", "jobs"."state" as "state", "jobs"."run_at" as "runAt", "jobs"."attempts" as "attempts", "jobs"."claim_token" as "claimToken", "jobs"."claimed_by_actor_id" as "claimedByActorId", "jobs"."claimed_at" as "claimedAt", "jobs"."lease_expires_at" as "leaseExpiresAt", "jobs"."effect_started_at" as "effectStartedAt", "jobs"."started_at" as "startedAt", "jobs"."completed_at" as "completedAt", "jobs"."error_message" as "errorMessage", "jobs"."created_at" as "createdAt", "jobs"."updated_at" as "updatedAt" from "jobs"'
+                    )
+                    .all()
+            ).toMatchObject([
                 {
                     id: job.id,
                     state: 'pending',
@@ -1046,11 +1143,13 @@ describe('manual workflow store', () => {
                     errorMessage: null,
                 },
             ])
-            const retryEvent = database
-                .select()
-                .from(auditEvents)
-                .all()
-                .find(event => event.action === 'publication.retry_requested')
+            const retryEvent = (
+                await database.sql
+                    .statement<TestRow>(
+                        'select "audit_events"."sequence" as "sequence", "audit_events"."id" as "id", "audit_events"."project_id" as "projectId", "audit_events"."workspace_id" as "workspaceId", "audit_events"."actor_id" as "actorId", "audit_events"."action" as "action", "audit_events"."entity_type" as "entityType", "audit_events"."entity_id" as "entityId", "audit_events"."metadata_json" as "metadataJson", "audit_events"."event_version" as "eventVersion", "audit_events"."correlation_id" as "correlationId", "audit_events"."causation_id" as "causationId", "audit_events"."created_at" as "createdAt" from "audit_events"'
+                    )
+                    .all()
+            ).find(event => event.action === 'publication.retry_requested')
             expect(retryEvent).toMatchObject({
                 entityId: publication.id,
                 actorId: project.actor.id,
@@ -1067,43 +1166,42 @@ describe('manual workflow store', () => {
             )
 
             expect(
-                store.retryFailedPublication({
+                await store.retryFailedPublication({
                     projectId: project.project.id,
                     publicationId: publication.id,
                     subjectId: 'user-1',
                 })
             ).toEqual({ kind: 'not_retryable' })
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
-    it('reschedules and cancels a publication group atomically with automatic jobs', () => {
-        const database = createDatabase(':memory:')
+    it('reschedules and cancels a publication group atomically with automatic jobs', async () => {
+        const database = (await openTestDatabase()).database
         const now = 1_800_000_000_000
 
         try {
-            runMigrations(database)
             const store = createManualStore(database, { now: () => now })
-            const project = store.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const project = await store.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'Bulk scheduling project',
                 subjectId: 'user-1',
                 displayName: 'Operator',
             })
-            const firstChannel = store.createChannel({
+            const firstChannel = await store.createChannel({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 name: 'First channel',
                 profile: automaticTestProfile,
             })
-            const secondChannel = store.createChannel({
+            const secondChannel = await store.createChannel({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 name: 'Second channel',
                 profile: automaticTestProfile,
             })
-            const draftChannel = store.createChannel({
+            const draftChannel = await store.createChannel({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 name: 'Draft channel',
@@ -1113,31 +1211,28 @@ describe('manual workflow store', () => {
                 throw new Error('The bulk scheduling channels were not created')
             }
 
-            database
-                .insert(publishers)
-                .values([
-                    {
-                        id: 'bulk-scheduling-publisher-1',
-                        workspaceId: workspaceOf(database, project.project.id),
-                        channelId: firstChannel.id,
-                        kind: 'future-provider',
-                    },
-                    {
-                        id: 'bulk-scheduling-publisher-2',
-                        workspaceId: workspaceOf(database, project.project.id),
-                        channelId: secondChannel.id,
-                        kind: 'future-provider',
-                    },
-                    {
-                        id: 'bulk-scheduling-publisher-3',
-                        workspaceId: workspaceOf(database, project.project.id),
-                        channelId: draftChannel.id,
-                        kind: 'future-provider',
-                    },
-                ])
-                .run()
+            await insertRow(database, 'publishers', [
+                {
+                    id: 'bulk-scheduling-publisher-1',
+                    workspaceId: await workspaceOf(database, project.project.id),
+                    channelId: firstChannel.id,
+                    kind: 'future-provider',
+                },
+                {
+                    id: 'bulk-scheduling-publisher-2',
+                    workspaceId: await workspaceOf(database, project.project.id),
+                    channelId: secondChannel.id,
+                    kind: 'future-provider',
+                },
+                {
+                    id: 'bulk-scheduling-publisher-3',
+                    workspaceId: await workspaceOf(database, project.project.id),
+                    channelId: draftChannel.id,
+                    kind: 'future-provider',
+                },
+            ])
 
-            const created = store.createPost({
+            const created = await store.createPost({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 sourceContent: sourceContent('Bulk scheduling source'),
@@ -1165,7 +1260,7 @@ describe('manual workflow store', () => {
                 throw new Error('The bulk scheduling publications are missing')
             }
 
-            const rescheduled = store.reschedulePublications({
+            const rescheduled = await store.reschedulePublications({
                 projectId: project.project.id,
                 publicationIds: [firstPublication.id, secondPublication.id],
                 scheduledAt: now + 120_000,
@@ -1175,30 +1270,36 @@ describe('manual workflow store', () => {
                 { id: firstPublication.id, state: 'scheduled', scheduledAt: now + 120_000 },
                 { id: secondPublication.id, state: 'scheduled', scheduledAt: now + 120_000 },
             ])
-            expect(database.select().from(jobs).all()).toMatchObject([
+            expect(
+                await database.sql
+                    .statement<TestRow>(
+                        'select "jobs"."id" as "id", "jobs"."project_id" as "projectId", "jobs"."publication_id" as "publicationId", "jobs"."state" as "state", "jobs"."run_at" as "runAt", "jobs"."attempts" as "attempts", "jobs"."claim_token" as "claimToken", "jobs"."claimed_by_actor_id" as "claimedByActorId", "jobs"."claimed_at" as "claimedAt", "jobs"."lease_expires_at" as "leaseExpiresAt", "jobs"."effect_started_at" as "effectStartedAt", "jobs"."started_at" as "startedAt", "jobs"."completed_at" as "completedAt", "jobs"."error_message" as "errorMessage", "jobs"."created_at" as "createdAt", "jobs"."updated_at" as "updatedAt" from "jobs"'
+                    )
+                    .all()
+            ).toMatchObject([
                 { publicationId: firstPublication.id, runAt: now + 120_000 },
                 { publicationId: secondPublication.id, runAt: now + 120_000 },
             ])
             expect(
-                database
-                    .select({ action: auditEvents.action, entityId: auditEvents.entityId })
-                    .from(auditEvents)
-                    .where(eq(auditEvents.action, 'publication.rescheduled'))
-                    .all()
+                await database.sql
+                    .statement<TestRow>(
+                        'select "audit_events"."action" as "action", "audit_events"."entity_id" as "entityId" from "audit_events" where "audit_events"."action" = ?1'
+                    )
+                    .all('publication.rescheduled')
             ).toEqual([
                 { action: 'publication.rescheduled', entityId: firstPublication.id },
                 { action: 'publication.rescheduled', entityId: secondPublication.id },
             ])
 
-            expect(() =>
+            await expect(
                 store.reschedulePublications({
                     projectId: project.project.id,
                     publicationIds: [firstPublication.id, draftPublication.id],
                     scheduledAt: now + 180_000,
                     subjectId: 'user-1',
                 })
-            ).toThrow('Cannot reschedule a draft publication')
-            expect(store.listPublicationSummaries(project.project.id, 'user-1')).toEqual(
+            ).rejects.toThrow('Cannot reschedule a draft publication')
+            expect(await store.listPublicationSummaries(project.project.id, 'user-1')).toEqual(
                 expect.arrayContaining([
                     expect.objectContaining({
                         id: firstPublication.id,
@@ -1216,62 +1317,54 @@ describe('manual workflow store', () => {
                 ])
             )
             expect(
-                database
-                    .select({ action: auditEvents.action })
-                    .from(auditEvents)
-                    .where(eq(auditEvents.action, 'publication.rescheduled'))
-                    .all()
+                await database.sql
+                    .statement<TestRow>(
+                        'select "audit_events"."action" as "action" from "audit_events" where "audit_events"."action" = ?1'
+                    )
+                    .all('publication.rescheduled')
             ).toHaveLength(2)
 
-            const firstJob = database
-                .select()
-                .from(jobs)
-                .all()
-                .find(job => job.publicationId === firstPublication.id)
+            const firstJob = (
+                await database.sql
+                    .statement<TestRow>(
+                        'select "jobs"."id" as "id", "jobs"."project_id" as "projectId", "jobs"."publication_id" as "publicationId", "jobs"."state" as "state", "jobs"."run_at" as "runAt", "jobs"."attempts" as "attempts", "jobs"."claim_token" as "claimToken", "jobs"."claimed_by_actor_id" as "claimedByActorId", "jobs"."claimed_at" as "claimedAt", "jobs"."lease_expires_at" as "leaseExpiresAt", "jobs"."effect_started_at" as "effectStartedAt", "jobs"."started_at" as "startedAt", "jobs"."completed_at" as "completedAt", "jobs"."error_message" as "errorMessage", "jobs"."created_at" as "createdAt", "jobs"."updated_at" as "updatedAt" from "jobs"'
+                    )
+                    .all()
+            ).find(job => job.publicationId === firstPublication.id)
             if (firstJob === undefined) throw new Error('The first bulk scheduling job is missing')
-            database
-                .update(jobs)
-                .set({
-                    state: 'running',
-                    claimToken: 'bulk-cancel-claim',
-                    claimedByActorId: project.actor.id,
-                    claimedAt: now,
-                    leaseExpiresAt: now + 60_000,
-                    startedAt: now,
-                })
-                .where(eq(jobs.id, firstJob.id))
-                .run()
-            expect(() =>
+            await database.sql
+                .statement(
+                    'update "jobs" set "state" = ?1, "claim_token" = ?2, "claimed_by_actor_id" = ?3, "claimed_at" = ?4, "lease_expires_at" = ?5, "started_at" = ?6 where "jobs"."id" = ?7'
+                )
+                .run(
+                    'running',
+                    'bulk-cancel-claim',
+                    project.actor.id,
+                    now,
+                    now + 60_000,
+                    now,
+                    firstJob.id
+                )
+            await expect(
                 store.cancelPublications({
                     projectId: project.project.id,
                     publicationIds: [firstPublication.id, secondPublication.id],
                     subjectId: 'user-1',
                 })
-            ).toThrow('while its job is running')
-            expect(store.listPublicationSummaries(project.project.id, 'user-1')).toEqual(
+            ).rejects.toThrow('while its job is running')
+            expect(await store.listPublicationSummaries(project.project.id, 'user-1')).toEqual(
                 expect.arrayContaining([
                     expect.objectContaining({ id: firstPublication.id, state: 'scheduled' }),
                     expect.objectContaining({ id: secondPublication.id, state: 'scheduled' }),
                 ])
             )
-            database
-                .update(jobs)
-                .set({
-                    state: 'pending',
-                    claimToken: null,
-                    claimedByActorId: null,
-                    claimedAt: null,
-                    leaseExpiresAt: null,
-                    effectStartedAt: null,
-                    startedAt: null,
-                    completedAt: null,
-                    errorMessage: null,
-                    updatedAt: now,
-                })
-                .where(eq(jobs.id, firstJob.id))
-                .run()
+            await database.sql
+                .statement(
+                    'update "jobs" set "state" = ?1, "claim_token" = ?2, "claimed_by_actor_id" = ?3, "claimed_at" = ?4, "lease_expires_at" = ?5, "effect_started_at" = ?6, "started_at" = ?7, "completed_at" = ?8, "error_message" = ?9, "updated_at" = ?10 where "jobs"."id" = ?11'
+                )
+                .run('pending', null, null, null, null, null, null, null, null, now, firstJob.id)
 
-            const cancelled = store.cancelPublications({
+            const cancelled = await store.cancelPublications({
                 projectId: project.project.id,
                 publicationIds: [firstPublication.id, secondPublication.id],
                 subjectId: 'user-1',
@@ -1280,19 +1373,27 @@ describe('manual workflow store', () => {
                 { id: firstPublication.id, state: 'cancelled' },
                 { id: secondPublication.id, state: 'cancelled' },
             ])
-            expect(database.select().from(jobs).all()).toMatchObject([
+            expect(
+                await database.sql
+                    .statement<TestRow>(
+                        'select "jobs"."id" as "id", "jobs"."project_id" as "projectId", "jobs"."publication_id" as "publicationId", "jobs"."state" as "state", "jobs"."run_at" as "runAt", "jobs"."attempts" as "attempts", "jobs"."claim_token" as "claimToken", "jobs"."claimed_by_actor_id" as "claimedByActorId", "jobs"."claimed_at" as "claimedAt", "jobs"."lease_expires_at" as "leaseExpiresAt", "jobs"."effect_started_at" as "effectStartedAt", "jobs"."started_at" as "startedAt", "jobs"."completed_at" as "completedAt", "jobs"."error_message" as "errorMessage", "jobs"."created_at" as "createdAt", "jobs"."updated_at" as "updatedAt" from "jobs"'
+                    )
+                    .all()
+            ).toMatchObject([
                 { publicationId: firstPublication.id, state: 'cancelled', completedAt: now },
                 { publicationId: secondPublication.id, state: 'cancelled', completedAt: now },
             ])
-            const cancellationAudits = database
-                .select({ action: auditEvents.action, entityId: auditEvents.entityId })
-                .from(auditEvents)
-                .all()
-                .filter(
-                    event =>
-                        event.action === 'publication.cancelled' ||
-                        event.action === 'publication.execution.cancelled'
-                )
+            const cancellationAudits = (
+                await database.sql
+                    .statement<TestRow>(
+                        'select "audit_events"."action" as "action", "audit_events"."entity_id" as "entityId" from "audit_events"'
+                    )
+                    .all()
+            ).filter(
+                event =>
+                    event.action === 'publication.cancelled' ||
+                    event.action === 'publication.execution.cancelled'
+            )
             expect(cancellationAudits).toHaveLength(4)
             expect(cancellationAudits).toEqual(
                 expect.arrayContaining([
@@ -1309,24 +1410,23 @@ describe('manual workflow store', () => {
                 ])
             )
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
-    it('keeps the selected target stable until a draft is promoted', () => {
-        const database = createDatabase(':memory:')
+    it('keeps the selected target stable until a draft is promoted', async () => {
+        const database = (await openTestDatabase()).database
         const now = 1_800_000_000_000
 
         try {
-            runMigrations(database)
             const store = createManualStore(database, { now: () => now })
-            const project = store.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const project = await store.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'Revision Project',
                 subjectId: 'user-1',
                 displayName: 'Operator',
             })
-            const channel = store.createChannel({
+            const channel = await store.createChannel({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 name: 'Automatic Channel',
@@ -1334,17 +1434,18 @@ describe('manual workflow store', () => {
             })
             if (channel === null) throw new Error('The revision test channel was not created')
 
-            database
-                .insert(publishers)
-                .values({
-                    id: 'revision-publisher',
-                    workspaceId: workspaceOf(database, project.project.id),
-                    channelId: channel.id,
-                    kind: 'future-provider',
-                })
-                .run()
+            await database.sql
+                .statement(
+                    'insert into "publishers" ("id", "workspace_id", "channel_id", "kind") values (?1, ?2, ?3, ?4)'
+                )
+                .run(
+                    'revision-publisher',
+                    await workspaceOf(database, project.project.id),
+                    channel.id,
+                    'future-provider'
+                )
 
-            const created = store.createPost({
+            const created = await store.createPost({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 sourceContent: sourceContent('Initial revision'),
@@ -1362,10 +1463,16 @@ describe('manual workflow store', () => {
                 throw new Error('The initial target revision is missing')
             }
 
-            const initialJob = database.select().from(jobs).all()[0]
+            const initialJob = (
+                await database.sql
+                    .statement<TestRow>(
+                        'select "jobs"."id" as "id", "jobs"."project_id" as "projectId", "jobs"."publication_id" as "publicationId", "jobs"."state" as "state", "jobs"."run_at" as "runAt", "jobs"."attempts" as "attempts", "jobs"."claim_token" as "claimToken", "jobs"."claimed_by_actor_id" as "claimedByActorId", "jobs"."claimed_at" as "claimedAt", "jobs"."lease_expires_at" as "leaseExpiresAt", "jobs"."effect_started_at" as "effectStartedAt", "jobs"."started_at" as "startedAt", "jobs"."completed_at" as "completedAt", "jobs"."error_message" as "errorMessage", "jobs"."created_at" as "createdAt", "jobs"."updated_at" as "updatedAt" from "jobs"'
+                    )
+                    .all()
+            )[0]
             if (initialJob === undefined) throw new Error('The initial job is missing')
 
-            const saved = store.savePublicationDraft({
+            const saved = await store.savePublicationDraft({
                 projectId: project.project.id,
                 publicationId: publication.id,
                 subjectId: 'user-1',
@@ -1380,26 +1487,41 @@ describe('manual workflow store', () => {
                 reviewState: 'compatible',
             })
             expect(
-                database
-                    .select({ targetRevisionId: publications.targetRevisionId })
-                    .from(publications)
+                await database.sql
+                    .statement<TestRow>(
+                        'select "publications"."target_revision_id" as "targetRevisionId" from "publications"'
+                    )
                     .all()
             ).toEqual([{ targetRevisionId: publication.targetRevisionId }])
-            expect(database.select().from(publicationTargetRevisions).all()).toHaveLength(1)
-            expect(database.select().from(jobs).all()).toMatchObject([
-                { id: initialJob.id, state: 'pending', runAt: now + 60_000 },
-            ])
+            expect(
+                (
+                    await database.sql
+                        .statement<TestRow>(
+                            'select "publication_target_revisions"."id" as "id", "publication_target_revisions"."project_id" as "projectId", "publication_target_revisions"."publication_id" as "publicationId", "publication_target_revisions"."sequence" as "sequence", "publication_target_revisions"."profile_version_id" as "profileVersionId", "publication_target_revisions"."source_revision" as "sourceRevision", "publication_target_revisions"."delivery_mode" as "deliveryMode", "publication_target_revisions"."media_reference_count" as "mediaReferenceCount", "publication_target_revisions"."content_json" as "contentJson", "publication_target_revisions"."content_hash" as "contentHash", "publication_target_revisions"."profile_hash" as "profileHash", "publication_target_revisions"."schema_hash" as "schemaHash", "publication_target_revisions"."validation_issues_json" as "validationIssuesJson", "publication_target_revisions"."created_by_actor_id" as "createdByActorId", "publication_target_revisions"."created_at" as "createdAt" from "publication_target_revisions"'
+                        )
+                        .all()
+                ).map(row =>
+                    fromDbRow<TestRow>(row, { contentJson: 'json', validationIssuesJson: 'json' })
+                )
+            ).toHaveLength(1)
+            expect(
+                await database.sql
+                    .statement<TestRow>(
+                        'select "jobs"."id" as "id", "jobs"."project_id" as "projectId", "jobs"."publication_id" as "publicationId", "jobs"."state" as "state", "jobs"."run_at" as "runAt", "jobs"."attempts" as "attempts", "jobs"."claim_token" as "claimToken", "jobs"."claimed_by_actor_id" as "claimedByActorId", "jobs"."claimed_at" as "claimedAt", "jobs"."lease_expires_at" as "leaseExpiresAt", "jobs"."effect_started_at" as "effectStartedAt", "jobs"."started_at" as "startedAt", "jobs"."completed_at" as "completedAt", "jobs"."error_message" as "errorMessage", "jobs"."created_at" as "createdAt", "jobs"."updated_at" as "updatedAt" from "jobs"'
+                    )
+                    .all()
+            ).toMatchObject([{ id: initialJob.id, state: 'pending', runAt: now + 60_000 }])
 
-            expect(() =>
+            await expect(
                 store.savePublicationDraft({
                     projectId: project.project.id,
                     publicationId: publication.id,
                     subjectId: 'user-1',
                     expectedRevision: 2,
                 })
-            ).toThrow('must include sourceContent or targetContent')
+            ).rejects.toThrow('must include sourceContent or targetContent')
 
-            const editor = store.getPublicationEditorState(
+            const editor = await store.getPublicationEditorState(
                 project.project.id,
                 publication.id,
                 'user-1'
@@ -1415,7 +1537,9 @@ describe('manual workflow store', () => {
                     content: { body: 'Initial revision' },
                 },
             })
-            expect(store.listPublicationSummaries(project.project.id, 'user-1')).toMatchObject([
+            expect(
+                await store.listPublicationSummaries(project.project.id, 'user-1')
+            ).toMatchObject([
                 {
                     id: publication.id,
                     draftRevision: 2,
@@ -1424,7 +1548,7 @@ describe('manual workflow store', () => {
                 },
             ])
 
-            expect(() =>
+            await expect(
                 store.savePublicationDraft({
                     projectId: project.project.id,
                     publicationId: publication.id,
@@ -1432,15 +1556,15 @@ describe('manual workflow store', () => {
                     expectedRevision: 1,
                     targetContent: { body: 'Stale editor write' },
                 })
-            ).toThrow('changed after revision 1')
+            ).rejects.toThrow('changed after revision 1')
             expect(
-                store.getPublicationWorkingDraft(project.project.id, publication.id, 'user-1')
+                await store.getPublicationWorkingDraft(project.project.id, publication.id, 'user-1')
             ).toMatchObject({
                 revision: 2,
                 content: { body: 'Edited target' },
             })
 
-            const promoted = store.promotePublicationDraft({
+            const promoted = await store.promotePublicationDraft({
                 projectId: project.project.id,
                 publicationId: publication.id,
                 subjectId: 'user-1',
@@ -1449,19 +1573,35 @@ describe('manual workflow store', () => {
             })
             expect(promoted).toMatchObject({ state: 'scheduled', scheduledAt: now + 120_000 })
             expect(promoted?.targetRevisionId).not.toBe(publication.targetRevisionId)
-            expect(database.select().from(publicationTargetRevisions).all()).toHaveLength(2)
-            expect(database.select().from(jobs).all()).toEqual([
+            expect(
+                (
+                    await database.sql
+                        .statement<TestRow>(
+                            'select "publication_target_revisions"."id" as "id", "publication_target_revisions"."project_id" as "projectId", "publication_target_revisions"."publication_id" as "publicationId", "publication_target_revisions"."sequence" as "sequence", "publication_target_revisions"."profile_version_id" as "profileVersionId", "publication_target_revisions"."source_revision" as "sourceRevision", "publication_target_revisions"."delivery_mode" as "deliveryMode", "publication_target_revisions"."media_reference_count" as "mediaReferenceCount", "publication_target_revisions"."content_json" as "contentJson", "publication_target_revisions"."content_hash" as "contentHash", "publication_target_revisions"."profile_hash" as "profileHash", "publication_target_revisions"."schema_hash" as "schemaHash", "publication_target_revisions"."validation_issues_json" as "validationIssuesJson", "publication_target_revisions"."created_by_actor_id" as "createdByActorId", "publication_target_revisions"."created_at" as "createdAt" from "publication_target_revisions"'
+                        )
+                        .all()
+                ).map(row =>
+                    fromDbRow<TestRow>(row, { contentJson: 'json', validationIssuesJson: 'json' })
+                )
+            ).toHaveLength(2)
+            expect(
+                await database.sql
+                    .statement<TestRow>(
+                        'select "jobs"."id" as "id", "jobs"."project_id" as "projectId", "jobs"."publication_id" as "publicationId", "jobs"."state" as "state", "jobs"."run_at" as "runAt", "jobs"."attempts" as "attempts", "jobs"."claim_token" as "claimToken", "jobs"."claimed_by_actor_id" as "claimedByActorId", "jobs"."claimed_at" as "claimedAt", "jobs"."lease_expires_at" as "leaseExpiresAt", "jobs"."effect_started_at" as "effectStartedAt", "jobs"."started_at" as "startedAt", "jobs"."completed_at" as "completedAt", "jobs"."error_message" as "errorMessage", "jobs"."created_at" as "createdAt", "jobs"."updated_at" as "updatedAt" from "jobs"'
+                    )
+                    .all()
+            ).toEqual([
                 expect.objectContaining({
                     id: initialJob.id,
                     state: 'pending',
                     runAt: now + 120_000,
                 }),
             ])
-            expect(store.listPublicationSummaries(project.project.id, 'user-1')).toMatchObject([
-                { id: publication.id, draftDiffersFromTarget: false },
-            ])
+            expect(
+                await store.listPublicationSummaries(project.project.id, 'user-1')
+            ).toMatchObject([{ id: publication.id, draftDiffersFromTarget: false }])
 
-            expect(() =>
+            await expect(
                 store.promotePublicationDraft({
                     projectId: project.project.id,
                     publicationId: publication.id,
@@ -1469,27 +1609,26 @@ describe('manual workflow store', () => {
                     expectedRevision: 1,
                     scheduledAt: now + 180_000,
                 })
-            ).toThrow('changed after revision 1')
+            ).rejects.toThrow('changed after revision 1')
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
-    it('rolls back a promotion when a late persistence effect fails', () => {
-        const database = createDatabase(':memory:')
+    it('rolls back a promotion when a late persistence effect fails', async () => {
+        const database = (await openTestDatabase()).database
         const now = 1_800_000_000_000
         let triggerInstalled = false
 
         try {
-            runMigrations(database)
             const store = createManualStore(database, { now: () => now })
-            const project = store.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const project = await store.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'Promotion Rollback Project',
                 subjectId: 'user-1',
                 displayName: 'Operator',
             })
-            const channel = store.createChannel({
+            const channel = await store.createChannel({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 name: 'Automatic Channel',
@@ -1497,17 +1636,18 @@ describe('manual workflow store', () => {
             })
             if (channel === null) throw new Error('The rollback test channel was not created')
 
-            database
-                .insert(publishers)
-                .values({
-                    id: 'promotion-rollback-publisher',
-                    workspaceId: workspaceOf(database, project.project.id),
-                    channelId: channel.id,
-                    kind: 'future-provider',
-                })
-                .run()
+            await database.sql
+                .statement(
+                    'insert into "publishers" ("id", "workspace_id", "channel_id", "kind") values (?1, ?2, ?3, ?4)'
+                )
+                .run(
+                    'promotion-rollback-publisher',
+                    await workspaceOf(database, project.project.id),
+                    channel.id,
+                    'future-provider'
+                )
 
-            const created = store.createPost({
+            const created = await store.createPost({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 sourceContent: sourceContent('Rollback source'),
@@ -1523,17 +1663,17 @@ describe('manual workflow store', () => {
             const publication = created.publications[0]
             if (publication === undefined) throw new Error('The rollback publication is missing')
 
-            database.$client.run(`
-                create temp trigger fail_publication_promotion_audit
-                before insert on audit_events
-                when NEW.action = 'publication.target_promoted'
-                begin
-                    select raise(abort, 'forced publication promotion failure');
-                end
-            `)
+            await installRejectingTrigger(database, {
+                name: 'fail_publication_promotion_audit',
+                table: 'audit_events',
+                timing: 'before',
+                event: 'insert',
+                when: "NEW.action = 'publication.target_promoted'",
+                message: 'forced publication promotion failure',
+            })
             triggerInstalled = true
 
-            expect(() =>
+            await expect(
                 store.promotePublicationDraft({
                     projectId: project.project.id,
                     publicationId: publication.id,
@@ -1541,18 +1681,14 @@ describe('manual workflow store', () => {
                     expectedRevision: 1,
                     scheduledAt: now + 120_000,
                 })
-            ).toThrow('forced publication promotion failure')
+            ).rejects.toThrow('forced publication promotion failure')
 
             expect(
-                database
-                    .select({
-                        targetRevisionId: publications.targetRevisionId,
-                        state: publications.state,
-                        scheduledAt: publications.scheduledAt,
-                    })
-                    .from(publications)
-                    .where(eq(publications.id, publication.id))
-                    .all()
+                await database.sql
+                    .statement<TestRow>(
+                        'select "publications"."target_revision_id" as "targetRevisionId", "publications"."state" as "state", "publications"."scheduled_at" as "scheduledAt" from "publications" where "publications"."id" = ?1'
+                    )
+                    .all(publication.id)
             ).toEqual([
                 {
                     targetRevisionId: publication.targetRevisionId,
@@ -1561,43 +1697,50 @@ describe('manual workflow store', () => {
                 },
             ])
             expect(
-                database
-                    .select()
-                    .from(publicationTargetRevisions)
-                    .where(eq(publicationTargetRevisions.publicationId, publication.id))
-                    .all()
+                (
+                    await database.sql
+                        .statement<TestRow>(
+                            'select "publication_target_revisions"."id" as "id", "publication_target_revisions"."project_id" as "projectId", "publication_target_revisions"."publication_id" as "publicationId", "publication_target_revisions"."sequence" as "sequence", "publication_target_revisions"."profile_version_id" as "profileVersionId", "publication_target_revisions"."source_revision" as "sourceRevision", "publication_target_revisions"."delivery_mode" as "deliveryMode", "publication_target_revisions"."media_reference_count" as "mediaReferenceCount", "publication_target_revisions"."content_json" as "contentJson", "publication_target_revisions"."content_hash" as "contentHash", "publication_target_revisions"."profile_hash" as "profileHash", "publication_target_revisions"."schema_hash" as "schemaHash", "publication_target_revisions"."validation_issues_json" as "validationIssuesJson", "publication_target_revisions"."created_by_actor_id" as "createdByActorId", "publication_target_revisions"."created_at" as "createdAt" from "publication_target_revisions" where "publication_target_revisions"."publication_id" = ?1'
+                        )
+                        .all(publication.id)
+                ).map(row =>
+                    fromDbRow<TestRow>(row, { contentJson: 'json', validationIssuesJson: 'json' })
+                )
             ).toHaveLength(1)
             expect(
-                database.select().from(jobs).where(eq(jobs.publicationId, publication.id)).all()
+                await database.sql
+                    .statement<TestRow>(
+                        'select "jobs"."id" as "id", "jobs"."project_id" as "projectId", "jobs"."publication_id" as "publicationId", "jobs"."state" as "state", "jobs"."run_at" as "runAt", "jobs"."attempts" as "attempts", "jobs"."claim_token" as "claimToken", "jobs"."claimed_by_actor_id" as "claimedByActorId", "jobs"."claimed_at" as "claimedAt", "jobs"."lease_expires_at" as "leaseExpiresAt", "jobs"."effect_started_at" as "effectStartedAt", "jobs"."started_at" as "startedAt", "jobs"."completed_at" as "completedAt", "jobs"."error_message" as "errorMessage", "jobs"."created_at" as "createdAt", "jobs"."updated_at" as "updatedAt" from "jobs" where "jobs"."publication_id" = ?1'
+                    )
+                    .all(publication.id)
             ).toEqual([expect.objectContaining({ state: 'pending', runAt: now + 60_000 })])
             expect(
-                database
-                    .select()
-                    .from(auditEvents)
-                    .where(eq(auditEvents.action, 'publication.target_promoted'))
-                    .all()
+                await database.sql
+                    .statement<TestRow>(
+                        'select "audit_events"."sequence" as "sequence", "audit_events"."id" as "id", "audit_events"."project_id" as "projectId", "audit_events"."workspace_id" as "workspaceId", "audit_events"."actor_id" as "actorId", "audit_events"."action" as "action", "audit_events"."entity_type" as "entityType", "audit_events"."entity_id" as "entityId", "audit_events"."metadata_json" as "metadataJson", "audit_events"."event_version" as "eventVersion", "audit_events"."correlation_id" as "correlationId", "audit_events"."causation_id" as "causationId", "audit_events"."created_at" as "createdAt" from "audit_events" where "audit_events"."action" = ?1'
+                    )
+                    .all('publication.target_promoted')
             ).toHaveLength(0)
         } finally {
             if (triggerInstalled)
-                database.$client.run('drop trigger fail_publication_promotion_audit')
-            closeDatabase(database)
+                await dropRejectingTrigger(database, 'fail_publication_promotion_audit')
+            await closeTestDatabase(database)
         }
     })
 
-    it('keeps invalid drafts editable but blocks their promotion', () => {
-        const database = createDatabase(':memory:')
+    it('keeps invalid drafts editable but blocks their promotion', async () => {
+        const database = (await openTestDatabase()).database
         const now = 1_800_000_000_000
 
         try {
-            runMigrations(database)
             const store = createManualStore(database, { now: () => now })
-            const project = store.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const project = await store.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'Review Project',
                 subjectId: 'user-1',
                 displayName: 'Operator',
             })
-            const channel = store.createChannel({
+            const channel = await store.createChannel({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 name: 'Automatic Channel',
@@ -1605,7 +1748,7 @@ describe('manual workflow store', () => {
             })
             if (channel === null) throw new Error('The review test channel was not created')
 
-            const created = store.createPost({
+            const created = await store.createPost({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 sourceContent: sourceContent('Reviewable content'),
@@ -1615,7 +1758,7 @@ describe('manual workflow store', () => {
             const publication = created.publications[0]
             if (publication === undefined) throw new Error('The review publication is missing')
 
-            const saved = store.savePublicationDraft({
+            const saved = await store.savePublicationDraft({
                 projectId: project.project.id,
                 publicationId: publication.id,
                 subjectId: 'user-1',
@@ -1624,7 +1767,7 @@ describe('manual workflow store', () => {
             })
             expect(saved?.reviewState).toBe('review_required')
             expect(saved?.validationIssues.length).toBeGreaterThan(0)
-            expect(() =>
+            await expect(
                 store.promotePublicationDraft({
                     projectId: project.project.id,
                     publicationId: publication.id,
@@ -1632,27 +1775,36 @@ describe('manual workflow store', () => {
                     expectedRevision: 2,
                     scheduledAt: now + 60_000,
                 })
-            ).toThrow('Publication target content is invalid')
-            expect(database.select().from(publicationTargetRevisions).all()).toHaveLength(0)
+            ).rejects.toThrow('Publication target content is invalid')
+            expect(
+                (
+                    await database.sql
+                        .statement<TestRow>(
+                            'select "publication_target_revisions"."id" as "id", "publication_target_revisions"."project_id" as "projectId", "publication_target_revisions"."publication_id" as "publicationId", "publication_target_revisions"."sequence" as "sequence", "publication_target_revisions"."profile_version_id" as "profileVersionId", "publication_target_revisions"."source_revision" as "sourceRevision", "publication_target_revisions"."delivery_mode" as "deliveryMode", "publication_target_revisions"."media_reference_count" as "mediaReferenceCount", "publication_target_revisions"."content_json" as "contentJson", "publication_target_revisions"."content_hash" as "contentHash", "publication_target_revisions"."profile_hash" as "profileHash", "publication_target_revisions"."schema_hash" as "schemaHash", "publication_target_revisions"."validation_issues_json" as "validationIssuesJson", "publication_target_revisions"."created_by_actor_id" as "createdByActorId", "publication_target_revisions"."created_at" as "createdAt" from "publication_target_revisions"'
+                        )
+                        .all()
+                ).map(row =>
+                    fromDbRow<TestRow>(row, { contentJson: 'json', validationIssuesJson: 'json' })
+                )
+            ).toHaveLength(0)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
-    it('blocks an ordinary promotion that satisfies only the superseded profile', () => {
-        const database = createDatabase(':memory:')
+    it('blocks an ordinary promotion that satisfies only the superseded profile', async () => {
+        const database = (await openTestDatabase()).database
         const now = 1_800_000_000_000
 
         try {
-            runMigrations(database)
             const store = createManualStore(database, { now: () => now })
-            const project = store.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const project = await store.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'Superseded Profile Promotion Project',
                 subjectId: 'user-1',
                 displayName: 'Operator',
             })
-            const channel = store.createChannel({
+            const channel = await store.createChannel({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 name: 'Versioned Automatic Channel',
@@ -1661,17 +1813,18 @@ describe('manual workflow store', () => {
             if (channel === null) throw new Error('The profile promotion channel was not created')
             const originalProfileVersionId = channel.profileVersionId
 
-            database
-                .insert(publishers)
-                .values({
-                    id: 'superseded-profile-publisher',
-                    workspaceId: workspaceOf(database, project.project.id),
-                    channelId: channel.id,
-                    kind: 'future-provider',
-                })
-                .run()
+            await database.sql
+                .statement(
+                    'insert into "publishers" ("id", "workspace_id", "channel_id", "kind") values (?1, ?2, ?3, ?4)'
+                )
+                .run(
+                    'superseded-profile-publisher',
+                    await workspaceOf(database, project.project.id),
+                    channel.id,
+                    'future-provider'
+                )
 
-            const created = store.createPost({
+            const created = await store.createPost({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 sourceContent: sourceContent('Superseded profile source'),
@@ -1734,7 +1887,7 @@ describe('manual workflow store', () => {
                     ],
                 },
             }
-            const profileDraft = store.createChannelProfileDraft({
+            const profileDraft = await store.createChannelProfileDraft({
                 projectId: project.project.id,
                 channelId: channel.id,
                 subjectId: 'user-1',
@@ -1742,7 +1895,7 @@ describe('manual workflow store', () => {
             })
             if (profileDraft === null) throw new Error('The active profile draft was not created')
 
-            const activated = store.activateChannelProfile({
+            const activated = await store.activateChannelProfile({
                 projectId: project.project.id,
                 channelId: channel.id,
                 profileVersionId: profileDraft.id,
@@ -1751,35 +1904,43 @@ describe('manual workflow store', () => {
             })
             if (activated === null) throw new Error('The active profile was not activated')
 
-            const initialCompatibleTarget = database
-                .select()
-                .from(publicationTargetRevisions)
-                .where(eq(publicationTargetRevisions.publicationId, compatiblePublication.id))
-                .all()
-            const initialInvalidTarget = database
-                .select()
-                .from(publicationTargetRevisions)
-                .where(eq(publicationTargetRevisions.publicationId, invalidPublication.id))
-                .all()
+            const initialCompatibleTarget = (
+                await database.sql
+                    .statement<TestRow>(
+                        'select "publication_target_revisions"."id" as "id", "publication_target_revisions"."project_id" as "projectId", "publication_target_revisions"."publication_id" as "publicationId", "publication_target_revisions"."sequence" as "sequence", "publication_target_revisions"."profile_version_id" as "profileVersionId", "publication_target_revisions"."source_revision" as "sourceRevision", "publication_target_revisions"."delivery_mode" as "deliveryMode", "publication_target_revisions"."media_reference_count" as "mediaReferenceCount", "publication_target_revisions"."content_json" as "contentJson", "publication_target_revisions"."content_hash" as "contentHash", "publication_target_revisions"."profile_hash" as "profileHash", "publication_target_revisions"."schema_hash" as "schemaHash", "publication_target_revisions"."validation_issues_json" as "validationIssuesJson", "publication_target_revisions"."created_by_actor_id" as "createdByActorId", "publication_target_revisions"."created_at" as "createdAt" from "publication_target_revisions" where "publication_target_revisions"."publication_id" = ?1'
+                    )
+                    .all(compatiblePublication.id)
+            ).map(row =>
+                fromDbRow<TestRow>(row, { contentJson: 'json', validationIssuesJson: 'json' })
+            )
+            const initialInvalidTarget = (
+                await database.sql
+                    .statement<TestRow>(
+                        'select "publication_target_revisions"."id" as "id", "publication_target_revisions"."project_id" as "projectId", "publication_target_revisions"."publication_id" as "publicationId", "publication_target_revisions"."sequence" as "sequence", "publication_target_revisions"."profile_version_id" as "profileVersionId", "publication_target_revisions"."source_revision" as "sourceRevision", "publication_target_revisions"."delivery_mode" as "deliveryMode", "publication_target_revisions"."media_reference_count" as "mediaReferenceCount", "publication_target_revisions"."content_json" as "contentJson", "publication_target_revisions"."content_hash" as "contentHash", "publication_target_revisions"."profile_hash" as "profileHash", "publication_target_revisions"."schema_hash" as "schemaHash", "publication_target_revisions"."validation_issues_json" as "validationIssuesJson", "publication_target_revisions"."created_by_actor_id" as "createdByActorId", "publication_target_revisions"."created_at" as "createdAt" from "publication_target_revisions" where "publication_target_revisions"."publication_id" = ?1'
+                    )
+                    .all(invalidPublication.id)
+            ).map(row =>
+                fromDbRow<TestRow>(row, { contentJson: 'json', validationIssuesJson: 'json' })
+            )
             if (initialCompatibleTarget.length !== 1 || initialInvalidTarget.length !== 1) {
                 throw new Error('The initial target revisions are missing')
             }
 
-            const compatibleJob = database
-                .select()
-                .from(jobs)
-                .where(eq(jobs.publicationId, compatiblePublication.id))
-                .all()
-            const invalidJob = database
-                .select()
-                .from(jobs)
-                .where(eq(jobs.publicationId, invalidPublication.id))
-                .all()
+            const compatibleJob = await database.sql
+                .statement<TestRow>(
+                    'select "jobs"."id" as "id", "jobs"."project_id" as "projectId", "jobs"."publication_id" as "publicationId", "jobs"."state" as "state", "jobs"."run_at" as "runAt", "jobs"."attempts" as "attempts", "jobs"."claim_token" as "claimToken", "jobs"."claimed_by_actor_id" as "claimedByActorId", "jobs"."claimed_at" as "claimedAt", "jobs"."lease_expires_at" as "leaseExpiresAt", "jobs"."effect_started_at" as "effectStartedAt", "jobs"."started_at" as "startedAt", "jobs"."completed_at" as "completedAt", "jobs"."error_message" as "errorMessage", "jobs"."created_at" as "createdAt", "jobs"."updated_at" as "updatedAt" from "jobs" where "jobs"."publication_id" = ?1'
+                )
+                .all(compatiblePublication.id)
+            const invalidJob = await database.sql
+                .statement<TestRow>(
+                    'select "jobs"."id" as "id", "jobs"."project_id" as "projectId", "jobs"."publication_id" as "publicationId", "jobs"."state" as "state", "jobs"."run_at" as "runAt", "jobs"."attempts" as "attempts", "jobs"."claim_token" as "claimToken", "jobs"."claimed_by_actor_id" as "claimedByActorId", "jobs"."claimed_at" as "claimedAt", "jobs"."lease_expires_at" as "leaseExpiresAt", "jobs"."effect_started_at" as "effectStartedAt", "jobs"."started_at" as "startedAt", "jobs"."completed_at" as "completedAt", "jobs"."error_message" as "errorMessage", "jobs"."created_at" as "createdAt", "jobs"."updated_at" as "updatedAt" from "jobs" where "jobs"."publication_id" = ?1'
+                )
+                .all(invalidPublication.id)
             expect(compatibleJob).toEqual([expect.objectContaining({ state: 'pending' })])
             expect(invalidJob).toEqual([expect.objectContaining({ state: 'cancelled' })])
 
             const rescuedInvalidContent = { body: 'this target remains too long for v2' }
-            const savedInvalidDraft = store.savePublicationDraft({
+            const savedInvalidDraft = await store.savePublicationDraft({
                 projectId: project.project.id,
                 publicationId: invalidPublication.id,
                 subjectId: 'user-1',
@@ -1794,7 +1955,7 @@ describe('manual workflow store', () => {
                 content: rescuedInvalidContent,
             })
 
-            expect(() =>
+            await expect(
                 store.promotePublicationDraft({
                     projectId: project.project.id,
                     publicationId: invalidPublication.id,
@@ -1802,13 +1963,17 @@ describe('manual workflow store', () => {
                     expectedRevision: 3,
                     scheduledAt: now + 180_000,
                 })
-            ).toThrow('Publication target content is incompatible with the active channel profile')
+            ).rejects.toThrow(
+                'Publication target content is incompatible with the active channel profile'
+            )
 
-            const invalidPublicationRow = database
-                .select()
-                .from(publications)
-                .where(eq(publications.id, invalidPublication.id))
-                .all()[0]
+            const invalidPublicationRow = (
+                await database.sql
+                    .statement<TestRow>(
+                        'select "publications"."id" as "id", "publications"."project_id" as "projectId", "publications"."post_id" as "postId", "publications"."channel_id" as "channelId", "publications"."confirmed_destination_revision" as "confirmedDestinationRevision", "publications"."target_revision_id" as "targetRevisionId", "publications"."delivery_mode" as "deliveryMode", "publications"."review_state" as "reviewState", "publications"."state" as "state", "publications"."scheduled_at" as "scheduledAt", "publications"."published_at" as "publishedAt", "publications"."external_id" as "externalId", "publications"."external_url" as "externalUrl", "publications"."error_message" as "errorMessage", "publications"."created_by_actor_id" as "createdByActorId", "publications"."scheduled_by_actor_id" as "scheduledByActorId", "publications"."state_changed_by_actor_id" as "stateChangedByActorId", "publications"."published_by_actor_id" as "publishedByActorId", "publications"."last_assessed_profile_version_id" as "lastAssessedProfileVersionId", "publications"."profile_assessment_issues_json" as "profileAssessmentIssuesJson", "publications"."created_at" as "createdAt", "publications"."updated_at" as "updatedAt" from "publications" where "publications"."id" = ?1'
+                    )
+                    .all(invalidPublication.id)
+            ).map(row => fromDbRow<TestRow>(row, { profileAssessmentIssuesJson: 'json' }))[0]
             if (invalidPublicationRow === undefined) {
                 throw new Error('The invalid publication disappeared')
             }
@@ -1819,7 +1984,7 @@ describe('manual workflow store', () => {
                 lastAssessedProfileVersionId: profileDraft.id,
             })
             expect(
-                store.getPublicationWorkingDraft(
+                await store.getPublicationWorkingDraft(
                     project.project.id,
                     invalidPublication.id,
                     'user-1'
@@ -1832,21 +1997,25 @@ describe('manual workflow store', () => {
                 content: rescuedInvalidContent,
             })
             expect(
-                database
-                    .select()
-                    .from(publicationTargetRevisions)
-                    .where(eq(publicationTargetRevisions.publicationId, invalidPublication.id))
-                    .all()
+                (
+                    await database.sql
+                        .statement<TestRow>(
+                            'select "publication_target_revisions"."id" as "id", "publication_target_revisions"."project_id" as "projectId", "publication_target_revisions"."publication_id" as "publicationId", "publication_target_revisions"."sequence" as "sequence", "publication_target_revisions"."profile_version_id" as "profileVersionId", "publication_target_revisions"."source_revision" as "sourceRevision", "publication_target_revisions"."delivery_mode" as "deliveryMode", "publication_target_revisions"."media_reference_count" as "mediaReferenceCount", "publication_target_revisions"."content_json" as "contentJson", "publication_target_revisions"."content_hash" as "contentHash", "publication_target_revisions"."profile_hash" as "profileHash", "publication_target_revisions"."schema_hash" as "schemaHash", "publication_target_revisions"."validation_issues_json" as "validationIssuesJson", "publication_target_revisions"."created_by_actor_id" as "createdByActorId", "publication_target_revisions"."created_at" as "createdAt" from "publication_target_revisions" where "publication_target_revisions"."publication_id" = ?1'
+                        )
+                        .all(invalidPublication.id)
+                ).map(row =>
+                    fromDbRow<TestRow>(row, { contentJson: 'json', validationIssuesJson: 'json' })
+                )
             ).toEqual(initialInvalidTarget)
             expect(
-                database
-                    .select()
-                    .from(jobs)
-                    .where(eq(jobs.publicationId, invalidPublication.id))
-                    .all()
+                await database.sql
+                    .statement<TestRow>(
+                        'select "jobs"."id" as "id", "jobs"."project_id" as "projectId", "jobs"."publication_id" as "publicationId", "jobs"."state" as "state", "jobs"."run_at" as "runAt", "jobs"."attempts" as "attempts", "jobs"."claim_token" as "claimToken", "jobs"."claimed_by_actor_id" as "claimedByActorId", "jobs"."claimed_at" as "claimedAt", "jobs"."lease_expires_at" as "leaseExpiresAt", "jobs"."effect_started_at" as "effectStartedAt", "jobs"."started_at" as "startedAt", "jobs"."completed_at" as "completedAt", "jobs"."error_message" as "errorMessage", "jobs"."created_at" as "createdAt", "jobs"."updated_at" as "updatedAt" from "jobs" where "jobs"."publication_id" = ?1'
+                    )
+                    .all(invalidPublication.id)
             ).toEqual(invalidJob)
 
-            const promoted = store.promotePublicationDraft({
+            const promoted = await store.promotePublicationDraft({
                 projectId: project.project.id,
                 publicationId: unscheduledCompatiblePublication.id,
                 subjectId: 'user-1',
@@ -1859,80 +2028,80 @@ describe('manual workflow store', () => {
                 targetRevisionId: expect.any(String),
                 lastAssessedProfileVersionId: originalProfileVersionId,
             })
-            const promotedTargets = database
-                .select()
-                .from(publicationTargetRevisions)
-                .where(
-                    eq(
-                        publicationTargetRevisions.publicationId,
-                        unscheduledCompatiblePublication.id
+            const promotedTargets = (
+                await database.sql
+                    .statement<TestRow>(
+                        'select "publication_target_revisions"."id" as "id", "publication_target_revisions"."project_id" as "projectId", "publication_target_revisions"."publication_id" as "publicationId", "publication_target_revisions"."sequence" as "sequence", "publication_target_revisions"."profile_version_id" as "profileVersionId", "publication_target_revisions"."source_revision" as "sourceRevision", "publication_target_revisions"."delivery_mode" as "deliveryMode", "publication_target_revisions"."media_reference_count" as "mediaReferenceCount", "publication_target_revisions"."content_json" as "contentJson", "publication_target_revisions"."content_hash" as "contentHash", "publication_target_revisions"."profile_hash" as "profileHash", "publication_target_revisions"."schema_hash" as "schemaHash", "publication_target_revisions"."validation_issues_json" as "validationIssuesJson", "publication_target_revisions"."created_by_actor_id" as "createdByActorId", "publication_target_revisions"."created_at" as "createdAt" from "publication_target_revisions" where "publication_target_revisions"."publication_id" = ?1'
                     )
-                )
-                .all()
+                    .all(unscheduledCompatiblePublication.id)
+            ).map(row =>
+                fromDbRow<TestRow>(row, { contentJson: 'json', validationIssuesJson: 'json' })
+            )
             expect(promotedTargets).toHaveLength(1)
             expect(promotedTargets[0]).toMatchObject({ profileVersionId: originalProfileVersionId })
             expect(
-                database
-                    .select()
-                    .from(jobs)
-                    .where(eq(jobs.publicationId, unscheduledCompatiblePublication.id))
-                    .all()
+                await database.sql
+                    .statement<TestRow>(
+                        'select "jobs"."id" as "id", "jobs"."project_id" as "projectId", "jobs"."publication_id" as "publicationId", "jobs"."state" as "state", "jobs"."run_at" as "runAt", "jobs"."attempts" as "attempts", "jobs"."claim_token" as "claimToken", "jobs"."claimed_by_actor_id" as "claimedByActorId", "jobs"."claimed_at" as "claimedAt", "jobs"."lease_expires_at" as "leaseExpiresAt", "jobs"."effect_started_at" as "effectStartedAt", "jobs"."started_at" as "startedAt", "jobs"."completed_at" as "completedAt", "jobs"."error_message" as "errorMessage", "jobs"."created_at" as "createdAt", "jobs"."updated_at" as "updatedAt" from "jobs" where "jobs"."publication_id" = ?1'
+                    )
+                    .all(unscheduledCompatiblePublication.id)
             ).toEqual([expect.objectContaining({ state: 'pending' })])
             expect(
-                database
-                    .select()
-                    .from(publications)
-                    .where(eq(publications.id, compatiblePublication.id))
-                    .all()[0]
+                (
+                    await database.sql
+                        .statement<TestRow>(
+                            'select "publications"."id" as "id", "publications"."project_id" as "projectId", "publications"."post_id" as "postId", "publications"."channel_id" as "channelId", "publications"."confirmed_destination_revision" as "confirmedDestinationRevision", "publications"."target_revision_id" as "targetRevisionId", "publications"."delivery_mode" as "deliveryMode", "publications"."review_state" as "reviewState", "publications"."state" as "state", "publications"."scheduled_at" as "scheduledAt", "publications"."published_at" as "publishedAt", "publications"."external_id" as "externalId", "publications"."external_url" as "externalUrl", "publications"."error_message" as "errorMessage", "publications"."created_by_actor_id" as "createdByActorId", "publications"."scheduled_by_actor_id" as "scheduledByActorId", "publications"."state_changed_by_actor_id" as "stateChangedByActorId", "publications"."published_by_actor_id" as "publishedByActorId", "publications"."last_assessed_profile_version_id" as "lastAssessedProfileVersionId", "publications"."profile_assessment_issues_json" as "profileAssessmentIssuesJson", "publications"."created_at" as "createdAt", "publications"."updated_at" as "updatedAt" from "publications" where "publications"."id" = ?1'
+                        )
+                        .all(compatiblePublication.id)
+                ).map(row => fromDbRow<TestRow>(row, { profileAssessmentIssuesJson: 'json' }))[0]
             ).toMatchObject({ targetRevisionId: initialCompatibleTarget[0]?.id })
             expect(
-                database
-                    .select()
-                    .from(jobs)
-                    .where(eq(jobs.publicationId, compatiblePublication.id))
-                    .all()
+                await database.sql
+                    .statement<TestRow>(
+                        'select "jobs"."id" as "id", "jobs"."project_id" as "projectId", "jobs"."publication_id" as "publicationId", "jobs"."state" as "state", "jobs"."run_at" as "runAt", "jobs"."attempts" as "attempts", "jobs"."claim_token" as "claimToken", "jobs"."claimed_by_actor_id" as "claimedByActorId", "jobs"."claimed_at" as "claimedAt", "jobs"."lease_expires_at" as "leaseExpiresAt", "jobs"."effect_started_at" as "effectStartedAt", "jobs"."started_at" as "startedAt", "jobs"."completed_at" as "completedAt", "jobs"."error_message" as "errorMessage", "jobs"."created_at" as "createdAt", "jobs"."updated_at" as "updatedAt" from "jobs" where "jobs"."publication_id" = ?1'
+                    )
+                    .all(compatiblePublication.id)
             ).toEqual(compatibleJob)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
-    it('blocks ordinary promotion when the active profile narrows media support', () => {
-        const database = createDatabase(':memory:')
+    it('blocks ordinary promotion when the active profile narrows media support', async () => {
+        const database = (await openTestDatabase()).database
         const now = 1_800_000_000_000
 
         try {
-            runMigrations(database)
             const setupStore = createManualStore(database, { now: () => now })
-            const project = setupStore.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const project = await setupStore.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'Active Media Promotion Project',
                 subjectId: 'user-1',
                 displayName: 'Operator',
             })
             const readyMedia = createReadyMedia(project.project.id, now, project.actor.id)
-            database.insert(mediaAssets).values(readyMedia.asset).run()
+            await insertRow(database, 'media_assets', readyMedia.asset)
             const readyRepresentation = readyMedia.representations[0]
             if (readyRepresentation === undefined) {
                 throw new Error('The ready media representation is missing')
             }
-            database
-                .insert(mediaRepresentations)
-                .values({ ...readyRepresentation, recipeJson: null })
-                .run()
+            await insertRow(database, 'media_representations', {
+                ...readyRepresentation,
+                recipeJson: null,
+            })
             const media = {
-                getAsset(
+                async getAsset(
                     currentProjectId: string,
                     assetId: string,
                     _subjectId: string
-                ): MediaAssetReference | null {
+                ): Promise<MediaAssetReference | null> {
                     return assetId === 'asset-1'
                         ? createReadyMedia(currentProjectId, now, project.actor.id)
                         : null
                 },
             }
             const store = createManualStore(database, { now: () => now, media })
-            const channel = store.createChannel({
+            const channel = await store.createChannel({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 name: 'Media Channel',
@@ -1945,7 +2114,7 @@ describe('manual workflow store', () => {
                 body: 'Media target',
                 media: [{ assetId: 'asset-1' }],
             }
-            const created = store.createPost({
+            const created = await store.createPost({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 sourceContent: sourceContent('Active media source'),
@@ -1962,23 +2131,27 @@ describe('manual workflow store', () => {
             const publication = created.publications[0]
             if (publication === undefined)
                 throw new Error('The active media publication is missing')
-            const initialTargets = database
-                .select()
-                .from(publicationTargetRevisions)
-                .where(eq(publicationTargetRevisions.publicationId, publication.id))
-                .all()
+            const initialTargets = (
+                await database.sql
+                    .statement<TestRow>(
+                        'select "publication_target_revisions"."id" as "id", "publication_target_revisions"."project_id" as "projectId", "publication_target_revisions"."publication_id" as "publicationId", "publication_target_revisions"."sequence" as "sequence", "publication_target_revisions"."profile_version_id" as "profileVersionId", "publication_target_revisions"."source_revision" as "sourceRevision", "publication_target_revisions"."delivery_mode" as "deliveryMode", "publication_target_revisions"."media_reference_count" as "mediaReferenceCount", "publication_target_revisions"."content_json" as "contentJson", "publication_target_revisions"."content_hash" as "contentHash", "publication_target_revisions"."profile_hash" as "profileHash", "publication_target_revisions"."schema_hash" as "schemaHash", "publication_target_revisions"."validation_issues_json" as "validationIssuesJson", "publication_target_revisions"."created_by_actor_id" as "createdByActorId", "publication_target_revisions"."created_at" as "createdAt" from "publication_target_revisions" where "publication_target_revisions"."publication_id" = ?1'
+                    )
+                    .all(publication.id)
+            ).map(row =>
+                fromDbRow<TestRow>(row, { contentJson: 'json', validationIssuesJson: 'json' })
+            )
             if (initialTargets.length !== 1) {
                 throw new Error('The initial media target revision is missing')
             }
 
-            const profileDraft = store.createChannelProfileDraft({
+            const profileDraft = await store.createChannelProfileDraft({
                 projectId: project.project.id,
                 channelId: channel.id,
                 subjectId: 'user-1',
                 profile: createMediaProfile(2, ['video'], ['video/mp4']),
             })
             if (profileDraft === null) throw new Error('The active media draft was not created')
-            const activated = store.activateChannelProfile({
+            const activated = await store.activateChannelProfile({
                 projectId: project.project.id,
                 channelId: channel.id,
                 profileVersionId: profileDraft.id,
@@ -1987,7 +2160,7 @@ describe('manual workflow store', () => {
             })
             if (activated === null) throw new Error('The active media profile was not activated')
 
-            const saved = store.savePublicationDraft({
+            const saved = await store.savePublicationDraft({
                 projectId: project.project.id,
                 publicationId: publication.id,
                 subjectId: 'user-1',
@@ -2000,7 +2173,7 @@ describe('manual workflow store', () => {
                 reviewState: 'compatible',
                 content: targetContent,
             })
-            expect(() =>
+            await expect(
                 store.promotePublicationDraft({
                     projectId: project.project.id,
                     publicationId: publication.id,
@@ -2008,9 +2181,11 @@ describe('manual workflow store', () => {
                     expectedRevision: 3,
                     scheduledAt: now + 120_000,
                 })
-            ).toThrow('Publication target content is incompatible with the active channel profile')
+            ).rejects.toThrow(
+                'Publication target content is incompatible with the active channel profile'
+            )
             expect(
-                store.getPublicationWorkingDraft(project.project.id, publication.id, 'user-1')
+                await store.getPublicationWorkingDraft(project.project.id, publication.id, 'user-1')
             ).toMatchObject({
                 revision: 3,
                 profileVersionId: originalProfileVersionId,
@@ -2018,11 +2193,13 @@ describe('manual workflow store', () => {
                 content: targetContent,
             })
             expect(
-                database
-                    .select()
-                    .from(publications)
-                    .where(eq(publications.id, publication.id))
-                    .all()[0]
+                (
+                    await database.sql
+                        .statement<TestRow>(
+                            'select "publications"."id" as "id", "publications"."project_id" as "projectId", "publications"."post_id" as "postId", "publications"."channel_id" as "channelId", "publications"."confirmed_destination_revision" as "confirmedDestinationRevision", "publications"."target_revision_id" as "targetRevisionId", "publications"."delivery_mode" as "deliveryMode", "publications"."review_state" as "reviewState", "publications"."state" as "state", "publications"."scheduled_at" as "scheduledAt", "publications"."published_at" as "publishedAt", "publications"."external_id" as "externalId", "publications"."external_url" as "externalUrl", "publications"."error_message" as "errorMessage", "publications"."created_by_actor_id" as "createdByActorId", "publications"."scheduled_by_actor_id" as "scheduledByActorId", "publications"."state_changed_by_actor_id" as "stateChangedByActorId", "publications"."published_by_actor_id" as "publishedByActorId", "publications"."last_assessed_profile_version_id" as "lastAssessedProfileVersionId", "publications"."profile_assessment_issues_json" as "profileAssessmentIssuesJson", "publications"."created_at" as "createdAt", "publications"."updated_at" as "updatedAt" from "publications" where "publications"."id" = ?1'
+                        )
+                        .all(publication.id)
+                ).map(row => fromDbRow<TestRow>(row, { profileAssessmentIssuesJson: 'json' }))[0]
             ).toMatchObject({
                 state: 'scheduled',
                 reviewState: 'review_required',
@@ -2030,32 +2207,41 @@ describe('manual workflow store', () => {
                 lastAssessedProfileVersionId: profileDraft.id,
             })
             expect(
-                database
-                    .select()
-                    .from(publicationTargetRevisions)
-                    .where(eq(publicationTargetRevisions.publicationId, publication.id))
-                    .all()
+                (
+                    await database.sql
+                        .statement<TestRow>(
+                            'select "publication_target_revisions"."id" as "id", "publication_target_revisions"."project_id" as "projectId", "publication_target_revisions"."publication_id" as "publicationId", "publication_target_revisions"."sequence" as "sequence", "publication_target_revisions"."profile_version_id" as "profileVersionId", "publication_target_revisions"."source_revision" as "sourceRevision", "publication_target_revisions"."delivery_mode" as "deliveryMode", "publication_target_revisions"."media_reference_count" as "mediaReferenceCount", "publication_target_revisions"."content_json" as "contentJson", "publication_target_revisions"."content_hash" as "contentHash", "publication_target_revisions"."profile_hash" as "profileHash", "publication_target_revisions"."schema_hash" as "schemaHash", "publication_target_revisions"."validation_issues_json" as "validationIssuesJson", "publication_target_revisions"."created_by_actor_id" as "createdByActorId", "publication_target_revisions"."created_at" as "createdAt" from "publication_target_revisions" where "publication_target_revisions"."publication_id" = ?1'
+                        )
+                        .all(publication.id)
+                ).map(row =>
+                    fromDbRow<TestRow>(row, { contentJson: 'json', validationIssuesJson: 'json' })
+                )
             ).toEqual(initialTargets)
-            expect(database.select().from(jobs).all()).toEqual([])
+            expect(
+                await database.sql
+                    .statement<TestRow>(
+                        'select "jobs"."id" as "id", "jobs"."project_id" as "projectId", "jobs"."publication_id" as "publicationId", "jobs"."state" as "state", "jobs"."run_at" as "runAt", "jobs"."attempts" as "attempts", "jobs"."claim_token" as "claimToken", "jobs"."claimed_by_actor_id" as "claimedByActorId", "jobs"."claimed_at" as "claimedAt", "jobs"."lease_expires_at" as "leaseExpiresAt", "jobs"."effect_started_at" as "effectStartedAt", "jobs"."started_at" as "startedAt", "jobs"."completed_at" as "completedAt", "jobs"."error_message" as "errorMessage", "jobs"."created_at" as "createdAt", "jobs"."updated_at" as "updatedAt" from "jobs"'
+                    )
+                    .all()
+            ).toEqual([])
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
-    it('blocks ordinary automatic promotion when the execution contract changes', () => {
-        const database = createDatabase(':memory:')
+    it('blocks ordinary automatic promotion when the execution contract changes', async () => {
+        const database = (await openTestDatabase()).database
         const now = 1_800_000_000_000
 
         try {
-            runMigrations(database)
             const store = createManualStore(database, { now: () => now })
-            const project = store.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const project = await store.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'Execution Contract Promotion Project',
                 subjectId: 'user-1',
                 displayName: 'Operator',
             })
-            const channel = store.createChannel({
+            const channel = await store.createChannel({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 name: 'Versioned Automatic Channel',
@@ -2066,18 +2252,19 @@ describe('manual workflow store', () => {
             }
             const originalProfileVersionId = channel.profileVersionId
 
-            database
-                .insert(publishers)
-                .values({
-                    id: 'execution-contract-publisher',
-                    workspaceId: workspaceOf(database, project.project.id),
-                    channelId: channel.id,
-                    kind: 'future-provider',
-                })
-                .run()
+            await database.sql
+                .statement(
+                    'insert into "publishers" ("id", "workspace_id", "channel_id", "kind") values (?1, ?2, ?3, ?4)'
+                )
+                .run(
+                    'execution-contract-publisher',
+                    await workspaceOf(database, project.project.id),
+                    channel.id,
+                    'future-provider'
+                )
 
             const targetContent = { body: 'short target' }
-            const created = store.createPost({
+            const created = await store.createPost({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 sourceContent: sourceContent('Execution contract source'),
@@ -2095,16 +2282,20 @@ describe('manual workflow store', () => {
             if (publication === undefined) {
                 throw new Error('The execution contract publication is missing')
             }
-            const initialTargets = database
-                .select()
-                .from(publicationTargetRevisions)
-                .where(eq(publicationTargetRevisions.publicationId, publication.id))
-                .all()
+            const initialTargets = (
+                await database.sql
+                    .statement<TestRow>(
+                        'select "publication_target_revisions"."id" as "id", "publication_target_revisions"."project_id" as "projectId", "publication_target_revisions"."publication_id" as "publicationId", "publication_target_revisions"."sequence" as "sequence", "publication_target_revisions"."profile_version_id" as "profileVersionId", "publication_target_revisions"."source_revision" as "sourceRevision", "publication_target_revisions"."delivery_mode" as "deliveryMode", "publication_target_revisions"."media_reference_count" as "mediaReferenceCount", "publication_target_revisions"."content_json" as "contentJson", "publication_target_revisions"."content_hash" as "contentHash", "publication_target_revisions"."profile_hash" as "profileHash", "publication_target_revisions"."schema_hash" as "schemaHash", "publication_target_revisions"."validation_issues_json" as "validationIssuesJson", "publication_target_revisions"."created_by_actor_id" as "createdByActorId", "publication_target_revisions"."created_at" as "createdAt" from "publication_target_revisions" where "publication_target_revisions"."publication_id" = ?1'
+                    )
+                    .all(publication.id)
+            ).map(row =>
+                fromDbRow<TestRow>(row, { contentJson: 'json', validationIssuesJson: 'json' })
+            )
             if (initialTargets.length !== 1) {
                 throw new Error('The initial execution target revision is missing')
             }
 
-            const profileDraft = store.createChannelProfileDraft({
+            const profileDraft = await store.createChannelProfileDraft({
                 projectId: project.project.id,
                 channelId: channel.id,
                 subjectId: 'user-1',
@@ -2122,7 +2313,7 @@ describe('manual workflow store', () => {
             if (profileDraft === null) {
                 throw new Error('The execution contract draft was not created')
             }
-            const activated = store.activateChannelProfile({
+            const activated = await store.activateChannelProfile({
                 projectId: project.project.id,
                 channelId: channel.id,
                 profileVersionId: profileDraft.id,
@@ -2133,10 +2324,14 @@ describe('manual workflow store', () => {
                 throw new Error('The execution contract profile was not activated')
             }
             expect(
-                database.select().from(jobs).where(eq(jobs.publicationId, publication.id)).all()
+                await database.sql
+                    .statement<TestRow>(
+                        'select "jobs"."id" as "id", "jobs"."project_id" as "projectId", "jobs"."publication_id" as "publicationId", "jobs"."state" as "state", "jobs"."run_at" as "runAt", "jobs"."attempts" as "attempts", "jobs"."claim_token" as "claimToken", "jobs"."claimed_by_actor_id" as "claimedByActorId", "jobs"."claimed_at" as "claimedAt", "jobs"."lease_expires_at" as "leaseExpiresAt", "jobs"."effect_started_at" as "effectStartedAt", "jobs"."started_at" as "startedAt", "jobs"."completed_at" as "completedAt", "jobs"."error_message" as "errorMessage", "jobs"."created_at" as "createdAt", "jobs"."updated_at" as "updatedAt" from "jobs" where "jobs"."publication_id" = ?1'
+                    )
+                    .all(publication.id)
             ).toEqual([expect.objectContaining({ state: 'cancelled' })])
 
-            const saved = store.savePublicationDraft({
+            const saved = await store.savePublicationDraft({
                 projectId: project.project.id,
                 publicationId: publication.id,
                 subjectId: 'user-1',
@@ -2149,7 +2344,7 @@ describe('manual workflow store', () => {
                 reviewState: 'compatible',
                 content: targetContent,
             })
-            expect(() =>
+            await expect(
                 store.promotePublicationDraft({
                     projectId: project.project.id,
                     publicationId: publication.id,
@@ -2157,13 +2352,17 @@ describe('manual workflow store', () => {
                     expectedRevision: 3,
                     scheduledAt: now + 120_000,
                 })
-            ).toThrow('Publication target content is incompatible with the active channel profile')
+            ).rejects.toThrow(
+                'Publication target content is incompatible with the active channel profile'
+            )
             expect(
-                database
-                    .select()
-                    .from(publications)
-                    .where(eq(publications.id, publication.id))
-                    .all()[0]
+                (
+                    await database.sql
+                        .statement<TestRow>(
+                            'select "publications"."id" as "id", "publications"."project_id" as "projectId", "publications"."post_id" as "postId", "publications"."channel_id" as "channelId", "publications"."confirmed_destination_revision" as "confirmedDestinationRevision", "publications"."target_revision_id" as "targetRevisionId", "publications"."delivery_mode" as "deliveryMode", "publications"."review_state" as "reviewState", "publications"."state" as "state", "publications"."scheduled_at" as "scheduledAt", "publications"."published_at" as "publishedAt", "publications"."external_id" as "externalId", "publications"."external_url" as "externalUrl", "publications"."error_message" as "errorMessage", "publications"."created_by_actor_id" as "createdByActorId", "publications"."scheduled_by_actor_id" as "scheduledByActorId", "publications"."state_changed_by_actor_id" as "stateChangedByActorId", "publications"."published_by_actor_id" as "publishedByActorId", "publications"."last_assessed_profile_version_id" as "lastAssessedProfileVersionId", "publications"."profile_assessment_issues_json" as "profileAssessmentIssuesJson", "publications"."created_at" as "createdAt", "publications"."updated_at" as "updatedAt" from "publications" where "publications"."id" = ?1'
+                        )
+                        .all(publication.id)
+                ).map(row => fromDbRow<TestRow>(row, { profileAssessmentIssuesJson: 'json' }))[0]
             ).toMatchObject({
                 state: 'scheduled',
                 reviewState: 'review_required',
@@ -2171,43 +2370,50 @@ describe('manual workflow store', () => {
                 lastAssessedProfileVersionId: profileDraft.id,
             })
             expect(
-                database
-                    .select()
-                    .from(publicationTargetRevisions)
-                    .where(eq(publicationTargetRevisions.publicationId, publication.id))
-                    .all()
+                (
+                    await database.sql
+                        .statement<TestRow>(
+                            'select "publication_target_revisions"."id" as "id", "publication_target_revisions"."project_id" as "projectId", "publication_target_revisions"."publication_id" as "publicationId", "publication_target_revisions"."sequence" as "sequence", "publication_target_revisions"."profile_version_id" as "profileVersionId", "publication_target_revisions"."source_revision" as "sourceRevision", "publication_target_revisions"."delivery_mode" as "deliveryMode", "publication_target_revisions"."media_reference_count" as "mediaReferenceCount", "publication_target_revisions"."content_json" as "contentJson", "publication_target_revisions"."content_hash" as "contentHash", "publication_target_revisions"."profile_hash" as "profileHash", "publication_target_revisions"."schema_hash" as "schemaHash", "publication_target_revisions"."validation_issues_json" as "validationIssuesJson", "publication_target_revisions"."created_by_actor_id" as "createdByActorId", "publication_target_revisions"."created_at" as "createdAt" from "publication_target_revisions" where "publication_target_revisions"."publication_id" = ?1'
+                        )
+                        .all(publication.id)
+                ).map(row =>
+                    fromDbRow<TestRow>(row, { contentJson: 'json', validationIssuesJson: 'json' })
+                )
             ).toEqual(initialTargets)
             expect(
-                database.select().from(jobs).where(eq(jobs.publicationId, publication.id)).all()
+                await database.sql
+                    .statement<TestRow>(
+                        'select "jobs"."id" as "id", "jobs"."project_id" as "projectId", "jobs"."publication_id" as "publicationId", "jobs"."state" as "state", "jobs"."run_at" as "runAt", "jobs"."attempts" as "attempts", "jobs"."claim_token" as "claimToken", "jobs"."claimed_by_actor_id" as "claimedByActorId", "jobs"."claimed_at" as "claimedAt", "jobs"."lease_expires_at" as "leaseExpiresAt", "jobs"."effect_started_at" as "effectStartedAt", "jobs"."started_at" as "startedAt", "jobs"."completed_at" as "completedAt", "jobs"."error_message" as "errorMessage", "jobs"."created_at" as "createdAt", "jobs"."updated_at" as "updatedAt" from "jobs" where "jobs"."publication_id" = ?1'
+                    )
+                    .all(publication.id)
             ).toEqual([expect.objectContaining({ state: 'cancelled' })])
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
-    it('rejects an invalid scheduled media target before persisting the publication', () => {
-        const database = createDatabase(':memory:')
+    it('rejects an invalid scheduled media target before persisting the publication', async () => {
+        const database = (await openTestDatabase()).database
         const now = 1_800_000_000_000
 
         try {
-            runMigrations(database)
             const media = {
-                getAsset(
+                async getAsset(
                     _projectId: string,
                     _assetId: string,
                     _subjectId: string
-                ): MediaAssetReference | null {
+                ): Promise<MediaAssetReference | null> {
                     return null
                 },
             }
             const store = createManualStore(database, { now: () => now, media })
-            const project = store.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const project = await store.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'Scheduled Media Validation Project',
                 subjectId: 'user-1',
                 displayName: 'Operator',
             })
-            const channel = store.createChannel({
+            const channel = await store.createChannel({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 name: 'Scheduled Media Channel',
@@ -2215,17 +2421,18 @@ describe('manual workflow store', () => {
             })
             if (channel === null) throw new Error('The scheduled media channel was not created')
 
-            database
-                .insert(publishers)
-                .values({
-                    id: 'scheduled-media-publisher',
-                    workspaceId: workspaceOf(database, project.project.id),
-                    channelId: channel.id,
-                    kind: 'media-provider',
-                })
-                .run()
+            await database.sql
+                .statement(
+                    'insert into "publishers" ("id", "workspace_id", "channel_id", "kind") values (?1, ?2, ?3, ?4)'
+                )
+                .run(
+                    'scheduled-media-publisher',
+                    await workspaceOf(database, project.project.id),
+                    channel.id,
+                    'media-provider'
+                )
 
-            expect(() =>
+            await expect(
                 store.createPost({
                     projectId: project.project.id,
                     subjectId: 'user-1',
@@ -2242,31 +2449,62 @@ describe('manual workflow store', () => {
                         },
                     ],
                 })
-            ).toThrow('Media asset missing-asset is not available for publication')
+            ).rejects.toThrow('Media asset missing-asset is not available for publication')
 
-            expect(database.select().from(posts).all()).toEqual([])
-            expect(database.select().from(publications).all()).toEqual([])
-            expect(database.select().from(publicationTargetRevisions).all()).toEqual([])
-            expect(database.select().from(jobs).all()).toEqual([])
+            expect(
+                (
+                    await database.sql
+                        .statement<TestRow>(
+                            'select "posts"."id" as "id", "posts"."project_id" as "projectId", "posts"."title" as "title", "posts"."source_content" as "sourceContent", "posts"."source_revision" as "sourceRevision", "posts"."created_by_actor_id" as "createdByActorId", "posts"."created_at" as "createdAt", "posts"."updated_at" as "updatedAt" from "posts"'
+                        )
+                        .all()
+                ).map(row => fromDbRow<TestRow>(row, { sourceContent: 'json' }))
+            ).toEqual([])
+            expect(
+                (
+                    await database.sql
+                        .statement<TestRow>(
+                            'select "publications"."id" as "id", "publications"."project_id" as "projectId", "publications"."post_id" as "postId", "publications"."channel_id" as "channelId", "publications"."confirmed_destination_revision" as "confirmedDestinationRevision", "publications"."target_revision_id" as "targetRevisionId", "publications"."delivery_mode" as "deliveryMode", "publications"."review_state" as "reviewState", "publications"."state" as "state", "publications"."scheduled_at" as "scheduledAt", "publications"."published_at" as "publishedAt", "publications"."external_id" as "externalId", "publications"."external_url" as "externalUrl", "publications"."error_message" as "errorMessage", "publications"."created_by_actor_id" as "createdByActorId", "publications"."scheduled_by_actor_id" as "scheduledByActorId", "publications"."state_changed_by_actor_id" as "stateChangedByActorId", "publications"."published_by_actor_id" as "publishedByActorId", "publications"."last_assessed_profile_version_id" as "lastAssessedProfileVersionId", "publications"."profile_assessment_issues_json" as "profileAssessmentIssuesJson", "publications"."created_at" as "createdAt", "publications"."updated_at" as "updatedAt" from "publications"'
+                        )
+                        .all()
+                ).map(row => fromDbRow<TestRow>(row, { profileAssessmentIssuesJson: 'json' }))
+            ).toEqual([])
+            expect(
+                (
+                    await database.sql
+                        .statement<TestRow>(
+                            'select "publication_target_revisions"."id" as "id", "publication_target_revisions"."project_id" as "projectId", "publication_target_revisions"."publication_id" as "publicationId", "publication_target_revisions"."sequence" as "sequence", "publication_target_revisions"."profile_version_id" as "profileVersionId", "publication_target_revisions"."source_revision" as "sourceRevision", "publication_target_revisions"."delivery_mode" as "deliveryMode", "publication_target_revisions"."media_reference_count" as "mediaReferenceCount", "publication_target_revisions"."content_json" as "contentJson", "publication_target_revisions"."content_hash" as "contentHash", "publication_target_revisions"."profile_hash" as "profileHash", "publication_target_revisions"."schema_hash" as "schemaHash", "publication_target_revisions"."validation_issues_json" as "validationIssuesJson", "publication_target_revisions"."created_by_actor_id" as "createdByActorId", "publication_target_revisions"."created_at" as "createdAt" from "publication_target_revisions"'
+                        )
+                        .all()
+                ).map(row =>
+                    fromDbRow<TestRow>(row, { contentJson: 'json', validationIssuesJson: 'json' })
+                )
+            ).toEqual([])
+            expect(
+                await database.sql
+                    .statement<TestRow>(
+                        'select "jobs"."id" as "id", "jobs"."project_id" as "projectId", "jobs"."publication_id" as "publicationId", "jobs"."state" as "state", "jobs"."run_at" as "runAt", "jobs"."attempts" as "attempts", "jobs"."claim_token" as "claimToken", "jobs"."claimed_by_actor_id" as "claimedByActorId", "jobs"."claimed_at" as "claimedAt", "jobs"."lease_expires_at" as "leaseExpiresAt", "jobs"."effect_started_at" as "effectStartedAt", "jobs"."started_at" as "startedAt", "jobs"."completed_at" as "completedAt", "jobs"."error_message" as "errorMessage", "jobs"."created_at" as "createdAt", "jobs"."updated_at" as "updatedAt" from "jobs"'
+                    )
+                    .all()
+            ).toEqual([])
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
-    it('versions a channel profile and re-assesses persisted work on activation', () => {
-        const database = createDatabase(':memory:')
+    it('versions a channel profile and re-assesses persisted work on activation', async () => {
+        const database = (await openTestDatabase()).database
         const now = 1_800_000_000_000
 
         try {
-            runMigrations(database)
             const store = createManualStore(database, { now: () => now })
-            const project = store.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const project = await store.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'Profile Lifecycle Project',
                 subjectId: 'user-1',
                 displayName: 'Operator',
             })
-            const channel = store.createChannel({
+            const channel = await store.createChannel({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 name: 'Versioned Channel',
@@ -2274,17 +2512,18 @@ describe('manual workflow store', () => {
             })
             if (channel === null) throw new Error('The profile lifecycle channel was not created')
 
-            database
-                .insert(publishers)
-                .values({
-                    id: 'profile-lifecycle-publisher',
-                    workspaceId: workspaceOf(database, project.project.id),
-                    channelId: channel.id,
-                    kind: 'future-provider',
-                })
-                .run()
+            await database.sql
+                .statement(
+                    'insert into "publishers" ("id", "workspace_id", "channel_id", "kind") values (?1, ?2, ?3, ?4)'
+                )
+                .run(
+                    'profile-lifecycle-publisher',
+                    await workspaceOf(database, project.project.id),
+                    channel.id,
+                    'future-provider'
+                )
 
-            const created = store.createPost({
+            const created = await store.createPost({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 sourceContent: sourceContent('Profile lifecycle source'),
@@ -2333,7 +2572,7 @@ describe('manual workflow store', () => {
                 },
             }
 
-            const draft = store.createChannelProfileDraft({
+            const draft = await store.createChannelProfileDraft({
                 projectId: project.project.id,
                 channelId: channel.id,
                 subjectId: 'user-1',
@@ -2342,7 +2581,7 @@ describe('manual workflow store', () => {
             expect(draft).toMatchObject({ state: 'draft', version: 2, revision: 1 })
             if (draft === null) throw new Error('The profile draft was not created')
 
-            const preview = store.previewChannelProfileActivation({
+            const preview = await store.previewChannelProfileActivation({
                 projectId: project.project.id,
                 channelId: channel.id,
                 profileVersionId: draft.id,
@@ -2357,7 +2596,7 @@ describe('manual workflow store', () => {
                 'review_required',
             ])
 
-            const activated = store.activateChannelProfile({
+            const activated = await store.activateChannelProfile({
                 projectId: project.project.id,
                 channelId: channel.id,
                 profileVersionId: draft.id,
@@ -2370,24 +2609,20 @@ describe('manual workflow store', () => {
             })
             expect(activated?.assessment.hasReviewRequired).toBe(true)
 
-            const profileRows = database
-                .select({ id: channelProfileVersions.id, state: channelProfileVersions.state })
-                .from(channelProfileVersions)
+            const profileRows = await database.sql
+                .statement<TestRow>(
+                    'select "channel_profile_versions"."id" as "id", "channel_profile_versions"."state" as "state" from "channel_profile_versions"'
+                )
                 .all()
             expect(profileRows).toEqual([
                 { id: channel.profileVersionId, state: 'superseded' },
                 { id: draft.id, state: 'active' },
             ])
 
-            const publicationRows = database
-                .select({
-                    id: publications.id,
-                    reviewState: publications.reviewState,
-                    targetRevisionId: publications.targetRevisionId,
-                    lastAssessedProfileVersionId: publications.lastAssessedProfileVersionId,
-                })
-                .from(publications)
-                .orderBy(publications.createdAt, publications.id)
+            const publicationRows = await database.sql
+                .statement<TestRow>(
+                    'select id, review_state as "reviewState", target_revision_id as "targetRevisionId", last_assessed_profile_version_id as "lastAssessedProfileVersionId" from publications order by created_at, id'
+                )
                 .all()
             const shortPublication = created.publications[0]
             const invalidPublication = created.publications[1]
@@ -2409,13 +2644,10 @@ describe('manual workflow store', () => {
                 })
             )
 
-            const workingDraftRows = database
-                .select({
-                    profileVersionId: publicationWorkingDrafts.profileVersionId,
-                    lastAssessedProfileVersionId:
-                        publicationWorkingDrafts.lastAssessedProfileVersionId,
-                })
-                .from(publicationWorkingDrafts)
+            const workingDraftRows = await database.sql
+                .statement<TestRow>(
+                    'select "publication_working_drafts"."profile_version_id" as "profileVersionId", "publication_working_drafts"."last_assessed_profile_version_id" as "lastAssessedProfileVersionId" from "publication_working_drafts"'
+                )
                 .all()
             expect(workingDraftRows).toEqual([
                 expect.objectContaining({
@@ -2429,58 +2661,60 @@ describe('manual workflow store', () => {
             ])
 
             expect(
-                database
-                    .select()
-                    .from(jobs)
-                    .all()
+                (
+                    await database.sql
+                        .statement<TestRow>(
+                            'select "jobs"."id" as "id", "jobs"."project_id" as "projectId", "jobs"."publication_id" as "publicationId", "jobs"."state" as "state", "jobs"."run_at" as "runAt", "jobs"."attempts" as "attempts", "jobs"."claim_token" as "claimToken", "jobs"."claimed_by_actor_id" as "claimedByActorId", "jobs"."claimed_at" as "claimedAt", "jobs"."lease_expires_at" as "leaseExpiresAt", "jobs"."effect_started_at" as "effectStartedAt", "jobs"."started_at" as "startedAt", "jobs"."completed_at" as "completedAt", "jobs"."error_message" as "errorMessage", "jobs"."created_at" as "createdAt", "jobs"."updated_at" as "updatedAt" from "jobs"'
+                        )
+                        .all()
+                )
                     .map(job => job.state)
                     .sort()
             ).toEqual(['cancelled', 'pending'])
             expect(
-                store.getChannelProfileState(project.project.id, channel.id, 'user-1')
+                await store.getChannelProfileState(project.project.id, channel.id, 'user-1')
             ).toMatchObject({
                 active: { id: draft.id, state: 'active' },
                 draft: null,
             })
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
-    it('revalidates pinned media representations when a profile narrows media support', () => {
-        const database = createDatabase(':memory:')
+    it('revalidates pinned media representations when a profile narrows media support', async () => {
+        const database = (await openTestDatabase()).database
         const now = 1_800_000_000_000
 
         try {
-            runMigrations(database)
             const media = {
-                getAsset(
+                async getAsset(
                     currentProjectId: string,
                     assetId: string,
                     _subjectId: string
-                ): MediaAssetReference | null {
+                ): Promise<MediaAssetReference | null> {
                     return assetId === 'asset-1' ? createReadyMedia(currentProjectId, now) : null
                 },
             }
             const store = createManualStore(database, { now: () => now, media })
-            const project = store.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const project = await store.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'Media Profile Project',
                 subjectId: 'user-1',
                 displayName: 'Operator',
             })
             const readyMedia = createReadyMedia(project.project.id, now, project.actor.id)
-            database.insert(mediaAssets).values(readyMedia.asset).run()
+            await insertRow(database, 'media_assets', readyMedia.asset)
             const readyRepresentation = readyMedia.representations[0]
             if (readyRepresentation === undefined) {
                 throw new Error('The ready media representation is missing')
             }
-            database
-                .insert(mediaRepresentations)
-                .values({ ...readyRepresentation, recipeJson: null })
-                .run()
+            await insertRow(database, 'media_representations', {
+                ...readyRepresentation,
+                recipeJson: null,
+            })
             const profile = createMediaProfile(1, ['image'], ['image/jpeg'])
-            const channel = store.createChannel({
+            const channel = await store.createChannel({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 name: 'Media Channel',
@@ -2488,17 +2722,18 @@ describe('manual workflow store', () => {
             })
             if (channel === null) throw new Error('The media profile channel was not created')
 
-            database
-                .insert(publishers)
-                .values({
-                    id: 'media-profile-publisher',
-                    workspaceId: workspaceOf(database, project.project.id),
-                    channelId: channel.id,
-                    kind: 'media-provider',
-                })
-                .run()
+            await database.sql
+                .statement(
+                    'insert into "publishers" ("id", "workspace_id", "channel_id", "kind") values (?1, ?2, ?3, ?4)'
+                )
+                .run(
+                    'media-profile-publisher',
+                    await workspaceOf(database, project.project.id),
+                    channel.id,
+                    'media-provider'
+                )
 
-            const created = store.createPost({
+            const created = await store.createPost({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 sourceContent: {
@@ -2521,7 +2756,7 @@ describe('manual workflow store', () => {
             const publication = created.publications[0]
             if (publication === undefined) throw new Error('The media publication is missing')
 
-            const draft = store.createChannelProfileDraft({
+            const draft = await store.createChannelProfileDraft({
                 projectId: project.project.id,
                 channelId: channel.id,
                 subjectId: 'user-1',
@@ -2529,7 +2764,7 @@ describe('manual workflow store', () => {
             })
             if (draft === null) throw new Error('The media profile draft was not created')
 
-            const preview = store.previewChannelProfileActivation({
+            const preview = await store.previewChannelProfileActivation({
                 projectId: project.project.id,
                 channelId: channel.id,
                 profileVersionId: draft.id,
@@ -2547,43 +2782,46 @@ describe('manual workflow store', () => {
                 })
             )
 
-            store.activateChannelProfile({
+            await store.activateChannelProfile({
                 projectId: project.project.id,
                 channelId: channel.id,
                 profileVersionId: draft.id,
                 subjectId: 'user-1',
             })
-            expect(database.select().from(jobs).all()).toEqual([
-                expect.objectContaining({ state: 'cancelled' }),
-            ])
+            expect(
+                await database.sql
+                    .statement<TestRow>(
+                        'select "jobs"."id" as "id", "jobs"."project_id" as "projectId", "jobs"."publication_id" as "publicationId", "jobs"."state" as "state", "jobs"."run_at" as "runAt", "jobs"."attempts" as "attempts", "jobs"."claim_token" as "claimToken", "jobs"."claimed_by_actor_id" as "claimedByActorId", "jobs"."claimed_at" as "claimedAt", "jobs"."lease_expires_at" as "leaseExpiresAt", "jobs"."effect_started_at" as "effectStartedAt", "jobs"."started_at" as "startedAt", "jobs"."completed_at" as "completedAt", "jobs"."error_message" as "errorMessage", "jobs"."created_at" as "createdAt", "jobs"."updated_at" as "updatedAt" from "jobs"'
+                    )
+                    .all()
+            ).toEqual([expect.objectContaining({ state: 'cancelled' })])
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
-    it('surfaces media capability issues while drafts are created and autosaved', () => {
-        const database = createDatabase(':memory:')
+    it('surfaces media capability issues while drafts are created and autosaved', async () => {
+        const database = (await openTestDatabase()).database
         const now = 1_800_000_000_000
 
         try {
-            runMigrations(database)
             const media = {
-                getAsset(
+                async getAsset(
                     _projectId: string,
                     _assetId: string,
                     _subjectId: string
-                ): MediaAssetReference | null {
+                ): Promise<MediaAssetReference | null> {
                     return null
                 },
             }
             const store = createManualStore(database, { now: () => now, media })
-            const project = store.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const project = await store.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'Draft Media Project',
                 subjectId: 'user-1',
                 displayName: 'Operator',
             })
-            const channel = store.createChannel({
+            const channel = await store.createChannel({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 name: 'Media Draft Channel',
@@ -2591,7 +2829,7 @@ describe('manual workflow store', () => {
             })
             if (channel === null) throw new Error('The media draft channel was not created')
 
-            const created = store.createPost({
+            const created = await store.createPost({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 sourceContent: {
@@ -2614,13 +2852,13 @@ describe('manual workflow store', () => {
 
             expect(publication).toMatchObject({ reviewState: 'review_required' })
             expect(
-                store.getPublicationWorkingDraft(project.project.id, publication.id, 'user-1')
+                await store.getPublicationWorkingDraft(project.project.id, publication.id, 'user-1')
             ).toMatchObject({
                 reviewState: 'review_required',
                 validationIssues: [expect.objectContaining({ code: 'profile.media_incompatible' })],
             })
 
-            const saved = store.savePublicationDraft({
+            const saved = await store.savePublicationDraft({
                 projectId: project.project.id,
                 publicationId: publication.id,
                 subjectId: 'user-1',
@@ -2636,29 +2874,28 @@ describe('manual workflow store', () => {
                 validationIssues: [expect.objectContaining({ code: 'profile.media_incompatible' })],
             })
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
-    it('fences concurrent source edits across publication drafts', () => {
-        const database = createDatabase(':memory:')
+    it('fences concurrent source edits across publication drafts', async () => {
+        const database = (await openTestDatabase()).database
         const now = 1_800_000_000_000
 
         try {
-            runMigrations(database)
             const store = createManualStore(database, { now: () => now })
-            const project = store.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const project = await store.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'Shared Source Project',
                 subjectId: 'user-1',
                 displayName: 'Operator',
             })
-            const firstChannel = store.createChannel({
+            const firstChannel = await store.createChannel({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 name: 'First Channel',
             })
-            const secondChannel = store.createChannel({
+            const secondChannel = await store.createChannel({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 name: 'Second Channel',
@@ -2667,7 +2904,7 @@ describe('manual workflow store', () => {
                 throw new Error('The shared source channels were not created')
             }
 
-            const created = store.createPost({
+            const created = await store.createPost({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 sourceContent: sourceContent('Initial source'),
@@ -2681,17 +2918,19 @@ describe('manual workflow store', () => {
             }
 
             expect(
-                store.savePublicationDraft({
-                    projectId: project.project.id,
-                    publicationId: firstPublication.id,
-                    subjectId: 'user-1',
-                    expectedRevision: 1,
-                    sourceContent: sourceContent('First editor source'),
-                    targetContent: { body: 'First editor target', media: [] },
-                })?.sourceRevision
+                (
+                    await store.savePublicationDraft({
+                        projectId: project.project.id,
+                        publicationId: firstPublication.id,
+                        subjectId: 'user-1',
+                        expectedRevision: 1,
+                        sourceContent: sourceContent('First editor source'),
+                        targetContent: { body: 'First editor target', media: [] },
+                    })
+                )?.sourceRevision
             ).toBe(2)
 
-            expect(() =>
+            await expect(
                 store.savePublicationDraft({
                     projectId: project.project.id,
                     publicationId: secondPublication.id,
@@ -2699,16 +2938,28 @@ describe('manual workflow store', () => {
                     expectedRevision: 1,
                     targetContent: { body: 'Second editor target', media: [] },
                 })
-            ).toThrow('changed after this publication draft was loaded')
+            ).rejects.toThrow('changed after this publication draft was loaded')
 
-            expect(database.select().from(posts).all()).toMatchObject([
+            expect(
+                (
+                    await database.sql
+                        .statement<TestRow>(
+                            'select "posts"."id" as "id", "posts"."project_id" as "projectId", "posts"."title" as "title", "posts"."source_content" as "sourceContent", "posts"."source_revision" as "sourceRevision", "posts"."created_by_actor_id" as "createdByActorId", "posts"."created_at" as "createdAt", "posts"."updated_at" as "updatedAt" from "posts"'
+                        )
+                        .all()
+                ).map(row => fromDbRow<TestRow>(row, { sourceContent: 'json' }))
+            ).toMatchObject([
                 {
                     sourceRevision: 2,
                     sourceContent: sourceContent('First editor source'),
                 },
             ])
             expect(
-                store.getPublicationWorkingDraft(project.project.id, secondPublication.id, 'user-1')
+                await store.getPublicationWorkingDraft(
+                    project.project.id,
+                    secondPublication.id,
+                    'user-1'
+                )
             ).toMatchObject({
                 revision: 1,
                 sourceRevision: 1,
@@ -2716,7 +2967,7 @@ describe('manual workflow store', () => {
                 content: { body: 'Initial source', media: [] },
             })
 
-            const rebased = store.rebasePublicationDraft({
+            const rebased = await store.rebasePublicationDraft({
                 projectId: project.project.id,
                 publicationId: secondPublication.id,
                 subjectId: 'user-1',
@@ -2729,7 +2980,7 @@ describe('manual workflow store', () => {
                 content: { body: 'Initial source', media: [] },
             })
 
-            const idempotentRebase = store.rebasePublicationDraft({
+            const idempotentRebase = await store.rebasePublicationDraft({
                 projectId: project.project.id,
                 publicationId: secondPublication.id,
                 subjectId: 'user-1',
@@ -2737,11 +2988,11 @@ describe('manual workflow store', () => {
             })
             expect(idempotentRebase).toMatchObject({ revision: 2, sourceRevision: 2 })
             expect(
-                store
-                    .listAuditEvents(project.project.id, 'user-1')
-                    ?.filter(event => event.action === 'publication.draft.rebased')
+                (await store.listAuditEvents(project.project.id, 'user-1'))?.filter(
+                    event => event.action === 'publication.draft.rebased'
+                )
             ).toHaveLength(1)
-            expect(() =>
+            await expect(
                 store.savePublicationDraft({
                     projectId: project.project.id,
                     publicationId: secondPublication.id,
@@ -2749,13 +3000,13 @@ describe('manual workflow store', () => {
                     expectedRevision: 1,
                     targetContent: { body: 'Stale copy', media: [] },
                 })
-            ).toThrow('changed after revision 1')
-            const before = store.getPublicationEditorState(
+            ).rejects.toThrow('changed after revision 1')
+            const before = await store.getPublicationEditorState(
                 project.project.id,
                 secondPublication.id,
                 'user-1'
             )
-            expect(() =>
+            await expect(
                 store.rebasePublicationDraft({
                     projectId: project.project.id,
                     publicationId: secondPublication.id,
@@ -2764,11 +3015,15 @@ describe('manual workflow store', () => {
                     expectedSourceRevision: 1,
                     replaceContent: true,
                 })
-            ).toThrow('source changed during destination review')
+            ).rejects.toThrow('source changed during destination review')
             expect(
-                store.getPublicationEditorState(project.project.id, secondPublication.id, 'user-1')
+                await store.getPublicationEditorState(
+                    project.project.id,
+                    secondPublication.id,
+                    'user-1'
+                )
             ).toEqual(before)
-            expect(() =>
+            await expect(
                 store.rebasePublicationDraft({
                     projectId: project.project.id,
                     publicationId: secondPublication.id,
@@ -2776,8 +3031,8 @@ describe('manual workflow store', () => {
                     expectedRevision: 2,
                     replaceContent: true,
                 })
-            ).toThrow('requires its expected revision')
-            const applied = store.rebasePublicationDraft({
+            ).rejects.toThrow('requires its expected revision')
+            const applied = await store.rebasePublicationDraft({
                 projectId: project.project.id,
                 publicationId: secondPublication.id,
                 subjectId: 'user-1',
@@ -2791,14 +3046,14 @@ describe('manual workflow store', () => {
                 content: { body: 'First editor source', media: [] },
                 reviewState: 'compatible',
             })
-            const after = store.getPublicationEditorState(
+            const after = await store.getPublicationEditorState(
                 project.project.id,
                 secondPublication.id,
                 'user-1'
             )
             expect(after?.publication).toEqual(before?.publication)
             expect(after?.selectedTarget).toEqual(before?.selectedTarget)
-            expect(() =>
+            await expect(
                 store.rebasePublicationDraft({
                     projectId: project.project.id,
                     publicationId: secondPublication.id,
@@ -2807,26 +3062,25 @@ describe('manual workflow store', () => {
                     expectedSourceRevision: 2,
                     replaceContent: true,
                 })
-            ).toThrow('changed after revision 2')
+            ).rejects.toThrow('changed after revision 2')
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
-    it('reconciles an ambiguous publication with explicit operator attribution', () => {
-        const database = createDatabase(':memory:')
+    it('reconciles an ambiguous publication with explicit operator attribution', async () => {
+        const database = (await openTestDatabase()).database
         const now = 1_800_000_000_000
 
         try {
-            runMigrations(database)
             const store = createManualStore(database, { now: () => now })
-            const project = store.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const project = await store.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'Reconciliation Project',
                 subjectId: 'user-1',
                 displayName: 'Operator',
             })
-            const channel = store.createChannel({
+            const channel = await store.createChannel({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 name: 'Manual Channel',
@@ -2834,7 +3088,7 @@ describe('manual workflow store', () => {
             expect(channel).not.toBeNull()
             if (channel === null) throw new Error('The test channel was not created')
 
-            const publishedCandidate = store.createPost({
+            const publishedCandidate = await store.createPost({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 sourceContent: sourceContent('The provider may have accepted this post'),
@@ -2843,13 +3097,13 @@ describe('manual workflow store', () => {
             const publishedCandidateId = publishedCandidate?.publications[0]?.id
             if (publishedCandidateId === undefined)
                 throw new Error('The test publication is missing')
-            database
-                .update(publications)
-                .set({ state: 'ambiguous', errorMessage: 'The provider response was lost' })
-                .where(eq(publications.id, publishedCandidateId))
-                .run()
+            await database.sql
+                .statement(
+                    'update "publications" set "state" = ?1, "error_message" = ?2 where "publications"."id" = ?3'
+                )
+                .run('ambiguous', 'The provider response was lost', publishedCandidateId)
 
-            const reconciledPublished = store.reconcileAmbiguousPublication({
+            const reconciledPublished = await store.reconcileAmbiguousPublication({
                 projectId: project.project.id,
                 publicationId: publishedCandidateId,
                 subjectId: 'user-1',
@@ -2866,7 +3120,7 @@ describe('manual workflow store', () => {
                 },
             })
 
-            const failedCandidate = store.createPost({
+            const failedCandidate = await store.createPost({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 sourceContent: sourceContent('The provider did not publish this post'),
@@ -2874,13 +3128,13 @@ describe('manual workflow store', () => {
             })
             const failedCandidateId = failedCandidate?.publications[0]?.id
             if (failedCandidateId === undefined) throw new Error('The test publication is missing')
-            database
-                .update(publications)
-                .set({ state: 'ambiguous', errorMessage: 'The provider response was lost' })
-                .where(eq(publications.id, failedCandidateId))
-                .run()
+            await database.sql
+                .statement(
+                    'update "publications" set "state" = ?1, "error_message" = ?2 where "publications"."id" = ?3'
+                )
+                .run('ambiguous', 'The provider response was lost', failedCandidateId)
 
-            const reconciledFailed = store.reconcileAmbiguousPublication({
+            const reconciledFailed = await store.reconcileAmbiguousPublication({
                 projectId: project.project.id,
                 publicationId: failedCandidateId,
                 subjectId: 'user-1',
@@ -2895,7 +3149,7 @@ describe('manual workflow store', () => {
                 },
             })
             expect(
-                store.reconcileAmbiguousPublication({
+                await store.reconcileAmbiguousPublication({
                     projectId: project.project.id,
                     publicationId: failedCandidateId,
                     subjectId: 'user-1',
@@ -2904,34 +3158,33 @@ describe('manual workflow store', () => {
                 })
             ).toEqual({ kind: 'not_ambiguous' })
             expect(
-                store
-                    .listAuditEvents(project.project.id, 'user-1')
-                    ?.filter(event => event.action === 'publication.reconciled')
+                (await store.listAuditEvents(project.project.id, 'user-1'))?.filter(
+                    event => event.action === 'publication.reconciled'
+                )
             ).toHaveLength(2)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it.each(['submission', 'approval'] as const)(
         'refuses incompatible ordinary %s without changing persisted work',
-        operation => {
-            const database = createDatabase(':memory:')
+        async operation => {
+            const database = (await openTestDatabase()).database
             const now = 1_800_000_000_000
             try {
-                runMigrations(database)
                 const store = createManualStore(database, { now: () => now })
-                const { project } = store.createProject({
-                    workspaceId: seedTestWorkspace(database),
+                const { project } = await store.createProject({
+                    workspaceId: await seedTestWorkspace(database),
                     name: 'Active Profile Approval',
                     subjectId: 'user-1',
                     displayName: 'Operator',
                 })
                 const projectId = project.id
-                const publication = createApprovalDraft(database, store, projectId, operation)
+                const publication = await createApprovalDraft(database, store, projectId, operation)
                 const oldRequest =
                     operation === 'approval'
-                        ? store.submitPublicationForApproval({
+                        ? await store.submitPublicationForApproval({
                               projectId,
                               publicationId: publication.id,
                               subjectId: 'user-1',
@@ -2939,9 +3192,14 @@ describe('manual workflow store', () => {
                               proposedScheduledAt: now + 60_000,
                           })
                         : null
-                const requestRow = database.select().from(publicationApprovalRequests).get()
-                activateApprovalProfileLimit(store, projectId, publication.channelId, 10)
-                const saved = store.savePublicationDraft({
+                const requestRow =
+                    (await database.sql
+                        .statement<TestRow>(
+                            'select "publication_approval_requests"."id" as "id", "publication_approval_requests"."project_id" as "projectId", "publication_approval_requests"."publication_id" as "publicationId", "publication_approval_requests"."target_revision_id" as "targetRevisionId", "publication_approval_requests"."draft_revision" as "draftRevision", "publication_approval_requests"."proposed_scheduled_at" as "proposedScheduledAt", "publication_approval_requests"."state" as "state", "publication_approval_requests"."requested_by_actor_id" as "requestedByActorId", "publication_approval_requests"."decided_by_actor_id" as "decidedByActorId", "publication_approval_requests"."decided_at" as "decidedAt", "publication_approval_requests"."scheduled_at" as "scheduledAt", "publication_approval_requests"."rejection_reason" as "rejectionReason", "publication_approval_requests"."created_at" as "createdAt", "publication_approval_requests"."updated_at" as "updatedAt" from "publication_approval_requests"'
+                        )
+                        .get()) ?? undefined
+                await activateApprovalProfileLimit(store, projectId, publication.channelId, 10)
+                const saved = await store.savePublicationDraft({
                     projectId,
                     publicationId: publication.id,
                     subjectId: 'user-1',
@@ -2956,13 +3214,29 @@ describe('manual workflow store', () => {
                         throw new Error('The legacy approval request is missing')
                     // Model a fresh incompatible request accepted by the previous server
                     // version after activation. Normal activation supersedes old requests.
-                    database
-                        .update(publicationApprovalRequests)
-                        .set({ ...requestRow, draftRevision: saved.revision })
-                        .where(eq(publicationApprovalRequests.id, oldRequest.id))
-                        .run()
+                    await database.sql
+                        .statement(
+                            `update publication_approval_requests set target_revision_id = ?1, draft_revision = ?2,
+                             proposed_scheduled_at = ?3, state = ?4, requested_by_actor_id = ?5, decided_by_actor_id = ?6,
+                             decided_at = ?7, scheduled_at = ?8, rejection_reason = ?9, created_at = ?10, updated_at = ?11
+                             where id = ?12`
+                        )
+                        .run(
+                            requestRow.targetRevisionId,
+                            saved.revision,
+                            requestRow.proposedScheduledAt,
+                            requestRow.state,
+                            requestRow.requestedByActorId,
+                            requestRow.decidedByActorId,
+                            requestRow.decidedAt,
+                            requestRow.scheduledAt,
+                            requestRow.rejectionReason,
+                            requestRow.createdAt,
+                            requestRow.updatedAt,
+                            oldRequest.id
+                        )
                 }
-                const before = snapshotApprovalState(database)
+                const before = await snapshotApprovalState(database)
                 const submit = () =>
                     store.submitPublicationForApproval({
                         projectId,
@@ -2981,88 +3255,96 @@ describe('manual workflow store', () => {
                         ...(publishNow ? { publishNow } : {}),
                     })
                 }
-                expect(operation === 'submission' ? submit : () => approve()).toThrow(
+                await expect(operation === 'submission' ? submit() : approve()).rejects.toThrow(
                     'Publication target content is incompatible with the active channel profile'
                 )
                 if (operation === 'approval') {
-                    expect(() => approve(true)).toThrow(
+                    await expect(approve(true)).rejects.toThrow(
                         'Publication target content is incompatible with the active channel profile'
                     )
                 }
-                expect(snapshotApprovalState(database)).toEqual(before)
+                expect(await snapshotApprovalState(database)).toEqual(before)
             } finally {
-                closeDatabase(database)
+                await closeTestDatabase(database)
             }
         }
     )
 
-    it('supersedes pre-activation approval but accepts a fresh compatible old-profile request', () => {
-        const database = createDatabase(':memory:')
+    it('supersedes pre-activation approval but accepts a fresh compatible old-profile request', async () => {
+        const database = (await openTestDatabase()).database
         const now = 1_800_000_000_000
         try {
-            runMigrations(database)
             const store = createManualStore(database, { now: () => now })
-            const { project } = store.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const { project } = await store.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'Compatible Profile Approval',
                 subjectId: 'user-1',
                 displayName: 'Operator',
             })
             const projectId = project.id
-            const publication = createApprovalDraft(database, store, projectId, 'compatible')
+            const publication = await createApprovalDraft(database, store, projectId, 'compatible')
             const input = { projectId, publicationId: publication.id, subjectId: 'user-1' }
-            const oldProfile = store.getPublicationWorkingDraft(
-                projectId,
-                publication.id,
-                'user-1'
+            const oldProfile = (
+                await store.getPublicationWorkingDraft(projectId, publication.id, 'user-1')
             )?.profileVersionId
-            const old = store.submitPublicationForApproval({
+            const old = await store.submitPublicationForApproval({
                 ...input,
                 expectedDraftRevision: 1,
                 proposedScheduledAt: now + 60_000,
             })
             if (old === null) throw new Error('The original approval request is missing')
-            activateApprovalProfileLimit(store, projectId, publication.channelId, 100)
-            expect(store.listPendingPublicationApprovalRequests(projectId, 'user-1')).toEqual([])
-            expect(() =>
+            await activateApprovalProfileLimit(store, projectId, publication.channelId, 100)
+            expect(await store.listPendingPublicationApprovalRequests(projectId, 'user-1')).toEqual(
+                []
+            )
+            await expect(
                 store.approvePublicationApprovalRequest({ ...input, requestId: old.id })
-            ).toThrow('superseded')
-            const fresh = store.submitPublicationForApproval({
+            ).rejects.toThrow('superseded')
+            const fresh = await store.submitPublicationForApproval({
                 ...input,
                 expectedDraftRevision: 2,
                 proposedScheduledAt: now + 60_000,
             })
             if (fresh === null) throw new Error('The fresh approval request is missing')
             expect(
-                store.approvePublicationApprovalRequest({ ...input, requestId: fresh.id })
+                await store.approvePublicationApprovalRequest({ ...input, requestId: fresh.id })
             ).toMatchObject({ state: 'scheduled', reviewState: 'compatible' })
             expect(
-                store.getPublicationEditorState(projectId, publication.id, 'user-1')?.selectedTarget
+                (await store.getPublicationEditorState(projectId, publication.id, 'user-1'))
+                    ?.selectedTarget
             ).toMatchObject({ profileVersionId: oldProfile })
-            expect(database.select().from(jobs).all()).toEqual([
-                expect.objectContaining({ state: 'pending' }),
-            ])
+            expect(
+                await database.sql
+                    .statement<TestRow>(
+                        'select "jobs"."id" as "id", "jobs"."project_id" as "projectId", "jobs"."publication_id" as "publicationId", "jobs"."state" as "state", "jobs"."run_at" as "runAt", "jobs"."attempts" as "attempts", "jobs"."claim_token" as "claimToken", "jobs"."claimed_by_actor_id" as "claimedByActorId", "jobs"."claimed_at" as "claimedAt", "jobs"."lease_expires_at" as "leaseExpiresAt", "jobs"."effect_started_at" as "effectStartedAt", "jobs"."started_at" as "startedAt", "jobs"."completed_at" as "completedAt", "jobs"."error_message" as "errorMessage", "jobs"."created_at" as "createdAt", "jobs"."updated_at" as "updatedAt" from "jobs"'
+                    )
+                    .all()
+            ).toEqual([expect.objectContaining({ state: 'pending' })])
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
-    it('holds a proposed schedule as a draft until an approver confirms it', () => {
-        const database = createDatabase(':memory:')
+    it('holds a proposed schedule as a draft until an approver confirms it', async () => {
+        const database = (await openTestDatabase()).database
         const now = 1_800_000_000_000
 
         try {
-            runMigrations(database)
             const store = createManualStore(database, { now: () => now })
-            const project = store.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const project = await store.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'Approval Project',
                 subjectId: 'user-1',
                 displayName: 'Operator',
             })
-            const publication = createApprovalDraft(database, store, project.project.id, 'first')
+            const publication = await createApprovalDraft(
+                database,
+                store,
+                project.project.id,
+                'first'
+            )
             const proposedScheduledAt = now + 60_000
-            const request = store.submitPublicationForApproval({
+            const request = await store.submitPublicationForApproval({
                 projectId: project.project.id,
                 publicationId: publication.id,
                 subjectId: 'user-1',
@@ -3078,15 +3360,27 @@ describe('manual workflow store', () => {
                 draftRevision: 1,
             })
             expect(
-                database
-                    .select({ state: publications.state, scheduledAt: publications.scheduledAt })
-                    .from(publications)
-                    .where(eq(publications.id, publication.id))
-                    .get()
+                (await database.sql
+                    .statement<TestRow>(
+                        'select "publications"."state" as "state", "publications"."scheduled_at" as "scheduledAt" from "publications" where "publications"."id" = ?1'
+                    )
+                    .get(publication.id)) ?? undefined
             ).toEqual({ state: 'draft', scheduledAt: null })
-            expect(database.select().from(jobs).all()).toEqual([])
-            expect(database.select().from(publicationApprovalRequests).all()).toHaveLength(1)
-            expect(() =>
+            expect(
+                await database.sql
+                    .statement<TestRow>(
+                        'select "jobs"."id" as "id", "jobs"."project_id" as "projectId", "jobs"."publication_id" as "publicationId", "jobs"."state" as "state", "jobs"."run_at" as "runAt", "jobs"."attempts" as "attempts", "jobs"."claim_token" as "claimToken", "jobs"."claimed_by_actor_id" as "claimedByActorId", "jobs"."claimed_at" as "claimedAt", "jobs"."lease_expires_at" as "leaseExpiresAt", "jobs"."effect_started_at" as "effectStartedAt", "jobs"."started_at" as "startedAt", "jobs"."completed_at" as "completedAt", "jobs"."error_message" as "errorMessage", "jobs"."created_at" as "createdAt", "jobs"."updated_at" as "updatedAt" from "jobs"'
+                    )
+                    .all()
+            ).toEqual([])
+            expect(
+                await database.sql
+                    .statement<TestRow>(
+                        'select "publication_approval_requests"."id" as "id", "publication_approval_requests"."project_id" as "projectId", "publication_approval_requests"."publication_id" as "publicationId", "publication_approval_requests"."target_revision_id" as "targetRevisionId", "publication_approval_requests"."draft_revision" as "draftRevision", "publication_approval_requests"."proposed_scheduled_at" as "proposedScheduledAt", "publication_approval_requests"."state" as "state", "publication_approval_requests"."requested_by_actor_id" as "requestedByActorId", "publication_approval_requests"."decided_by_actor_id" as "decidedByActorId", "publication_approval_requests"."decided_at" as "decidedAt", "publication_approval_requests"."scheduled_at" as "scheduledAt", "publication_approval_requests"."rejection_reason" as "rejectionReason", "publication_approval_requests"."created_at" as "createdAt", "publication_approval_requests"."updated_at" as "updatedAt" from "publication_approval_requests"'
+                    )
+                    .all()
+            ).toHaveLength(1)
+            await expect(
                 store.promotePublicationDraft({
                     projectId: project.project.id,
                     publicationId: publication.id,
@@ -3094,10 +3388,16 @@ describe('manual workflow store', () => {
                     expectedRevision: 1,
                     scheduledAt: proposedScheduledAt,
                 })
-            ).toThrow('awaiting approval')
-            expect(database.select().from(jobs).all()).toEqual([])
+            ).rejects.toThrow('awaiting approval')
+            expect(
+                await database.sql
+                    .statement<TestRow>(
+                        'select "jobs"."id" as "id", "jobs"."project_id" as "projectId", "jobs"."publication_id" as "publicationId", "jobs"."state" as "state", "jobs"."run_at" as "runAt", "jobs"."attempts" as "attempts", "jobs"."claim_token" as "claimToken", "jobs"."claimed_by_actor_id" as "claimedByActorId", "jobs"."claimed_at" as "claimedAt", "jobs"."lease_expires_at" as "leaseExpiresAt", "jobs"."effect_started_at" as "effectStartedAt", "jobs"."started_at" as "startedAt", "jobs"."completed_at" as "completedAt", "jobs"."error_message" as "errorMessage", "jobs"."created_at" as "createdAt", "jobs"."updated_at" as "updatedAt" from "jobs"'
+                    )
+                    .all()
+            ).toEqual([])
 
-            const approved = store.approvePublicationApprovalRequest({
+            const approved = await store.approvePublicationApprovalRequest({
                 projectId: project.project.id,
                 publicationId: publication.id,
                 requestId: request.id,
@@ -3105,7 +3405,13 @@ describe('manual workflow store', () => {
             })
             expect(approved).toMatchObject({ state: 'scheduled', scheduledAt: proposedScheduledAt })
             expect(approved?.targetRevisionId).toBe(request.targetRevisionId)
-            expect(database.select().from(jobs).all()).toEqual([
+            expect(
+                await database.sql
+                    .statement<TestRow>(
+                        'select "jobs"."id" as "id", "jobs"."project_id" as "projectId", "jobs"."publication_id" as "publicationId", "jobs"."state" as "state", "jobs"."run_at" as "runAt", "jobs"."attempts" as "attempts", "jobs"."claim_token" as "claimToken", "jobs"."claimed_by_actor_id" as "claimedByActorId", "jobs"."claimed_at" as "claimedAt", "jobs"."lease_expires_at" as "leaseExpiresAt", "jobs"."effect_started_at" as "effectStartedAt", "jobs"."started_at" as "startedAt", "jobs"."completed_at" as "completedAt", "jobs"."error_message" as "errorMessage", "jobs"."created_at" as "createdAt", "jobs"."updated_at" as "updatedAt" from "jobs"'
+                    )
+                    .all()
+            ).toEqual([
                 expect.objectContaining({
                     publicationId: publication.id,
                     state: 'pending',
@@ -3113,34 +3419,40 @@ describe('manual workflow store', () => {
                 }),
             ])
             expect(
-                database
-                    .select({ state: publicationApprovalRequests.state })
-                    .from(publicationApprovalRequests)
-                    .where(eq(publicationApprovalRequests.id, request.id))
-                    .get()
+                (await database.sql
+                    .statement<TestRow>(
+                        'select "publication_approval_requests"."state" as "state" from "publication_approval_requests" where "publication_approval_requests"."id" = ?1'
+                    )
+                    .get(request.id)) ?? undefined
             ).toEqual({ state: 'approved' })
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
-    it('requires a new time or explicit immediate approval after a proposal expires', () => {
-        const database = createDatabase(':memory:')
+    it('requires a new time or explicit immediate approval after a proposal expires', async () => {
+        const database = (await openTestDatabase()).database
         let now = 1_800_000_000_000
         let advanceClock = false
 
         try {
-            runMigrations(database)
-            const store = createManualStore(database, { now: () => (advanceClock ? now++ : now) })
-            const project = store.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const store = createManualStore(database, {
+                now: () => (advanceClock ? now++ : now),
+            })
+            const project = await store.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'Overdue Approval Project',
                 subjectId: 'user-1',
                 displayName: 'Operator',
             })
-            const publication = createApprovalDraft(database, store, project.project.id, 'overdue')
+            const publication = await createApprovalDraft(
+                database,
+                store,
+                project.project.id,
+                'overdue'
+            )
             const proposedScheduledAt = now + 60_000
-            const request = store.submitPublicationForApproval({
+            const request = await store.submitPublicationForApproval({
                 projectId: project.project.id,
                 publicationId: publication.id,
                 subjectId: 'user-1',
@@ -3150,17 +3462,23 @@ describe('manual workflow store', () => {
             if (request === null) throw new Error('The approval request was not created')
             now = proposedScheduledAt + 1
 
-            expect(() =>
+            await expect(
                 store.approvePublicationApprovalRequest({
                     projectId: project.project.id,
                     publicationId: publication.id,
                     requestId: request.id,
                     subjectId: 'user-1',
                 })
-            ).toThrow('choose a new time or explicitly publish now')
-            expect(database.select().from(jobs).all()).toEqual([])
+            ).rejects.toThrow('choose a new time or explicitly publish now')
+            expect(
+                await database.sql
+                    .statement<TestRow>(
+                        'select "jobs"."id" as "id", "jobs"."project_id" as "projectId", "jobs"."publication_id" as "publicationId", "jobs"."state" as "state", "jobs"."run_at" as "runAt", "jobs"."attempts" as "attempts", "jobs"."claim_token" as "claimToken", "jobs"."claimed_by_actor_id" as "claimedByActorId", "jobs"."claimed_at" as "claimedAt", "jobs"."lease_expires_at" as "leaseExpiresAt", "jobs"."effect_started_at" as "effectStartedAt", "jobs"."started_at" as "startedAt", "jobs"."completed_at" as "completedAt", "jobs"."error_message" as "errorMessage", "jobs"."created_at" as "createdAt", "jobs"."updated_at" as "updatedAt" from "jobs"'
+                    )
+                    .all()
+            ).toEqual([])
 
-            expect(() =>
+            await expect(
                 store.approvePublicationApprovalRequest({
                     projectId: project.project.id,
                     publicationId: publication.id,
@@ -3169,12 +3487,18 @@ describe('manual workflow store', () => {
                     publishNow: true,
                     scheduledAt: now,
                 })
-            ).toThrow('Choose either an explicit schedule or publish now, not both')
-            expect(database.select().from(jobs).all()).toEqual([])
+            ).rejects.toThrow('Choose either an explicit schedule or publish now, not both')
+            expect(
+                await database.sql
+                    .statement<TestRow>(
+                        'select "jobs"."id" as "id", "jobs"."project_id" as "projectId", "jobs"."publication_id" as "publicationId", "jobs"."state" as "state", "jobs"."run_at" as "runAt", "jobs"."attempts" as "attempts", "jobs"."claim_token" as "claimToken", "jobs"."claimed_by_actor_id" as "claimedByActorId", "jobs"."claimed_at" as "claimedAt", "jobs"."lease_expires_at" as "leaseExpiresAt", "jobs"."effect_started_at" as "effectStartedAt", "jobs"."started_at" as "startedAt", "jobs"."completed_at" as "completedAt", "jobs"."error_message" as "errorMessage", "jobs"."created_at" as "createdAt", "jobs"."updated_at" as "updatedAt" from "jobs"'
+                    )
+                    .all()
+            ).toEqual([])
 
             advanceClock = true
             const executionTime = now + 1
-            const approvedNow = store.approvePublicationApprovalRequest({
+            const approvedNow = await store.approvePublicationApprovalRequest({
                 projectId: project.project.id,
                 publicationId: publication.id,
                 requestId: request.id,
@@ -3182,35 +3506,40 @@ describe('manual workflow store', () => {
                 publishNow: true,
             })
             expect(approvedNow).toMatchObject({ state: 'scheduled', scheduledAt: executionTime })
-            expect(database.select().from(jobs).all()).toEqual([
+            expect(
+                await database.sql
+                    .statement<TestRow>(
+                        'select "jobs"."id" as "id", "jobs"."project_id" as "projectId", "jobs"."publication_id" as "publicationId", "jobs"."state" as "state", "jobs"."run_at" as "runAt", "jobs"."attempts" as "attempts", "jobs"."claim_token" as "claimToken", "jobs"."claimed_by_actor_id" as "claimedByActorId", "jobs"."claimed_at" as "claimedAt", "jobs"."lease_expires_at" as "leaseExpiresAt", "jobs"."effect_started_at" as "effectStartedAt", "jobs"."started_at" as "startedAt", "jobs"."completed_at" as "completedAt", "jobs"."error_message" as "errorMessage", "jobs"."created_at" as "createdAt", "jobs"."updated_at" as "updatedAt" from "jobs"'
+                    )
+                    .all()
+            ).toEqual([
                 expect.objectContaining({ publicationId: publication.id, runAt: executionTime }),
             ])
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
-    it('accepts an explicitly chosen new future time after a proposal expires', () => {
-        const database = createDatabase(':memory:')
+    it('accepts an explicitly chosen new future time after a proposal expires', async () => {
+        const database = (await openTestDatabase()).database
         let now = 1_800_000_000_000
 
         try {
-            runMigrations(database)
             const store = createManualStore(database, { now: () => now })
-            const project = store.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const project = await store.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'Overdue Reschedule Project',
                 subjectId: 'user-1',
                 displayName: 'Operator',
             })
-            const publication = createApprovalDraft(
+            const publication = await createApprovalDraft(
                 database,
                 store,
                 project.project.id,
                 'overdue-new-time'
             )
             const proposedScheduledAt = now + 60_000
-            const request = store.submitPublicationForApproval({
+            const request = await store.submitPublicationForApproval({
                 projectId: project.project.id,
                 publicationId: publication.id,
                 subjectId: 'user-1',
@@ -3221,7 +3550,7 @@ describe('manual workflow store', () => {
             now = proposedScheduledAt + 1
             const newScheduledAt = now + 120_000
 
-            const approved = store.approvePublicationApprovalRequest({
+            const approved = await store.approvePublicationApprovalRequest({
                 projectId: project.project.id,
                 publicationId: publication.id,
                 requestId: request.id,
@@ -3229,29 +3558,39 @@ describe('manual workflow store', () => {
                 scheduledAt: newScheduledAt,
             })
             expect(approved).toMatchObject({ state: 'scheduled', scheduledAt: newScheduledAt })
-            expect(database.select().from(jobs).all()).toEqual([
+            expect(
+                await database.sql
+                    .statement<TestRow>(
+                        'select "jobs"."id" as "id", "jobs"."project_id" as "projectId", "jobs"."publication_id" as "publicationId", "jobs"."state" as "state", "jobs"."run_at" as "runAt", "jobs"."attempts" as "attempts", "jobs"."claim_token" as "claimToken", "jobs"."claimed_by_actor_id" as "claimedByActorId", "jobs"."claimed_at" as "claimedAt", "jobs"."lease_expires_at" as "leaseExpiresAt", "jobs"."effect_started_at" as "effectStartedAt", "jobs"."started_at" as "startedAt", "jobs"."completed_at" as "completedAt", "jobs"."error_message" as "errorMessage", "jobs"."created_at" as "createdAt", "jobs"."updated_at" as "updatedAt" from "jobs"'
+                    )
+                    .all()
+            ).toEqual([
                 expect.objectContaining({ publicationId: publication.id, runAt: newScheduledAt }),
             ])
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
-    it('does not accept a second approval decision for a completed request', () => {
-        const database = createDatabase(':memory:')
+    it('does not accept a second approval decision for a completed request', async () => {
+        const database = (await openTestDatabase()).database
         let now = 1_800_000_000_000
 
         try {
-            runMigrations(database)
             const store = createManualStore(database, { now: () => now })
-            const project = store.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const project = await store.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'Repeated Approval Project',
                 subjectId: 'user-1',
                 displayName: 'Operator',
             })
-            const publication = createApprovalDraft(database, store, project.project.id, 'repeat')
-            const request = store.submitPublicationForApproval({
+            const publication = await createApprovalDraft(
+                database,
+                store,
+                project.project.id,
+                'repeat'
+            )
+            const request = await store.submitPublicationForApproval({
                 projectId: project.project.id,
                 publicationId: publication.id,
                 subjectId: 'user-1',
@@ -3259,7 +3598,7 @@ describe('manual workflow store', () => {
                 proposedScheduledAt: now + 60_000,
             })
             if (request === null) throw new Error('The approval request was not created')
-            const approved = store.approvePublicationApprovalRequest({
+            const approved = await store.approvePublicationApprovalRequest({
                 projectId: project.project.id,
                 publicationId: publication.id,
                 requestId: request.id,
@@ -3267,7 +3606,7 @@ describe('manual workflow store', () => {
             })
             expect(approved?.state).toBe('scheduled')
             now += 1
-            expect(() =>
+            await expect(
                 store.approvePublicationApprovalRequest({
                     projectId: project.project.id,
                     publicationId: publication.id,
@@ -3275,27 +3614,31 @@ describe('manual workflow store', () => {
                     subjectId: 'user-1',
                     publishNow: true,
                 })
-            ).toThrow('Cannot approve an approval request in the approved state')
+            ).rejects.toThrow('Cannot approve an approval request in the approved state')
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
-    it('invalidates a pending approval when the submitted draft is edited', () => {
-        const database = createDatabase(':memory:')
+    it('invalidates a pending approval when the submitted draft is edited', async () => {
+        const database = (await openTestDatabase()).database
         const now = 1_800_000_000_000
 
         try {
-            runMigrations(database)
             const store = createManualStore(database, { now: () => now })
-            const project = store.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const project = await store.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'Edited Approval Project',
                 subjectId: 'user-1',
                 displayName: 'Operator',
             })
-            const publication = createApprovalDraft(database, store, project.project.id, 'edited')
-            const request = store.submitPublicationForApproval({
+            const publication = await createApprovalDraft(
+                database,
+                store,
+                project.project.id,
+                'edited'
+            )
+            const request = await store.submitPublicationForApproval({
                 projectId: project.project.id,
                 publicationId: publication.id,
                 subjectId: 'user-1',
@@ -3304,7 +3647,7 @@ describe('manual workflow store', () => {
             })
             if (request === null) throw new Error('The approval request was not created')
 
-            store.savePublicationDraft({
+            await store.savePublicationDraft({
                 projectId: project.project.id,
                 publicationId: publication.id,
                 subjectId: 'user-1',
@@ -3313,53 +3656,63 @@ describe('manual workflow store', () => {
             })
 
             expect(
-                database
-                    .select({ state: publicationApprovalRequests.state })
-                    .from(publicationApprovalRequests)
-                    .where(eq(publicationApprovalRequests.id, request.id))
-                    .get()
+                (await database.sql
+                    .statement<TestRow>(
+                        'select "publication_approval_requests"."state" as "state" from "publication_approval_requests" where "publication_approval_requests"."id" = ?1'
+                    )
+                    .get(request.id)) ?? undefined
             ).toEqual({ state: 'superseded' })
-            expect(() =>
+            await expect(
                 store.approvePublicationApprovalRequest({
                     projectId: project.project.id,
                     publicationId: publication.id,
                     requestId: request.id,
                     subjectId: 'user-1',
                 })
-            ).toThrow('Cannot approve an approval request in the superseded state')
-            expect(database.select().from(jobs).all()).toEqual([])
+            ).rejects.toThrow('Cannot approve an approval request in the superseded state')
+            expect(
+                await database.sql
+                    .statement<TestRow>(
+                        'select "jobs"."id" as "id", "jobs"."project_id" as "projectId", "jobs"."publication_id" as "publicationId", "jobs"."state" as "state", "jobs"."run_at" as "runAt", "jobs"."attempts" as "attempts", "jobs"."claim_token" as "claimToken", "jobs"."claimed_by_actor_id" as "claimedByActorId", "jobs"."claimed_at" as "claimedAt", "jobs"."lease_expires_at" as "leaseExpiresAt", "jobs"."effect_started_at" as "effectStartedAt", "jobs"."started_at" as "startedAt", "jobs"."completed_at" as "completedAt", "jobs"."error_message" as "errorMessage", "jobs"."created_at" as "createdAt", "jobs"."updated_at" as "updatedAt" from "jobs"'
+                    )
+                    .all()
+            ).toEqual([])
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
-    it('keeps rejection editable and rolls back failed approval-request persistence', () => {
-        const database = createDatabase(':memory:')
+    it('keeps rejection editable and rolls back failed approval-request persistence', async () => {
+        const database = (await openTestDatabase()).database
         const now = 1_800_000_000_000
         let triggerInstalled = false
 
         try {
-            runMigrations(database)
             const store = createManualStore(database, { now: () => now })
-            const project = store.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const project = await store.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'Rejected Approval Project',
                 subjectId: 'user-1',
                 displayName: 'Operator',
             })
-            const publication = createApprovalDraft(database, store, project.project.id, 'rejected')
+            const publication = await createApprovalDraft(
+                database,
+                store,
+                project.project.id,
+                'rejected'
+            )
 
-            database.$client.run(`
-                create temp trigger fail_approval_request_audit
-                before insert on audit_events
-                when NEW.action = 'publication.approval_requested'
-                begin
-                    select raise(abort, 'forced approval request failure');
-                end
-            `)
+            await installRejectingTrigger(database, {
+                name: 'fail_approval_request_audit',
+                table: 'audit_events',
+                timing: 'before',
+                event: 'insert',
+                when: "NEW.action = 'publication.approval_requested'",
+                message: 'forced approval request failure',
+            })
             triggerInstalled = true
 
-            expect(() =>
+            await expect(
                 store.submitPublicationForApproval({
                     projectId: project.project.id,
                     publicationId: publication.id,
@@ -3367,24 +3720,43 @@ describe('manual workflow store', () => {
                     expectedDraftRevision: 1,
                     proposedScheduledAt: now + 60_000,
                 })
-            ).toThrow('forced approval request failure')
-            expect(database.select().from(publicationTargetRevisions).all()).toHaveLength(0)
-            expect(database.select().from(publicationApprovalRequests).all()).toHaveLength(0)
-            expect(database.select().from(jobs).all()).toEqual([])
+            ).rejects.toThrow('forced approval request failure')
             expect(
-                database
-                    .select({
-                        state: publications.state,
-                        targetRevisionId: publications.targetRevisionId,
-                    })
-                    .from(publications)
-                    .where(eq(publications.id, publication.id))
-                    .get()
+                (
+                    await database.sql
+                        .statement<TestRow>(
+                            'select "publication_target_revisions"."id" as "id", "publication_target_revisions"."project_id" as "projectId", "publication_target_revisions"."publication_id" as "publicationId", "publication_target_revisions"."sequence" as "sequence", "publication_target_revisions"."profile_version_id" as "profileVersionId", "publication_target_revisions"."source_revision" as "sourceRevision", "publication_target_revisions"."delivery_mode" as "deliveryMode", "publication_target_revisions"."media_reference_count" as "mediaReferenceCount", "publication_target_revisions"."content_json" as "contentJson", "publication_target_revisions"."content_hash" as "contentHash", "publication_target_revisions"."profile_hash" as "profileHash", "publication_target_revisions"."schema_hash" as "schemaHash", "publication_target_revisions"."validation_issues_json" as "validationIssuesJson", "publication_target_revisions"."created_by_actor_id" as "createdByActorId", "publication_target_revisions"."created_at" as "createdAt" from "publication_target_revisions"'
+                        )
+                        .all()
+                ).map(row =>
+                    fromDbRow<TestRow>(row, { contentJson: 'json', validationIssuesJson: 'json' })
+                )
+            ).toHaveLength(0)
+            expect(
+                await database.sql
+                    .statement<TestRow>(
+                        'select "publication_approval_requests"."id" as "id", "publication_approval_requests"."project_id" as "projectId", "publication_approval_requests"."publication_id" as "publicationId", "publication_approval_requests"."target_revision_id" as "targetRevisionId", "publication_approval_requests"."draft_revision" as "draftRevision", "publication_approval_requests"."proposed_scheduled_at" as "proposedScheduledAt", "publication_approval_requests"."state" as "state", "publication_approval_requests"."requested_by_actor_id" as "requestedByActorId", "publication_approval_requests"."decided_by_actor_id" as "decidedByActorId", "publication_approval_requests"."decided_at" as "decidedAt", "publication_approval_requests"."scheduled_at" as "scheduledAt", "publication_approval_requests"."rejection_reason" as "rejectionReason", "publication_approval_requests"."created_at" as "createdAt", "publication_approval_requests"."updated_at" as "updatedAt" from "publication_approval_requests"'
+                    )
+                    .all()
+            ).toHaveLength(0)
+            expect(
+                await database.sql
+                    .statement<TestRow>(
+                        'select "jobs"."id" as "id", "jobs"."project_id" as "projectId", "jobs"."publication_id" as "publicationId", "jobs"."state" as "state", "jobs"."run_at" as "runAt", "jobs"."attempts" as "attempts", "jobs"."claim_token" as "claimToken", "jobs"."claimed_by_actor_id" as "claimedByActorId", "jobs"."claimed_at" as "claimedAt", "jobs"."lease_expires_at" as "leaseExpiresAt", "jobs"."effect_started_at" as "effectStartedAt", "jobs"."started_at" as "startedAt", "jobs"."completed_at" as "completedAt", "jobs"."error_message" as "errorMessage", "jobs"."created_at" as "createdAt", "jobs"."updated_at" as "updatedAt" from "jobs"'
+                    )
+                    .all()
+            ).toEqual([])
+            expect(
+                (await database.sql
+                    .statement<TestRow>(
+                        'select "publications"."state" as "state", "publications"."target_revision_id" as "targetRevisionId" from "publications" where "publications"."id" = ?1'
+                    )
+                    .get(publication.id)) ?? undefined
             ).toEqual({ state: 'draft', targetRevisionId: null })
 
-            database.$client.run('drop trigger fail_approval_request_audit')
+            await dropRejectingTrigger(database, 'fail_approval_request_audit')
             triggerInstalled = false
-            const request = store.submitPublicationForApproval({
+            const request = await store.submitPublicationForApproval({
                 projectId: project.project.id,
                 publicationId: publication.id,
                 subjectId: 'user-1',
@@ -3392,7 +3764,7 @@ describe('manual workflow store', () => {
                 proposedScheduledAt: now + 60_000,
             })
             if (request === null) throw new Error('The approval request was not created')
-            const rejected = store.rejectPublicationApprovalRequest({
+            const rejected = await store.rejectPublicationApprovalRequest({
                 projectId: project.project.id,
                 publicationId: publication.id,
                 requestId: request.id,
@@ -3404,20 +3776,32 @@ describe('manual workflow store', () => {
                 rejectionReason: 'Needs a factual correction',
             })
             expect(
-                database
-                    .select({ state: publications.state, scheduledAt: publications.scheduledAt })
-                    .from(publications)
-                    .where(eq(publications.id, publication.id))
-                    .get()
+                (await database.sql
+                    .statement<TestRow>(
+                        'select "publications"."state" as "state", "publications"."scheduled_at" as "scheduledAt" from "publications" where "publications"."id" = ?1'
+                    )
+                    .get(publication.id)) ?? undefined
             ).toEqual({ state: 'draft', scheduledAt: null })
-            expect(database.select().from(jobs).all()).toEqual([])
             expect(
-                store.getPublicationWorkingDraft(project.project.id, publication.id, 'user-1')
-                    ?.revision
+                await database.sql
+                    .statement<TestRow>(
+                        'select "jobs"."id" as "id", "jobs"."project_id" as "projectId", "jobs"."publication_id" as "publicationId", "jobs"."state" as "state", "jobs"."run_at" as "runAt", "jobs"."attempts" as "attempts", "jobs"."claim_token" as "claimToken", "jobs"."claimed_by_actor_id" as "claimedByActorId", "jobs"."claimed_at" as "claimedAt", "jobs"."lease_expires_at" as "leaseExpiresAt", "jobs"."effect_started_at" as "effectStartedAt", "jobs"."started_at" as "startedAt", "jobs"."completed_at" as "completedAt", "jobs"."error_message" as "errorMessage", "jobs"."created_at" as "createdAt", "jobs"."updated_at" as "updatedAt" from "jobs"'
+                    )
+                    .all()
+            ).toEqual([])
+            expect(
+                (
+                    await store.getPublicationWorkingDraft(
+                        project.project.id,
+                        publication.id,
+                        'user-1'
+                    )
+                )?.revision
             ).toBe(1)
         } finally {
-            if (triggerInstalled) database.$client.run('drop trigger fail_approval_request_audit')
-            closeDatabase(database)
+            if (triggerInstalled)
+                await dropRejectingTrigger(database, 'fail_approval_request_audit')
+            await closeTestDatabase(database)
         }
     })
 })

@@ -46,15 +46,15 @@ describe('SSE-318 stream lifecycle', () => {
         const projectStream = createProjectEventStream({
             request: new Request('http://localhost/api/projects/project-1/events'),
             projectId: 'project-1',
-            journal: { readAfter: () => [] },
+            journal: { readAfter: async () => [] },
             after: null,
             options: { heartbeatIntervalMs: 60_000, batchSize: 8 },
         })
         const userStream = createUserEventStream({
             request: new Request('http://localhost/api/notifications/events'),
             userId: 'user-1',
-            listProjectIds: () => ['project-1'],
-            journal: { readAllAfter: () => [] },
+            listProjectIds: async () => ['project-1'],
+            journal: { readAllAfter: async () => [] },
             after: null,
             options: { heartbeatIntervalMs: 60_000, batchSize: 8 },
         })
@@ -79,7 +79,7 @@ describe('SSE-318 stream lifecycle', () => {
         const stream = createProjectEventStream({
             request: new Request('http://localhost/api/projects/project-1/events'),
             projectId: 'project-1',
-            journal: { readAfter: () => [] },
+            journal: { readAfter: async () => [] },
             after: null,
             options: { heartbeatIntervalMs: 20, batchSize: 8 },
         })
@@ -98,7 +98,7 @@ describe('SSE-318 stream lifecycle', () => {
             request: new Request('http://localhost/api/projects/project-1/events'),
             projectId: 'project-1',
             journal: {
-                readAfter: input => {
+                readAfter: async input => {
                     reads.push(input)
                     return []
                 },
@@ -124,7 +124,7 @@ describe('project event stream', () => {
         const stream = createProjectEventStream({
             request: new Request('http://localhost/api/projects/project-1/events'),
             projectId: 'project-1',
-            journal: { readAfter: () => [entry] },
+            journal: { readAfter: async () => [entry] },
             after: null,
             options: { heartbeatIntervalMs: 100, batchSize: 10 },
         })
@@ -148,8 +148,8 @@ describe('project event stream', () => {
         const stream = createUserEventStream({
             request: new Request('http://localhost/api/notifications/events'),
             userId: 'user-1',
-            listProjectIds: () => ['project-1'],
-            journal: { readAllAfter: () => [visible, hidden] },
+            listProjectIds: async () => ['project-1'],
+            journal: { readAllAfter: async () => [visible, hidden] },
             after: null,
             options: { heartbeatIntervalMs: 100, batchSize: 10 },
         })
@@ -168,8 +168,8 @@ describe('project event stream', () => {
         const stream = createUserEventStream({
             request: new Request('http://localhost/api/notifications/events'),
             userId: 'user-1',
-            listProjectIds: () => ['project-1'],
-            journal: { readAllAfter: () => [] },
+            listProjectIds: async () => ['project-1'],
+            journal: { readAllAfter: async () => [] },
             after: null,
             isAuthorized: () => false,
             options: { heartbeatIntervalMs: 100, batchSize: 10 },
@@ -187,8 +187,8 @@ describe('project event stream', () => {
         const stream = createUserEventStream({
             request: new Request('http://localhost/api/notifications/events'),
             userId: 'user-1',
-            listProjectIds: () => [],
-            journal: { readAllAfter: () => [] },
+            listProjectIds: async () => [],
+            journal: { readAllAfter: async () => [] },
             after: null,
             options: { heartbeatIntervalMs: 100, batchSize: 10 },
         })
@@ -210,7 +210,7 @@ describe('project event stream', () => {
             request: new Request('http://localhost/api/projects/project-1/events'),
             projectId: 'project-1',
             journal: {
-                readAfter: () => {
+                readAfter: async () => {
                     calls += 1
                     return calls === 1 ? [second] : []
                 },
@@ -228,7 +228,7 @@ describe('project event stream', () => {
         const heartbeatStream = createProjectEventStream({
             request: new Request('http://localhost/api/projects/project-1/events'),
             projectId: 'project-1',
-            journal: { readAfter: () => [] },
+            journal: { readAfter: async () => [] },
             after: null,
             options: { heartbeatIntervalMs: 5, batchSize: 10 },
         })
@@ -245,7 +245,7 @@ describe('project event stream', () => {
         const stream = createProjectEventStream({
             request: new Request('http://localhost/api/projects/project-1/events'),
             projectId: 'project-1',
-            journal: { readAfter: () => [first, regressed] },
+            journal: { readAfter: async () => [first, regressed] },
             after: null,
             options: { heartbeatIntervalMs: 100, batchSize: 10 },
         })
@@ -268,7 +268,7 @@ describe('project event stream', () => {
             }),
             projectId: 'project-1',
             journal: {
-                readAfter: () => {
+                readAfter: async () => {
                     calls += 1
                     return []
                 },
@@ -295,7 +295,7 @@ describe('project event stream', () => {
         const stream = createProjectEventStream({
             request: new Request('http://localhost/api/projects/project-1/events'),
             projectId: 'project-1',
-            journal: { readAfter: () => [entry] },
+            journal: { readAfter: async () => [entry] },
             after: null,
             isAuthorized: () => {
                 authorized = false
@@ -326,7 +326,7 @@ describe('project event stream', () => {
             request: new Request('http://localhost/api/projects/project-1/events'),
             projectId: 'project-1',
             journal: {
-                readAfter: () => {
+                readAfter: async () => {
                     calls += 1
                     const result = entries
                     entries = []
@@ -424,7 +424,7 @@ describe('project event stream', () => {
         const stream = createProjectEventStream({
             request: new Request('http://localhost/api/projects/project-1/events'),
             projectId: 'project-1',
-            journal: { readAfter: () => [foreignEntry] },
+            journal: { readAfter: async () => [foreignEntry] },
             after: null,
             options: { heartbeatIntervalMs: 100, batchSize: 10 },
         })
@@ -447,7 +447,7 @@ describe('ephemeral draft changes', () => {
         const reader = createProjectEventStream({
             request: new Request('http://localhost/events', { signal: controller.signal }),
             projectId: 'project-1',
-            journal: { readAfter: () => [] },
+            journal: { readAfter: async () => [] },
             after: null,
             projectChanges: runtime.hub,
             options: { heartbeatIntervalMs: 1000 },
@@ -478,7 +478,7 @@ describe('ephemeral draft changes', () => {
         expect(frame).not.toContain('foreign')
         expect(frame).not.toContain('id:')
         await reader.cancel()
-        runtime.stop()
+        await runtime.stop()
     })
 
     it('checks authorization before delivering a queued draft change', async () => {
@@ -486,7 +486,7 @@ describe('ephemeral draft changes', () => {
         const reader = createProjectEventStream({
             request: new Request('http://localhost/events'),
             projectId: 'project-1',
-            journal: { readAfter: () => [] },
+            journal: { readAfter: async () => [] },
             after: null,
             projectChanges: runtime.hub,
             isAuthorized: () => false,
@@ -502,7 +502,7 @@ describe('ephemeral draft changes', () => {
         expect(frame).not.toContain('private-post')
         expect(frame).not.toContain('project.draft-changed')
         expect((await readText(reader)).done).toBe(true)
-        runtime.stop()
+        await runtime.stop()
     })
 })
 
@@ -512,7 +512,7 @@ describe('stream shutdown', () => {
         const reader = createProjectEventStream({
             request: new Request('http://localhost/api/projects/project-1/events'),
             projectId: 'project-1',
-            journal: { readAfter: () => [] },
+            journal: { readAfter: async () => [] },
             after: null,
             projectChanges: runtime.hub,
             options: { heartbeatIntervalMs: 60_000, batchSize: 8 },
@@ -522,7 +522,7 @@ describe('stream shutdown', () => {
         expect(opening.done).toBe(false)
 
         const terminal = reader.read()
-        runtime.stop()
+        await runtime.stop()
         const result = await Promise.race([terminal, wait(1_000).then(() => null)])
 
         // The stream ends on its own: nothing is left waiting for a wakeup
@@ -536,8 +536,8 @@ describe('stream shutdown', () => {
         const reader = createUserEventStream({
             request: new Request('http://localhost/api/notifications/events'),
             userId: 'user-1',
-            listProjectIds: () => ['project-1'],
-            journal: { readAllAfter: () => [] },
+            listProjectIds: async () => ['project-1'],
+            journal: { readAllAfter: async () => [] },
             after: null,
             userChanges: runtime.userHub,
             options: { heartbeatIntervalMs: 60_000, batchSize: 8 },
@@ -547,7 +547,7 @@ describe('stream shutdown', () => {
         expect(opening.done).toBe(false)
 
         const terminal = reader.read()
-        runtime.stop()
+        await runtime.stop()
         const result = await Promise.race([terminal, wait(1_000).then(() => null)])
 
         expect(result?.done).toBe(true)
@@ -556,12 +556,12 @@ describe('stream shutdown', () => {
 
     it('ends a project stream opened after the runtime stopped', async () => {
         const runtime = createProjectRealtimeRuntime()
-        runtime.stop()
+        await runtime.stop()
 
         const reader = createProjectEventStream({
             request: new Request('http://localhost/api/projects/project-1/events'),
             projectId: 'project-1',
-            journal: { readAfter: () => [] },
+            journal: { readAfter: async () => [] },
             after: null,
             projectChanges: runtime.hub,
             options: { heartbeatIntervalMs: 60_000, batchSize: 8 },
@@ -574,13 +574,13 @@ describe('stream shutdown', () => {
 
     it('ends a user stream opened after the runtime stopped', async () => {
         const runtime = createProjectRealtimeRuntime()
-        runtime.stop()
+        await runtime.stop()
 
         const reader = createUserEventStream({
             request: new Request('http://localhost/api/notifications/events'),
             userId: 'user-1',
-            listProjectIds: () => ['project-1'],
-            journal: { readAllAfter: () => [] },
+            listProjectIds: async () => ['project-1'],
+            journal: { readAllAfter: async () => [] },
             after: null,
             userChanges: runtime.userHub,
             options: { heartbeatIntervalMs: 60_000, batchSize: 8 },
@@ -599,7 +599,7 @@ describe('stream shutdown', () => {
             request: new Request('http://localhost/api/projects/project-1/events'),
             projectId: 'project-1',
             journal: {
-                readAfter: () => {
+                readAfter: async () => {
                     reads += 1
                     return []
                 },
@@ -623,7 +623,7 @@ describe('stream shutdown', () => {
         const readsAtStop = reads
         const checksAtStop = checks
 
-        runtime.stop()
+        await runtime.stop()
         const result = await Promise.race([terminal, wait(1_000).then(() => null)])
 
         expect(result?.done).toBe(true)
@@ -639,7 +639,7 @@ describe('stream shutdown', () => {
         const reader = createProjectEventStream({
             request: new Request('http://localhost/api/projects/project-1/events'),
             projectId: 'project-1',
-            journal: { readAfter: () => [] },
+            journal: { readAfter: async () => [] },
             after: null,
             projectChanges: {
                 waitForChange: () => new Promise<void>(() => {}),
@@ -718,10 +718,10 @@ it('advances past workspace facts without emitting their identity or payload in 
     const reader = createUserEventStream({
         request: new Request('http://localhost/api/notifications/events'),
         userId: 'user-1',
-        listProjectIds: () => ['project-1'],
+        listProjectIds: async () => ['project-1'],
         after: null,
         journal: {
-            readAllAfter: input => {
+            readAllAfter: async input => {
                 cursors.push(input?.after)
                 return input?.after == null
                     ? [workspace]

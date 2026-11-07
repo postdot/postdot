@@ -8,32 +8,28 @@
     "sideEffects": false,
     "exports": {
         ".": "./src/index.ts",
-        "./schema": "./src/schema.ts",
         "./testing": "./src/testing.ts"
     },
     "scripts": {
         "build": "bun build ./src/index.ts --outdir ./dist --target bun",
-        "lint": "oxlint --deny-warnings .",
+        "lint": "oxlint --type-aware --deny-warnings .",
         "lint:fix": "oxlint --fix .",
         "format": "oxfmt --check .",
         "format:fix": "oxfmt --write .",
         "typecheck": "tsc --noEmit",
         "clean": "rimraf dist .turbo",
-        "db:generate": "drizzle-kit generate --config drizzle.config.ts",
         "db:migrate": "bun run src/migrate.ts",
         "test": "bun test"
     },
     "dependencies": {
         "@postdot/core": "workspace:*",
         "@postdot/media": "workspace:*",
-        "drizzle-orm": "0.45.3",
         "mp4box": "2.4.1"
     },
     "devDependencies": {
         "@tala-tools/tsconfig": "0.1.0",
         "@types/bun": "1.4.4",
         "@types/node": "26.6.3",
-        "drizzle-kit": "0.31.11",
         "typescript": "7.0.2"
     },
     "engines": {

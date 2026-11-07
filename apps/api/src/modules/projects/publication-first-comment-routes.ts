@@ -40,8 +40,12 @@ export function registerPublicationFirstCommentRoutes<const Routes extends Recor
                     tags: ['Publications'],
                 },
             },
-            ({ params, user, status }) =>
-                options.firstComments.get(params.projectId, params.publicationId, user.id) ??
+            async ({ params, user, status }) =>
+                (await options.firstComments.get(
+                    params.projectId,
+                    params.publicationId,
+                    user.id
+                )) ??
                 status(404, { error: { code: 'not_found', message: 'Publication not found' } })
         )
         .put(
@@ -57,18 +61,18 @@ export function registerPublicationFirstCommentRoutes<const Routes extends Recor
                     tags: ['Publications'],
                 },
             },
-            ({ params, body, user, authMethod, status }) => {
+            async ({ params, body, user, authMethod, status }) => {
                 if (
-                    !canAccessProjectRole({
+                    !(await canAccessProjectRole({
                         access: options.access,
                         authMethod,
                         minimumRole: 'editor',
                         projectId: params.projectId,
                         userId: user.id,
-                    })
+                    }))
                 )
                     return status(403, forbiddenProjectMutation())
-                const result = options.firstComments.save({
+                const result = await options.firstComments.save({
                     ...body,
                     ...params,
                     subjectId: user.id,
@@ -86,7 +90,11 @@ export function registerPublicationFirstCommentRoutes<const Routes extends Recor
                     })
                 options.onWorkScheduled?.()
                 return (
-                    options.firstComments.get(params.projectId, params.publicationId, user.id) ??
+                    (await options.firstComments.get(
+                        params.projectId,
+                        params.publicationId,
+                        user.id
+                    )) ??
                     status(404, { error: { code: 'not_found', message: 'Publication not found' } })
                 )
             }
@@ -104,18 +112,18 @@ export function registerPublicationFirstCommentRoutes<const Routes extends Recor
                     tags: ['Publications'],
                 },
             },
-            ({ params, body, user, authMethod, status }) => {
+            async ({ params, body, user, authMethod, status }) => {
                 if (
-                    !canAccessProjectRole({
+                    !(await canAccessProjectRole({
                         access: options.access,
                         authMethod,
                         minimumRole: 'editor',
                         projectId: params.projectId,
                         userId: user.id,
-                    })
+                    }))
                 )
                     return status(403, forbiddenProjectMutation())
-                const result = options.firstComments.cancel({
+                const result = await options.firstComments.cancel({
                     ...body,
                     ...params,
                     subjectId: user.id,
@@ -133,7 +141,11 @@ export function registerPublicationFirstCommentRoutes<const Routes extends Recor
                     })
                 options.onWorkScheduled?.()
                 return (
-                    options.firstComments.get(params.projectId, params.publicationId, user.id) ??
+                    (await options.firstComments.get(
+                        params.projectId,
+                        params.publicationId,
+                        user.id
+                    )) ??
                     status(404, { error: { code: 'not_found', message: 'Publication not found' } })
                 )
             }

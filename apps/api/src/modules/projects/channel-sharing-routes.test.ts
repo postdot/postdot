@@ -1,13 +1,8 @@
 import { describe, expect, it } from 'bun:test'
 
 import { createAuth } from '@postdot/auth'
-import {
-    closeDatabase,
-    createAccessStore,
-    createDatabase,
-    createNotificationStore,
-    runMigrations,
-} from '@postdot/db'
+import { createAccessStore, createNotificationStore } from '@postdot/db'
+import { closeTestDatabase, openTestDatabase } from '@postdot/db/testing'
 import { digestAuthorizationState } from '@postdot/oauth'
 
 import { createApp } from '../../app'
@@ -17,9 +12,8 @@ const baseURL = 'http://localhost:3000'
 const secret = 'postdot-test-secret-with-at-least-32-characters'
 const now = 1_800_000_000_000
 
-function createFixture() {
-    const database = createDatabase(':memory:')
-    runMigrations(database)
+async function createFixture() {
+    const database = (await openTestDatabase()).database
     const publisher = createPublisherRuntime(database, {
         apiOrigin: baseURL,
         webOrigin: 'http://localhost:5173',
@@ -73,7 +67,7 @@ async function call(
 const post = (body: unknown): RequestInit => ({ method: 'POST', body: JSON.stringify(body) })
 
 async function setup() {
-    const fixture = createFixture()
+    const fixture = await createFixture()
     const cookie = await signUp(fixture.app, 'sharing@postdot.local')
     const create = async (name: string) => {
         const response = await call(fixture.app, '/api/projects', { cookie }, post({ name }))
@@ -192,7 +186,7 @@ describe('shared channel HTTP routes', () => {
             )
             expect(archived.status).toBe(200)
         } finally {
-            closeDatabase(f.database)
+            await closeTestDatabase(f.database)
         }
     })
 
@@ -239,7 +233,7 @@ describe('shared channel HTTP routes', () => {
             const allowed = await attach(both)
             expect(allowed.status).toBe(200)
         } finally {
-            closeDatabase(f.database)
+            await closeTestDatabase(f.database)
         }
     })
 
@@ -257,7 +251,7 @@ describe('shared channel HTTP routes', () => {
             )
             expect(attach.status).toBe(404)
         } finally {
-            closeDatabase(f.database)
+            await closeTestDatabase(f.database)
         }
     })
 })
@@ -337,7 +331,7 @@ describe('shared channel occupancy HTTP route', () => {
             )
             expect(invalid.status).toBe(404)
         } finally {
-            closeDatabase(f.database)
+            await closeTestDatabase(f.database)
         }
     })
 })
@@ -416,7 +410,7 @@ it('configures cadence with live management and returns a fresh planning conflic
             ).status
         ).toBe(403)
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
@@ -438,8 +432,8 @@ it('scopes and attributes a single spacing override independently from planning 
         expect(created.status).toBe(201)
         const publicationId = ((await created.json()) as { publications: { id: string }[] })
             .publications[0]!.id
-        f.database.$client
-            .query("update publications set delivery_mode='automatic' where id=?")
+        await f.database.sql
+            .statement("update publications set delivery_mode='automatic' where id=?")
             .run(publicationId)
         expect(
             (
@@ -459,8 +453,8 @@ it('scopes and attributes a single spacing override independently from planning 
                 )
             ).status
         ).toBe(200)
-        f.database.$client
-            .query('update channel_cadence set last_effect_at=? where channel_id=?')
+        await f.database.sql
+            .statement('update channel_cadence set last_effect_at=? where channel_id=?')
             .run(now, f.channel.id)
         const path = `/api/projects/${f.source}/publications/${publicationId}`
         const response = await call(f.app, `${path}/cadence`, credential)
@@ -505,29 +499,31 @@ it('scopes and attributes a single spacing override independently from planning 
         expect(approved.status).toBe(200)
         expect(await approved.json()).toMatchObject({ reason: null, eligibleAt: now + 1000 })
         expect(
-            f.database.$client
-                .query(
+            await f.database.sql
+                .statement(
                     "select actor_id from audit_events where action='publication.cadence_spacing_overridden'"
                 )
                 .all()
         ).toHaveLength(1)
         // No publisher or credential is created by an editorial exception.
-        expect(f.database.$client.query('select count(*) as n from publishers').get()).toEqual({
+        expect(
+            await f.database.sql.statement('select count(*) as n from publishers').get()
+        ).toEqual({
             n: 0,
         })
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
 it('lists workspace channels without widening key scope, transfers management and rejects stale changes', async () => {
     const f = await setup()
     try {
-        const workspaceId = f.database.$client
-            .query<{ workspace_id: string }, [string]>(
+        const workspaceId = (await f.database.sql
+            .statement<{ workspace_id: string }, [string]>(
                 'select workspace_id from projects where id=?'
             )
-            .get(f.source)!.workspace_id
+            .get(f.source))!.workspace_id
         const base = `/api/workspaces/${workspaceId}/channels`
         const credential = { cookie: f.cookie }
         const read = await call(f.app, base, credential)
@@ -635,9 +631,9 @@ it('lists workspace channels without widening key scope, transfers management an
             ).status
         ).toBe(404)
         const outsider = await signUp(f.app, 'workspace-channel-outsider@postdot.local')
-        f.database.$client
-            .query(
-                "update member set role='member' where user_id=(select id from user where email=?)"
+        await f.database.sql
+            .statement(
+                'update member set role=\'member\' where user_id=(select id from "user" where email=?)'
             )
             .run('workspace-channel-outsider@postdot.local')
         // Default workspace membership reveals no channel or project without a live grant.
@@ -648,10 +644,10 @@ it('lists workspace channels without widening key scope, transfers management an
         expect(
             (await call(f.app, '/api/workspaces/missing/channels', { cookie: outsider })).status
         ).toBe(404)
-        const outsiderId = f.database.$client
-            .query<{ id: string }, [string]>('select id from user where email=?')
-            .get('workspace-channel-outsider@postdot.local')!.id
-        createAccessStore(f.database, { now: () => now }).grantProjectUserAccess({
+        const outsiderId = (await f.database.sql
+            .statement<{ id: string }, [string]>('select id from "user" where email=?')
+            .get('workspace-channel-outsider@postdot.local'))!.id
+        await createAccessStore(f.database, { now: () => now }).grantProjectUserAccess({
             projectId: f.source,
             userId: outsiderId,
             role: 'editor',
@@ -679,18 +675,18 @@ it('lists workspace channels without widening key scope, transfers management an
             ).status
         ).toBe(404)
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
 it('lets workspace administration recover a channel without a project actor and inspect archived history', async () => {
     const f = await setup()
     try {
-        const workspaceId = f.database.$client
-            .query<{ workspace_id: string }, [string]>(
+        const workspaceId = (await f.database.sql
+            .statement<{ workspace_id: string }, [string]>(
                 'select workspace_id from projects where id=?'
             )
-            .get(f.source)!.workspace_id
+            .get(f.source))!.workspace_id
         const base = `/api/workspaces/${workspaceId}/channels`
         let credential = { cookie: f.cookie }
         expect(
@@ -704,28 +700,28 @@ it('lets workspace administration recover a channel without a project actor and 
             ).status
         ).toBe(200)
         // Model a retired managing project: management falls back to workspace administrators.
-        f.database.$client
-            .query('delete from channel_managers where channel_id=?')
+        await f.database.sql
+            .statement('delete from channel_managers where channel_id=?')
             .run(f.channel.id)
         const adminCookie = await signUp(f.app, 'workspace-channel-admin@postdot.local')
-        const adminId = f.database.$client
-            .query<{ id: string }, [string]>('select id from user where email=?')
-            .get('workspace-channel-admin@postdot.local')!.id
-        f.database.$client
-            .query(
+        const adminId = (await f.database.sql
+            .statement<{ id: string }, [string]>('select id from "user" where email=?')
+            .get('workspace-channel-admin@postdot.local'))!.id
+        await f.database.sql
+            .statement(
                 "update member set role='admin' where user_id=? and organization_id=(select organization_id from workspaces where id=?)"
             )
             .run(adminId, workspaceId)
         credential = { cookie: adminCookie }
         // A visible target grant is still required; workspace administration grants no content access.
-        f.database.$client
-            .query(
+        await f.database.sql
+            .statement(
                 "insert into project_user_grants(id,project_id,user_id,role,created_at,updated_at) values ('admin-target',?,?,'editor',?,?)"
             )
             .run(f.target, adminId, now, now)
         expect(
-            f.database.$client
-                .query('select id from actors where project_id is not null and subject_id=?')
+            await f.database.sql
+                .statement('select id from actors where project_id is not null and subject_id=?')
                 .all(adminId)
         ).toHaveLength(0)
         const before = await call(f.app, base, credential)
@@ -744,21 +740,21 @@ it('lets workspace administration recover a channel without a project actor and 
             ).status
         ).toBe(200)
         expect(
-            f.database.$client
-                .query(
+            await f.database.sql
+                .statement(
                     "select id from actors where workspace_id=? and origin_actor_id is null and kind='human' and subject_id=?"
                 )
                 .all(workspaceId, adminId)
         ).toHaveLength(1)
-        f.database.$client
-            .query("update channels set state='archived',archived_at=123 where id=?")
+        await f.database.sql
+            .statement("update channels set state='archived',archived_at=123 where id=?")
             .run(f.channel.id)
         expect(await (await call(f.app, base, credential)).json()).toMatchObject({ channels: [] })
         expect(
             await (await call(f.app, `${base}?includeArchived=true`, credential)).json()
         ).toMatchObject({ channels: [{ id: f.channel.id, state: 'archived', archivedAt: 123 }] })
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
@@ -766,16 +762,18 @@ it('rejects an OAuth callback after its actor loses channel management, before p
     const f = await setup()
     try {
         const editorCookie = await signUp(f.app, 'former-channel-manager@postdot.local')
-        const editorId = f.database.$client
-            .query<{ id: string }, [string]>('select id from user where email=?')
-            .get('former-channel-manager@postdot.local')!.id
-        f.database.$client.query("update member set role='member' where user_id=?").run(editorId)
-        createAccessStore(f.database).grantProjectUserAccess({
+        const editorId = (await f.database.sql
+            .statement<{ id: string }, [string]>('select id from "user" where email=?')
+            .get('former-channel-manager@postdot.local'))!.id
+        await f.database.sql
+            .statement("update member set role='member' where user_id=?")
+            .run(editorId)
+        await createAccessStore(f.database).grantProjectUserAccess({
             projectId: f.source,
             userId: editorId,
             role: 'editor',
         })
-        const actorId = f.publisher.publisherStore.getProjectActorId(f.source, editorId)!
+        const actorId = (await f.publisher.publisherStore.getProjectActorId(f.source, editorId))!
         const state = 'channel-management-callback-state-'.repeat(2)
         const attempt = await f.publisher.authorizationAttemptStore.createAuthorizationAttempt({
             projectId: f.source,
@@ -817,24 +815,24 @@ it('rejects an OAuth callback after its actor loses channel management, before p
         expect(callback.status).toBe(303)
         expect(callback.headers.get('location')).toContain('publisher=invalid_callback')
         expect(
-            f.database.$client.query('select count(*) as n from publisher_credentials').get()
+            await f.database.sql.statement('select count(*) as n from publisher_credentials').get()
         ).toEqual({ n: 0 })
         expect(
-            f.database.$client.query('select count(*) as n from publisher_connections').get()
+            await f.database.sql.statement('select count(*) as n from publisher_connections').get()
         ).toEqual({ n: 0 })
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
 it('allows a project owner to withdraw its own workspace attachment using only channel sharing capability', async () => {
     const f = await setup()
     try {
-        const workspaceId = f.database.$client
-            .query<{ workspace_id: string }, [string]>(
+        const workspaceId = (await f.database.sql
+            .statement<{ workspace_id: string }, [string]>(
                 'select workspace_id from projects where id=?'
             )
-            .get(f.source)!.workspace_id
+            .get(f.source))!.workspace_id
         const base = `/api/workspaces/${workspaceId}/channels/${f.channel.id}`
         expect(
             (
@@ -875,6 +873,6 @@ it('allows a project owner to withdraw its own workspace attachment using only c
             (await call(f.app, `/api/workspaces/${workspaceId}/channels`, { token: key })).status
         ).toBe(403)
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })

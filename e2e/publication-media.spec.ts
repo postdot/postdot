@@ -4,6 +4,7 @@ import { expect, test, type Page, type Route } from '@playwright/test'
 import type { MediaReference } from '@postdot/client'
 
 import en from '../apps/web/messages/en.json' with { type: 'json' }
+import fr from '../apps/web/messages/fr.json' with { type: 'json' }
 
 const e2eApiPort = process.env.POSTDOT_E2E_API_PORT
 if (e2eApiPort === undefined) {
@@ -88,6 +89,7 @@ test('keeps dashboard and composer media journeys reliable', async ({ page, requ
             mediaMaintenance: 'started',
             notifications: 'started',
             recovery: 'normal',
+            topology: { engine: 'sqlite', media: 'local', instances: 'single', role: 'leader' },
         },
     })
 
@@ -127,14 +129,14 @@ test('keeps dashboard and composer media journeys reliable', async ({ page, requ
         page.getByRole('button', { name: 'Switch to dark theme', exact: true })
     ).toBeVisible()
     await page.getByRole('button', { name: 'Switch to dark theme', exact: true }).click()
-    await page.getByRole('button', { name: 'Switch language to French', exact: true }).click()
+    await page.getByRole('button', { name: 'Language', exact: true }).click()
     await page.getByRole('menuitem', { name: 'French', exact: true }).click()
     await expect(page.locator('html')).toHaveAttribute('lang', 'fr')
     const languageSwitcher = page.locator('[data-slot="language-switcher-trigger"]')
     await expect(languageSwitcher).toBeVisible()
     await languageSwitcher.click()
     await expect(page.locator('[role="menuitem"][aria-current="true"]')).toHaveCount(1)
-    await page.locator('[role="menuitem"]:not([aria-current="true"])').click()
+    await page.getByRole('menuitem', { name: fr.language_english, exact: true }).click()
     await expect(page.locator('html')).toHaveAttribute('lang', 'en')
 
     await page.getByRole('button', { name: 'Open account menu', exact: true }).click()
@@ -411,7 +413,9 @@ test('keeps dashboard and composer media journeys reliable', async ({ page, requ
         .click()
     await expect(page.locator('[data-publication-lifecycle="true"]')).toBeVisible()
     await expect(page.getByText('Draft', { exact: true })).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Use this version', exact: true })).toBeVisible()
+    await expect(
+        page.getByRole('button', { name: /^Use this version(?:\s*(?:Ctrl|⌘)↵)?$/ })
+    ).toBeVisible()
     await page.getByRole('link', { name: /Back to queue/ }).click()
     await page.getByRole('link', { name: 'New publication', exact: true }).click()
 
@@ -1075,7 +1079,7 @@ test('persists mixed and media-only publications through the dashboard', async (
     const mixedResponse = page.waitForResponse(
         response => response.url().endsWith('/posts') && response.request().method() === 'POST'
     )
-    await page.getByRole('button', { name: 'Schedule 2 publications', exact: true }).click()
+    await page.getByRole('button', { name: /^Schedule 2 publications(?:\s*(?:Ctrl|⌘)↵)?$/ }).click()
     const mixedResult = (await (await mixedResponse).json()) as { publications: { id: string }[] }
     const mixedPublicationId = mixedResult.publications[0]?.id
     if (mixedPublicationId === undefined) throw new Error('Expected a mixed publication')
@@ -1512,7 +1516,9 @@ test('persists mixed and media-only publications through the dashboard', async (
     const promotedSchedule = localDateTimeInHours(4)
     await page.locator('[data-publication-delivery-disclosure] > summary').click()
     await setDateTimePicker(page, 'Deliver at', promotedSchedule)
-    await page.getByRole('button', { name: 'Update scheduled publication', exact: true }).click()
+    await page
+        .getByRole('button', { name: /^Update scheduled publication(?:\s*(?:Ctrl|⌘)↵)?$/ })
+        .click()
     await expect(page.getByLabel('Deliver at', { exact: true })).toContainText(
         formatDisplayTime(promotedSchedule)
     )

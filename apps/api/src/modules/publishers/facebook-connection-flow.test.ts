@@ -1,16 +1,13 @@
 import { expect, test } from 'bun:test'
 
 import {
-    closeDatabase,
-    createDatabase,
-    runMigrations,
     createManualStore,
     createAuthorizationAttemptStore,
     createPublisherCredentialCipher,
     createPublisherCredentialStore,
     createPublisherStore,
 } from '@postdot/db'
-import { seedTestWorkspace } from '@postdot/db/testing'
+import { closeTestDatabase, openTestDatabase, seedTestWorkspace } from '@postdot/db/testing'
 import {
     createFacebookOAuth,
     createFacebookPublisher,
@@ -22,15 +19,14 @@ import { createFacebookConnectionFlow } from '../../providers/facebook/connectio
 
 const callbackUri = 'https://postdot.example/api/oauth/facebook/callback'
 type PermissionMode = 'granted' | 'declined' | 'missing' | 'revoked'
-function fixture(
+async function fixture(
     options: {
         readonly finalExpiration?: number | null
         readonly permissionDelayMs?: number
         readonly permissionMode?: PermissionMode
     } = {}
 ) {
-    const database = createDatabase(':memory:')
-    runMigrations(database)
+    const database = (await openTestDatabase()).database
     let timestamp = 1_800_000_000_000
     let editor = true
     let manager = true
@@ -42,18 +38,18 @@ function fixture(
     const permissionDelayMs = options.permissionDelayMs ?? 0
     const permissionMode = options.permissionMode ?? 'granted'
     const channels = createManualStore(database, { now })
-    const project = channels.createProject({
-        workspaceId: seedTestWorkspace(database),
+    const project = await channels.createProject({
+        workspaceId: await seedTestWorkspace(database),
         name: 'Test',
         subjectId: 'owner',
         displayName: 'Owner',
     })
-    const channel = channels.createChannel({
+    const channel = (await channels.createChannel({
         projectId: project.project.id,
         subjectId: 'owner',
         name: 'Facebook',
         profile: facebookChannelProfile,
-    })!
+    }))!
     const cipher = createPublisherCredentialCipher({
         keyId: 'test',
         key: new Uint8Array(32).fill(7),
@@ -145,13 +141,13 @@ function fixture(
         channels,
         publishers: {
             ...publishers,
-            createPublisherConnection: input =>
+            createPublisherConnection: async input =>
                 failConnection
                     ? { kind: 'invalid_connection' }
                     : publishers.createPublisherConnection(input),
         },
-        access: { canAccessProject: () => editor },
-        canManageChannel: () => manager,
+        access: { canAccessProject: async () => editor },
+        canManageChannel: async () => manager,
         oauth,
         graph,
         now,
@@ -212,11 +208,11 @@ async function stateDigest(state: string): Promise<Uint8Array> {
 
 /** Reads the decrypted pending provider state through the store's own API. */
 async function readPendingProviderState(
-    f: ReturnType<typeof fixture>,
+    f: Awaited<ReturnType<typeof fixture>>,
     selection: string
 ): Promise<Record<string, unknown>> {
-    const row = f.database.$client
-        .query<{ connectedByActorId: string }, []>(
+    const row = await f.database.sql
+        .statement<{ connectedByActorId: string }, []>(
             `select connected_by_actor_id as connectedByActorId
              from oauth_authorization_attempts
              where provider_state_ciphertext is not null`
@@ -236,11 +232,11 @@ async function readPendingProviderState(
 
 /** Persists a crafted pending provider state through the store's own API. */
 async function storePendingProviderState(
-    f: ReturnType<typeof fixture>,
+    f: Awaited<ReturnType<typeof fixture>>,
     state: string,
     providerState: string
 ): Promise<void> {
-    const actorId = f.publishers.getProjectActorId(f.binding.projectId, f.binding.subjectId)
+    const actorId = await f.publishers.getProjectActorId(f.binding.projectId, f.binding.subjectId)
     if (!actorId) throw new Error('no actor')
     const created = await f.attempts.createAuthorizationAttempt({
         projectId: f.binding.projectId,
@@ -259,11 +255,15 @@ async function storePendingProviderState(
 }
 
 test('Facebook callback stages encrypted choices and connects only the explicitly selected Page', async () => {
-    const f = fixture()
+    const f = await fixture()
     try {
         const pending = await f.pending()
         expect(
-            f.publishers.getPublisherConnection(f.binding.projectId, f.binding.channelId, 'owner')
+            await f.publishers.getPublisherConnection(
+                f.binding.projectId,
+                f.binding.channelId,
+                'owner'
+            )
         ).toBeNull()
         const pages = await f.flow.listPages(f.binding, pending.selection)
         expect(pages).toEqual({
@@ -275,7 +275,7 @@ test('Facebook callback stages encrypted choices and connects only the explicitl
         })
         expect(JSON.stringify(pages)).not.toContain('token')
         const attempts = JSON.stringify(
-            f.database.$client.query('select * from oauth_authorization_attempts').all()
+            await f.database.sql.statement('select * from oauth_authorization_attempts').all()
         )
         expect(attempts).not.toContain('synthetic-user-token')
         expect(attempts).not.toContain('synthetic-long-user-token')
@@ -287,26 +287,28 @@ test('Facebook callback stages encrypted choices and connects only the explicitl
         })
         expect(JSON.stringify(result)).not.toContain('synthetic-page-token')
         expect(
-            JSON.stringify(f.database.$client.query('select * from publisher_credentials').all())
+            JSON.stringify(
+                await f.database.sql.statement('select * from publisher_credentials').all()
+            )
         ).not.toContain('synthetic-page-token')
         expect(
-            f.database.$client
-                .query(
+            await f.database.sql
+                .statement(
                     'select provider_state_ciphertext as secret from oauth_authorization_attempts'
                 )
                 .all()
         ).toEqual([{ secret: null }, { secret: null }])
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
 test('an unknown provider expiration completes the Page selection and stores only the selected Page token', async () => {
-    const f = fixture({ finalExpiration: null })
+    const f = await fixture({ finalExpiration: null })
     try {
         const pending = await f.pending()
-        const stored = f.database.$client
-            .query<{ id: string; ciphertext: Uint8Array | null }, []>(
+        const stored = await f.database.sql
+            .statement<{ id: string; ciphertext: Uint8Array | null }, []>(
                 'select id, provider_state_ciphertext as ciphertext from oauth_authorization_attempts'
             )
             .all()
@@ -324,8 +326,8 @@ test('an unknown provider expiration completes the Page selection and stores onl
             id: '456',
             name: 'Selected Page',
         })
-        const credentials = f.database.$client
-            .query<
+        const credentials = await f.database.sql
+            .statement<
                 {
                     id: string
                     providerId: string
@@ -359,15 +361,17 @@ test('an unknown provider expiration completes the Page selection and stores onl
             )
         ).toBe('synthetic-page-token')
         expect(
-            JSON.stringify(f.database.$client.query('select * from publisher_credentials').all())
+            JSON.stringify(
+                await f.database.sql.statement('select * from publisher_credentials').all()
+            )
         ).not.toContain('synthetic-long-user-token')
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
 test('an unknown provider expiration is stored as an explicit null deadline holding the final token', async () => {
-    const f = fixture({ finalExpiration: null })
+    const f = await fixture({ finalExpiration: null })
     try {
         const pending = await f.pending()
         const state = await readPendingProviderState(f, pending.selection)
@@ -375,17 +379,17 @@ test('an unknown provider expiration is stored as an explicit null deadline hold
         expect(state.expiresAt).toBeNull()
         expect(state.token).toBe('synthetic-long-user-token')
         const rows = JSON.stringify(
-            f.database.$client.query('select * from oauth_authorization_attempts').all()
+            await f.database.sql.statement('select * from oauth_authorization_attempts').all()
         )
         expect(rows).not.toContain('synthetic-user-token')
         expect(rows).not.toContain('synthetic-long-user-token')
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
 test('an unknown provider expiration stays bound to the local attempt lifetime', async () => {
-    const f = fixture({ finalExpiration: null })
+    const f = await fixture({ finalExpiration: null })
     try {
         const pending = await f.pending()
         f.advance(59_999)
@@ -397,12 +401,12 @@ test('an unknown provider expiration stays bound to the local attempt lifetime',
         })
         expect(f.requests).toBe(before)
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
 test('a known provider expiration shorter than the local attempt lifetime refuses the pending token', async () => {
-    const f = fixture({ finalExpiration: 30 })
+    const f = await fixture({ finalExpiration: 30 })
     try {
         const pending = await f.pending()
         f.advance(30_000)
@@ -420,28 +424,31 @@ test('a known provider expiration shorter than the local attempt lifetime refuse
         })
         expect(f.requests).toBe(before)
         expect(
-            f.database.$client
-                .query<{ status: string }, []>('select status from oauth_authorization_attempts')
-                .all()
-                .map(row => row.status)
+            (
+                await f.database.sql
+                    .statement<{ status: string }, []>(
+                        'select status from oauth_authorization_attempts'
+                    )
+                    .all()
+            ).map(row => row.status)
         ).toEqual(['consumed', 'pending'])
-        expect(f.database.$client.query('select * from publisher_credentials').all()).toHaveLength(
-            0
-        )
+        expect(
+            await f.database.sql.statement('select * from publisher_credentials').all()
+        ).toHaveLength(0)
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
 test('a permission probe that crosses a known deadline is refused before any pending choice exists', async () => {
-    const f = fixture({ finalExpiration: 10, permissionDelayMs: 11_000 })
+    const f = await fixture({ finalExpiration: 10, permissionDelayMs: 11_000 })
     try {
         const { url } = await f.flow.start(f.binding, '/dashboard/channels')
         await expect(f.flow.complete(f.binding, f.callback(url))).rejects.toMatchObject({
             code: 'invalid_attempt',
         })
-        const attempts = f.database.$client
-            .query<{ status: string; ciphertext: Uint8Array | null }, []>(
+        const attempts = await f.database.sql
+            .statement<{ status: string; ciphertext: Uint8Array | null }, []>(
                 `select status, provider_state_ciphertext as ciphertext
                  from oauth_authorization_attempts`
             )
@@ -449,24 +456,24 @@ test('a permission probe that crosses a known deadline is refused before any pen
         expect(attempts).toHaveLength(1)
         expect(attempts[0]!.status).toBe('consumed')
         expect(attempts[0]!.ciphertext).toBeNull()
-        expect(f.database.$client.query('select * from publisher_credentials').all()).toHaveLength(
-            0
-        )
+        expect(
+            await f.database.sql.statement('select * from publisher_credentials').all()
+        ).toHaveLength(0)
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
 test('a refused permission discovery creates no pending Page selection', async () => {
-    const f = fixture()
+    const f = await fixture()
     try {
         f.losePermission()
         const { url } = await f.flow.start(f.binding, '/dashboard/channels')
         await expect(f.flow.complete(f.binding, f.callback(url))).rejects.toMatchObject({
             code: 'provider_unavailable',
         })
-        const attempts = f.database.$client
-            .query<{ status: string; context: string; ciphertext: Uint8Array | null }, []>(
+        const attempts = await f.database.sql
+            .statement<{ status: string; context: string; ciphertext: Uint8Array | null }, []>(
                 `select status, context_json as context, provider_state_ciphertext as ciphertext
                  from oauth_authorization_attempts`
             )
@@ -476,20 +483,20 @@ test('a refused permission discovery creates no pending Page selection', async (
         expect(attempts[0]!.ciphertext).toBeNull()
         expect(JSON.parse(attempts[0]!.context).phase).toBe('authorization')
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
 test('an unknown provider expiration still refuses missing or declined publishing permissions', async () => {
     for (const permissionMode of ['declined', 'missing'] as const) {
-        const f = fixture({ finalExpiration: null, permissionMode })
+        const f = await fixture({ finalExpiration: null, permissionMode })
         try {
             const { url } = await f.flow.start(f.binding, '/dashboard/channels')
             await expect(f.flow.complete(f.binding, f.callback(url))).rejects.toMatchObject({
                 code: 'provider_unavailable',
             })
-            const attempts = f.database.$client
-                .query<{ status: string; context: string; ciphertext: Uint8Array | null }, []>(
+            const attempts = await f.database.sql
+                .statement<{ status: string; context: string; ciphertext: Uint8Array | null }, []>(
                     `select status, context_json as context, provider_state_ciphertext as ciphertext
                      from oauth_authorization_attempts`
                 )
@@ -499,23 +506,23 @@ test('an unknown provider expiration still refuses missing or declined publishin
             expect(attempts[0]!.ciphertext).toBeNull()
             expect(JSON.parse(attempts[0]!.context).phase).toBe('authorization')
             expect(
-                f.database.$client.query('select * from publisher_credentials').all()
+                await f.database.sql.statement('select * from publisher_credentials').all()
             ).toHaveLength(0)
         } finally {
-            closeDatabase(f.database)
+            await closeTestDatabase(f.database)
         }
     }
 })
 
 test('an unknown provider expiration refuses a revoked provider token', async () => {
-    const f = fixture({ finalExpiration: null, permissionMode: 'revoked' })
+    const f = await fixture({ finalExpiration: null, permissionMode: 'revoked' })
     try {
         const { url } = await f.flow.start(f.binding, '/dashboard/channels')
         await expect(f.flow.complete(f.binding, f.callback(url))).rejects.toMatchObject({
             code: 'provider_unavailable',
         })
-        const attempts = f.database.$client
-            .query<{ status: string; context: string; ciphertext: Uint8Array | null }, []>(
+        const attempts = await f.database.sql
+            .statement<{ status: string; context: string; ciphertext: Uint8Array | null }, []>(
                 `select status, context_json as context, provider_state_ciphertext as ciphertext
                  from oauth_authorization_attempts`
             )
@@ -524,16 +531,16 @@ test('an unknown provider expiration refuses a revoked provider token', async ()
         expect(attempts[0]!.status).toBe('consumed')
         expect(attempts[0]!.ciphertext).toBeNull()
         expect(JSON.parse(attempts[0]!.context).phase).toBe('authorization')
-        expect(f.database.$client.query('select * from publisher_credentials').all()).toHaveLength(
-            0
-        )
+        expect(
+            await f.database.sql.statement('select * from publisher_credentials').all()
+        ).toHaveLength(0)
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
 test('API keys, foreign users and viewers cannot start authorization or contact Meta', async () => {
-    const f = fixture()
+    const f = await fixture()
     try {
         await expect(
             f.flow.start({ ...f.binding, authMethod: 'user_api_key' }, '/dashboard/channels')
@@ -547,21 +554,21 @@ test('API keys, foreign users and viewers cannot start authorization or contact 
         })
         expect(f.requests).toBe(0)
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
 test('callback state is single use and binds the exact project and channel', async () => {
-    const f = fixture()
+    const f = await fixture()
     try {
         const { url } = await f.flow.start(f.binding, '/dashboard/channels')
         const parameters = f.callback(url)
-        const other = f.channels.createChannel({
+        const other = (await f.channels.createChannel({
             projectId: f.binding.projectId,
             subjectId: 'owner',
             name: 'Other',
             profile: facebookChannelProfile,
-        })!
+        }))!
         await expect(
             f.flow.complete({ ...f.binding, channelId: other.id }, parameters)
         ).rejects.toMatchObject({ code: 'invalid_attempt' })
@@ -573,12 +580,12 @@ test('callback state is single use and binds the exact project and channel', asy
         })
         expect(f.requests).toBe(before)
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
 test('expired or foreign pending choices never disclose Pages', async () => {
-    const f = fixture()
+    const f = await fixture()
     try {
         const pending = await f.pending()
         const before = f.requests
@@ -591,7 +598,7 @@ test('expired or foreign pending choices never disclose Pages', async () => {
         })
         expect(f.requests).toBe(before)
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
@@ -604,7 +611,7 @@ test('a malformed pending provider state is refused before any Graph request', a
         'null',
         '"synthetic-long-user-token"',
     ]) {
-        const f = fixture({ finalExpiration: null })
+        const f = await fixture({ finalExpiration: null })
         try {
             const state = crypto.randomUUID() + crypto.randomUUID()
             await storePendingProviderState(f, state, providerState)
@@ -614,16 +621,16 @@ test('a malformed pending provider state is refused before any Graph request', a
             })
             expect(f.requests).toBe(before)
             expect(
-                f.database.$client.query('select * from publisher_credentials').all()
+                await f.database.sql.statement('select * from publisher_credentials').all()
             ).toHaveLength(0)
         } finally {
-            closeDatabase(f.database)
+            await closeTestDatabase(f.database)
         }
     }
 })
 
 test('a legacy numeric pending provider state is still accepted', async () => {
-    const f = fixture({ finalExpiration: null })
+    const f = await fixture({ finalExpiration: null })
     try {
         const state = crypto.randomUUID() + crypto.randomUUID()
         await storePendingProviderState(
@@ -634,12 +641,12 @@ test('a legacy numeric pending provider state is still accepted', async () => {
         const pages = await f.flow.listPages(f.binding, state)
         expect(pages.pages.map(page => page.id)).toEqual(['456', '789'])
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
 test('current permission and Page publishing task are required; no fallback Page is chosen', async () => {
-    const f = fixture()
+    const f = await fixture()
     try {
         const pending = await f.pending()
         await expect(f.flow.selectPage(f.binding, pending.selection, '789')).rejects.toMatchObject({
@@ -653,39 +660,43 @@ test('current permission and Page publishing task are required; no fallback Page
             code: 'provider_unavailable',
         })
         expect(
-            f.publishers.getPublisherConnection(f.binding.projectId, f.binding.channelId, 'owner')
+            await f.publishers.getPublisherConnection(
+                f.binding.projectId,
+                f.binding.channelId,
+                'owner'
+            )
         ).toBeNull()
-        expect(f.database.$client.query('select * from publisher_credentials').all()).toHaveLength(
-            0
-        )
+        expect(
+            await f.database.sql.statement('select * from publisher_credentials').all()
+        ).toHaveLength(0)
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
 test('a persistence rejection consumes selection and revokes only its newly created credential', async () => {
-    const f = fixture()
+    const f = await fixture()
     try {
         const pending = await f.pending()
         f.failConnection()
         await expect(f.flow.selectPage(f.binding, pending.selection, '456')).rejects.toMatchObject({
             code: 'conflict',
         })
-        expect(f.database.$client.query('select state from publisher_credentials').all()).toEqual([
-            { state: 'revoked' },
-        ])
+        expect(
+            await f.database.sql.statement('select state from publisher_credentials').all()
+        ).toEqual([{ state: 'revoked' }])
         const before = f.requests
         await expect(f.flow.selectPage(f.binding, pending.selection, '456')).rejects.toMatchObject({
             code: 'invalid_attempt',
         })
         expect(f.requests).toBe(before)
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
 test('concurrent Page selections persist one connection', async () => {
-    const f = fixture()
+    const f = await fixture()
     try {
         const pending = await f.pending()
         const results = await Promise.allSettled([
@@ -693,19 +704,19 @@ test('concurrent Page selections persist one connection', async () => {
             f.flow.selectPage(f.binding, pending.selection, '456'),
         ])
         expect(results.filter(result => result.status === 'fulfilled')).toHaveLength(1)
-        expect(f.database.$client.query('select * from publisher_connections').all()).toHaveLength(
-            1
-        )
-        expect(f.database.$client.query('select * from publisher_credentials').all()).toHaveLength(
-            1
-        )
+        expect(
+            await f.database.sql.statement('select * from publisher_connections').all()
+        ).toHaveLength(1)
+        expect(
+            await f.database.sql.statement('select * from publisher_credentials').all()
+        ).toHaveLength(1)
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
 test('an expired callback is consumed as expired without exchanging its provider code', async () => {
-    const f = fixture()
+    const f = await fixture()
     try {
         const { url } = await f.flow.start(f.binding, '/dashboard/channels')
         f.advance()
@@ -714,15 +725,15 @@ test('an expired callback is consumed as expired without exchanging its provider
         })
         expect(f.requests).toBe(0)
         expect(
-            f.database.$client.query('select status from oauth_authorization_attempts').all()
+            await f.database.sql.statement('select status from oauth_authorization_attempts').all()
         ).toEqual([{ status: 'expired' }])
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
 test('loss of editor access after authorization prevents Page inspection and persistence', async () => {
-    const f = fixture()
+    const f = await fixture()
     try {
         const pending = await f.pending()
         const before = f.requests
@@ -734,30 +745,30 @@ test('loss of editor access after authorization prevents Page inspection and per
             code: 'forbidden',
         })
         expect(f.requests).toBe(before)
-        expect(f.database.$client.query('select * from publisher_credentials').all()).toHaveLength(
-            0
-        )
+        expect(
+            await f.database.sql.statement('select * from publisher_credentials').all()
+        ).toHaveLength(0)
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
 test('an operator cannot move pending choices into another project they own', async () => {
-    const f = fixture()
+    const f = await fixture()
     try {
         const pending = await f.pending()
-        const project = f.channels.createProject({
-            workspaceId: seedTestWorkspace(f.database),
+        const project = await f.channels.createProject({
+            workspaceId: await seedTestWorkspace(f.database),
             name: 'Other project',
             subjectId: 'owner',
             displayName: 'Owner',
         })
-        const channel = f.channels.createChannel({
+        const channel = (await f.channels.createChannel({
             projectId: project.project.id,
             subjectId: 'owner',
             name: 'Facebook',
             profile: facebookChannelProfile,
-        })!
+        }))!
         const before = f.requests
         await expect(
             f.flow.selectPage(
@@ -771,29 +782,29 @@ test('an operator cannot move pending choices into another project they own', as
             (await f.flow.selectPage(f.binding, pending.selection, '456')).connection.projectId
         ).toBe(f.binding.projectId)
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
 test('manual channels cannot be connected through the Facebook flow', async () => {
-    const f = fixture()
+    const f = await fixture()
     try {
-        const manual = f.channels.createChannel({
+        const manual = (await f.channels.createChannel({
             projectId: f.binding.projectId,
             subjectId: 'owner',
             name: 'Manual',
-        })!
+        }))!
         await expect(
             f.flow.start({ ...f.binding, channelId: manual.id }, '/dashboard/channels')
         ).rejects.toMatchObject({ code: 'conflict' })
         expect(f.requests).toBe(0)
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
 test('losing channel management preserves editor access but blocks Page selection', async () => {
-    const f = fixture()
+    const f = await fixture()
     try {
         const pending = await f.pending()
         const before = f.requests
@@ -803,6 +814,6 @@ test('losing channel management preserves editor access but blocks Page selectio
         })
         expect(f.requests).toBe(before)
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })

@@ -46,9 +46,12 @@ export async function runLocalAccountBootstrap(args: readonly string[]) {
             // Only initialize a new database. A refused bootstrap must not
             // silently migrate an existing installation.
             if (!existed)
-                runMigrations(database, createPostdotBootstrapConfig().POSTDOT_MIGRATIONS_DIR)
+                await runMigrations(database, createPostdotBootstrapConfig().POSTDOT_MIGRATIONS_DIR)
             const access = createAccessStore(database)
-            if (access.getInstanceState().state !== 'claimable' || !access.isSignupAllowed()) {
+            if (
+                (await access.getInstanceState()).state !== 'claimable' ||
+                !(await access.isSignupAllowed())
+            ) {
                 throw new Error(
                     'The installation is already configured or cannot be claimed; no account was changed'
                 )
@@ -72,7 +75,7 @@ export async function runLocalAccountBootstrap(args: readonly string[]) {
                 throw new Error(
                     'Administrator creation failed; check the input and installation state'
                 )
-            const state = access.getInstanceState()
+            const state = await access.getInstanceState()
             if (state.state !== 'claimed' || !state.claimedByUserId)
                 throw new Error('Administrator claim was not confirmed')
             const cookie = response.headers

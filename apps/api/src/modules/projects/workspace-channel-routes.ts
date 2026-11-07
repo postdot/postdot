@@ -1,4 +1,5 @@
 import type { AccessStore } from '@postdot/db'
+import { filterSequential, mapSequential } from '@postdot/db'
 import { Type } from 'typebox'
 
 import { createChannelAccessPolicy } from './channel-access-policy'
@@ -50,7 +51,7 @@ export function registerWorkspaceChannelRoutes<const Routes extends Record<strin
     access: AccessStore,
     onWorkScheduled?: () => void
 ) {
-    const context = (
+    const context = async (
         input: Omit<Parameters<typeof createChannelAccessPolicy>[0], 'access'> & {
             workspaceId: string
             displayName: string
@@ -58,16 +59,17 @@ export function registerWorkspaceChannelRoutes<const Routes extends Record<strin
     ) => {
         const authorization = createChannelAccessPolicy({ ...input, access })
         // Membership alone reveals no channels: every returned row and project uses the policy.
-        if (!access.canAccessWorkspace(input.workspaceId, input.userId)) return null
+        if (!(await access.canAccessWorkspace(input.workspaceId, input.userId))) return null
         return manual.sharedChannels.workspaceContextFor({
             ...input,
-            displayName: access.getInstanceMembership(input.userId)?.name ?? input.displayName,
+            displayName:
+                (await access.getInstanceMembership(input.userId))?.name ?? input.displayName,
             subjectId: input.userId,
             authorization,
         })
     }
     const notFound = { error: { code: 'not_found', message: 'Channel or workspace not found' } }
-    const mutation = (result: ReturnType<ManualStore['sharedChannels']['attach']>) => {
+    const mutation = (result: Awaited<ReturnType<ManualStore['sharedChannels']['attach']>>) => {
         if (result.kind === 'stale')
             return {
                 error: {
@@ -127,8 +129,16 @@ export function registerWorkspaceChannelRoutes<const Routes extends Record<strin
                     tags: ['Channels'],
                 },
             },
-            ({ params, query, user, authMethod, apiKeyPermissions, apiKeyProjectIds, status }) => {
-                if (!access.canAccessWorkspace(params.workspaceId, user.id))
+            async ({
+                params,
+                query,
+                user,
+                authMethod,
+                apiKeyPermissions,
+                apiKeyProjectIds,
+                status,
+            }) => {
+                if (!(await access.canAccessWorkspace(params.workspaceId, user.id)))
                     return status(404, notFound)
                 const authorization = createChannelAccessPolicy({
                     access,
@@ -137,7 +147,7 @@ export function registerWorkspaceChannelRoutes<const Routes extends Record<strin
                     apiKeyPermissions,
                     apiKeyProjectIds,
                 })
-                const ctx = context({
+                const ctx = await context({
                     ...params,
                     userId: user.id,
                     displayName: user.name,
@@ -145,38 +155,45 @@ export function registerWorkspaceChannelRoutes<const Routes extends Record<strin
                     apiKeyPermissions,
                     apiKeyProjectIds,
                 })
-                const projects = manual
-                    .listProjectsForWorkspace(params.workspaceId)
-                    .filter(p => authorization.authorizeProject(p.id, 'read_channels'))
-                    .map(p => ({
-                        id: p.id,
-                        name: p.name,
-                        timeZone: p.timeZone,
-                        canCreate: authorization.authorizeProject(p.id, 'create_channels'),
-                        canAttach: authorization.authorizeProject(p.id, 'attach_channels'),
-                    }))
+                const readable = await filterSequential(
+                    await manual.listProjectsForWorkspace(params.workspaceId),
+                    p => authorization.authorizeProject(p.id, 'read_channels')
+                )
+                const projects = await mapSequential(readable, async p => ({
+                    id: p.id,
+                    name: p.name,
+                    timeZone: p.timeZone,
+                    canCreate: await authorization.authorizeProject(p.id, 'create_channels'),
+                    canAttach: await authorization.authorizeProject(p.id, 'attach_channels'),
+                }))
                 if (authMethod === 'user_api_key' && !ctx) return status(404, notFound)
                 return {
                     projects,
                     channels: ctx
-                        ? manual.sharedChannels
-                              .listWorkspace(ctx, params.workspaceId, query.includeArchived)
-                              .map(channel => ({
+                        ? await mapSequential(
+                              await manual.sharedChannels.listWorkspace(
+                                  ctx,
+                                  params.workspaceId,
+                                  query.includeArchived
+                              ),
+                              async channel => ({
                                   ...channel,
-                                  usages: (
-                                      manual.sharedChannels.listProjectUsages(
+                                  usages: await mapSequential(
+                                      (await manual.sharedChannels.listProjectUsages(
                                           ctx,
                                           channel.id,
                                           true
-                                      ) ?? []
-                                  ).map(usage => ({
-                                      ...usage,
-                                      canAcceptManagement: authorization.authorizeProject(
-                                          usage.projectId,
-                                          'accept_channel_management'
-                                      ),
-                                  })),
-                              }))
+                                      )) ?? [],
+                                      async usage => ({
+                                          ...usage,
+                                          canAcceptManagement: await authorization.authorizeProject(
+                                              usage.projectId,
+                                              'accept_channel_management'
+                                          ),
+                                      })
+                                  ),
+                              })
+                          )
                         : [],
                 }
             }
@@ -192,8 +209,16 @@ export function registerWorkspaceChannelRoutes<const Routes extends Record<strin
                     tags: ['Channels'],
                 },
             },
-            ({ params, body, user, authMethod, apiKeyPermissions, apiKeyProjectIds, status }) => {
-                const ctx = context({
+            async ({
+                params,
+                body,
+                user,
+                authMethod,
+                apiKeyPermissions,
+                apiKeyProjectIds,
+                status,
+            }) => {
+                const ctx = await context({
                     ...params,
                     userId: user.id,
                     displayName: user.name,
@@ -203,15 +228,18 @@ export function registerWorkspaceChannelRoutes<const Routes extends Record<strin
                 })
                 if (
                     !ctx ||
-                    !manual.sharedChannels.isWorkspaceChannel(
+                    !(await manual.sharedChannels.isWorkspaceChannel(
                         ctx,
                         params.workspaceId,
                         params.channelId
-                    )
+                    ))
                 )
                     return status(404, notFound)
                 const result = mutation(
-                    manual.sharedChannels.attach(ctx, { ...body, channelId: params.channelId })
+                    await manual.sharedChannels.attach(ctx, {
+                        ...body,
+                        channelId: params.channelId,
+                    })
                 )
                 return 'error' in result
                     ? status(result.error.code === 'not_found' ? 404 : 409, result)
@@ -232,8 +260,16 @@ export function registerWorkspaceChannelRoutes<const Routes extends Record<strin
                     tags: ['Channels'],
                 },
             },
-            ({ params, body, user, authMethod, apiKeyPermissions, apiKeyProjectIds, status }) => {
-                const ctx = context({
+            async ({
+                params,
+                body,
+                user,
+                authMethod,
+                apiKeyPermissions,
+                apiKeyProjectIds,
+                status,
+            }) => {
+                const ctx = await context({
                     ...params,
                     userId: user.id,
                     displayName: user.name,
@@ -243,15 +279,18 @@ export function registerWorkspaceChannelRoutes<const Routes extends Record<strin
                 })
                 if (
                     !ctx ||
-                    !manual.sharedChannels.isWorkspaceChannel(
+                    !(await manual.sharedChannels.isWorkspaceChannel(
                         ctx,
                         params.workspaceId,
                         params.channelId
-                    )
+                    ))
                 )
                     return status(404, notFound)
                 const result = mutation(
-                    manual.sharedChannels.detach(ctx, { ...body, channelId: params.channelId })
+                    await manual.sharedChannels.detach(ctx, {
+                        ...body,
+                        channelId: params.channelId,
+                    })
                 )
                 return 'error' in result
                     ? status(result.error.code === 'not_found' ? 404 : 409, result)
@@ -269,8 +308,16 @@ export function registerWorkspaceChannelRoutes<const Routes extends Record<strin
                     tags: ['Channels'],
                 },
             },
-            ({ params, body, user, authMethod, apiKeyPermissions, apiKeyProjectIds, status }) => {
-                const ctx = context({
+            async ({
+                params,
+                body,
+                user,
+                authMethod,
+                apiKeyPermissions,
+                apiKeyProjectIds,
+                status,
+            }) => {
+                const ctx = await context({
                     ...params,
                     userId: user.id,
                     displayName: user.name,
@@ -280,15 +327,15 @@ export function registerWorkspaceChannelRoutes<const Routes extends Record<strin
                 })
                 if (
                     !ctx ||
-                    !manual.sharedChannels.isWorkspaceChannel(
+                    !(await manual.sharedChannels.isWorkspaceChannel(
                         ctx,
                         params.workspaceId,
                         params.channelId
-                    )
+                    ))
                 )
                     return status(404, notFound)
                 const result = mutation(
-                    manual.sharedChannels.transferManagement(ctx, {
+                    await manual.sharedChannels.transferManagement(ctx, {
                         ...body,
                         channelId: params.channelId,
                     })
@@ -318,8 +365,8 @@ export function registerWorkspaceChannelRoutes<const Routes extends Record<strin
                     tags: ['Channels'],
                 },
             },
-            ({ params, user, authMethod, apiKeyPermissions, apiKeyProjectIds, status }) => {
-                const ctx = context({
+            async ({ params, user, authMethod, apiKeyPermissions, apiKeyProjectIds, status }) => {
+                const ctx = await context({
                     ...params,
                     userId: user.id,
                     displayName: user.name,
@@ -329,15 +376,16 @@ export function registerWorkspaceChannelRoutes<const Routes extends Record<strin
                 })
                 if (
                     !ctx ||
-                    !manual.sharedChannels.isWorkspaceChannel(
+                    !(await manual.sharedChannels.isWorkspaceChannel(
                         ctx,
                         params.workspaceId,
                         params.channelId
-                    )
+                    ))
                 )
                     return status(404, notFound)
                 return (
-                    manual.sharedChannels.getCadence(ctx, params.channelId) ?? status(404, notFound)
+                    (await manual.sharedChannels.getCadence(ctx, params.channelId)) ??
+                    status(404, notFound)
                 )
             }
         )
@@ -367,8 +415,16 @@ export function registerWorkspaceChannelRoutes<const Routes extends Record<strin
                     tags: ['Channels'],
                 },
             },
-            ({ params, body, user, authMethod, apiKeyPermissions, apiKeyProjectIds, status }) => {
-                const ctx = context({
+            async ({
+                params,
+                body,
+                user,
+                authMethod,
+                apiKeyPermissions,
+                apiKeyProjectIds,
+                status,
+            }) => {
+                const ctx = await context({
                     ...params,
                     userId: user.id,
                     displayName: user.name,
@@ -378,14 +434,14 @@ export function registerWorkspaceChannelRoutes<const Routes extends Record<strin
                 })
                 if (
                     !ctx ||
-                    !manual.sharedChannels.isWorkspaceChannel(
+                    !(await manual.sharedChannels.isWorkspaceChannel(
                         ctx,
                         params.workspaceId,
                         params.channelId
-                    )
+                    ))
                 )
                     return status(404, notFound)
-                const result = manual.sharedChannels.configureCadence(ctx, {
+                const result = await manual.sharedChannels.configureCadence(ctx, {
                     ...body,
                     channelId: params.channelId,
                 })

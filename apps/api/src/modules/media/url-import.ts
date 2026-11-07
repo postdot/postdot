@@ -82,7 +82,7 @@ async function importMediaUrl(
     maxRedirects: number,
     requestTimeoutMs: number
 ): Promise<MediaUrlImportResult> {
-    const policy = options.media.getUploadPolicy(input.projectId, input.subjectId)
+    const policy = await options.media.getUploadPolicy(input.projectId, input.subjectId)
     if (policy === null) {
         throw new MediaUrlImportError(
             'media_url_unavailable',
@@ -205,7 +205,7 @@ async function storeImportedBytes(
     contentType: string,
     bytes: Uint8Array
 ): Promise<MediaUrlImportResult> {
-    const reservation = media.reserveUpload({
+    const reservation = await media.reserveUpload({
         projectId: input.projectId,
         subjectId: input.subjectId,
         originalFilename: filenameForUrl(url, contentType),

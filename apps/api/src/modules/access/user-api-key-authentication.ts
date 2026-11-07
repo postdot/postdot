@@ -11,7 +11,7 @@ export interface AuthenticatedUserApiKey {
     readonly ownerUserId: string
     readonly displayName: string
     readonly permissions: Awaited<
-        ReturnType<PostdotAuth['api']['verifyApiKey']>
+        Awaited<ReturnType<PostdotAuth['api']['verifyApiKey']>>
     >['key'] extends infer Key
         ? Key extends { permissions: infer Permissions }
             ? Permissions

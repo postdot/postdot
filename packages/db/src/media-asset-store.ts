@@ -21,7 +21,7 @@ import {
 } from '@postdot/core'
 import { MediaStoreError, type MediaObjectMetadata, type MediaStore } from '@postdot/media'
 
-import { createDatabaseTransaction, type PostdotDatabase } from './client'
+import { defineTransaction, type DatabaseHandle } from './client'
 import { createEventJournalStore } from './event-journal-store'
 import {
     generateImagePreviews,
@@ -31,6 +31,14 @@ import {
     type ImagePreviewVariant,
 } from './image-previews'
 import { createMp4Inspection } from './mp4-inspection'
+import {
+    jsonContainsTextScalarSql,
+    jsonExtractJsonTextSql,
+    jsonExtractTextSql,
+} from './sql/dialect'
+import { likeCaseInsensitiveSql } from './sql/dialect'
+import type { SqlDatabase, SqlDialect } from './sql/port'
+import { mapSequential } from './sql/sequential'
 
 const DEFAULT_UPLOAD_INTENT_TTL_MS = 15 * 60 * 1_000
 const DEFAULT_DELETION_GRACE_PERIOD_MS = 24 * 60 * 60 * 1_000
@@ -314,35 +322,35 @@ type MediaTrashListStatementParams = [
     limit: number,
 ]
 
-function mediaListStatementSql(sort: MediaAssetListSort): string {
+function mediaListStatementSql(sort: MediaAssetListSort, dialect: SqlDialect): string {
     const cursorCondition = {
         newest: `
           and (
-              ?5 is null
+              cast(?5 as bigint) is null
               or media_assets.created_at < ?5
               or (media_assets.created_at = ?5 and media_assets.id < ?6)
           )`,
         oldest: `
           and (
-              ?5 is null
+              cast(?5 as bigint) is null
               or media_assets.created_at > ?5
               or (media_assets.created_at = ?5 and media_assets.id > ?6)
           )`,
         name_asc: `
           and (
-              ?5 is null
+              cast(?5 as text) is null
               or lower(media_assets.original_filename) > ?5
               or (lower(media_assets.original_filename) = ?5 and media_assets.id > ?6)
           )`,
         name_desc: `
           and (
-              ?5 is null
+              cast(?5 as text) is null
               or lower(media_assets.original_filename) < ?5
               or (lower(media_assets.original_filename) = ?5 and media_assets.id < ?6)
           )`,
         largest: `
           and (
-              ?5 is null
+              cast(?5 as bigint) is null
               or coalesce(original_representation.byte_size, -1) < ?5
               or (
                   coalesce(original_representation.byte_size, -1) = ?5
@@ -351,7 +359,7 @@ function mediaListStatementSql(sort: MediaAssetListSort): string {
           )`,
         smallest: `
           and (
-              ?5 is null
+              cast(?5 as bigint) is null
               or coalesce(original_representation.byte_size, -1) > ?5
               or (
                   coalesce(original_representation.byte_size, -1) = ?5
@@ -378,9 +386,9 @@ function mediaListStatementSql(sort: MediaAssetListSort): string {
         where media_assets.project_id = ?1
           and media_assets.state <> 'deleted'
           and media_assets.archived_at is null
-          and (?2 is null or media_assets.original_filename like ?2 escape '\\')
-          and (?3 is null or original_representation.family = ?3)
-          and (?4 is null or media_assets.created_at >= ?4)
+          and (cast(?2 as text) is null or media_assets.original_filename ${likeCaseInsensitiveSql(dialect)} ?2 escape '\\')
+          and (cast(?3 as text) is null or original_representation.family = ?3)
+          and (cast(?4 as bigint) is null or media_assets.created_at >= ?4)
           ${cursorCondition}
         order by ${orderBy}
         limit ?7
@@ -473,15 +481,14 @@ const intentColumns = `
 `
 
 export function createMediaAssetStore(
-    database: PostdotDatabase,
+    database: DatabaseHandle,
     mediaStore: MediaStore,
     options: MediaAssetStoreOptions = {}
 ) {
-    const client = database.$client
+    const sql = database.sql
     const now = options.now ?? Date.now
     const createId = options.createId ?? (() => crypto.randomUUID())
     const uploadIntentTtlMs = options.uploadIntentTtlMs ?? DEFAULT_UPLOAD_INTENT_TTL_MS
-    const previewGeneration = new Map<string, Promise<void>>()
     const inspectionLimits = options.inspectionLimits ?? defaultMediaInspectionLimits
     const deletionGracePeriodMs = options.deletionGracePeriodMs ?? DEFAULT_DELETION_GRACE_PERIOD_MS
     const inspectors = new MediaInspectionRegistry()
@@ -490,7 +497,7 @@ export function createMediaAssetStore(
     validateDuration(deletionGracePeriodMs, 'deletionGracePeriodMs', true)
     validateInspectionLimits(inspectionLimits, mediaStore.maxObjectBytes)
 
-    const loadProjectActorStatement = client.query<{ id: string }, [string, string]>(`
+    const loadProjectActorStatement = sql.statement<{ id: string }, [string, string]>(`
         select id
         from actors
         where project_id = ?1
@@ -498,33 +505,33 @@ export function createMediaAssetStore(
           and kind in ('human', 'agent', 'api_token')
         limit 1
     `)
-    const loadAssetStatement = client.query<MediaAssetRow, [string, string]>(`
+    const loadAssetStatement = sql.statement<MediaAssetRow, [string, string]>(`
         select ${mediaListAssetColumns}
         from media_assets
         where project_id = ?1
           and id = ?2
     `)
     const listAssetsStatements = {
-        newest: client.query<MediaAssetRow, MediaListStatementParams>(
-            mediaListStatementSql('newest')
+        newest: sql.statement<MediaAssetRow, MediaListStatementParams>(
+            mediaListStatementSql('newest', sql.dialect)
         ),
-        oldest: client.query<MediaAssetRow, MediaListStatementParams>(
-            mediaListStatementSql('oldest')
+        oldest: sql.statement<MediaAssetRow, MediaListStatementParams>(
+            mediaListStatementSql('oldest', sql.dialect)
         ),
-        name_asc: client.query<MediaAssetRow, MediaListStatementParams>(
-            mediaListStatementSql('name_asc')
+        name_asc: sql.statement<MediaAssetRow, MediaListStatementParams>(
+            mediaListStatementSql('name_asc', sql.dialect)
         ),
-        name_desc: client.query<MediaAssetRow, MediaListStatementParams>(
-            mediaListStatementSql('name_desc')
+        name_desc: sql.statement<MediaAssetRow, MediaListStatementParams>(
+            mediaListStatementSql('name_desc', sql.dialect)
         ),
-        largest: client.query<MediaAssetRow, MediaListStatementParams>(
-            mediaListStatementSql('largest')
+        largest: sql.statement<MediaAssetRow, MediaListStatementParams>(
+            mediaListStatementSql('largest', sql.dialect)
         ),
-        smallest: client.query<MediaAssetRow, MediaListStatementParams>(
-            mediaListStatementSql('smallest')
+        smallest: sql.statement<MediaAssetRow, MediaListStatementParams>(
+            mediaListStatementSql('smallest', sql.dialect)
         ),
-    } satisfies Record<MediaAssetListSort, ReturnType<typeof client.query>>
-    const countAssetsStatement = client.query<
+    } satisfies Record<MediaAssetListSort, Awaited<ReturnType<typeof sql.statement>>>
+    const countAssetsStatement = sql.statement<
         { readonly total: number },
         MediaListCountStatementParams
     >(`
@@ -537,26 +544,26 @@ export function createMediaAssetStore(
         where media_assets.project_id = ?1
           and media_assets.state <> 'deleted'
           and media_assets.archived_at is null
-          and (?2 is null or media_assets.original_filename like ?2 escape '\\')
-          and (?3 is null or original_representation.family = ?3)
-          and (?4 is null or media_assets.created_at >= ?4)
+          and (cast(?2 as text) is null or media_assets.original_filename ${likeCaseInsensitiveSql(sql.dialect)} ?2 escape '\\')
+          and (cast(?3 as text) is null or original_representation.family = ?3)
+          and (cast(?4 as bigint) is null or media_assets.created_at >= ?4)
     `)
-    const listTrashAssetsStatement = client.query<MediaAssetRow, MediaTrashListStatementParams>(`
+    const listTrashAssetsStatement = sql.statement<MediaAssetRow, MediaTrashListStatementParams>(`
         select ${mediaListAssetColumns}
         from media_assets
         where media_assets.project_id = ?1
           and media_assets.state = 'deletion_requested'
           and media_assets.deletion_requested_at > ?2
-          and (?3 is null or media_assets.original_filename like ?3 escape '\\')
+          and (cast(?3 as text) is null or media_assets.original_filename ${likeCaseInsensitiveSql(sql.dialect)} ?3 escape '\\')
           and (
-              ?4 is null
+              cast(?4 as bigint) is null
               or media_assets.deletion_requested_at < ?4
               or (media_assets.deletion_requested_at = ?4 and media_assets.id < ?5)
           )
         order by media_assets.deletion_requested_at desc, media_assets.id desc
         limit ?6
     `)
-    const countTrashAssetsStatement = client.query<
+    const countTrashAssetsStatement = sql.statement<
         { readonly total: number },
         [string, number, string | null]
     >(`
@@ -565,28 +572,28 @@ export function createMediaAssetStore(
         where project_id = ?1
           and state = 'deletion_requested'
           and deletion_requested_at > ?2
-          and (?3 is null or original_filename like ?3 escape '\\')
+          and (cast(?3 as text) is null or original_filename ${likeCaseInsensitiveSql(sql.dialect)} ?3 escape '\\')
     `)
-    const loadRepresentationStatement = client.query<MediaRepresentationRow, [string, string]>(`
+    const loadRepresentationStatement = sql.statement<MediaRepresentationRow, [string, string]>(`
         select ${representationColumns}
         from media_representations
         where project_id = ?1
           and id = ?2
     `)
-    const listRepresentationsStatement = client.query<MediaRepresentationRow, [string, string]>(`
+    const listRepresentationsStatement = sql.statement<MediaRepresentationRow, [string, string]>(`
         select ${representationColumns}
         from media_representations
         where project_id = ?1
           and asset_id = ?2
         order by created_at, id
     `)
-    const loadIntentStatement = client.query<MediaUploadIntentRow, [string, string]>(`
+    const loadIntentStatement = sql.statement<MediaUploadIntentRow, [string, string]>(`
         select ${intentColumns}
         from media_upload_intents
         where project_id = ?1
           and id = ?2
     `)
-    const loadReservationStatement = client.query<
+    const loadReservationStatement = sql.statement<
         { readonly assetId: string; readonly representationId: string; readonly intentId: string },
         [string, string]
     >(`
@@ -604,7 +611,7 @@ export function createMediaAssetStore(
         where media_upload_intents.project_id = ?1
           and media_upload_intents.id = ?2
     `)
-    const listExpiredIntentsStatement = client.query<ExpiredIntentRow, [number]>(`
+    const listExpiredIntentsStatement = sql.statement<ExpiredIntentRow, [number]>(`
         select media_upload_intents.id,
                media_upload_intents.project_id as projectId,
                media_upload_intents.asset_id as assetId,
@@ -629,7 +636,7 @@ export function createMediaAssetStore(
           and media_upload_intents.expires_at <= ?1
         order by media_upload_intents.expires_at, media_upload_intents.id
     `)
-    const listMissingRepresentationsStatement = client.query<MissingRepresentationRow, []>(`
+    const listMissingRepresentationsStatement = sql.statement<MissingRepresentationRow, []>(`
         select media_representations.id,
                media_representations.project_id as projectId,
                media_representations.asset_id as assetId,
@@ -663,7 +670,7 @@ export function createMediaAssetStore(
            and media_assets.id = media_representations.asset_id
         where media_representations.state in ('stored', 'inspecting', 'ready')
     `)
-    const listDeletionCandidatesStatement = client.query<MediaAssetRow, [number]>(`
+    const listDeletionCandidatesStatement = sql.statement<MediaAssetRow, [number]>(`
         select ${assetColumns}
         from media_assets
         where (
@@ -677,14 +684,14 @@ export function createMediaAssetStore(
         )
         order by deletion_requested_at, id
     `)
-    const activeBackupFenceStatement = client.query<{ id: number }, [number]>(`
+    const activeBackupFenceStatement = sql.statement<{ id: number }, [number]>(`
         select id
         from media_backup_fences
         where id = 1
           and expires_at > ?1
         limit 1
     `)
-    const listSourceUsageStatement = client.query<MediaAssetUsageRow, [string, string]>(`
+    const listSourceUsageStatement = sql.statement<MediaAssetUsageRow, [string, string]>(`
         select distinct
                'post' as kind,
                posts.id as id,
@@ -695,12 +702,11 @@ export function createMediaAssetStore(
                null as scheduledAt,
                null as channelName,
                'source' as location
-        from posts, json_tree(posts.source_content) as content
+        from posts
         where posts.project_id = ?1
-          and content.type = 'text'
-          and content.value = ?2
+          and ${jsonContainsTextScalarSql(sql.dialect, 'posts.source_content', '?2')}
     `)
-    const listDraftUsageStatement = client.query<MediaAssetUsageRow, [string, string]>(`
+    const listDraftUsageStatement = sql.statement<MediaAssetUsageRow, [string, string]>(`
         select distinct
                'publication' as kind,
                publications.id as id,
@@ -714,7 +720,7 @@ export function createMediaAssetStore(
         from (
             select project_id, publication_id, content_json from publication_working_drafts
             union all
-            select project_id, publication_id, json_extract(snapshot_json, '$.content') from publication_draft_adoptions
+            select project_id, publication_id, ${jsonExtractJsonTextSql(sql.dialect, 'snapshot_json', ['content'])} from publication_draft_adoptions
             union all
             select project_id, publication_id, local_content_json from publication_draft_adoptions where local_content_json is not null
         ) as drafts
@@ -727,12 +733,10 @@ export function createMediaAssetStore(
         inner join project_channel_contexts as channels
             on channels.project_id = publications.project_id
            and channels.id = publications.channel_id
-        , json_tree(drafts.content_json) as content
         where drafts.project_id = ?1
-          and content.type = 'text'
-          and content.value = ?2
+          and ${jsonContainsTextScalarSql(sql.dialect, 'drafts.content_json', '?2')}
     `)
-    const listTargetUsageStatement = client.query<MediaAssetUsageRow, [string, string]>(`
+    const listTargetUsageStatement = sql.statement<MediaAssetUsageRow, [string, string]>(`
         select distinct
                'publication' as kind,
                publications.id as id,
@@ -779,12 +783,10 @@ export function createMediaAssetStore(
         inner join project_channel_contexts as channels
             on channels.project_id = publications.project_id
            and channels.id = publications.channel_id
-        , json_tree(target_revisions.content_json) as content
         where target_revisions.project_id = ?1
-          and content.type = 'text'
-          and content.value = ?2
+          and ${jsonContainsTextScalarSql(sql.dialect, 'target_revisions.content_json', '?2')}
     `)
-    const listExecutionUsageStatement = client.query<MediaAssetUsageRow, [string, string]>(`
+    const listExecutionUsageStatement = sql.statement<MediaAssetUsageRow, [string, string]>(`
         select distinct
                'publication' as kind,
                publications.id as id,
@@ -831,12 +833,10 @@ export function createMediaAssetStore(
         inner join project_channel_contexts as channels
             on channels.project_id = publications.project_id
            and channels.id = publications.channel_id
-        , json_tree(execution_revisions.content_json) as content
         where execution_revisions.project_id = ?1
-          and content.type = 'text'
-          and content.value = ?2
+          and ${jsonContainsTextScalarSql(sql.dialect, 'execution_revisions.content_json', '?2')}
     `)
-    const countAuditUsageStatement = client.query<{ count: number }, [string, string]>(`
+    const countAuditUsageStatement = sql.statement<{ count: number }, [string, string]>(`
         select count(*) as count
         from audit_events
         where project_id = ?1
@@ -844,7 +844,7 @@ export function createMediaAssetStore(
           and entity_id = ?2
     `)
 
-    const insertAssetStatement = client.query<
+    const insertAssetStatement = sql.statement<
         void,
         [string, string, string, string | null, string, number]
     >(`
@@ -853,7 +853,7 @@ export function createMediaAssetStore(
             state, created_by_actor_id, created_at, updated_at
         ) values (?1, ?2, ?3, ?4, 'reserved', ?5, ?6, ?6)
     `)
-    const insertRepresentationStatement = client.query<
+    const insertRepresentationStatement = sql.statement<
         void,
         [string, string, string, string, string, string | null, number]
     >(`
@@ -862,7 +862,7 @@ export function createMediaAssetStore(
             declared_content_type, created_at, updated_at
         ) values (?1, ?2, ?3, 'original', 'reserved', ?4, ?5, ?6, ?7, ?7)
     `)
-    const insertIntentStatement = client.query<
+    const insertIntentStatement = sql.statement<
         void,
         [string, string, string, string, number | null, number, string | null, number, number]
     >(`
@@ -872,7 +872,7 @@ export function createMediaAssetStore(
         ) values (?1, ?2, ?3, ?4, 'pending', ?5, ?6, ?7, ?8, ?9, ?9)
     `)
 
-    const markIntentUploadingStatement = client.query<
+    const markIntentUploadingStatement = sql.statement<
         { changes: number },
         [number, string, string]
     >(`
@@ -880,7 +880,7 @@ export function createMediaAssetStore(
         set state = 'uploading', upload_started_at = ?1, updated_at = ?1
         where project_id = ?2 and id = ?3 and state = 'pending' and expires_at > ?1
     `)
-    const markIntentUploadedStatement = client.query<
+    const markIntentUploadedStatement = sql.statement<
         { changes: number },
         [number, string, string]
     >(`
@@ -889,7 +889,7 @@ export function createMediaAssetStore(
         where project_id = ?2 and id = ?3 and state in ('pending', 'uploading')
           and expires_at > ?1
     `)
-    const markRepresentationStoredStatement = client.query<
+    const markRepresentationStoredStatement = sql.statement<
         { changes: number },
         [number, string, string]
     >(`
@@ -897,33 +897,36 @@ export function createMediaAssetStore(
         set state = 'stored', updated_at = ?1
         where project_id = ?2 and id = ?3 and state = 'reserved'
     `)
-    const markAssetStoredStatement = client.query<{ changes: number }, [number, string, string]>(`
+    const markAssetStoredStatement = sql.statement<{ changes: number }, [number, string, string]>(`
         update media_assets
         set state = 'stored', updated_at = ?1
         where project_id = ?2 and id = ?3 and state = 'reserved'
     `)
-    const resetIntentStatement = client.query<void, [number, string, string]>(`
+    const resetIntentStatement = sql.statement<void, [number, string, string]>(`
         update media_upload_intents
         set state = 'pending', upload_started_at = null, updated_at = ?1
         where project_id = ?2 and id = ?3 and state = 'uploading'
     `)
-    const resetRepresentationStatement = client.query<void, [number, string, string]>(`
+    const resetRepresentationStatement = sql.statement<void, [number, string, string]>(`
         update media_representations
         set state = 'reserved', updated_at = ?1
         where project_id = ?2 and id = ?3 and state = 'stored'
     `)
-    const resetAssetStatement = client.query<void, [number, string, string]>(`
+    const resetAssetStatement = sql.statement<void, [number, string, string]>(`
         update media_assets
         set state = 'reserved', updated_at = ?1
         where project_id = ?2 and id = ?3 and state = 'stored'
     `)
-    const markIntentFailedStatement = client.query<void, [number, string, string, string, string]>(`
+    const markIntentFailedStatement = sql.statement<
+        void,
+        [number, string, string, string, string]
+    >(`
         update media_upload_intents
         set state = 'failed', completed_at = ?1, failure_code = ?2,
             failure_message = ?3, updated_at = ?1
         where project_id = ?4 and id = ?5 and state in ('pending', 'uploading', 'uploaded')
     `)
-    const markRepresentationFailedStatement = client.query<
+    const markRepresentationFailedStatement = sql.statement<
         void,
         [number, string, string, string, string]
     >(`
@@ -931,32 +934,32 @@ export function createMediaAssetStore(
         set state = 'failed', failure_code = ?2, failure_message = ?3, updated_at = ?1
         where project_id = ?4 and id = ?5 and state in ('reserved', 'stored', 'inspecting')
     `)
-    const markAssetFailedStatement = client.query<void, [number, string, string, string, string]>(`
+    const markAssetFailedStatement = sql.statement<void, [number, string, string, string, string]>(`
         update media_assets
         set state = 'failed', failure_code = ?2, failure_message = ?3, updated_at = ?1
         where project_id = ?4 and id = ?5 and state in ('reserved', 'stored', 'inspecting')
     `)
-    const markRepresentationInspectingStatement = client.query<void, [number, string, string]>(`
+    const markRepresentationInspectingStatement = sql.statement<void, [number, string, string]>(`
         update media_representations
         set state = 'inspecting', updated_at = ?1
         where project_id = ?2 and id = ?3 and state in ('stored', 'inspecting')
     `)
-    const markAssetInspectingStatement = client.query<void, [number, string, string]>(`
+    const markAssetInspectingStatement = sql.statement<void, [number, string, string]>(`
         update media_assets
         set state = 'inspecting', updated_at = ?1
         where project_id = ?2 and id = ?3 and state in ('stored', 'inspecting')
     `)
-    const markIntentInspectedStatement = client.query<void, [number, string, string]>(`
+    const markIntentInspectedStatement = sql.statement<void, [number, string, string]>(`
         update media_upload_intents
         set updated_at = ?1
         where project_id = ?2 and id = ?3 and state = 'uploaded'
     `)
-    const finalizeIntentStatement = client.query<void, [number, string, string]>(`
+    const finalizeIntentStatement = sql.statement<void, [number, string, string]>(`
         update media_upload_intents
         set state = 'consumed', completed_at = ?1, updated_at = ?1
         where project_id = ?2 and id = ?3 and state = 'uploaded'
     `)
-    const finalizeRepresentationStatement = client.query<
+    const finalizeRepresentationStatement = sql.statement<
         void,
         [
             number,
@@ -981,17 +984,17 @@ export function createMediaAssetStore(
             failure_code = null, failure_message = null, updated_at = ?1
         where project_id = ?12 and id = ?13 and state = 'inspecting'
     `)
-    const finalizeAssetStatement = client.query<void, [number, string, string]>(`
+    const finalizeAssetStatement = sql.statement<void, [number, string, string]>(`
         update media_assets
         set state = 'ready', failure_code = null, failure_message = null, updated_at = ?1
         where project_id = ?2 and id = ?3 and state = 'inspecting'
     `)
-    const expireIntentStatement = client.query<void, [number, string, string]>(`
+    const expireIntentStatement = sql.statement<void, [number, string, string]>(`
         update media_upload_intents
         set state = 'expired', completed_at = ?1, updated_at = ?1
         where project_id = ?2 and id = ?3 and state in ('pending', 'uploading', 'uploaded')
     `)
-    const requestDeletionAssetStatement = client.query<void, [number, string, string]>(`
+    const requestDeletionAssetStatement = sql.statement<void, [number, string, string]>(`
         update media_assets
         set deletion_restore_state = state,
             deletion_restore_failure_code = failure_code,
@@ -1001,7 +1004,7 @@ export function createMediaAssetStore(
             failure_code = null, failure_message = null, updated_at = ?1
         where project_id = ?2 and id = ?3 and state <> 'deleted'
     `)
-    const requestDeletionRepresentationsStatement = client.query<void, [number, string, string]>(`
+    const requestDeletionRepresentationsStatement = sql.statement<void, [number, string, string]>(`
         update media_representations
         set deletion_restore_state = state,
             deletion_restore_failure_code = failure_code,
@@ -1010,7 +1013,7 @@ export function createMediaAssetStore(
             failure_message = null, updated_at = ?1
         where project_id = ?2 and asset_id = ?3 and state <> 'deleted'
     `)
-    const readDeletionRestoreSnapshotStatement = client.query<
+    const readDeletionRestoreSnapshotStatement = sql.statement<
         {
             readonly state: MediaAssetState | null
             readonly failureCode: string | null
@@ -1026,7 +1029,7 @@ export function createMediaAssetStore(
         from media_assets
         where project_id = ?1 and id = ?2 and state = 'deletion_requested'
     `)
-    const readRepresentationRestoreSnapshotsStatement = client.query<
+    const readRepresentationRestoreSnapshotsStatement = sql.statement<
         {
             readonly id: string
             readonly kind: 'original' | 'derived'
@@ -1044,7 +1047,7 @@ export function createMediaAssetStore(
         from media_representations
         where project_id = ?1 and asset_id = ?2 and state = 'deletion_requested'
     `)
-    const restoreAssetStatement = client.query<void, [number, string, string]>(`
+    const restoreAssetStatement = sql.statement<void, [number, string, string]>(`
         update media_assets
         set state = deletion_restore_state, archived_at = null,
             deletion_requested_at = null, deleted_at = null,
@@ -1055,7 +1058,7 @@ export function createMediaAssetStore(
         where project_id = ?2 and id = ?3 and state = 'deletion_requested'
           and deletion_restore_state is not null
     `)
-    const restoreRepresentationsStatement = client.query<void, [number, string, string]>(`
+    const restoreRepresentationsStatement = sql.statement<void, [number, string, string]>(`
         update media_representations
         set state = deletion_restore_state,
             failure_code = deletion_restore_failure_code,
@@ -1065,13 +1068,13 @@ export function createMediaAssetStore(
         where project_id = ?2 and asset_id = ?3 and state = 'deletion_requested'
           and deletion_restore_state is not null
     `)
-    const expireAssetIntentsStatement = client.query<void, [number, string, string]>(`
+    const expireAssetIntentsStatement = sql.statement<void, [number, string, string]>(`
         update media_upload_intents
         set state = 'expired', completed_at = ?1, updated_at = ?1
         where project_id = ?2 and asset_id = ?3
           and state in ('pending', 'uploading', 'uploaded')
     `)
-    const claimAssetPurgeStatement = client.query<void, [number, string, string]>(`
+    const claimAssetPurgeStatement = sql.statement<void, [number, string, string]>(`
         update media_assets
         set state = 'deleted', deleted_at = ?1, updated_at = ?1,
             deletion_restore_state = null,
@@ -1079,7 +1082,7 @@ export function createMediaAssetStore(
             deletion_restore_failure_message = null
         where project_id = ?2 and id = ?3 and state = 'deletion_requested'
     `)
-    const finalizeDeletedRepresentationsStatement = client.query<void, [number, string, string]>(`
+    const finalizeDeletedRepresentationsStatement = sql.statement<void, [number, string, string]>(`
         update media_representations
         set state = 'deleted', updated_at = ?1,
             deletion_restore_state = null,
@@ -1087,13 +1090,13 @@ export function createMediaAssetStore(
             deletion_restore_failure_message = null
         where project_id = ?2 and asset_id = ?3 and state = 'deletion_requested'
     `)
-    const markMissingRepresentationStatement = client.query<void, [number, string, string]>(`
+    const markMissingRepresentationStatement = sql.statement<void, [number, string, string]>(`
         update media_representations
         set state = 'failed', failure_code = 'storage_missing',
             failure_message = 'The stored media object is no longer available', updated_at = ?1
         where project_id = ?2 and id = ?3 and state in ('stored', 'inspecting', 'ready')
     `)
-    const markMissingAssetStatement = client.query<void, [number, string, string, string]>(`
+    const markMissingAssetStatement = sql.statement<void, [number, string, string, string]>(`
         update media_assets
         set state = 'failed', failure_code = 'storage_missing',
             failure_message = 'A stored media representation is no longer available', updated_at = ?1
@@ -1105,8 +1108,9 @@ export function createMediaAssetStore(
           )
     `)
 
-    const reserveTransaction = client.transaction(
-        (input: {
+    const reserveTransaction = defineTransaction(
+        database,
+        async (input: {
             readonly projectId: string
             readonly actorId: string
             readonly originalFilename: string
@@ -1115,13 +1119,13 @@ export function createMediaAssetStore(
             readonly contentType: string | null
             readonly createdAt: number
             readonly expiresAt: number
-        }): MediaUploadReservation => {
+        }): Promise<MediaUploadReservation> => {
             const assetId = requireGeneratedId(createId(), 'asset id')
             const representationId = requireGeneratedId(createId(), 'representation id')
             const intentId = requireGeneratedId(createId(), 'upload intent id')
             const objectKey = `media/${assetId}/${representationId}/original`
 
-            insertAssetStatement.run(
+            await insertAssetStatement.run(
                 assetId,
                 input.projectId,
                 input.originalFilename,
@@ -1129,7 +1133,7 @@ export function createMediaAssetStore(
                 input.actorId,
                 input.createdAt
             )
-            insertRepresentationStatement.run(
+            await insertRepresentationStatement.run(
                 representationId,
                 input.projectId,
                 assetId,
@@ -1138,7 +1142,7 @@ export function createMediaAssetStore(
                 input.contentType,
                 input.createdAt
             )
-            insertIntentStatement.run(
+            await insertIntentStatement.run(
                 intentId,
                 input.projectId,
                 assetId,
@@ -1151,73 +1155,80 @@ export function createMediaAssetStore(
             )
 
             return buildReservation(
-                loadAsset(assetId, input.projectId),
-                loadRepresentation(representationId, input.projectId),
-                loadIntent(intentId, input.projectId),
+                await loadAsset(assetId, input.projectId),
+                await loadRepresentation(representationId, input.projectId),
+                await loadIntent(intentId, input.projectId),
                 mediaStore.maxObjectBytes
             )
         }
     )
 
-    const markUploadedTransaction = client.transaction(
-        (input: {
+    const markUploadedTransaction = defineTransaction(
+        database,
+        async (input: {
             readonly at: number
             readonly projectId: string
             readonly reservation: MediaUploadReservation
         }) => {
-            const intent = markIntentUploadedStatement.run(
+            const intent = await markIntentUploadedStatement.run(
                 input.at,
                 input.projectId,
                 input.reservation.intent.id
             )
             if (intent.changes === 0) return false
-            markRepresentationStoredStatement.run(
+            await markRepresentationStoredStatement.run(
                 input.at,
                 input.projectId,
                 input.reservation.representation.id
             )
-            markAssetStoredStatement.run(input.at, input.projectId, input.reservation.asset.id)
+            await markAssetStoredStatement.run(
+                input.at,
+                input.projectId,
+                input.reservation.asset.id
+            )
             return true
         }
     )
-    const resetUploadingTransaction = client.transaction(
-        (input: {
+    const resetUploadingTransaction = defineTransaction(
+        database,
+        async (input: {
             readonly at: number
             readonly projectId: string
             readonly reservation: MediaUploadReservation
         }) => {
-            resetIntentStatement.run(input.at, input.projectId, input.reservation.intent.id)
-            resetRepresentationStatement.run(
+            await resetIntentStatement.run(input.at, input.projectId, input.reservation.intent.id)
+            await resetRepresentationStatement.run(
                 input.at,
                 input.projectId,
                 input.reservation.representation.id
             )
-            resetAssetStatement.run(input.at, input.projectId, input.reservation.asset.id)
+            await resetAssetStatement.run(input.at, input.projectId, input.reservation.asset.id)
         }
     )
-    const failUploadTransaction = client.transaction(
-        (input: {
+    const failUploadTransaction = defineTransaction(
+        database,
+        async (input: {
             readonly at: number
             readonly projectId: string
             readonly reservation: MediaUploadReservation
             readonly code: string
             readonly message: string
         }) => {
-            markIntentFailedStatement.run(
+            await markIntentFailedStatement.run(
                 input.at,
                 input.code,
                 input.message,
                 input.projectId,
                 input.reservation.intent.id
             )
-            markRepresentationFailedStatement.run(
+            await markRepresentationFailedStatement.run(
                 input.at,
                 input.code,
                 input.message,
                 input.projectId,
                 input.reservation.representation.id
             )
-            markAssetFailedStatement.run(
+            await markAssetFailedStatement.run(
                 input.at,
                 input.code,
                 input.message,
@@ -1226,23 +1237,33 @@ export function createMediaAssetStore(
             )
         }
     )
-    const markInspectingTransaction = client.transaction(
-        (input: {
+    const markInspectingTransaction = defineTransaction(
+        database,
+        async (input: {
             readonly at: number
             readonly projectId: string
             readonly reservation: MediaUploadReservation
         }) => {
-            markIntentInspectedStatement.run(input.at, input.projectId, input.reservation.intent.id)
-            markRepresentationInspectingStatement.run(
+            await markIntentInspectedStatement.run(
+                input.at,
+                input.projectId,
+                input.reservation.intent.id
+            )
+            await markRepresentationInspectingStatement.run(
                 input.at,
                 input.projectId,
                 input.reservation.representation.id
             )
-            markAssetInspectingStatement.run(input.at, input.projectId, input.reservation.asset.id)
+            await markAssetInspectingStatement.run(
+                input.at,
+                input.projectId,
+                input.reservation.asset.id
+            )
         }
     )
-    const finalizeReadyTransaction = client.transaction(
-        (input: {
+    const finalizeReadyTransaction = defineTransaction(
+        database,
+        async (input: {
             readonly at: number
             readonly projectId: string
             readonly reservation: MediaUploadReservation
@@ -1259,8 +1280,12 @@ export function createMediaAssetStore(
             readonly byteSize: number
             readonly sha256: string
         }) => {
-            finalizeIntentStatement.run(input.at, input.projectId, input.reservation.intent.id)
-            finalizeRepresentationStatement.run(
+            await finalizeIntentStatement.run(
+                input.at,
+                input.projectId,
+                input.reservation.intent.id
+            )
+            await finalizeRepresentationStatement.run(
                 input.at,
                 input.inspection.contentType,
                 input.inspection.format,
@@ -1275,24 +1300,25 @@ export function createMediaAssetStore(
                 input.projectId,
                 input.reservation.representation.id
             )
-            finalizeAssetStatement.run(input.at, input.projectId, input.reservation.asset.id)
+            await finalizeAssetStatement.run(input.at, input.projectId, input.reservation.asset.id)
         }
     )
-    const expireTransaction = client.transaction(
-        (input: {
+    const expireTransaction = defineTransaction(
+        database,
+        async (input: {
             readonly at: number
             readonly projectId: string
             readonly reservation: MediaUploadReservation
         }) => {
-            expireIntentStatement.run(input.at, input.projectId, input.reservation.intent.id)
-            markRepresentationFailedStatement.run(
+            await expireIntentStatement.run(input.at, input.projectId, input.reservation.intent.id)
+            await markRepresentationFailedStatement.run(
                 input.at,
                 'upload_expired',
                 'The media upload intent expired before finalization',
                 input.projectId,
                 input.reservation.representation.id
             )
-            markAssetFailedStatement.run(
+            await markAssetFailedStatement.run(
                 input.at,
                 'upload_expired',
                 'The media upload intent expired before finalization',
@@ -1301,20 +1327,30 @@ export function createMediaAssetStore(
             )
         }
     )
-    const requestDeletionTransaction = client.transaction(
-        (input: { readonly at: number; readonly projectId: string; readonly assetId: string }) => {
-            requestDeletionAssetStatement.run(input.at, input.projectId, input.assetId)
-            requestDeletionRepresentationsStatement.run(input.at, input.projectId, input.assetId)
-            expireAssetIntentsStatement.run(input.at, input.projectId, input.assetId)
-        }
-    )
-    const restoreDeletionTransaction = client.transaction(
-        (input: {
+    const requestDeletionTransaction = defineTransaction(
+        database,
+        async (input: {
             readonly at: number
             readonly projectId: string
             readonly assetId: string
-        }): RestoreMediaDeletionResult => {
-            const snapshot = readDeletionRestoreSnapshotStatement.get(
+        }) => {
+            await requestDeletionAssetStatement.run(input.at, input.projectId, input.assetId)
+            await requestDeletionRepresentationsStatement.run(
+                input.at,
+                input.projectId,
+                input.assetId
+            )
+            await expireAssetIntentsStatement.run(input.at, input.projectId, input.assetId)
+        }
+    )
+    const restoreDeletionTransaction = defineTransaction(
+        database,
+        async (input: {
+            readonly at: number
+            readonly projectId: string
+            readonly assetId: string
+        }): Promise<RestoreMediaDeletionResult> => {
+            const snapshot = await readDeletionRestoreSnapshotStatement.get(
                 input.projectId,
                 input.assetId
             )
@@ -1334,7 +1370,7 @@ export function createMediaAssetStore(
                 return { kind: 'not_restorable' }
             }
 
-            const representationSnapshots = readRepresentationRestoreSnapshotsStatement.all(
+            const representationSnapshots = await readRepresentationRestoreSnapshotsStatement.all(
                 input.projectId,
                 input.assetId
             )
@@ -1362,12 +1398,12 @@ export function createMediaAssetStore(
                 assertMediaRepresentationTransition('deletion_requested', representation.state!)
             }
 
-            const restoredRepresentations = restoreRepresentationsStatement.run(
+            const restoredRepresentations = await restoreRepresentationsStatement.run(
                 input.at,
                 input.projectId,
                 input.assetId
             )
-            const restoredAsset = restoreAssetStatement.run(
+            const restoredAsset = await restoreAssetStatement.run(
                 input.at,
                 input.projectId,
                 input.assetId
@@ -1382,18 +1418,22 @@ export function createMediaAssetStore(
                 )
             }
 
-            const media = readMedia(input.projectId, input.assetId)
+            const media = await readMedia(input.projectId, input.assetId)
             return media === null ? { kind: 'not_found' } : { kind: 'restored', media }
         }
     )
-    const markMissingTransaction = client.transaction(
-        (input: { readonly at: number; readonly representation: MissingRepresentationRow }) => {
-            markMissingRepresentationStatement.run(
+    const markMissingTransaction = defineTransaction(
+        database,
+        async (input: {
+            readonly at: number
+            readonly representation: MissingRepresentationRow
+        }) => {
+            await markMissingRepresentationStatement.run(
                 input.at,
                 input.representation.projectId,
                 input.representation.id
             )
-            markMissingAssetStatement.run(
+            await markMissingAssetStatement.run(
                 input.at,
                 input.representation.projectId,
                 input.representation.assetId,
@@ -1402,18 +1442,18 @@ export function createMediaAssetStore(
         }
     )
 
-    function loadAsset(assetId: string, projectId: string): MediaAssetRow {
-        const row = loadAssetStatement.get(projectId, assetId)
+    async function loadAsset(assetId: string, projectId: string): Promise<MediaAssetRow> {
+        const row = await loadAssetStatement.get(projectId, assetId)
         if (row === null)
             throw new DomainInvariantError('invalid_input', 'Media asset was not persisted')
         return row
     }
 
-    function loadRepresentation(
+    async function loadRepresentation(
         representationId: string,
         projectId: string
-    ): MediaRepresentationRow {
-        const row = loadRepresentationStatement.get(projectId, representationId)
+    ): Promise<MediaRepresentationRow> {
+        const row = await loadRepresentationStatement.get(projectId, representationId)
         if (row === null) {
             throw new DomainInvariantError(
                 'invalid_input',
@@ -1423,36 +1463,42 @@ export function createMediaAssetStore(
         return row
     }
 
-    function loadIntent(intentId: string, projectId: string): MediaUploadIntentRow {
-        const row = loadIntentStatement.get(projectId, intentId)
+    async function loadIntent(intentId: string, projectId: string): Promise<MediaUploadIntentRow> {
+        const row = await loadIntentStatement.get(projectId, intentId)
         if (row === null)
             throw new DomainInvariantError('invalid_input', 'Media upload was not persisted')
         return row
     }
 
-    function loadReservation(projectId: string, intentId: string): MediaUploadReservation | null {
-        const relation = loadReservationStatement.get(projectId, intentId)
+    async function loadReservation(
+        projectId: string,
+        intentId: string
+    ): Promise<MediaUploadReservation | null> {
+        const relation = await loadReservationStatement.get(projectId, intentId)
         if (relation === null) return null
         return buildReservation(
-            loadAsset(relation.assetId, projectId),
-            loadRepresentation(relation.representationId, projectId),
-            loadIntent(relation.intentId, projectId),
+            await loadAsset(relation.assetId, projectId),
+            await loadRepresentation(relation.representationId, projectId),
+            await loadIntent(relation.intentId, projectId),
             mediaStore.maxObjectBytes
         )
     }
 
-    function hasProjectAccess(projectId: string, subjectId: string): boolean {
-        return loadProjectActorStatement.get(projectId, subjectId) !== null
+    async function hasProjectAccess(projectId: string, subjectId: string): Promise<boolean> {
+        return (await loadProjectActorStatement.get(projectId, subjectId)) !== null
     }
 
-    function readMedia(projectId: string, assetId: string): MediaAssetReference | null {
-        const asset = loadAssetStatement.get(projectId, assetId)
+    async function readMedia(
+        projectId: string,
+        assetId: string
+    ): Promise<MediaAssetReference | null> {
+        const asset = await loadAssetStatement.get(projectId, assetId)
         if (asset === null) return null
         return {
             asset: toMediaAsset(asset),
-            representations: listRepresentationsStatement
-                .all(projectId, assetId)
-                .map(toMediaRepresentation),
+            representations: (await listRepresentationsStatement.all(projectId, assetId)).map(
+                toMediaRepresentation
+            ),
         }
     }
 
@@ -1500,14 +1546,14 @@ export function createMediaAssetStore(
         code: string,
         message: string
     ): Promise<FinalizeMediaUploadResult> {
-        failUploadTransaction.immediate({
+        await failUploadTransaction.immediate({
             at,
             projectId,
             reservation,
             code: normalizeFailureCode(code),
             message,
         })
-        const failed = loadReservation(projectId, intentId)
+        const failed = await loadReservation(projectId, intentId)
         return failed === null ? { kind: 'not_found' } : { kind: 'failed', reservation: failed }
     }
 
@@ -1518,7 +1564,7 @@ export function createMediaAssetStore(
         at: number
     ): Promise<void> {
         await mediaStore.delete(reservation.representation.objectKey)
-        expireTransaction.immediate({ at, projectId, reservation })
+        await expireTransaction.immediate({ at, projectId, reservation })
     }
 
     async function missingImagePreviews(
@@ -1540,7 +1586,7 @@ export function createMediaAssetStore(
             for (const candidate of candidates) {
                 if ((await mediaStore.stat(candidate.objectKey)) !== null) available = true
                 else if (repairMetadata)
-                    markMissingRepresentationStatement.run(
+                    await markMissingRepresentationStatement.run(
                         requireTimestamp(now(), 'now'),
                         media.asset.projectId,
                         candidate.id
@@ -1551,25 +1597,37 @@ export function createMediaAssetStore(
         return missing
     }
 
-    async function ensureImagePreviews(
+    /**
+     * Preview writes and physical purge of one asset never overlap, on this
+     * server or another (ADR-097 §7): a delayed preview write must not
+     * recreate a purged file.
+     */
+    const assetSection = <T>(assetId: string, operation: () => Promise<T>) =>
+        sql.exclusive(`media-asset:${assetId}`, operation)
+
+    function ensureImagePreviews(
         projectId: string,
         assetId: string,
         source: MediaRepresentation,
         requiredState: 'inspecting' | 'ready',
         timestamp: number
     ): Promise<boolean> {
-        await previewGeneration.get(assetId)
-        const asset = readMedia(projectId, assetId)
+        return assetSection(assetId, () =>
+            ensureImagePreviewsExclusively(projectId, assetId, source, requiredState, timestamp)
+        )
+    }
+
+    async function ensureImagePreviewsExclusively(
+        projectId: string,
+        assetId: string,
+        source: MediaRepresentation,
+        requiredState: 'inspecting' | 'ready',
+        timestamp: number
+    ): Promise<boolean> {
+        const asset = await readMedia(projectId, assetId)
         if (asset === null || asset.asset.state !== requiredState) return false
         const missing = await missingImagePreviews(asset, true)
         if (missing.length === 0) return true
-        let releasePreview!: () => void
-        previewGeneration.set(
-            assetId,
-            new Promise<void>(resolve => {
-                releasePreview = resolve
-            })
-        )
         try {
             const poster =
                 source.family === 'video'
@@ -1580,14 +1638,14 @@ export function createMediaAssetStore(
                 mediaStore,
                 source.objectKey,
                 async (variant, blob, width, height, placeholder) => {
-                    if (readMedia(projectId, assetId)?.asset.state !== requiredState) {
+                    if ((await readMedia(projectId, assetId))?.asset.state !== requiredState) {
                         throw new Error('Image import no longer active')
                     }
                     const id = crypto.randomUUID()
                     const objectKey = `previews/${projectId}/${assetId}/${id}.webp`
                     // Register ownership before storage writes, including partially failed writes.
-                    client
-                        .query(`insert into media_representations
+                    await sql
+                        .statement(`insert into media_representations
                                 (id, project_id, asset_id, kind, source_representation_id, state,
                                  store_id, object_key, processor_id, processor_version, recipe_json,
                                  created_at, updated_at)
@@ -1613,9 +1671,9 @@ export function createMediaAssetStore(
                         const sha256 = createHash('sha256')
                             .update(new Uint8Array(await blob.arrayBuffer()))
                             .digest('hex')
-                        createDatabaseTransaction(database, () => {
-                            client
-                                .query(`update media_representations set state = 'ready',
+                        await defineTransaction(database, async () => {
+                            await sql
+                                .statement(`update media_representations set state = 'ready',
                                     declared_content_type = 'image/webp', detected_content_type = 'image/webp',
                                     detected_format = 'webp', family = 'image', byte_size = ?, sha256 = ?,
                                     width = ?, height = ?, is_animated = 0 where id = ? and state = 'reserved'`)
@@ -1624,7 +1682,7 @@ export function createMediaAssetStore(
                                 source.family === 'video' &&
                                 variant === missing[missing.length - 1]
                             )
-                                createEventJournalStore(database).append({
+                                await createEventJournalStore(database).append({
                                     projectId,
                                     actorId: asset.asset.createdByActorId,
                                     name: 'project.media_previews.updated',
@@ -1635,8 +1693,8 @@ export function createMediaAssetStore(
                                 })
                         }).immediate()
                     } catch {
-                        client
-                            .query(`update media_representations set state = 'failed',
+                        await sql
+                            .statement(`update media_representations set state = 'failed',
                                     failure_code = 'preview_generation_failed',
                                     failure_message = 'The image preview could not be generated' where id = ? and state = 'reserved'`)
                             .run(id)
@@ -1651,10 +1709,10 @@ export function createMediaAssetStore(
             // Preview failure must not discard a verified original. Never expose codec errors.
             if (
                 source.family === 'video' &&
-                readMedia(projectId, assetId)?.asset.state === 'ready'
+                (await readMedia(projectId, assetId))?.asset.state === 'ready'
             ) {
-                client
-                    .query(`insert into media_representations
+                await sql
+                    .statement(`insert into media_representations
                     (id, project_id, asset_id, kind, source_representation_id, state, store_id,
                      object_key, processor_id, processor_version, recipe_json, failure_code, failure_message, created_at, updated_at)
                     values (?, ?, ?, 'derived', ?, 'failed', ?, ?, 'postdot-video-poster', '1', '{}',
@@ -1672,9 +1730,6 @@ export function createMediaAssetStore(
             }
             console.error('[postdot-media] Preview generation failed')
             return false
-        } finally {
-            previewGeneration.delete(assetId)
-            releasePreview()
         }
         return true
     }
@@ -1698,7 +1753,7 @@ export function createMediaAssetStore(
         const timestamp = requireTimestamp(now(), 'now')
         if (timestamp >= reservation.intent.expiresAt) {
             await expireReservation(projectId, intentId, reservation, timestamp)
-            const expired = loadReservation(projectId, intentId)
+            const expired = await loadReservation(projectId, intentId)
             return expired === null
                 ? { kind: 'not_found' }
                 : { kind: 'failed', reservation: expired }
@@ -1708,20 +1763,26 @@ export function createMediaAssetStore(
             if ((await mediaStore.stat(reservation.representation.objectKey)) === null) {
                 return { kind: 'pending', reservation }
             }
-            if (!markUploadedTransaction.immediate({ at: timestamp, projectId, reservation })) {
+            if (
+                !(await markUploadedTransaction.immediate({
+                    at: timestamp,
+                    projectId,
+                    reservation,
+                }))
+            ) {
                 throw new DomainInvariantError(
                     'write_conflict',
                     'The media upload changed while it was being finalized'
                 )
             }
-            reservation = loadReservation(projectId, intentId) ?? reservation
+            reservation = (await loadReservation(projectId, intentId)) ?? reservation
         }
         if (reservation.intent.state !== 'uploaded') {
             return { kind: 'pending', reservation }
         }
 
-        markInspectingTransaction.immediate({ at: timestamp, projectId, reservation })
-        const inspecting = loadReservation(projectId, intentId)
+        await markInspectingTransaction.immediate({ at: timestamp, projectId, reservation })
+        const inspecting = await loadReservation(projectId, intentId)
         if (inspecting === null) return { kind: 'not_found' }
 
         let opened: {
@@ -1808,7 +1869,7 @@ export function createMediaAssetStore(
                 )
             }
 
-            finalizeReadyTransaction.immediate({
+            await finalizeReadyTransaction.immediate({
                 at: timestamp,
                 projectId,
                 reservation: inspecting,
@@ -1816,7 +1877,7 @@ export function createMediaAssetStore(
                 byteSize: scanned.size,
                 sha256: scanned.sha256,
             })
-            const ready = loadReservation(projectId, intentId)
+            const ready = await loadReservation(projectId, intentId)
             if (ready?.asset.state === 'ready' && inspection.family === 'video') {
                 try {
                     options.onVideoReady?.(projectId, ready.asset.id)
@@ -1843,18 +1904,26 @@ export function createMediaAssetStore(
         }
     }
 
-    async function purgeInternal(
+    function purgeInternal(
         projectId: string,
         assetId: string,
         at: number,
         gracePeriodMs: number
     ): Promise<PurgeMediaAssetResult> {
-        // Finish writes before physical deletion; a delayed put must not recreate a purged file.
-        await previewGeneration.get(assetId)
-        if (activeBackupFenceStatement.get(at) !== null) {
+        // Finish preview writes before physical deletion; a delayed put must not recreate a purged file.
+        return assetSection(assetId, () => purgeExclusively(projectId, assetId, at, gracePeriodMs))
+    }
+
+    async function purgeExclusively(
+        projectId: string,
+        assetId: string,
+        at: number,
+        gracePeriodMs: number
+    ): Promise<PurgeMediaAssetResult> {
+        if ((await activeBackupFenceStatement.get(at)) !== null) {
             return { kind: 'blocked', reason: 'backup_in_progress' }
         }
-        const media = readMedia(projectId, assetId)
+        const media = await readMedia(projectId, assetId)
         if (media === null) return { kind: 'not_found' }
         const purgeWasClaimed = media.asset.state === 'deleted'
         if (!purgeWasClaimed && media.asset.state !== 'deletion_requested') {
@@ -1868,11 +1937,11 @@ export function createMediaAssetStore(
             ) {
                 return { kind: 'blocked', reason: 'grace_period' }
             }
-            if (hasMediaReference(client, projectId, assetId)) {
+            if (await hasMediaReference(sql, projectId, assetId)) {
                 return { kind: 'blocked', reason: 'referenced' }
             }
 
-            const claimed = claimAssetPurgeStatement.run(at, projectId, assetId)
+            const claimed = await claimAssetPurgeStatement.run(at, projectId, assetId)
             if (claimed.changes !== 1) return { kind: 'not_found' }
         } else if (!media.representations.some(item => item.state === 'deletion_requested')) {
             return { kind: 'not_found' }
@@ -1883,29 +1952,29 @@ export function createMediaAssetStore(
                 await mediaStore.delete(representation.objectKey)
             }
         }
-        finalizeDeletedRepresentationsStatement.run(at, projectId, assetId)
-        const deleted = readMedia(projectId, assetId)
+        await finalizeDeletedRepresentationsStatement.run(at, projectId, assetId)
+        const deleted = await readMedia(projectId, assetId)
         return deleted === null ? { kind: 'not_found' } : { kind: 'deleted', media: deleted }
     }
 
     return {
-        listPendingVideoPreviews() {
-            return client
-                .query<{ projectId: string; id: string }, []>(`
+        async listPendingVideoPreviews() {
+            return await sql
+                .statement<{ projectId: string; id: string }, []>(`
                 select a.project_id as projectId, a.id from media_assets a
                 where a.state = 'ready' and a.archived_at is null
                 and exists (select 1 from media_representations r where r.asset_id = a.id
                     and r.kind = 'original' and r.state = 'ready' and r.family = 'video')
                 and not exists (select 1 from media_representations r where r.asset_id = a.id
                     and r.processor_id = 'postdot-video-poster' and r.processor_version = '1' and r.state = 'failed')
-                and (select count(distinct json_extract(r.recipe_json, '$.variant')) from media_representations r
+                and (select count(distinct ${jsonExtractTextSql(sql.dialect, 'r.recipe_json', ['variant'])}) from media_representations r
                     where r.asset_id = a.id and r.processor_id = 'postdot-image-preview'
                     and r.processor_version = '1' and r.state = 'ready') < 2
             `)
                 .all()
         },
         async generateVideoPreviews(projectId: string, assetId: string) {
-            const asset = readMedia(projectId, assetId)
+            const asset = await readMedia(projectId, assetId)
             const source = asset?.representations.find(
                 item =>
                     item.kind === 'original' && item.state === 'ready' && item.family === 'video'
@@ -1925,11 +1994,11 @@ export function createMediaAssetStore(
             options: { readonly projectId?: string; readonly dryRun?: boolean } = {}
         ) {
             const report = { eligible: 0, generated: 0, alreadyReady: 0, failed: 0 }
-            const rows = client
-                .query<{ id: string; projectId: string }, [string | null]>(`
+            const rows = await sql
+                .statement<{ id: string; projectId: string }, [string | null]>(`
                 select media_assets.id, media_assets.project_id as projectId from media_assets
                 where media_assets.state = 'ready' and media_assets.archived_at is null
-                  and (?1 is null or media_assets.project_id = ?1)
+                  and (cast(?1 as text) is null or media_assets.project_id = ?1)
                   and exists (select 1 from media_representations r
                     where r.project_id = media_assets.project_id and r.asset_id = media_assets.id
                       and r.kind = 'original' and r.state = 'ready' and coalesce(r.is_animated, 0) = 0
@@ -1937,7 +2006,7 @@ export function createMediaAssetStore(
                 order by media_assets.id`)
                 .all(options.projectId ?? null)
             for (const row of rows) {
-                const asset = readMedia(row.projectId, row.id)!
+                const asset = (await readMedia(row.projectId, row.id))!
                 const source = asset.representations.find(
                     item => item.kind === 'original' && item.state === 'ready'
                 )!
@@ -1962,10 +2031,13 @@ export function createMediaAssetStore(
             return report
         },
 
-        getUploadPolicy(projectId: string, subjectId: string): MediaUploadPolicy | null {
+        async getUploadPolicy(
+            projectId: string,
+            subjectId: string
+        ): Promise<MediaUploadPolicy | null> {
             const normalizedProjectId = requireNonBlank(projectId, 'projectId')
             const normalizedSubjectId = requireNonBlank(subjectId, 'subjectId')
-            if (!hasProjectAccess(normalizedProjectId, normalizedSubjectId)) return null
+            if (!(await hasProjectAccess(normalizedProjectId, normalizedSubjectId))) return null
 
             return {
                 allowedContentTypes: [...defaultMediaUploadContentTypes],
@@ -1973,10 +2045,12 @@ export function createMediaAssetStore(
             }
         },
 
-        reserveUpload(input: ReserveMediaUploadInput): MediaUploadReservation | null {
+        async reserveUpload(
+            input: ReserveMediaUploadInput
+        ): Promise<MediaUploadReservation | null> {
             const projectId = requireNonBlank(input.projectId, 'projectId')
             const subjectId = requireNonBlank(input.subjectId, 'subjectId')
-            const actor = loadProjectActorStatement.get(projectId, subjectId)
+            const actor = await loadProjectActorStatement.get(projectId, subjectId)
             if (actor === null) return null
 
             const createdAt = requireTimestamp(now(), 'now')
@@ -1999,9 +2073,9 @@ export function createMediaAssetStore(
             const projectId = requireNonBlank(input.projectId, 'projectId')
             const subjectId = requireNonBlank(input.subjectId, 'subjectId')
             const intentId = requireNonBlank(input.intentId, 'intentId')
-            if (!hasProjectAccess(projectId, subjectId)) return { kind: 'not_found' }
+            if (!(await hasProjectAccess(projectId, subjectId))) return { kind: 'not_found' }
 
-            const reservation = loadReservation(projectId, intentId)
+            const reservation = await loadReservation(projectId, intentId)
             if (reservation === null) return { kind: 'not_found' }
             if (reservation.intent.state === 'consumed') {
                 return { kind: 'already_complete', reservation }
@@ -2016,7 +2090,10 @@ export function createMediaAssetStore(
                 await expireReservation(projectId, intentId, reservation, timestamp)
                 return { kind: 'expired' }
             }
-            if (markIntentUploadingStatement.run(timestamp, projectId, intentId).changes === 0) {
+            if (
+                (await markIntentUploadingStatement.run(timestamp, projectId, intentId)).changes ===
+                0
+            ) {
                 return { kind: 'busy' }
             }
 
@@ -2035,7 +2112,7 @@ export function createMediaAssetStore(
                     // Reconciliation will revisit an uploading intent whose object could not be removed.
                 }
                 if (removed && isPermanentMediaStoreFailure(error)) {
-                    failUploadTransaction.immediate({
+                    await failUploadTransaction.immediate({
                         at: requireTimestamp(now(), 'now'),
                         projectId,
                         reservation,
@@ -2045,7 +2122,7 @@ export function createMediaAssetStore(
                         message: publicMediaStoreFailureMessage(error),
                     })
                 } else if (removed) {
-                    resetUploadingTransaction.immediate({
+                    await resetUploadingTransaction.immediate({
                         at: requireTimestamp(now(), 'now'),
                         projectId,
                         reservation,
@@ -2055,11 +2132,17 @@ export function createMediaAssetStore(
             }
 
             const uploadedAt = requireTimestamp(now(), 'now')
-            if (!markUploadedTransaction.immediate({ at: uploadedAt, projectId, reservation })) {
+            if (
+                !(await markUploadedTransaction.immediate({
+                    at: uploadedAt,
+                    projectId,
+                    reservation,
+                }))
+            ) {
                 await mediaStore.delete(reservation.representation.objectKey)
                 return { kind: 'expired' }
             }
-            const uploaded = loadReservation(projectId, intentId)
+            const uploaded = await loadReservation(projectId, intentId)
             return uploaded === null
                 ? { kind: 'not_found' }
                 : { kind: 'uploaded', reservation: uploaded }
@@ -2069,49 +2152,65 @@ export function createMediaAssetStore(
             const projectId = requireNonBlank(input.projectId, 'projectId')
             const subjectId = requireNonBlank(input.subjectId, 'subjectId')
             const intentId = requireNonBlank(input.intentId, 'intentId')
-            if (!hasProjectAccess(projectId, subjectId)) return { kind: 'not_found' }
-            const reservation = loadReservation(projectId, intentId)
+            if (!(await hasProjectAccess(projectId, subjectId))) return { kind: 'not_found' }
+            const reservation = await loadReservation(projectId, intentId)
             return reservation === null
                 ? { kind: 'not_found' }
                 : inspectAndFinalize(projectId, intentId, reservation)
         },
 
-        getAsset(
+        async getAsset(
             projectId: string,
             assetId: string,
             subjectId: string
-        ): MediaAssetReference | null {
-            const normalizedProjectId = requireNonBlank(projectId, 'projectId')
-            if (!hasProjectAccess(normalizedProjectId, requireNonBlank(subjectId, 'subjectId'))) {
-                return null
-            }
-            const media = readMedia(normalizedProjectId, requireNonBlank(assetId, 'assetId'))
-            return media === null || media.asset.archivedAt !== null ? null : media
+        ): Promise<MediaAssetReference | null> {
+            return database.sql.transaction(async () => {
+                const normalizedProjectId = requireNonBlank(projectId, 'projectId')
+                if (
+                    !(await hasProjectAccess(
+                        normalizedProjectId,
+                        requireNonBlank(subjectId, 'subjectId')
+                    ))
+                ) {
+                    return null
+                }
+                const media = await readMedia(
+                    normalizedProjectId,
+                    requireNonBlank(assetId, 'assetId')
+                )
+                return media === null || media.asset.archivedAt !== null ? null : media
+            }, 'deferred')
         },
 
-        getAssetUsage(
+        async getAssetUsage(
             projectId: string,
             assetId: string,
             subjectId: string
-        ): MediaAssetUsageSummary | null {
-            const normalizedProjectId = requireNonBlank(projectId, 'projectId')
-            const normalizedSubjectId = requireNonBlank(subjectId, 'subjectId')
-            const normalizedAssetId = requireNonBlank(assetId, 'assetId')
-            if (!hasProjectAccess(normalizedProjectId, normalizedSubjectId)) return null
+        ): Promise<MediaAssetUsageSummary | null> {
+            return database.sql.transaction(async () => {
+                const normalizedProjectId = requireNonBlank(projectId, 'projectId')
+                const normalizedSubjectId = requireNonBlank(subjectId, 'subjectId')
+                const normalizedAssetId = requireNonBlank(assetId, 'assetId')
+                if (!(await hasProjectAccess(normalizedProjectId, normalizedSubjectId))) return null
 
-            const media = readMedia(normalizedProjectId, normalizedAssetId)
-            if (media === null || media.asset.archivedAt !== null) return null
+                const media = await readMedia(normalizedProjectId, normalizedAssetId)
+                if (media === null || media.asset.archivedAt !== null) return null
 
-            const usageRows = [
-                ...listSourceUsageStatement.all(normalizedProjectId, normalizedAssetId),
-                ...listDraftUsageStatement.all(normalizedProjectId, normalizedAssetId),
-                ...listTargetUsageStatement.all(normalizedProjectId, normalizedAssetId),
-                ...listExecutionUsageStatement.all(normalizedProjectId, normalizedAssetId),
-            ]
-            const auditEvents =
-                countAuditUsageStatement.get(normalizedProjectId, normalizedAssetId)?.count ?? 0
+                const usageRows = [
+                    ...(await listSourceUsageStatement.all(normalizedProjectId, normalizedAssetId)),
+                    ...(await listDraftUsageStatement.all(normalizedProjectId, normalizedAssetId)),
+                    ...(await listTargetUsageStatement.all(normalizedProjectId, normalizedAssetId)),
+                    ...(await listExecutionUsageStatement.all(
+                        normalizedProjectId,
+                        normalizedAssetId
+                    )),
+                ]
+                const auditEvents =
+                    (await countAuditUsageStatement.get(normalizedProjectId, normalizedAssetId))
+                        ?.count ?? 0
 
-            return buildMediaAssetUsage(normalizedAssetId, usageRows, auditEvents)
+                return buildMediaAssetUsage(normalizedAssetId, usageRows, auditEvents)
+            }, 'deferred')
         },
 
         async openAssetContent(
@@ -2122,10 +2221,15 @@ export function createMediaAssetStore(
             variant?: ImagePreviewVariant
         ): Promise<MediaAssetContent | null> {
             const normalizedProjectId = requireNonBlank(projectId, 'projectId')
-            if (!hasProjectAccess(normalizedProjectId, requireNonBlank(subjectId, 'subjectId'))) {
+            if (
+                !(await hasProjectAccess(
+                    normalizedProjectId,
+                    requireNonBlank(subjectId, 'subjectId')
+                ))
+            ) {
                 return null
             }
-            const media = readMedia(normalizedProjectId, requireNonBlank(assetId, 'assetId'))
+            const media = await readMedia(normalizedProjectId, requireNonBlank(assetId, 'assetId'))
             if (media === null || !['ready', 'deletion_requested'].includes(media.asset.state)) {
                 return null
             }
@@ -2162,7 +2266,7 @@ export function createMediaAssetStore(
             const normalizedProjectId = requireNonBlank(projectId, 'projectId')
             const normalizedAssetId = requireNonBlank(assetId, 'assetId')
             const normalizedRepresentationId = requireNonBlank(representationId, 'representationId')
-            const media = readMedia(normalizedProjectId, normalizedAssetId)
+            const media = await readMedia(normalizedProjectId, normalizedAssetId)
             if (media === null || !['ready', 'deletion_requested'].includes(media.asset.state)) {
                 return null
             }
@@ -2184,7 +2288,7 @@ export function createMediaAssetStore(
             const normalizedProjectId = requireNonBlank(projectId, 'projectId')
             const normalizedAssetId = requireNonBlank(assetId, 'assetId')
             const normalizedRepresentationId = requireNonBlank(representationId, 'representationId')
-            const media = readMedia(normalizedProjectId, normalizedAssetId)
+            const media = await readMedia(normalizedProjectId, normalizedAssetId)
             if (media === null || !['ready', 'deletion_requested'].includes(media.asset.state)) {
                 return null
             }
@@ -2199,73 +2303,126 @@ export function createMediaAssetStore(
                 : openRepresentationContent(media, representation.id)
         },
 
-        listAssetsPage(input: ListMediaAssetsInput): MediaAssetListPage | null {
-            const normalizedProjectId = requireNonBlank(input.projectId, 'projectId')
-            if (
-                !hasProjectAccess(
+        async listAssetsPage(input: ListMediaAssetsInput): Promise<MediaAssetListPage | null> {
+            return database.sql.transaction(async () => {
+                const normalizedProjectId = requireNonBlank(input.projectId, 'projectId')
+                if (
+                    !(await hasProjectAccess(
+                        normalizedProjectId,
+                        requireNonBlank(input.subjectId, 'subjectId')
+                    ))
+                ) {
+                    return null
+                }
+
+                const limit = input.limit ?? DEFAULT_MEDIA_LIST_LIMIT
+                if (!Number.isSafeInteger(limit) || limit < 1 || limit > MAX_MEDIA_LIST_LIMIT) {
+                    throw new DomainInvariantError(
+                        'invalid_input',
+                        `media list limit must be between 1 and ${MAX_MEDIA_LIST_LIMIT}`
+                    )
+                }
+
+                const search = normalizeMediaSearch(input.search)
+                const searchPattern = search === null ? null : `%${escapeLikePattern(search)}%`
+                const timestamp = requireTimestamp(now(), 'now')
+                const trashCutoff = timestamp - deletionGracePeriodMs
+                const trashCount =
+                    (await countTrashAssetsStatement.get(normalizedProjectId, trashCutoff, null))
+                        ?.total ?? 0
+                const view = input.view ?? 'library'
+
+                if (view === 'trash') {
+                    const cursor = parseMediaAssetCursor(input.cursor, 'newest')
+                    const total =
+                        search === null
+                            ? trashCount
+                            : ((
+                                  await countTrashAssetsStatement.get(
+                                      normalizedProjectId,
+                                      trashCutoff,
+                                      searchPattern
+                                  )
+                              )?.total ?? 0)
+                    const rows = await listTrashAssetsStatement.all(
+                        normalizedProjectId,
+                        trashCutoff,
+                        searchPattern,
+                        cursor === null ? null : (cursor.key as number),
+                        cursor?.id ?? null,
+                        limit + 1
+                    )
+                    const hasMore = rows.length > limit
+                    const pageRows = rows.slice(0, limit)
+                    const pageData = await mapSequential(pageRows, async asset => ({
+                        asset,
+                        representations: await listRepresentationsStatement.all(
+                            normalizedProjectId,
+                            asset.id
+                        ),
+                    }))
+                    const items = pageData.map(({ asset, representations }) => ({
+                        asset: toMediaAsset(asset),
+                        representations: representations.map(toMediaRepresentation),
+                    }))
+                    const restorableAssetIds = pageData
+                        .filter(({ asset, representations }) =>
+                            hasRestorableMediaSnapshot(asset, representations)
+                        )
+                        .map(({ asset }) => asset.id)
+                    const last = hasMore ? items.at(-1) : undefined
+                    return {
+                        items,
+                        restorableAssetIds,
+                        total,
+                        trashCount,
+                        retentionMs: deletionGracePeriodMs,
+                        nextCursor:
+                            last === undefined
+                                ? null
+                                : encodeMediaAssetCursor({
+                                      sort: 'newest',
+                                      key: last.asset.deletionRequestedAt!,
+                                      id: last.asset.id,
+                                  }),
+                    }
+                }
+
+                const sort = normalizeMediaListSort(input.sort)
+                const family = normalizeMediaFamilyFilter(input.family)
+                const date = normalizeMediaDateFilter(input.date)
+                const cursor = parseMediaAssetCursor(input.cursor, sort)
+                const createdAfter = mediaDateFilterSince(date, timestamp)
+                const cursorKey = cursor?.key ?? null
+                const totalRow = await countAssetsStatement.get(
                     normalizedProjectId,
-                    requireNonBlank(input.subjectId, 'subjectId')
-                )
-            ) {
-                return null
-            }
-
-            const limit = input.limit ?? DEFAULT_MEDIA_LIST_LIMIT
-            if (!Number.isSafeInteger(limit) || limit < 1 || limit > MAX_MEDIA_LIST_LIMIT) {
-                throw new DomainInvariantError(
-                    'invalid_input',
-                    `media list limit must be between 1 and ${MAX_MEDIA_LIST_LIMIT}`
-                )
-            }
-
-            const search = normalizeMediaSearch(input.search)
-            const searchPattern = search === null ? null : `%${escapeLikePattern(search)}%`
-            const timestamp = requireTimestamp(now(), 'now')
-            const trashCutoff = timestamp - deletionGracePeriodMs
-            const trashCount =
-                countTrashAssetsStatement.get(normalizedProjectId, trashCutoff, null)?.total ?? 0
-            const view = input.view ?? 'library'
-
-            if (view === 'trash') {
-                const cursor = parseMediaAssetCursor(input.cursor, 'newest')
-                const total =
-                    search === null
-                        ? trashCount
-                        : (countTrashAssetsStatement.get(
-                              normalizedProjectId,
-                              trashCutoff,
-                              searchPattern
-                          )?.total ?? 0)
-                const rows = listTrashAssetsStatement.all(
-                    normalizedProjectId,
-                    trashCutoff,
                     searchPattern,
-                    cursor === null ? null : (cursor.key as number),
+                    family,
+                    createdAfter
+                )
+                const total = totalRow?.total ?? 0
+                const rows = await listAssetsStatements[sort].all(
+                    normalizedProjectId,
+                    searchPattern,
+                    family,
+                    createdAfter,
+                    cursorKey,
                     cursor?.id ?? null,
                     limit + 1
                 )
                 const hasMore = rows.length > limit
                 const pageRows = rows.slice(0, limit)
-                const pageData = pageRows.map(asset => ({
-                    asset,
-                    representations: listRepresentationsStatement.all(
-                        normalizedProjectId,
-                        asset.id
-                    ),
-                }))
-                const items = pageData.map(({ asset, representations }) => ({
+                const items = await mapSequential(pageRows, async asset => ({
                     asset: toMediaAsset(asset),
-                    representations: representations.map(toMediaRepresentation),
+                    representations: (
+                        await listRepresentationsStatement.all(normalizedProjectId, asset.id)
+                    ).map(toMediaRepresentation),
                 }))
-                const restorableAssetIds = pageData
-                    .filter(({ asset, representations }) =>
-                        hasRestorableMediaSnapshot(asset, representations)
-                    )
-                    .map(({ asset }) => asset.id)
                 const last = hasMore ? items.at(-1) : undefined
+
                 return {
                     items,
-                    restorableAssetIds,
+                    restorableAssetIds: [],
                     total,
                     trashCount,
                     retentionMs: deletionGracePeriodMs,
@@ -2273,105 +2430,67 @@ export function createMediaAssetStore(
                         last === undefined
                             ? null
                             : encodeMediaAssetCursor({
-                                  sort: 'newest',
-                                  key: last.asset.deletionRequestedAt!,
+                                  sort,
+                                  key: mediaAssetSortKey(last, sort),
                                   id: last.asset.id,
                               }),
                 }
-            }
-
-            const sort = normalizeMediaListSort(input.sort)
-            const family = normalizeMediaFamilyFilter(input.family)
-            const date = normalizeMediaDateFilter(input.date)
-            const cursor = parseMediaAssetCursor(input.cursor, sort)
-            const createdAfter = mediaDateFilterSince(date, timestamp)
-            const cursorKey = cursor?.key ?? null
-            const totalRow = countAssetsStatement.get(
-                normalizedProjectId,
-                searchPattern,
-                family,
-                createdAfter
-            )
-            const total = totalRow?.total ?? 0
-            const rows = listAssetsStatements[sort].all(
-                normalizedProjectId,
-                searchPattern,
-                family,
-                createdAfter,
-                cursorKey,
-                cursor?.id ?? null,
-                limit + 1
-            )
-            const hasMore = rows.length > limit
-            const pageRows = rows.slice(0, limit)
-            const items = pageRows.map(asset => ({
-                asset: toMediaAsset(asset),
-                representations: listRepresentationsStatement
-                    .all(normalizedProjectId, asset.id)
-                    .map(toMediaRepresentation),
-            }))
-            const last = hasMore ? items.at(-1) : undefined
-
-            return {
-                items,
-                restorableAssetIds: [],
-                total,
-                trashCount,
-                retentionMs: deletionGracePeriodMs,
-                nextCursor:
-                    last === undefined
-                        ? null
-                        : encodeMediaAssetCursor({
-                              sort,
-                              key: mediaAssetSortKey(last, sort),
-                              id: last.asset.id,
-                          }),
-            }
+            }, 'deferred')
         },
 
-        requestDeletion(
+        async requestDeletion(
             projectId: string,
             assetId: string,
             subjectId: string
-        ): RequestMediaDeletionResult {
+        ): Promise<RequestMediaDeletionResult> {
             const normalizedProjectId = requireNonBlank(projectId, 'projectId')
             const normalizedAssetId = requireNonBlank(assetId, 'assetId')
-            if (!hasProjectAccess(normalizedProjectId, requireNonBlank(subjectId, 'subjectId'))) {
+            if (
+                !(await hasProjectAccess(
+                    normalizedProjectId,
+                    requireNonBlank(subjectId, 'subjectId')
+                ))
+            ) {
                 return { kind: 'not_found' }
             }
-            const media = readMedia(normalizedProjectId, normalizedAssetId)
+            const media = await readMedia(normalizedProjectId, normalizedAssetId)
             if (media === null) return { kind: 'not_found' }
             if (media.asset.state === 'deletion_requested') {
                 return { kind: 'already_requested', media }
             }
             if (media.asset.state === 'deleted') return { kind: 'not_found' }
-            if (hasMediaReference(client, normalizedProjectId, normalizedAssetId)) {
+            if (await hasMediaReference(sql, normalizedProjectId, normalizedAssetId)) {
                 return { kind: 'blocked', reason: 'referenced' }
             }
             assertMediaAssetTransition(media.asset.state, 'deletion_requested')
             for (const representation of media.representations) {
                 assertMediaRepresentationTransition(representation.state, 'deletion_requested')
             }
-            requestDeletionTransaction.immediate({
+            await requestDeletionTransaction.immediate({
                 at: requireTimestamp(now(), 'now'),
                 projectId: normalizedProjectId,
                 assetId: normalizedAssetId,
             })
-            const requested = readMedia(normalizedProjectId, normalizedAssetId)
+            const requested = await readMedia(normalizedProjectId, normalizedAssetId)
             return requested === null
                 ? { kind: 'not_found' }
                 : { kind: 'requested', media: requested }
         },
 
-        restoreDeletion(
+        async restoreDeletion(
             projectId: string,
             assetId: string,
             subjectId: string,
             at?: number
-        ): RestoreMediaDeletionResult {
+        ): Promise<RestoreMediaDeletionResult> {
             const normalizedProjectId = requireNonBlank(projectId, 'projectId')
             const normalizedAssetId = requireNonBlank(assetId, 'assetId')
-            if (!hasProjectAccess(normalizedProjectId, requireNonBlank(subjectId, 'subjectId'))) {
+            if (
+                !(await hasProjectAccess(
+                    normalizedProjectId,
+                    requireNonBlank(subjectId, 'subjectId')
+                ))
+            ) {
                 return { kind: 'not_found' }
             }
             return restoreDeletionTransaction.immediate({
@@ -2390,7 +2509,12 @@ export function createMediaAssetStore(
         ): Promise<PurgeMediaAssetResult> {
             const normalizedProjectId = requireNonBlank(projectId, 'projectId')
             const normalizedAssetId = requireNonBlank(assetId, 'assetId')
-            if (!hasProjectAccess(normalizedProjectId, requireNonBlank(subjectId, 'subjectId'))) {
+            if (
+                !(await hasProjectAccess(
+                    normalizedProjectId,
+                    requireNonBlank(subjectId, 'subjectId')
+                ))
+            ) {
                 return { kind: 'not_found' }
             }
             validateDuration(gracePeriodMs, 'gracePeriodMs', true)
@@ -2410,7 +2534,12 @@ export function createMediaAssetStore(
         ): Promise<PurgeMediaAssetResult> {
             const normalizedProjectId = requireNonBlank(projectId, 'projectId')
             const normalizedAssetId = requireNonBlank(assetId, 'assetId')
-            if (!hasProjectAccess(normalizedProjectId, requireNonBlank(subjectId, 'subjectId'))) {
+            if (
+                !(await hasProjectAccess(
+                    normalizedProjectId,
+                    requireNonBlank(subjectId, 'subjectId')
+                ))
+            ) {
                 return { kind: 'not_found' }
             }
             try {
@@ -2421,7 +2550,7 @@ export function createMediaAssetStore(
                     0
                 )
             } catch (error) {
-                const claimed = readMedia(normalizedProjectId, normalizedAssetId)
+                const claimed = await readMedia(normalizedProjectId, normalizedAssetId)
                 if (claimed?.asset.state === 'deleted') {
                     return { kind: 'cleanup_pending', media: claimed }
                 }
@@ -2435,11 +2564,11 @@ export function createMediaAssetStore(
             let missingObjects = 0
             let deletedAssets = 0
 
-            for (const intent of listExpiredIntentsStatement.all(timestamp)) {
-                const reservation = loadReservation(intent.projectId, intent.id)
+            for (const intent of await listExpiredIntentsStatement.all(timestamp)) {
+                const reservation = await loadReservation(intent.projectId, intent.id)
                 if (reservation === null) continue
                 await mediaStore.delete(intent.objectKey)
-                expireTransaction.immediate({
+                await expireTransaction.immediate({
                     at: timestamp,
                     projectId: intent.projectId,
                     reservation,
@@ -2447,15 +2576,15 @@ export function createMediaAssetStore(
                 expiredUploads += 1
             }
 
-            for (const representation of listMissingRepresentationsStatement.all()) {
+            for (const representation of await listMissingRepresentationsStatement.all()) {
                 if ((await mediaStore.stat(representation.objectKey)) !== null) continue
-                markMissingTransaction.immediate({ at: timestamp, representation })
+                await markMissingTransaction.immediate({ at: timestamp, representation })
                 missingObjects += 1
             }
 
             const deletionCutoff = timestamp - deletionGracePeriodMs
             if (deletionCutoff >= 0) {
-                for (const asset of listDeletionCandidatesStatement.all(deletionCutoff)) {
+                for (const asset of await listDeletionCandidatesStatement.all(deletionCutoff)) {
                     const result = await purgeInternal(
                         asset.projectId,
                         asset.id,
@@ -2705,6 +2834,41 @@ function buildReservation(
     }
 }
 
+/**
+ * Reads an asset that is not archived and its representations for system work that
+ * owns project data independently of any current member (retained target
+ * reassessment). It performs no access check by design.
+ */
+export function createSystemMediaReader(database: DatabaseHandle) {
+    const sql = database.sql
+    const loadAsset = sql.statement<MediaAssetRow, [string, string]>(`
+        select ${mediaListAssetColumns}
+        from media_assets
+        where project_id = ?1
+          and id = ?2
+    `)
+    const listRepresentations = sql.statement<MediaRepresentationRow, [string, string]>(`
+        select ${representationColumns}
+        from media_representations
+        where project_id = ?1
+          and asset_id = ?2
+        order by created_at, id
+    `)
+    return {
+        async getAsset(projectId: string, assetId: string): Promise<MediaAssetReference | null> {
+            return database.sql.transaction(async () => {
+                const asset = await loadAsset.get(projectId, assetId)
+                if (asset === null || asset.archivedAt !== null) return null
+                const representations = await listRepresentations.all(projectId, assetId)
+                return {
+                    asset: toMediaAsset(asset),
+                    representations: representations.map(toMediaRepresentation),
+                }
+            }, 'deferred')
+        },
+    }
+}
+
 function toMediaAsset(row: MediaAssetRow): MediaAsset {
     return {
         id: row.id,
@@ -2874,24 +3038,24 @@ function isActivePublicationState(state: PublicationState | null): boolean {
     return state === 'draft' || state === 'scheduled' || state === 'ready' || state === 'publishing'
 }
 
-function hasMediaReference(
-    database: PostdotDatabase['$client'],
+async function hasMediaReference(
+    sql: SqlDatabase,
     projectId: string,
     assetId: string
-): boolean {
+): Promise<boolean> {
+    const sources = [
+        ['publication_draft_adoptions', 'snapshot_json'],
+        ['publication_draft_adoptions', 'local_content_json'],
+        ['posts', 'source_content'],
+        ['publication_working_drafts', 'content_json'],
+        ['publication_target_revisions', 'content_json'],
+        ['publication_execution_revisions', 'content_json'],
+    ] as const
     const queries = [
-        `select 1 as found from publication_draft_adoptions, json_tree(publication_draft_adoptions.snapshot_json)
-         where publication_draft_adoptions.project_id = ?1 and json_tree.type = 'text' and json_tree.value = ?2 limit 1`,
-        `select 1 as found from publication_draft_adoptions, json_tree(publication_draft_adoptions.local_content_json)
-         where publication_draft_adoptions.project_id = ?1 and json_tree.type = 'text' and json_tree.value = ?2 limit 1`,
-        `select 1 as found from posts, json_tree(posts.source_content)
-         where posts.project_id = ?1 and json_tree.type = 'text' and json_tree.value = ?2 limit 1`,
-        `select 1 as found from publication_working_drafts, json_tree(publication_working_drafts.content_json)
-         where publication_working_drafts.project_id = ?1 and json_tree.type = 'text' and json_tree.value = ?2 limit 1`,
-        `select 1 as found from publication_target_revisions, json_tree(publication_target_revisions.content_json)
-         where publication_target_revisions.project_id = ?1 and json_tree.type = 'text' and json_tree.value = ?2 limit 1`,
-        `select 1 as found from publication_execution_revisions, json_tree(publication_execution_revisions.content_json)
-         where publication_execution_revisions.project_id = ?1 and json_tree.type = 'text' and json_tree.value = ?2 limit 1`,
+        ...sources.map(
+            ([table, column]) =>
+                `select 1 as found from ${table} where ${table}.project_id = ?1 and ${jsonContainsTextScalarSql(sql.dialect, `${table}.${column}`, '?2')} limit 1`
+        ),
         `select 1 as found from publication_revision_media
          where publication_revision_media.project_id = ?1
            and publication_revision_media.asset_id = ?2 limit 1`,
@@ -2902,11 +3066,13 @@ function hasMediaReference(
          where audit_events.project_id = ?1 and audit_events.entity_type = 'media_asset'
            and audit_events.entity_id = ?2 limit 1`,
     ]
-    return queries.some(
-        query =>
-            database.query<{ found: number }, [string, string]>(query).get(projectId, assetId) !==
-            null
-    )
+    for (const query of queries) {
+        const found = await sql
+            .statement<{ found: number }, [string, string]>(query)
+            .get(projectId, assetId)
+        if (found !== null) return true
+    }
+    return false
 }
 
 function normalizeFilename(value: string): string {

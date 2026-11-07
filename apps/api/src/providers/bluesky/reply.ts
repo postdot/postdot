@@ -28,7 +28,7 @@ export async function performBlueskyReply(options: {
     readonly restoreSession?: typeof restoreBlueskySession
     readonly contextFetcher?: BlueskyFetcher
     readonly signal: AbortSignal
-    readonly stillEligible: () => boolean
+    readonly stillEligible: () => Promise<boolean>
     readonly onDispatch: () => void
 }): Promise<ExternalEffectOutcome> {
     const { work, signal } = options
@@ -60,7 +60,7 @@ export async function performBlueskyReply(options: {
         fetcher: options.contextFetcher,
     })
     if (!context) return failed('The comment or its conversation is no longer available')
-    if (signal.aborted || !options.stillEligible())
+    if (signal.aborted || !(await options.stillEligible()))
         return failed('The reply is no longer eligible for dispatch')
     const agent = new Agent(restored.session)
     options.onDispatch()

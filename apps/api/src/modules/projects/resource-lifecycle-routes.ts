@@ -65,24 +65,27 @@ export function registerResourceLifecycleRoutes<const Routes extends Record<stri
     access: AccessStore,
     lifecycle: ResourceLifecycleStore
 ) {
-    function canManage(kind: ResourceKind, id: string, userId: string) {
+    async function canManage(kind: ResourceKind, id: string, userId: string) {
         if (kind === 'workspace') return access.canManageWorkspace(id, userId)
         return (
-            access.canAccessProject(id, userId, 'owner') ||
-            (() => {
-                const workspace = access.getProjectWorkspaceId(id)
-                return workspace !== null && access.canManageWorkspace(workspace, userId)
+            (await access.canAccessProject(id, userId, 'owner')) ||
+            (async () => {
+                const workspace = await access.getProjectWorkspaceId(id)
+                return workspace !== null && (await access.canManageWorkspace(workspace, userId))
             })()
         )
     }
-    function read(kind: ResourceKind, id: string, userId: string) {
-        if (!canManage(kind, id, userId) && !lifecycle.canReadReceipt(kind, id, userId))
+    async function read(kind: ResourceKind, id: string, userId: string) {
+        if (
+            !(await canManage(kind, id, userId)) &&
+            !(await lifecycle.canReadReceipt(kind, id, userId))
+        )
             return {
                 failure: true as const,
                 code: 'forbidden',
                 message: 'Resource management permission required',
             }
-        const impact = lifecycle.impact(kind, id)
+        const impact = await lifecycle.impact(kind, id)
         return (
             impact ?? { failure: true as const, code: 'not_found', message: 'Resource not found' }
         )
@@ -101,10 +104,10 @@ export function registerResourceLifecycleRoutes<const Routes extends Record<stri
                 id,
                 action,
                 actorId: userId,
-                authorize: () =>
-                    canManage(kind, id, userId) &&
+                authorize: async () =>
+                    (await canManage(kind, id, userId)) &&
                     (!input.replacementWorkspaceId ||
-                        access.canManageWorkspace(input.replacementWorkspaceId, userId)),
+                        (await access.canManageWorkspace(input.replacementWorkspaceId, userId))),
             })
         } catch (error) {
             if (error instanceof ResourceLifecycleError)
@@ -129,22 +132,23 @@ export function registerResourceLifecycleRoutes<const Routes extends Record<stri
                     security: sessionSecurity,
                 },
             },
-            ({ user, authMethod, status }) =>
-                authMethod === 'session'
-                    ? {
-                          resources: lifecycle
-                              .retired()
-                              .filter(
-                                  item =>
-                                      canManage(item.kind, item.id, user.id) ||
-                                      lifecycle.canReadReceipt(item.kind, item.id, user.id)
-                              )
-                              .map(item => lifecycle.impact(item.kind, item.id)!)
-                              .filter(item => item !== null),
-                      }
-                    : status(403, {
-                          error: { code: 'forbidden', message: 'A human session is required' },
-                      })
+            async ({ user, authMethod, status }) => {
+                if (authMethod !== 'session') {
+                    return status(403, {
+                        error: { code: 'forbidden', message: 'A human session is required' },
+                    })
+                }
+                const resources = []
+                for (const item of await lifecycle.retired()) {
+                    const visible =
+                        (await canManage(item.kind, item.id, user.id)) ||
+                        (await lifecycle.canReadReceipt(item.kind, item.id, user.id))
+                    if (!visible) continue
+                    const impact = await lifecycle.impact(item.kind, item.id)
+                    if (impact !== null) resources.push(impact)
+                }
+                return { resources }
+            }
         )
         .get(
             '/api/projects/:projectId/lifecycle/state',
@@ -163,7 +167,7 @@ export function registerResourceLifecycleRoutes<const Routes extends Record<stri
                     tags: ['Projects'],
                 },
             },
-            ({ params }) => ({ state: lifecycle.projectState(params.projectId) })
+            async ({ params }) => ({ state: await lifecycle.projectState(params.projectId) })
         )
         .get(
             '/api/projects/:projectId/lifecycle',
@@ -177,8 +181,8 @@ export function registerResourceLifecycleRoutes<const Routes extends Record<stri
                     tags: ['Projects'],
                 },
             },
-            ({ params, user, status }) => {
-                const result = read('project', params.projectId, user.id)
+            async ({ params, user, status }) => {
+                const result = await read('project', params.projectId, user.id)
                 return 'failure' in result
                     ? status(result.code === 'not_found' ? 404 : 403, {
                           error: { code: result.code, message: result.message },
@@ -199,8 +203,8 @@ export function registerResourceLifecycleRoutes<const Routes extends Record<stri
                     tags: ['Projects'],
                 },
             },
-            ({ params, body, user, status }) => {
-                const result = change('project', params.projectId, user.id, 'archive', body)
+            async ({ params, body, user, status }) => {
+                const result = await change('project', params.projectId, user.id, 'archive', body)
                 return 'failure' in result
                     ? status(result.code === 'forbidden' ? 403 : 409, {
                           error: { code: result.code, message: result.message },
@@ -221,8 +225,8 @@ export function registerResourceLifecycleRoutes<const Routes extends Record<stri
                     tags: ['Projects'],
                 },
             },
-            ({ params, body, user, status }) => {
-                const result = change('project', params.projectId, user.id, 'restore', body)
+            async ({ params, body, user, status }) => {
+                const result = await change('project', params.projectId, user.id, 'restore', body)
                 return 'failure' in result
                     ? status(result.code === 'forbidden' ? 403 : 409, {
                           error: { code: result.code, message: result.message },
@@ -243,8 +247,8 @@ export function registerResourceLifecycleRoutes<const Routes extends Record<stri
                     tags: ['Projects'],
                 },
             },
-            ({ params, body, user, status }) => {
-                const result = change('project', params.projectId, user.id, 'delete', body)
+            async ({ params, body, user, status }) => {
+                const result = await change('project', params.projectId, user.id, 'delete', body)
                 return 'failure' in result
                     ? status(result.code === 'forbidden' ? 403 : 409, {
                           error: { code: result.code, message: result.message },
@@ -265,8 +269,8 @@ export function registerResourceLifecycleRoutes<const Routes extends Record<stri
                     security: sessionSecurity,
                 },
             },
-            ({ params, user, status }) => {
-                const result = read('workspace', params.workspaceId, user.id)
+            async ({ params, user, status }) => {
+                const result = await read('workspace', params.workspaceId, user.id)
                 return 'failure' in result
                     ? status(result.code === 'not_found' ? 404 : 403, {
                           error: { code: result.code, message: result.message },
@@ -288,8 +292,14 @@ export function registerResourceLifecycleRoutes<const Routes extends Record<stri
                     security: sessionSecurity,
                 },
             },
-            ({ params, body, user, status }) => {
-                const result = change('workspace', params.workspaceId, user.id, 'archive', body)
+            async ({ params, body, user, status }) => {
+                const result = await change(
+                    'workspace',
+                    params.workspaceId,
+                    user.id,
+                    'archive',
+                    body
+                )
                 return 'failure' in result
                     ? status(result.code === 'forbidden' ? 403 : 409, {
                           error: { code: result.code, message: result.message },
@@ -311,8 +321,14 @@ export function registerResourceLifecycleRoutes<const Routes extends Record<stri
                     security: sessionSecurity,
                 },
             },
-            ({ params, body, user, status }) => {
-                const result = change('workspace', params.workspaceId, user.id, 'restore', body)
+            async ({ params, body, user, status }) => {
+                const result = await change(
+                    'workspace',
+                    params.workspaceId,
+                    user.id,
+                    'restore',
+                    body
+                )
                 return 'failure' in result
                     ? status(result.code === 'forbidden' ? 403 : 409, {
                           error: { code: result.code, message: result.message },
@@ -334,8 +350,14 @@ export function registerResourceLifecycleRoutes<const Routes extends Record<stri
                     security: sessionSecurity,
                 },
             },
-            ({ params, body, user, status }) => {
-                const result = change('workspace', params.workspaceId, user.id, 'delete', body)
+            async ({ params, body, user, status }) => {
+                const result = await change(
+                    'workspace',
+                    params.workspaceId,
+                    user.id,
+                    'delete',
+                    body
+                )
                 return 'failure' in result
                     ? status(result.code === 'forbidden' ? 403 : 409, {
                           error: { code: result.code, message: result.message },

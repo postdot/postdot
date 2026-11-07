@@ -1,118 +1,101 @@
-import { fileURLToPath } from 'node:url'
+import { isDeepStrictEqual } from 'node:util'
 
-import { readMigrationFiles } from 'drizzle-orm/migrator'
+import { createDatabase, closeDatabase, type DatabaseHandle } from './client'
+import { legacyChainEnd } from './sql/legacy-chain'
+import {
+    loadPortableMigrations,
+    portableMigrationsFolder,
+    recordAppliedMigration,
+    runPortableMigrations,
+    type PortableMigrationResult,
+} from './sql/migrator'
+import { describeSchema, type SchemaDescription } from './sql/schema-introspection'
 
-import type { PostdotDatabase } from './client'
+export const defaultMigrationsFolder = portableMigrationsFolder
 
-export const defaultMigrationsFolder = fileURLToPath(new URL('../drizzle', import.meta.url))
-
-export interface MigrationChecks {
-    /** Runs under the migration transaction before any schema/history changes. */
-    readonly preflight?: (database: PostdotDatabase) => void
-    /** Checks domain preservation after SQL/FK checks, before committing. */
-    readonly verify?: (database: PostdotDatabase) => void
+/**
+ * Brings a database to the current schema (ADR-097 §6).
+ *
+ * A SQLite database created by an earlier release (the legacy Drizzle chain)
+ * is adopted in place when its chain is complete and its schema is exactly the
+ * portable baseline; anything else is refused before any change.
+ */
+export async function runMigrations(
+    database: DatabaseHandle,
+    migrationsFolder = defaultMigrationsFolder
+): Promise<PortableMigrationResult> {
+    const migrations = loadPortableMigrations(migrationsFolder)
+    if (database.sql.dialect === 'sqlite') await adoptLegacyDatabase(database, migrations)
+    return runPortableMigrations(database, migrations)
 }
 
-export interface MigrationRehearsal {
-    readonly pending: readonly { readonly hash: string; readonly timestamp: number }[]
-}
-
-class RehearsalComplete extends Error {
-    constructor(readonly report: MigrationRehearsal) {
-        super('Migration rehearsal completed')
-    }
-}
-
-export function runMigrations(
-    database: PostdotDatabase,
-    migrationsFolder = defaultMigrationsFolder,
-    checks: MigrationChecks = {}
-): void {
-    applyMigrations(database, migrationsFolder, checks, false)
-}
-
-/** Requires the same exclusive runtime boundary as applying an upgrade. Rolls back all SQL and history after checking them. */
-export function rehearseMigrations(
-    database: PostdotDatabase,
-    migrationsFolder = defaultMigrationsFolder,
-    checks: MigrationChecks = {}
-): MigrationRehearsal {
-    return applyMigrations(database, migrationsFolder, checks, true)
-}
-
-function applyMigrations(
-    database: PostdotDatabase,
-    migrationsFolder: string,
-    checks: MigrationChecks,
-    rehearsal: boolean
-): MigrationRehearsal {
-    const client = database.$client
-    if (client.inTransaction) throw new Error('Database migrations require their own transaction')
-    const migrations = readMigrationFiles({ migrationsFolder })
-    const foreignKeysWereEnabled =
-        client.query<{ readonly foreign_keys: number }, []>('PRAGMA foreign_keys').get()
-            ?.foreign_keys === 1
-
-    // SQLite table rebuilds need foreign keys disabled outside the transaction.
-    // Keep Drizzle's file parsing and history format, but validate before commit:
-    // a failed check must roll back the schema, data and history together.
-    client.run('PRAGMA foreign_keys = OFF')
-
-    try {
-        try {
-            return client
-                .transaction(() => {
-                    checks.preflight?.(database)
-                    client.run(`CREATE TABLE IF NOT EXISTS __drizzle_migrations (
-                    id SERIAL PRIMARY KEY, hash text NOT NULL, created_at numeric
-                )`)
-                    const last = client
-                        .query<{ created_at: number }, []>(
-                            'select created_at from __drizzle_migrations order by created_at desc limit 1'
-                        )
-                        .get()
-                    const pending: { hash: string; timestamp: number }[] = []
-                    for (const migration of migrations) {
-                        if (last && Number(last.created_at) >= migration.folderMillis) continue
-                        for (const statement of migration.sql) client.run(statement)
-                        client
-                            .query(
-                                'insert into __drizzle_migrations (hash,created_at) values (?,?)'
-                            )
-                            .run(migration.hash, migration.folderMillis)
-                        pending.push({ hash: migration.hash, timestamp: migration.folderMillis })
-                    }
-                    const violations = client
-                        .query<{ table: string; rowid: number; parent: string; fkid: number }, []>(
-                            'PRAGMA foreign_key_check'
-                        )
-                        .all()
-                    if (violations.length)
-                        throw new Error(
-                            `Database migration would leave foreign-key violations: ${JSON.stringify(violations)}`
-                        )
-                    checks.verify?.(database)
-                    const report = { pending }
-                    if (rehearsal) throw new RehearsalComplete(report)
-                    return report
-                })
-                .immediate()
-        } catch (error) {
-            if (error instanceof RehearsalComplete) return error.report
-            if (!hasExistingSchemaObject(error)) throw error
-            throw new Error(
-                `The database schema conflicts with the committed migration history in "${migrationsFolder}". This development database has no supported upgrade path; stop Postdot and move the disposable database file aside before restarting. Do not use this recovery for a database with data to preserve.`,
-                { cause: error }
+async function tableExists(database: DatabaseHandle, name: string): Promise<boolean> {
+    return (
+        (await database.sql
+            .statement<{ readonly name: string }, [string]>(
+                "select name from sqlite_master where type = 'table' and name = ?1"
             )
-        }
+            .get(name)) !== null
+    )
+}
+
+async function adoptLegacyDatabase(
+    database: DatabaseHandle,
+    migrations: ReturnType<typeof loadPortableMigrations>
+): Promise<void> {
+    if (!(await tableExists(database, '__drizzle_migrations'))) return
+    if (await tableExists(database, 'postdot_migrations')) return
+
+    const history = await database.sql
+        .statement<{ readonly count: number; readonly last: number | null }>(
+            'select count(*) as count, max(cast(created_at as integer)) as last from __drizzle_migrations'
+        )
+        .get()
+    if (history?.count !== legacyChainEnd.count || history.last !== legacyChainEnd.createdAt) {
+        throw new Error(
+            'This database was created by an older Postdot release whose upgrades are incomplete. ' +
+                'Start the previous Postdot release once so it finishes its migrations, then upgrade to this release.'
+        )
+    }
+
+    const baseline = migrations[0]
+    if (baseline === undefined) throw new Error('The portable baseline migration is missing')
+    const expected = await baselineSchema(baseline)
+    const actual = await describeSchema(database)
+    if (!isDeepStrictEqual(actual, expected)) {
+        throw new Error(
+            `The database schema differs from the Postdot baseline and cannot be adopted: ${schemaDifferences(expected, actual).join('; ')}`
+        )
+    }
+    await database.sql.transaction(async () => {
+        await recordAppliedMigration(database, baseline)
+    }, 'immediate')
+}
+
+async function baselineSchema(
+    baseline: ReturnType<typeof loadPortableMigrations>[number]
+): Promise<SchemaDescription> {
+    const reference = createDatabase(':memory:')
+    try {
+        await runPortableMigrations(reference, [baseline])
+        return await describeSchema(reference)
     } finally {
-        client.run(`PRAGMA foreign_keys = ${foreignKeysWereEnabled ? 'ON' : 'OFF'}`)
+        closeDatabase(reference)
     }
 }
 
-function hasExistingSchemaObject(error: unknown): boolean {
-    if (!(error instanceof Error)) return false
-    if (/already exists/i.test(error.message)) return true
-
-    return hasExistingSchemaObject(error.cause)
+function schemaDifferences(expected: SchemaDescription, actual: SchemaDescription): string[] {
+    const differences: string[] = []
+    for (const name of new Set([...Object.keys(expected.tables), ...Object.keys(actual.tables)])) {
+        if (!isDeepStrictEqual(expected.tables[name], actual.tables[name])) {
+            differences.push(`table ${name}`)
+        }
+    }
+    for (const name of new Set([...Object.keys(expected.views), ...Object.keys(actual.views)])) {
+        if (!isDeepStrictEqual(expected.views[name], actual.views[name])) {
+            differences.push(`view ${name}`)
+        }
+    }
+    if (!isDeepStrictEqual(expected.triggers, actual.triggers)) differences.push('triggers')
+    return differences.slice(0, 10)
 }

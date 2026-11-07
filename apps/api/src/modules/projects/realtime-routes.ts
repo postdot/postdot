@@ -121,7 +121,7 @@ interface ProjectEventStreamInput {
 interface UserEventStreamInput {
     readonly request: Request
     readonly userId: string
-    readonly listProjectIds: () => readonly string[]
+    readonly listProjectIds: () => Promise<readonly string[]>
     readonly journal: Pick<EventJournalStore, 'readAllAfter'>
     readonly after: EventJournalCursor | null
     readonly userChanges?: UserRealtimeHub
@@ -202,10 +202,10 @@ export function registerRealtimeRoutes<const Routes extends Record<string, unkno
                 },
             },
         },
-        ({ authMethod, params, request, status, user }) => {
+        async ({ authMethod, params, request, status, user }) => {
             if (authMethod !== 'session') return status(403, humanOnlyResponse)
 
-            const notificationAccess = notifications.list({
+            const notificationAccess = await notifications.list({
                 projectId: params.projectId,
                 subjectId: user.id,
                 limit: 1,
@@ -221,7 +221,7 @@ export function registerRealtimeRoutes<const Routes extends Record<string, unkno
                 return status(400, invalidCursorResponse)
             }
 
-            const latestCursor = journal.latestCursor()
+            const latestCursor = await journal.latestCursor()
             if (
                 after !== null &&
                 (latestCursor === null ||
@@ -241,8 +241,12 @@ export function registerRealtimeRoutes<const Routes extends Record<string, unkno
                         const session = await auth.api.getSession({ headers: request.headers })
                         return session === null
                             ? false
-                            : (access.getProjectMembership(params.projectId, session.user.id)
-                                  ?.role ?? false)
+                            : ((
+                                  await access.getProjectMembership(
+                                      params.projectId,
+                                      session.user.id
+                                  )
+                              )?.role ?? false)
                     },
                 }),
                 {
@@ -286,7 +290,7 @@ export function registerRealtimeRoutes<const Routes extends Record<string, unkno
                 },
             },
         },
-        ({ authMethod, request, status, user }) => {
+        async ({ authMethod, request, status, user }) => {
             if (authMethod !== 'session') return status(403, humanOnlyResponse)
 
             keepResponseAliveBeyondIdleTimeout(request)
@@ -298,7 +302,7 @@ export function registerRealtimeRoutes<const Routes extends Record<string, unkno
                 return status(400, invalidCursorResponse)
             }
 
-            const latestCursor = journal.latestCursor()
+            const latestCursor = await journal.latestCursor()
             if (
                 after !== null &&
                 (latestCursor === null ||
@@ -311,7 +315,7 @@ export function registerRealtimeRoutes<const Routes extends Record<string, unkno
                 createUserEventStream({
                     request,
                     userId: user.id,
-                    listProjectIds: () => notifications.listProjectIdsForUser(user.id),
+                    listProjectIds: async () => await notifications.listProjectIdsForUser(user.id),
                     journal,
                     after,
                     userChanges,
@@ -319,7 +323,7 @@ export function registerRealtimeRoutes<const Routes extends Record<string, unkno
                         const session = await auth.api.getSession({ headers: request.headers })
                         return (
                             session?.user.id === user.id &&
-                            notifications.listProjectIdsForUser(user.id).length > 0
+                            (await notifications.listProjectIdsForUser(user.id)).length > 0
                         )
                     },
                 }),
@@ -509,7 +513,7 @@ export function createProjectEventStream({
 
                 let entries: readonly EventJournalEntry[]
                 try {
-                    entries = journal.readAfter({
+                    entries = await journal.readAfter({
                         projectId,
                         after: scanCursor,
                         limit: streamOptions.batchSize,
@@ -717,7 +721,7 @@ export function createUserEventStream({
 
                 let entries: readonly JournalEntry[]
                 try {
-                    entries = journal.readAllAfter({
+                    entries = await journal.readAllAfter({
                         after: scanCursor,
                         limit: streamOptions.batchSize,
                     })
@@ -726,7 +730,7 @@ export function createUserEventStream({
                     return
                 }
 
-                const projectIds = new Set(listProjectIds())
+                const projectIds = new Set(await listProjectIds())
                 if (projectIds.size === 0) {
                     closeWithAccessRevoked(controller)
                     return

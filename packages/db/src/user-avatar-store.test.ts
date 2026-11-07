@@ -6,8 +6,9 @@ import { join } from 'node:path'
 import { createLocalMediaStore, createS3MediaStore, type MediaStore } from '@postdot/media'
 
 import { backupWithMedia, restoreWithMedia } from './backup'
-import { createDatabase, closeDatabase } from './client'
+import { closeDatabase, createDatabase, type DatabaseHandle } from './client'
 import { runMigrations } from './migrations'
+import { closeTestDatabase, openTestDatabase, testEngine } from './testing'
 import { createUserAvatarStore } from './user-avatar-store'
 
 const bytes = Uint8Array.from(
@@ -17,9 +18,9 @@ const bytes = Uint8Array.from(
     )
 )
 
-function addUser(database: ReturnType<typeof createDatabase>, id: string) {
-    database.$client
-        .query('INSERT INTO user (id, name, email) VALUES (?, ?, ?)')
+async function addUser(database: DatabaseHandle, id: string) {
+    await database.sql
+        .statement('INSERT INTO "user" (id, name, email) VALUES (?, ?, ?)')
         .run(id, id, `${id}@postdot.local`)
 }
 
@@ -72,9 +73,8 @@ describe('personal avatar storage', () => {
             prefix: 'postdot-test',
             maxObjectBytes: 6 * 1024 * 1024,
         })
-        const database = createDatabase(':memory:')
-        runMigrations(database)
-        addUser(database, 'owner')
+        const database = (await openTestDatabase()).database
+        await addUser(database, 'owner')
         const avatars = createUserAvatarStore(database, storage)
         try {
             const first = await avatars.replace('owner', bytes)
@@ -86,16 +86,15 @@ describe('personal avatar storage', () => {
             await avatars.remove('owner')
             expect(objects.size).toBe(0)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('retries retired-image cleanup without changing another person and honors backup fences', async () => {
         const directory = await mkdtemp(join(tmpdir(), 'postdot-avatar-'))
-        const database = createDatabase(':memory:')
-        runMigrations(database)
-        addUser(database, 'owner')
-        addUser(database, 'other')
+        const database = (await openTestDatabase()).database
+        await addUser(database, 'owner')
+        await addUser(database, 'other')
         const local = createLocalMediaStore({
             storeId: 'avatar-test',
             rootDirectory: directory,
@@ -124,85 +123,92 @@ describe('personal avatar storage', () => {
             expect(await avatars.open(first.split('/').at(-1)!)).toBeNull()
             expect(await avatars.open(other.split('/').at(-1)!)).not.toBeNull()
             expect(
-                database.$client
-                    .query("SELECT count(*) as count FROM user_avatars WHERE state = 'retired'")
+                await database.sql
+                    .statement("SELECT count(*) as count FROM user_avatars WHERE state = 'retired'")
                     .get()
             ).toEqual({ count: 1 })
             failDelete = false
             const now = Date.now()
-            database.$client
-                .query(
-                    'INSERT INTO media_backup_fences (owner_id, created_at, expires_at) VALUES (?, ?, ?)'
+            await database.sql
+                .statement(
+                    'INSERT INTO media_backup_fences (id, owner_id, created_at, expires_at) VALUES (1, ?, ?, ?)'
                 )
                 .run('backup-test', now, now + 60_000)
             await avatars.reconcile()
             expect(
-                database.$client
-                    .query("SELECT count(*) as count FROM user_avatars WHERE state = 'retired'")
+                await database.sql
+                    .statement("SELECT count(*) as count FROM user_avatars WHERE state = 'retired'")
                     .get()
             ).toEqual({ count: 1 })
-            database.$client.query('DELETE FROM media_backup_fences').run()
+            await database.sql.statement('DELETE FROM media_backup_fences').run()
             await avatars.reconcile()
             expect(
-                database.$client
-                    .query("SELECT count(*) as count FROM user_avatars WHERE state = 'retired'")
+                await database.sql
+                    .statement("SELECT count(*) as count FROM user_avatars WHERE state = 'retired'")
                     .get()
             ).toEqual({ count: 0 })
             await avatars.remove('owner')
             expect(await avatars.open(second.split('/').at(-1)!)).toBeNull()
             expect(await avatars.open(other.split('/').at(-1)!)).not.toBeNull()
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
             await rm(directory, { recursive: true, force: true })
         }
     })
 
-    it('includes personal images in verified backup and restore bundles', async () => {
-        const directory = await mkdtemp(join(tmpdir(), 'postdot-avatar-backup-'))
-        const sourceFile = join(directory, 'source.sqlite')
-        const database = createDatabase(sourceFile)
-        runMigrations(database)
-        addUser(database, 'owner')
-        const source = createLocalMediaStore({
-            storeId: 'avatar-test',
-            rootDirectory: join(directory, 'source'),
-            maxObjectBytes: 6 * 1024 * 1024,
-        })
-        try {
-            const avatarUrl = await createUserAvatarStore(database, source).replace('owner', bytes)
-            const manifest = await backupWithMedia({
-                databaseFilename: sourceFile,
-                destinationDirectory: join(directory, 'bundle'),
-                mediaStore: source,
-            })
-            expect(manifest.version).toBe(2)
-            expect(manifest.avatars).toHaveLength(1)
-            const destination = createLocalMediaStore({
+    it.skipIf(testEngine === 'postgres')(
+        'includes personal images in verified backup and restore bundles',
+        async () => {
+            const directory = await mkdtemp(join(tmpdir(), 'postdot-avatar-backup-'))
+            const sourceFile = join(directory, 'source.sqlite')
+            const database = createDatabase(sourceFile)
+            await runMigrations(database)
+            await addUser(database, 'owner')
+            const source = createLocalMediaStore({
                 storeId: 'avatar-test',
-                rootDirectory: join(directory, 'destination'),
+                rootDirectory: join(directory, 'source'),
                 maxObjectBytes: 6 * 1024 * 1024,
             })
-            const restoredFile = join(directory, 'restored.sqlite')
-            await restoreWithMedia({
-                sourceDirectory: join(directory, 'bundle'),
-                databaseFilename: restoredFile,
-                mediaStore: destination,
-            })
-            const restored = createDatabase(restoredFile)
             try {
-                const image = await createUserAvatarStore(restored, destination).open(
-                    avatarUrl.split('/').at(-1)!
-                )
-                expect(image).not.toBeNull()
-                expect(new Uint8Array(await new Response(image!.stream).arrayBuffer())).toEqual(
+                const avatarUrl = await createUserAvatarStore(database, source).replace(
+                    'owner',
                     bytes
                 )
+                const manifest = await backupWithMedia({
+                    databaseFilename: sourceFile,
+                    destinationDirectory: join(directory, 'bundle'),
+                    mediaStore: source,
+                })
+                expect(manifest.version).toBe(2)
+                expect(manifest.avatars).toHaveLength(1)
+                const destination = createLocalMediaStore({
+                    storeId: 'avatar-test',
+                    rootDirectory: join(directory, 'destination'),
+                    maxObjectBytes: 6 * 1024 * 1024,
+                })
+                const restoredFile = join(directory, 'restored.sqlite')
+                await restoreWithMedia({
+                    sourceDirectory: join(directory, 'bundle'),
+                    databaseFilename: restoredFile,
+                    mediaStore: destination,
+                })
+                const restored = createDatabase(restoredFile)
+                await runMigrations(restored)
+                try {
+                    const image = await createUserAvatarStore(restored, destination).open(
+                        avatarUrl.split('/').at(-1)!
+                    )
+                    expect(image).not.toBeNull()
+                    expect(new Uint8Array(await new Response(image!.stream).arrayBuffer())).toEqual(
+                        bytes
+                    )
+                } finally {
+                    closeDatabase(restored)
+                }
             } finally {
-                closeDatabase(restored)
+                closeDatabase(database)
+                await rm(directory, { recursive: true, force: true })
             }
-        } finally {
-            closeDatabase(database)
-            await rm(directory, { recursive: true, force: true })
         }
-    })
+    )
 })

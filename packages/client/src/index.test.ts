@@ -2,7 +2,7 @@ import { describe, expect, it } from 'bun:test'
 
 import { createApp, createPublisherRuntime } from '@postdot/api'
 import { createAuth } from '@postdot/auth'
-import { closeDatabase, createDatabase, runMigrations } from '@postdot/db'
+import { closeTestDatabase, openTestDatabase } from '@postdot/db/testing'
 
 import { createAccessInvitationClient, createPostdotClient } from './index'
 
@@ -112,8 +112,7 @@ describe('Postdot client', () => {
     })
 
     it('calls typed routes through a custom fetcher', async () => {
-        const database = createDatabase(':memory:')
-        runMigrations(database)
+        const database = (await openTestDatabase()).database
         const publisher = createPublisherRuntime(database, {
             apiOrigin: 'http://localhost:3000',
             webOrigin: 'http://localhost:5173',
@@ -202,7 +201,7 @@ describe('Postdot client', () => {
                 summary: { total: 0, manual: 0, automatic: 0, scheduled: 0, draft: 0 },
             })
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 

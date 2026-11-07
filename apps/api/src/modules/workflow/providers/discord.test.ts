@@ -58,7 +58,7 @@ function createCredentials() {
         async replacePublisherCredentialTokens() {
             return { kind: 'conflict' }
         },
-        markPublisherCredentialReconnectRequired() {
+        async markPublisherCredentialReconnectRequired() {
             reconnectCalls += 1
         },
     }
@@ -391,7 +391,7 @@ function createRecordingDeliveryPort() {
     const failed: Array<{ readonly deliveryId: string; readonly ambiguous: boolean }> = []
     let sequence = 0
     const port: ProviderMediaDeliveryPort = {
-        reserve(input) {
+        async reserve(input) {
             sequence += 1
             return {
                 id: `delivery-${sequence}`,
@@ -412,7 +412,7 @@ function createRecordingDeliveryPort() {
                 updatedAt: now,
             }
         },
-        start(input) {
+        async start(input) {
             return {
                 id: input.deliveryId,
                 projectId: input.projectId,
@@ -432,7 +432,7 @@ function createRecordingDeliveryPort() {
                 updatedAt: now,
             }
         },
-        recordRemoteMediaId(input) {
+        async recordRemoteMediaId(input) {
             return {
                 id: input.deliveryId,
                 projectId: input.projectId,
@@ -452,7 +452,7 @@ function createRecordingDeliveryPort() {
                 updatedAt: now,
             }
         },
-        complete(input) {
+        async complete(input) {
             completed.push({ deliveryId: input.deliveryId, remoteMediaId: input.remoteMediaId })
             return {
                 id: input.deliveryId,
@@ -473,7 +473,7 @@ function createRecordingDeliveryPort() {
                 updatedAt: now,
             }
         },
-        fail(input) {
+        async fail(input) {
             failed.push({ deliveryId: input.deliveryId, ambiguous: input.ambiguous ?? false })
             return {
                 id: input.deliveryId,
@@ -494,7 +494,7 @@ function createRecordingDeliveryPort() {
                 updatedAt: now,
             }
         },
-        retry(input) {
+        async retry(input) {
             return {
                 id: input.deliveryId,
                 projectId: input.projectId,

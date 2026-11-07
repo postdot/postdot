@@ -59,7 +59,7 @@ export function registerPublisherRoutes<const Routes extends Record<string, unkn
                 },
             },
             async ({ params, status, user }) => {
-                const connections = publisherStore.listPublisherConnections(
+                const connections = await publisherStore.listPublisherConnections(
                     params.projectId,
                     user.id
                 )
@@ -116,23 +116,29 @@ export function registerPublisherRoutes<const Routes extends Record<string, unkn
             },
             async ({ authMethod, body, params, status, user }) => {
                 if (
-                    !canAccessProjectRole({
+                    !(await canAccessProjectRole({
                         access: options.access,
                         authMethod,
                         minimumRole: 'editor',
                         projectId: params.projectId,
                         userId: user.id,
-                    })
+                    }))
                 ) {
                     return status(403, forbiddenProjectMutation())
                 }
-                if (!publisherStore.hasChannelAccess(params.projectId, params.channelId, user.id)) {
+                if (
+                    !(await publisherStore.hasChannelAccess(
+                        params.projectId,
+                        params.channelId,
+                        user.id
+                    ))
+                ) {
                     return status(404, {
                         error: { code: 'not_found', message: 'Project not found' },
                     })
                 }
 
-                const existingConnection = publisherStore.getPublisherConnection(
+                const existingConnection = await publisherStore.getPublisherConnection(
                     params.projectId,
                     params.channelId,
                     user.id
@@ -171,7 +177,7 @@ export function registerPublisherRoutes<const Routes extends Record<string, unkn
                     })
                 }
 
-                const actorId = publisherStore.getProjectActorId(params.projectId, user.id)
+                const actorId = await publisherStore.getProjectActorId(params.projectId, user.id)
                 if (actorId === null) {
                     return status(404, {
                         error: { code: 'not_found', message: 'Project not found' },
@@ -197,7 +203,7 @@ export function registerPublisherRoutes<const Routes extends Record<string, unkn
                     })
                 }
 
-                const connection = publisherStore.createPublisherConnection({
+                const connection = await publisherStore.createPublisherConnection({
                     projectId: params.projectId,
                     channelId: params.channelId,
                     subjectId: user.id,
@@ -208,7 +214,7 @@ export function registerPublisherRoutes<const Routes extends Record<string, unkn
                     replaceNonActiveConnection,
                 })
                 if (connection.kind !== 'created') {
-                    publisher.credentialStore.revokePublisherCredential(
+                    await publisher.credentialStore.revokePublisherCredential(
                         params.projectId,
                         credential.credential.id
                     )
@@ -234,8 +240,8 @@ export function registerPublisherRoutes<const Routes extends Record<string, unkn
 
     const providerOptions = {
         ...options,
-        canManageChannel: (projectId: string, channelId: string, userId: string) => {
-            const ctx = options.channels.sharedChannels.contextFor({
+        canManageChannel: async (projectId: string, channelId: string, userId: string) => {
+            const ctx = await options.channels.sharedChannels.contextFor({
                 contextProjectId: projectId,
                 subjectId: userId,
                 authorization: createChannelAccessPolicy({
@@ -248,7 +254,8 @@ export function registerPublisherRoutes<const Routes extends Record<string, unkn
             })
             return (
                 ctx !== null &&
-                options.channels.sharedChannels.getCadence(ctx, channelId)?.canManage === true
+                (await options.channels.sharedChannels.getCadence(ctx, channelId))?.canManage ===
+                    true
             )
         },
         mastodonFetcher: options.mastodonFetcher ?? publisher.mastodon.fetcher,
@@ -275,19 +282,19 @@ export function registerPublisherRoutes<const Routes extends Record<string, unkn
                 tags: ['Channels'],
             },
         },
-        ({ authMethod, params, status, user }) => {
+        async ({ authMethod, params, status, user }) => {
             if (
-                !canAccessProjectRole({
+                !(await canAccessProjectRole({
                     access: options.access,
                     authMethod,
                     minimumRole: 'editor',
                     projectId: params.projectId,
                     userId: user.id,
-                })
+                }))
             ) {
                 return status(403, forbiddenProjectMutation())
             }
-            const result = publisherStore.disconnectPublisherConnection({
+            const result = await publisherStore.disconnectPublisherConnection({
                 projectId: params.projectId,
                 channelId: params.channelId,
                 subjectId: user.id,

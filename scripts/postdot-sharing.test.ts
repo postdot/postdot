@@ -12,7 +12,7 @@ import { runCli } from './postdot'
 
 it('runs sharing, transfer, cadence, scoped reads and explicit moves through the CLI process and real API', async () => {
     const database = createDatabase(':memory:')
-    runMigrations(database)
+    await runMigrations(database)
     const access = createAccessStore(database)
     const origin = 'http://localhost:3000'
     const app = createApp({

@@ -6,7 +6,7 @@ import {
     type ProviderMediaDeliveryState,
 } from '@postdot/core'
 
-import type { PostdotDatabase } from './client'
+import type { DatabaseHandle } from './client'
 
 export interface ProviderMediaDelivery {
     readonly id: string
@@ -95,14 +95,14 @@ const deliveryColumns = `
 `
 
 export function createProviderMediaDeliveryStore(
-    database: PostdotDatabase,
+    database: DatabaseHandle,
     options: { readonly now?: () => number; readonly createId?: () => string } = {}
 ) {
-    const client = database.$client
+    const sql = database.sql
     const now = options.now ?? Date.now
     const createId = options.createId ?? (() => crypto.randomUUID())
 
-    const loadStatement = client.query<
+    const loadStatement = sql.statement<
         ProviderMediaDeliveryRow,
         [projectId: string, deliveryId: string]
     >(`
@@ -111,7 +111,7 @@ export function createProviderMediaDeliveryStore(
         where project_id = ?1
           and id = ?2
     `)
-    const listByExecutionMediaStatement = client.query<
+    const listByExecutionMediaStatement = sql.statement<
         ProviderMediaDeliveryRow,
         [projectId: string, executionMediaId: string]
     >(`
@@ -121,7 +121,7 @@ export function createProviderMediaDeliveryStore(
           and execution_media_id = ?2
         order by created_at, id
     `)
-    const insertStatement = client.query<void, [string, string, string, string, string, number]>(`
+    const insertStatement = sql.statement<void, [string, string, string, string, string, number]>(`
         insert into provider_media_deliveries (
             id,
             project_id,
@@ -135,7 +135,7 @@ export function createProviderMediaDeliveryStore(
         ) values (?1, ?2, ?3, ?4, ?5, 'pending', 0, ?6, ?6)
         on conflict(project_id, execution_media_id, publisher_id, provider_id) do nothing
     `)
-    const startStatement = client.query<{ changes: number }, [number, string, string]>(`
+    const startStatement = sql.statement<{ changes: number }, [number, string, string]>(`
         update provider_media_deliveries
         set state = 'uploading',
             attempts = attempts + 1,
@@ -149,7 +149,7 @@ export function createProviderMediaDeliveryStore(
           and id = ?3
           and state = 'pending'
     `)
-    const completeStatement = client.query<
+    const completeStatement = sql.statement<
         { changes: number },
         [number, string, string | null, number | null, string, string]
     >(`
@@ -166,7 +166,7 @@ export function createProviderMediaDeliveryStore(
           and id = ?6
           and state in ('uploading', 'ambiguous')
     `)
-    const recordRemoteMediaIdStatement = client.query<
+    const recordRemoteMediaIdStatement = sql.statement<
         { changes: number },
         [number, string, string, string]
     >(`
@@ -178,7 +178,7 @@ export function createProviderMediaDeliveryStore(
           and state = 'uploading'
           and (remote_media_id is null or remote_media_id = ?2)
     `)
-    const failStatement = client.query<
+    const failStatement = sql.statement<
         { changes: number },
         [number, string, string, string, string, string]
     >(`
@@ -195,7 +195,7 @@ export function createProviderMediaDeliveryStore(
           and id = ?6
           and state in ('uploading', 'ambiguous')
     `)
-    const retryStatement = client.query<{ changes: number }, [number, string, string]>(`
+    const retryStatement = sql.statement<{ changes: number }, [number, string, string]>(`
         update provider_media_deliveries
         set state = 'pending',
             completed_at = null,
@@ -209,22 +209,23 @@ export function createProviderMediaDeliveryStore(
     `)
 
     return {
-        reserve(input: ReserveProviderMediaDeliveryInput): ProviderMediaDelivery {
-            const projectId = requireNonBlank(input.projectId, 'projectId')
-            const executionMediaId = requireNonBlank(input.executionMediaId, 'executionMediaId')
-            const publisherId = requireNonBlank(input.publisherId, 'publisherId')
-            const providerId = requireNonBlank(input.providerId, 'providerId')
-            const timestamp = requireTimestamp(input.at ?? now(), 'at')
-            insertStatement.run(
-                createId(),
-                projectId,
-                executionMediaId,
-                publisherId,
-                providerId,
-                timestamp
-            )
-            const delivery = client
-                .query<ProviderMediaDeliveryRow, [string, string, string, string]>(`
+        async reserve(input: ReserveProviderMediaDeliveryInput): Promise<ProviderMediaDelivery> {
+            return database.sql.transaction(async () => {
+                const projectId = requireNonBlank(input.projectId, 'projectId')
+                const executionMediaId = requireNonBlank(input.executionMediaId, 'executionMediaId')
+                const publisherId = requireNonBlank(input.publisherId, 'publisherId')
+                const providerId = requireNonBlank(input.providerId, 'providerId')
+                const timestamp = requireTimestamp(input.at ?? now(), 'at')
+                await insertStatement.run(
+                    createId(),
+                    projectId,
+                    executionMediaId,
+                    publisherId,
+                    providerId,
+                    timestamp
+                )
+                const delivery = await sql
+                    .statement<ProviderMediaDeliveryRow, [string, string, string, string]>(`
                     select ${deliveryColumns}
                     from provider_media_deliveries
                     where project_id = ?1
@@ -232,152 +233,175 @@ export function createProviderMediaDeliveryStore(
                       and publisher_id = ?3
                       and provider_id = ?4
                 `)
-                .get(projectId, executionMediaId, publisherId, providerId)
-            if (delivery === null) {
-                throw new DomainInvariantError(
-                    'invalid_input',
-                    'Provider media delivery could not be persisted'
-                )
-            }
-            return delivery
+                    .get(projectId, executionMediaId, publisherId, providerId)
+                if (delivery === null) {
+                    throw new DomainInvariantError(
+                        'invalid_input',
+                        'Provider media delivery could not be persisted'
+                    )
+                }
+                return delivery
+            }, 'immediate')
         },
 
-        start(input: StartProviderMediaDeliveryInput): ProviderMediaDelivery | null {
-            const projectId = requireNonBlank(input.projectId, 'projectId')
-            const deliveryId = requireNonBlank(input.deliveryId, 'deliveryId')
-            const delivery = loadStatement.get(projectId, deliveryId)
-            if (delivery === null) return null
-            if (delivery.state !== 'pending') return delivery
-            assertProviderMediaDeliveryTransition(delivery.state, 'uploading')
-            const timestamp = requireTimestamp(input.at ?? now(), 'at')
-            if (startStatement.run(timestamp, projectId, deliveryId).changes !== 1) {
-                return loadStatement.get(projectId, deliveryId)
-            }
-            return loadStatement.get(projectId, deliveryId)
+        async start(input: StartProviderMediaDeliveryInput): Promise<ProviderMediaDelivery | null> {
+            return database.sql.transaction(async () => {
+                const projectId = requireNonBlank(input.projectId, 'projectId')
+                const deliveryId = requireNonBlank(input.deliveryId, 'deliveryId')
+                const delivery = await loadStatement.get(projectId, deliveryId)
+                if (delivery === null) return null
+                if (delivery.state !== 'pending') return delivery
+                assertProviderMediaDeliveryTransition(delivery.state, 'uploading')
+                const timestamp = requireTimestamp(input.at ?? now(), 'at')
+                if ((await startStatement.run(timestamp, projectId, deliveryId)).changes !== 1) {
+                    return await loadStatement.get(projectId, deliveryId)
+                }
+                return await loadStatement.get(projectId, deliveryId)
+            }, 'immediate')
         },
 
-        recordRemoteMediaId(
+        async recordRemoteMediaId(
             input: RecordProviderMediaDeliveryRemoteIdInput
-        ): ProviderMediaDelivery | null {
-            const projectId = requireNonBlank(input.projectId, 'projectId')
-            const deliveryId = requireNonBlank(input.deliveryId, 'deliveryId')
-            const remoteMediaId = requireNonBlank(input.remoteMediaId, 'remoteMediaId')
-            const delivery = loadStatement.get(projectId, deliveryId)
-            if (delivery === null) return null
-            if (delivery.remoteMediaId !== null && delivery.remoteMediaId !== remoteMediaId) {
-                throw new DomainInvariantError(
-                    'claim_mismatch',
-                    `Provider media delivery ${deliveryId} already has another remote media ID`
-                )
-            }
-            if (delivery.state !== 'uploading') return delivery
-            const timestamp = requireTimestamp(input.at ?? now(), 'at')
-            if (
-                recordRemoteMediaIdStatement.run(timestamp, remoteMediaId, projectId, deliveryId)
-                    .changes !== 1
-            ) {
-                return loadStatement.get(projectId, deliveryId)
-            }
-            return loadStatement.get(projectId, deliveryId)
+        ): Promise<ProviderMediaDelivery | null> {
+            return database.sql.transaction(async () => {
+                const projectId = requireNonBlank(input.projectId, 'projectId')
+                const deliveryId = requireNonBlank(input.deliveryId, 'deliveryId')
+                const remoteMediaId = requireNonBlank(input.remoteMediaId, 'remoteMediaId')
+                const delivery = await loadStatement.get(projectId, deliveryId)
+                if (delivery === null) return null
+                if (delivery.remoteMediaId !== null && delivery.remoteMediaId !== remoteMediaId) {
+                    throw new DomainInvariantError(
+                        'claim_mismatch',
+                        `Provider media delivery ${deliveryId} already has another remote media ID`
+                    )
+                }
+                if (delivery.state !== 'uploading') return delivery
+                const timestamp = requireTimestamp(input.at ?? now(), 'at')
+                if (
+                    (
+                        await recordRemoteMediaIdStatement.run(
+                            timestamp,
+                            remoteMediaId,
+                            projectId,
+                            deliveryId
+                        )
+                    ).changes !== 1
+                ) {
+                    return await loadStatement.get(projectId, deliveryId)
+                }
+                return await loadStatement.get(projectId, deliveryId)
+            }, 'immediate')
         },
 
-        complete(input: CompleteProviderMediaDeliveryInput): ProviderMediaDelivery | null {
-            const projectId = requireNonBlank(input.projectId, 'projectId')
-            const deliveryId = requireNonBlank(input.deliveryId, 'deliveryId')
-            const remoteMediaId = requireNonBlank(input.remoteMediaId, 'remoteMediaId')
-            const remoteMediaUrl =
-                input.remoteMediaUrl == null
-                    ? null
-                    : requireNonBlank(input.remoteMediaUrl, 'remoteMediaUrl')
-            const remoteMediaExpiresAt =
-                input.remoteMediaExpiresAt == null
-                    ? null
-                    : requireTimestamp(input.remoteMediaExpiresAt, 'remoteMediaExpiresAt')
-            const delivery = loadStatement.get(projectId, deliveryId)
-            if (delivery === null) return null
-            if (delivery.remoteMediaId !== null && delivery.remoteMediaId !== remoteMediaId) {
-                throw new DomainInvariantError(
-                    'claim_mismatch',
-                    `Provider media delivery ${deliveryId} already has another remote media ID`
-                )
-            }
-            if (delivery.state === 'uploaded') {
-                return delivery
-            }
-            if (delivery.state !== 'uploading' && delivery.state !== 'ambiguous') {
-                return delivery
-            }
-            assertProviderMediaDeliveryTransition(delivery.state, 'uploaded')
-            const timestamp = requireTimestamp(input.at ?? now(), 'at')
-            if (
-                completeStatement.run(
-                    timestamp,
-                    remoteMediaId,
-                    remoteMediaUrl,
-                    remoteMediaExpiresAt,
-                    projectId,
-                    deliveryId
-                ).changes !== 1
-            ) {
-                return loadStatement.get(projectId, deliveryId)
-            }
-            return loadStatement.get(projectId, deliveryId)
+        async complete(
+            input: CompleteProviderMediaDeliveryInput
+        ): Promise<ProviderMediaDelivery | null> {
+            return database.sql.transaction(async () => {
+                const projectId = requireNonBlank(input.projectId, 'projectId')
+                const deliveryId = requireNonBlank(input.deliveryId, 'deliveryId')
+                const remoteMediaId = requireNonBlank(input.remoteMediaId, 'remoteMediaId')
+                const remoteMediaUrl =
+                    input.remoteMediaUrl == null
+                        ? null
+                        : requireNonBlank(input.remoteMediaUrl, 'remoteMediaUrl')
+                const remoteMediaExpiresAt =
+                    input.remoteMediaExpiresAt == null
+                        ? null
+                        : requireTimestamp(input.remoteMediaExpiresAt, 'remoteMediaExpiresAt')
+                const delivery = await loadStatement.get(projectId, deliveryId)
+                if (delivery === null) return null
+                if (delivery.remoteMediaId !== null && delivery.remoteMediaId !== remoteMediaId) {
+                    throw new DomainInvariantError(
+                        'claim_mismatch',
+                        `Provider media delivery ${deliveryId} already has another remote media ID`
+                    )
+                }
+                if (delivery.state === 'uploaded') {
+                    return delivery
+                }
+                if (delivery.state !== 'uploading' && delivery.state !== 'ambiguous') {
+                    return delivery
+                }
+                assertProviderMediaDeliveryTransition(delivery.state, 'uploaded')
+                const timestamp = requireTimestamp(input.at ?? now(), 'at')
+                if (
+                    (
+                        await completeStatement.run(
+                            timestamp,
+                            remoteMediaId,
+                            remoteMediaUrl,
+                            remoteMediaExpiresAt,
+                            projectId,
+                            deliveryId
+                        )
+                    ).changes !== 1
+                ) {
+                    return await loadStatement.get(projectId, deliveryId)
+                }
+                return await loadStatement.get(projectId, deliveryId)
+            }, 'immediate')
         },
 
-        fail(input: FailProviderMediaDeliveryInput): ProviderMediaDelivery | null {
-            const projectId = requireNonBlank(input.projectId, 'projectId')
-            const deliveryId = requireNonBlank(input.deliveryId, 'deliveryId')
-            const errorCode = requireNonBlank(input.errorCode, 'errorCode')
-            const errorMessage = requireNonBlank(input.errorMessage, 'errorMessage')
-            const delivery = loadStatement.get(projectId, deliveryId)
-            if (delivery === null) return null
-            if (delivery.state !== 'uploading' && delivery.state !== 'ambiguous') {
-                return delivery
-            }
-            const nextState: 'failed' | 'ambiguous' = input.ambiguous ? 'ambiguous' : 'failed'
-            assertProviderMediaDeliveryTransition(delivery.state, nextState)
-            const timestamp = requireTimestamp(input.at ?? now(), 'at')
-            if (
-                failStatement.run(
-                    timestamp,
-                    nextState,
-                    errorCode,
-                    errorMessage,
-                    projectId,
-                    deliveryId
-                ).changes !== 1
-            ) {
-                return loadStatement.get(projectId, deliveryId)
-            }
-            return loadStatement.get(projectId, deliveryId)
+        async fail(input: FailProviderMediaDeliveryInput): Promise<ProviderMediaDelivery | null> {
+            return database.sql.transaction(async () => {
+                const projectId = requireNonBlank(input.projectId, 'projectId')
+                const deliveryId = requireNonBlank(input.deliveryId, 'deliveryId')
+                const errorCode = requireNonBlank(input.errorCode, 'errorCode')
+                const errorMessage = requireNonBlank(input.errorMessage, 'errorMessage')
+                const delivery = await loadStatement.get(projectId, deliveryId)
+                if (delivery === null) return null
+                if (delivery.state !== 'uploading' && delivery.state !== 'ambiguous') {
+                    return delivery
+                }
+                const nextState: 'failed' | 'ambiguous' = input.ambiguous ? 'ambiguous' : 'failed'
+                assertProviderMediaDeliveryTransition(delivery.state, nextState)
+                const timestamp = requireTimestamp(input.at ?? now(), 'at')
+                if (
+                    (
+                        await failStatement.run(
+                            timestamp,
+                            nextState,
+                            errorCode,
+                            errorMessage,
+                            projectId,
+                            deliveryId
+                        )
+                    ).changes !== 1
+                ) {
+                    return await loadStatement.get(projectId, deliveryId)
+                }
+                return await loadStatement.get(projectId, deliveryId)
+            }, 'immediate')
         },
 
-        retry(input: RetryProviderMediaDeliveryInput): ProviderMediaDelivery | null {
-            const projectId = requireNonBlank(input.projectId, 'projectId')
-            const deliveryId = requireNonBlank(input.deliveryId, 'deliveryId')
-            const delivery = loadStatement.get(projectId, deliveryId)
-            if (delivery === null) return null
-            if (delivery.state !== 'failed') return delivery
-            assertProviderMediaDeliveryTransition(delivery.state, 'pending')
-            const timestamp = requireTimestamp(input.at ?? now(), 'at')
-            if (retryStatement.run(timestamp, projectId, deliveryId).changes !== 1) {
-                return loadStatement.get(projectId, deliveryId)
-            }
-            return loadStatement.get(projectId, deliveryId)
+        async retry(input: RetryProviderMediaDeliveryInput): Promise<ProviderMediaDelivery | null> {
+            return database.sql.transaction(async () => {
+                const projectId = requireNonBlank(input.projectId, 'projectId')
+                const deliveryId = requireNonBlank(input.deliveryId, 'deliveryId')
+                const delivery = await loadStatement.get(projectId, deliveryId)
+                if (delivery === null) return null
+                if (delivery.state !== 'failed') return delivery
+                assertProviderMediaDeliveryTransition(delivery.state, 'pending')
+                const timestamp = requireTimestamp(input.at ?? now(), 'at')
+                if ((await retryStatement.run(timestamp, projectId, deliveryId)).changes !== 1) {
+                    return await loadStatement.get(projectId, deliveryId)
+                }
+                return await loadStatement.get(projectId, deliveryId)
+            }, 'immediate')
         },
 
-        get(projectId: string, deliveryId: string): ProviderMediaDelivery | null {
-            return loadStatement.get(
+        async get(projectId: string, deliveryId: string): Promise<ProviderMediaDelivery | null> {
+            return await loadStatement.get(
                 requireNonBlank(projectId, 'projectId'),
                 requireNonBlank(deliveryId, 'deliveryId')
             )
         },
 
-        listByExecutionMedia(
+        async listByExecutionMedia(
             projectId: string,
             executionMediaId: string
-        ): readonly ProviderMediaDelivery[] {
-            return listByExecutionMediaStatement.all(
+        ): Promise<readonly ProviderMediaDelivery[]> {
+            return await listByExecutionMediaStatement.all(
                 requireNonBlank(projectId, 'projectId'),
                 requireNonBlank(executionMediaId, 'executionMediaId')
             )

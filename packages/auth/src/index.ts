@@ -1,7 +1,5 @@
-import { createAccessStore, type AccessStore, type PostdotDatabase } from '@postdot/db'
-import * as schema from '@postdot/db/schema'
+import { createAccessStore, type AccessStore, type DatabaseHandle } from '@postdot/db'
 import { APIError, betterAuth, type Auth, type BetterAuthOptions } from 'better-auth'
-import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 import { hashPassword } from 'better-auth/crypto'
 
 import {
@@ -10,6 +8,7 @@ import {
     type PostdotAuthPluginHooks,
     type PostdotAuthPlugins,
 } from './plugins'
+import { postdotSqlAdapter } from './sql-adapter'
 
 export type { PostdotAuthInvitationOptions, PostdotOrganizationInvitationEmail } from './plugins'
 export { postdotUserApiKeyConfigId } from './plugins'
@@ -354,7 +353,7 @@ export type PostdotAuth = Auth<PostdotAuthOptions> & {
 }
 
 export function createAuth(
-    database: PostdotDatabase,
+    database: DatabaseHandle,
     runtimeOptions: PostdotAuthRuntimeOptions = {}
 ): PostdotAuth {
     const {
@@ -370,9 +369,9 @@ export function createAuth(
         ...betterAuthOptions
     } = runtimeOptions
     const access = accessOption ?? createAccessStore(database)
-    const hasPendingBetterAuthInvitationForEmail = (email: string): boolean =>
-        database.$client
-            .query<{ readonly id: string }, [email: string, now: number]>(`
+    const hasPendingBetterAuthInvitationForEmail = async (email: string): Promise<boolean> =>
+        (await database.sql
+            .statement<{ readonly id: string }, [email: string, now: number]>(`
                 select id
                 from invitation
                 where lower(email) = lower(?1)
@@ -380,15 +379,11 @@ export function createAuth(
                   and expires_at > ?2
                 limit 1
             `)
-            .get(email.trim(), Date.now()) !== null
+            .get(email.trim(), Date.now())) !== null
 
     return betterAuth({
         ...betterAuthOptions,
-        database: drizzleAdapter(database, {
-            provider: 'sqlite',
-            schema,
-            transaction: true,
-        }),
+        database: postdotSqlAdapter(database),
         hooks: {
             before: async context => {
                 // Better Auth exposes `path` on the runtime middleware context,
@@ -482,7 +477,7 @@ export function createAuth(
               }),
         plugins: createPostdotAuthPlugins(
             {
-                afterOrganizationInvitationAccepted: ({
+                afterOrganizationInvitationAccepted: async ({
                     organizationId,
                     userId,
                     displayName,
@@ -493,7 +488,7 @@ export function createAuth(
                     // Workspace invitations are the product-level membership
                     // flow. Keep the legacy instance projection in sync, but
                     // do not try to interpret workspace roles as project roles.
-                    const workspace = access.ensureInstanceMembershipForWorkspaceMember({
+                    const workspace = await access.ensureInstanceMembershipForWorkspaceMember({
                         organizationId,
                         userId,
                     })
@@ -502,14 +497,14 @@ export function createAuth(
                             projectId !== undefined &&
                             (projectRole === 'editor' || projectRole === 'viewer')
                         ) {
-                            access.grantProjectUserAccess({
+                            await access.grantProjectUserAccess({
                                 projectId,
                                 userId,
                                 role: projectRole,
                             })
                         }
                         if (teamId !== undefined) {
-                            access.syncTeamMemberToProjectGrants({
+                            await access.syncTeamMemberToProjectGrants({
                                 teamId,
                                 userId,
                                 displayName,
@@ -523,7 +518,7 @@ export function createAuth(
                     // project access after the workspace/grant boundary is
                     // established.
                 },
-                afterOrganizationTeamMemberAdded: ({
+                afterOrganizationTeamMemberAdded: async ({
                     organizationId,
                     teamId,
                     userId,
@@ -532,15 +527,16 @@ export function createAuth(
                     // Only workspace teams can grant Postdot project access.
                     // Legacy Better Auth organizations are not part of the
                     // product-level group model.
-                    if (access.getWorkspaceByOrganizationId(organizationId) === null) return
-                    access.syncTeamMemberToProjectGrants({ teamId, userId, displayName })
+                    if ((await access.getWorkspaceByOrganizationId(organizationId)) === null) return
+                    await access.syncTeamMemberToProjectGrants({ teamId, userId, displayName })
                 },
             } satisfies PostdotAuthPluginHooks,
             {
                 organizationInvitationURL,
                 requireEmailVerificationOnInvitation,
                 sendOrganizationInvitationEmail,
-            }
+            },
+            allowAdditionalSignups
         ),
         databaseHooks: {
             user: {
@@ -551,16 +547,20 @@ export function createAuth(
                         // transaction. This early guard keeps public signup closed
                         // without creating an orphan user row.
                         const invited =
-                            access.hasPendingInvitationForEmail(data.email) ||
-                            hasPendingBetterAuthInvitationForEmail(data.email)
-                        if (!allowAdditionalSignups && !access.isSignupAllowed() && !invited) {
+                            (await access.hasPendingInvitationForEmail(data.email)) ||
+                            (await hasPendingBetterAuthInvitationForEmail(data.email))
+                        if (
+                            !allowAdditionalSignups &&
+                            !(await access.isSignupAllowed()) &&
+                            !invited
+                        ) {
                             return false
                         }
 
                         // Better Auth Admin owns the durable instance-admin role.
                         // Postdot's instance membership remains the installation-level
                         // access boundary while preserving route and audit context.
-                        return access.getInstanceState().state === 'claimable'
+                        return (await access.getInstanceState()).state === 'claimable'
                             ? { data: { ...data, role: 'admin' } }
                             : { data }
                     },
@@ -575,21 +575,21 @@ export function createAuth(
                         // instance is still claimable. Returning false after bootstrap
                         // would also break OAuth/account-link flows for existing users.
                         if (allowAdditionalSignups) {
-                            if (access.getInstanceState().state === 'claimable') {
-                                const result = access.claimFirstAccountInCurrentTransaction({
+                            if ((await access.getInstanceState()).state === 'claimable') {
+                                const result = await access.claimFirstAccountInCurrentTransaction({
                                     userId: account.userId,
                                 })
                                 return result.kind === 'claimed'
                             }
-                            access.ensureTestAdminMembershipInCurrentTransaction({
+                            await access.ensureTestAdminMembershipInCurrentTransaction({
                                 userId: account.userId,
                             })
                             return true
                         }
 
-                        if (access.getInstanceState().state !== 'claimable') return true
+                        if ((await access.getInstanceState()).state !== 'claimable') return true
 
-                        const result = access.claimFirstAccountInCurrentTransaction({
+                        const result = await access.claimFirstAccountInCurrentTransaction({
                             userId: account.userId,
                         })
                         return result.kind === 'claimed'

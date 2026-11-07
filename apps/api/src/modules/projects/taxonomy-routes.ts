@@ -51,7 +51,7 @@ export function registerTaxonomyRoutes<const Routes extends Record<string, unkno
                     tags: ['Taxonomy'],
                 },
             },
-            ({ authMethod, query, status }) => {
+            async ({ authMethod, query, status }) => {
                 if (authMethod !== 'session') {
                     return status(403, {
                         error: {
@@ -61,7 +61,7 @@ export function registerTaxonomyRoutes<const Routes extends Record<string, unkno
                     })
                 }
                 return {
-                    categories: taxonomy.listCategories(query.includeArchived === true),
+                    categories: await taxonomy.listCategories(query.includeArchived === true),
                 }
             }
         )
@@ -85,8 +85,8 @@ export function registerTaxonomyRoutes<const Routes extends Record<string, unkno
                     security: sessionSecurity,
                 },
             },
-            ({ authMethod, body, status, user }) => {
-                if (authMethod !== 'session' || !access.isInstanceAdmin(user.id)) {
+            async ({ authMethod, body, status, user }) => {
+                if (authMethod !== 'session' || !(await access.isInstanceAdmin(user.id))) {
                     return status(403, {
                         error: {
                             code: 'forbidden',
@@ -95,7 +95,7 @@ export function registerTaxonomyRoutes<const Routes extends Record<string, unkno
                         },
                     })
                 }
-                return status(201, { category: taxonomy.createCategory({ name: body.name }) })
+                return status(201, { category: await taxonomy.createCategory({ name: body.name }) })
             }
         )
         .patch(
@@ -120,8 +120,8 @@ export function registerTaxonomyRoutes<const Routes extends Record<string, unkno
                     security: sessionSecurity,
                 },
             },
-            ({ authMethod, body, params, status, user }) => {
-                if (authMethod !== 'session' || !access.isInstanceAdmin(user.id)) {
+            async ({ authMethod, body, params, status, user }) => {
+                if (authMethod !== 'session' || !(await access.isInstanceAdmin(user.id))) {
                     return status(403, {
                         error: {
                             code: 'forbidden',
@@ -130,7 +130,7 @@ export function registerTaxonomyRoutes<const Routes extends Record<string, unkno
                         },
                     })
                 }
-                const category = taxonomy.renameCategory({
+                const category = await taxonomy.renameCategory({
                     categoryId: params.categoryId,
                     name: body.name,
                 })
@@ -162,8 +162,8 @@ export function registerTaxonomyRoutes<const Routes extends Record<string, unkno
                     security: sessionSecurity,
                 },
             },
-            ({ authMethod, params, status, user }) => {
-                if (authMethod !== 'session' || !access.isInstanceAdmin(user.id)) {
+            async ({ authMethod, params, status, user }) => {
+                if (authMethod !== 'session' || !(await access.isInstanceAdmin(user.id))) {
                     return status(403, {
                         error: {
                             code: 'forbidden',
@@ -172,7 +172,7 @@ export function registerTaxonomyRoutes<const Routes extends Record<string, unkno
                         },
                     })
                 }
-                const category = taxonomy.archiveCategory({ categoryId: params.categoryId })
+                const category = await taxonomy.archiveCategory({ categoryId: params.categoryId })
                 if (category === null) {
                     return status(404, {
                         error: { code: 'not_found', message: 'Project category not found' },
@@ -201,8 +201,8 @@ export function registerTaxonomyRoutes<const Routes extends Record<string, unkno
                     security: sessionSecurity,
                 },
             },
-            ({ authMethod, params, status, user }) => {
-                if (authMethod !== 'session' || !access.isInstanceAdmin(user.id)) {
+            async ({ authMethod, params, status, user }) => {
+                if (authMethod !== 'session' || !(await access.isInstanceAdmin(user.id))) {
                     return status(403, {
                         error: {
                             code: 'forbidden',
@@ -211,7 +211,7 @@ export function registerTaxonomyRoutes<const Routes extends Record<string, unkno
                         },
                     })
                 }
-                const category = taxonomy.restoreCategory({ categoryId: params.categoryId })
+                const category = await taxonomy.restoreCategory({ categoryId: params.categoryId })
                 if (category === null) {
                     return status(404, {
                         error: { code: 'not_found', message: 'Project category not found' },
@@ -242,7 +242,7 @@ export function registerTaxonomyRoutes<const Routes extends Record<string, unkno
                     security: sessionSecurity,
                 },
             },
-            ({ authMethod, body, params, status, user }) => {
+            async ({ authMethod, body, params, status, user }) => {
                 if (authMethod !== 'session') {
                     return status(403, {
                         error: {
@@ -253,17 +253,17 @@ export function registerTaxonomyRoutes<const Routes extends Record<string, unkno
                     })
                 }
                 if (
-                    !canAccessProjectRole({
+                    !(await canAccessProjectRole({
                         access,
                         authMethod,
                         minimumRole: 'editor',
                         projectId: params.projectId,
                         userId: user.id,
-                    })
+                    }))
                 ) {
                     return status(403, forbiddenProjectMutation())
                 }
-                const project = taxonomy.setProjectPrimaryCategory({
+                const project = await taxonomy.setProjectPrimaryCategory({
                     projectId: params.projectId,
                     subjectId: user.id,
                     categoryId: body.categoryId,
@@ -294,8 +294,8 @@ export function registerTaxonomyRoutes<const Routes extends Record<string, unkno
                     tags: ['Taxonomy'],
                 },
             },
-            ({ params, query, status, user }) => {
-                const tags = taxonomy.listProjectTags({
+            async ({ params, query, status, user }) => {
+                const tags = await taxonomy.listProjectTags({
                     projectId: params.projectId,
                     subjectId: user.id,
                     includeArchived: query.includeArchived,
@@ -329,19 +329,19 @@ export function registerTaxonomyRoutes<const Routes extends Record<string, unkno
                     tags: ['Taxonomy'],
                 },
             },
-            ({ authMethod, body, params, status, user }) => {
+            async ({ authMethod, body, params, status, user }) => {
                 if (
-                    !canAccessProjectRole({
+                    !(await canAccessProjectRole({
                         access,
                         authMethod,
                         minimumRole: 'editor',
                         projectId: params.projectId,
                         userId: user.id,
-                    })
+                    }))
                 ) {
                     return status(403, forbiddenProjectMutation())
                 }
-                const tag = taxonomy.createTag({
+                const tag = await taxonomy.createTag({
                     projectId: params.projectId,
                     subjectId: user.id,
                     name: body.name,
@@ -375,19 +375,19 @@ export function registerTaxonomyRoutes<const Routes extends Record<string, unkno
                     tags: ['Taxonomy'],
                 },
             },
-            ({ authMethod, body, params, status, user }) => {
+            async ({ authMethod, body, params, status, user }) => {
                 if (
-                    !canAccessProjectRole({
+                    !(await canAccessProjectRole({
                         access,
                         authMethod,
                         minimumRole: 'editor',
                         projectId: params.projectId,
                         userId: user.id,
-                    })
+                    }))
                 ) {
                     return status(403, forbiddenProjectMutation())
                 }
-                const tag = taxonomy.renameTag({
+                const tag = await taxonomy.renameTag({
                     projectId: params.projectId,
                     subjectId: user.id,
                     tagId: params.tagId,
@@ -420,19 +420,19 @@ export function registerTaxonomyRoutes<const Routes extends Record<string, unkno
                     tags: ['Taxonomy'],
                 },
             },
-            ({ authMethod, params, status, user }) => {
+            async ({ authMethod, params, status, user }) => {
                 if (
-                    !canAccessProjectRole({
+                    !(await canAccessProjectRole({
                         access,
                         authMethod,
                         minimumRole: 'editor',
                         projectId: params.projectId,
                         userId: user.id,
-                    })
+                    }))
                 ) {
                     return status(403, forbiddenProjectMutation())
                 }
-                const tag = taxonomy.archiveTag({
+                const tag = await taxonomy.archiveTag({
                     projectId: params.projectId,
                     subjectId: user.id,
                     tagId: params.tagId,
@@ -464,19 +464,19 @@ export function registerTaxonomyRoutes<const Routes extends Record<string, unkno
                     tags: ['Taxonomy'],
                 },
             },
-            ({ authMethod, params, status, user }) => {
+            async ({ authMethod, params, status, user }) => {
                 if (
-                    !canAccessProjectRole({
+                    !(await canAccessProjectRole({
                         access,
                         authMethod,
                         minimumRole: 'editor',
                         projectId: params.projectId,
                         userId: user.id,
-                    })
+                    }))
                 ) {
                     return status(403, forbiddenProjectMutation())
                 }
-                const tag = taxonomy.restoreTag({
+                const tag = await taxonomy.restoreTag({
                     projectId: params.projectId,
                     subjectId: user.id,
                     tagId: params.tagId,
@@ -507,8 +507,8 @@ export function registerTaxonomyRoutes<const Routes extends Record<string, unkno
                     tags: ['Taxonomy'],
                 },
             },
-            ({ params, query, status, user }) => {
-                const tags = taxonomy.listPublicationTags({
+            async ({ params, query, status, user }) => {
+                const tags = await taxonomy.listPublicationTags({
                     projectId: params.projectId,
                     publicationId: params.publicationId,
                     subjectId: user.id,
@@ -543,19 +543,19 @@ export function registerTaxonomyRoutes<const Routes extends Record<string, unkno
                     tags: ['Taxonomy'],
                 },
             },
-            ({ authMethod, body, params, status, user }) => {
+            async ({ authMethod, body, params, status, user }) => {
                 if (
-                    !canAccessProjectRole({
+                    !(await canAccessProjectRole({
                         access,
                         authMethod,
                         minimumRole: 'editor',
                         projectId: params.projectId,
                         userId: user.id,
-                    })
+                    }))
                 ) {
                     return status(403, forbiddenProjectMutation())
                 }
-                const tags = taxonomy.replacePublicationTags({
+                const tags = await taxonomy.replacePublicationTags({
                     projectId: params.projectId,
                     publicationId: params.publicationId,
                     subjectId: user.id,

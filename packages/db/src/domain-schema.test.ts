@@ -1,27 +1,22 @@
 import { describe, expect, it } from 'bun:test'
 
 import { createManualChannelProfile } from '@postdot/core'
-import { eq } from 'drizzle-orm'
 
-import type { PostdotDatabase } from './client'
-import { closeDatabase, createDatabase } from './client'
-import { runMigrations } from './migrations'
+import { type DatabaseHandle } from './client'
+import { describeSchema } from './sql/schema-introspection'
 import {
-    actors,
-    jobs,
-    mediaAssets,
-    mediaRepresentations,
-    mediaUploadIntents,
-    oauthAuthorizationAttempts,
-    posts,
-    projects,
-    publications,
-    publisherCredentials,
-    publishers,
-} from './schema'
-import { seedTestWorkspace, seedWorkspaceChannel, workspaceOf } from './testing'
+    closeTestDatabase,
+    foreignKeyViolations,
+    insertRow,
+    openTestDatabase,
+    seedTestWorkspace,
+    seedWorkspaceChannel,
+    type TestRow,
+    toDbValue,
+    workspaceOf,
+} from './testing'
 
-function seedProject(database: PostdotDatabase, suffix: string) {
+async function seedProject(database: DatabaseHandle, suffix: string) {
     const projectId = `project-${suffix}`
     const actorId = `actor-${suffix}`
     const channelId = `channel-${suffix}`
@@ -29,24 +24,19 @@ function seedProject(database: PostdotDatabase, suffix: string) {
     const profileVersionId = `profile-${suffix}`
     const profile = createManualChannelProfile()
 
-    database
-        .insert(projects)
-        .values({
-            id: projectId,
-            name: `Project ${suffix}`,
-            workspaceId: seedTestWorkspace(database, `workspace-${suffix}`),
-        })
-        .run()
-    database
-        .insert(actors)
-        .values({
-            id: actorId,
+    await database.sql
+        .statement('insert into "projects" ("id", "name", "workspace_id") values (?1, ?2, ?3)')
+        .run(
             projectId,
-            kind: 'human',
-            displayName: `Editor ${suffix}`,
-        })
-        .run()
-    const owned = seedWorkspaceChannel(database, {
+            `Project ${suffix}`,
+            await seedTestWorkspace(database, `workspace-${suffix}`)
+        )
+    await database.sql
+        .statement(
+            'insert into "actors" ("id", "project_id", "kind", "display_name") values (?1, ?2, ?3, ?4)'
+        )
+        .run(actorId, projectId, 'human', `Editor ${suffix}`)
+    const owned = await seedWorkspaceChannel(database, {
         projectId,
         channelId: channelId,
         name: `Channel ${suffix}`,
@@ -54,140 +44,146 @@ function seedProject(database: PostdotDatabase, suffix: string) {
         profile: profile,
         createdByActorId: actorId,
     })
-    database
-        .insert(posts)
-        .values({
-            id: postId,
+    await database.sql
+        .statement(
+            'insert into "posts" ("id", "project_id", "source_content", "source_revision", "created_by_actor_id") values (?1, ?2, ?3, ?4, ?5)'
+        )
+        .run(
+            postId,
             projectId,
-            sourceContent: {
+            toDbValue('json', {
                 body: { text: `Post ${suffix}`, format: 'plain_text' },
                 media: [],
-            },
-            sourceRevision: 1,
-            createdByActorId: actorId,
-        })
-        .run()
+            }),
+            1,
+            actorId
+        )
 
     return { projectId, actorId, channelId, postId, ...owned }
 }
 
 describe('domain schema', () => {
-    it('enforces project ownership with composite foreign keys', () => {
-        const database = createDatabase(':memory:')
+    it('enforces project ownership with composite foreign keys', async () => {
+        const database = (await openTestDatabase()).database
 
         try {
-            runMigrations(database)
-            const first = seedProject(database, 'first')
-            const second = seedProject(database, 'second')
+            const first = await seedProject(database, 'first')
+            const second = await seedProject(database, 'second')
 
-            expect(() =>
-                database
-                    .insert(publications)
-                    .values({
-                        id: 'cross-project-publication',
-                        projectId: first.projectId,
-                        postId: first.postId,
-                        channelId: second.channelId,
-                        targetRevisionId: null,
-                        deliveryMode: 'manual',
-                        reviewState: 'compatible',
-                        state: 'draft',
-                        createdByActorId: first.actorId,
-                        stateChangedByActorId: first.actorId,
-                    })
-                    .run()
-            ).toThrow()
+            await expect(
+                database.sql
+                    .statement(
+                        'insert into "publications" ("id", "project_id", "post_id", "channel_id", "target_revision_id", "delivery_mode", "review_state", "state", "created_by_actor_id", "state_changed_by_actor_id") values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)'
+                    )
+                    .run(
+                        'cross-project-publication',
+                        first.projectId,
+                        first.postId,
+                        second.channelId,
+                        null,
+                        'manual',
+                        'compatible',
+                        'draft',
+                        first.actorId,
+                        first.actorId
+                    )
+            ).rejects.toThrow()
 
-            database
-                .insert(publications)
-                .values({
-                    id: 'first-publication',
-                    projectId: first.projectId,
-                    postId: first.postId,
-                    channelId: first.channelId,
-                    targetRevisionId: null,
-                    deliveryMode: 'manual',
-                    reviewState: 'compatible',
-                    state: 'ready',
-                    createdByActorId: first.actorId,
-                    stateChangedByActorId: first.actorId,
-                })
-                .run()
+            await database.sql
+                .statement(
+                    'insert into "publications" ("id", "project_id", "post_id", "channel_id", "target_revision_id", "delivery_mode", "review_state", "state", "created_by_actor_id", "state_changed_by_actor_id") values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)'
+                )
+                .run(
+                    'first-publication',
+                    first.projectId,
+                    first.postId,
+                    first.channelId,
+                    null,
+                    'manual',
+                    'compatible',
+                    'ready',
+                    first.actorId,
+                    first.actorId
+                )
 
-            expect(() =>
-                database
-                    .insert(jobs)
-                    .values({
-                        id: 'cross-project-job',
-                        projectId: second.projectId,
-                        publicationId: 'first-publication',
-                        state: 'pending',
-                        runAt: 1_800_000_000_000,
-                    })
-                    .run()
-            ).toThrow()
+            await expect(
+                database.sql
+                    .statement(
+                        'insert into "jobs" ("id", "project_id", "publication_id", "state", "run_at") values (?1, ?2, ?3, ?4, ?5)'
+                    )
+                    .run(
+                        'cross-project-job',
+                        second.projectId,
+                        'first-publication',
+                        'pending',
+                        1_800_000_000_000
+                    )
+            ).rejects.toThrow()
 
-            expect(() =>
-                database
-                    .insert(posts)
-                    .values({
-                        id: 'cross-project-post',
-                        projectId: first.projectId,
-                        sourceContent: {
+            await expect(
+                database.sql
+                    .statement(
+                        'insert into "posts" ("id", "project_id", "source_content", "source_revision", "created_by_actor_id") values (?1, ?2, ?3, ?4, ?5)'
+                    )
+                    .run(
+                        'cross-project-post',
+                        first.projectId,
+                        toDbValue('json', {
                             body: { text: 'Impossible attribution', format: 'plain_text' },
                             media: [],
-                        },
-                        sourceRevision: 1,
-                        createdByActorId: second.actorId,
-                    })
-                    .run()
-            ).toThrow()
+                        }),
+                        1,
+                        second.actorId
+                    )
+            ).rejects.toThrow()
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
-    it('allows manual channels and limits each channel to one publisher', () => {
-        const database = createDatabase(':memory:')
+    it('allows manual channels and limits each channel to one publisher', async () => {
+        const database = (await openTestDatabase()).database
 
         try {
-            runMigrations(database)
-            const fixture = seedProject(database, 'manual')
+            const fixture = await seedProject(database, 'manual')
 
-            expect(database.select().from(publishers).all()).toEqual([])
+            expect(
+                await database.sql
+                    .statement<TestRow>(
+                        'select "publishers"."id" as "id", "publishers"."workspace_id" as "workspaceId", "publishers"."channel_id" as "channelId", "publishers"."kind" as "kind", "publishers"."created_at" as "createdAt", "publishers"."updated_at" as "updatedAt" from "publishers"'
+                    )
+                    .all()
+            ).toEqual([])
 
-            database
-                .insert(publishers)
-                .values({
-                    id: 'publisher-one',
-                    workspaceId: workspaceOf(database, fixture.projectId),
-                    channelId: fixture.channelId,
-                    kind: 'mastodon',
-                })
-                .run()
+            await database.sql
+                .statement(
+                    'insert into "publishers" ("id", "workspace_id", "channel_id", "kind") values (?1, ?2, ?3, ?4)'
+                )
+                .run(
+                    'publisher-one',
+                    await workspaceOf(database, fixture.projectId),
+                    fixture.channelId,
+                    'mastodon'
+                )
 
-            expect(() =>
-                database
-                    .insert(publishers)
-                    .values({
-                        id: 'publisher-two',
-                        workspaceId: workspaceOf(database, fixture.projectId),
-                        channelId: fixture.channelId,
-                        kind: 'bluesky',
-                    })
-                    .run()
-            ).toThrow()
+            const workspaceId = await workspaceOf(database, fixture.projectId)
+            await expect(
+                database.sql
+                    .statement(
+                        'insert into "publishers" ("id", "workspace_id", "channel_id", "kind") values (?1, ?2, ?3, ?4)'
+                    )
+                    .run('publisher-two', workspaceId, fixture.channelId, 'bluesky')
+            ).rejects.toThrow()
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
-    it('rejects invalid and incomplete publication states', () => {
-        const database = createDatabase(':memory:')
+    it('rejects invalid and incomplete publication states', async () => {
+        const database = (await openTestDatabase()).database
 
         try {
-            runMigrations(database)
-            const fixture = seedProject(database, 'states')
+            const fixture = await seedProject(database, 'states')
             const basePublication = {
                 projectId: fixture.projectId,
                 postId: fixture.postId,
@@ -199,62 +195,53 @@ describe('domain schema', () => {
                 stateChangedByActorId: fixture.actorId,
             } as const
 
-            expect(() =>
-                database
-                    .insert(publications)
-                    .values({
+            expect(
+                async () =>
+                    await insertRow(database, 'publications', {
                         ...basePublication,
                         id: 'invalid-state',
                         state: 'unknown' as 'draft',
                     })
-                    .run()
             ).toThrow()
 
-            expect(() =>
-                database
-                    .insert(publications)
-                    .values({
+            expect(
+                async () =>
+                    await insertRow(database, 'publications', {
                         ...basePublication,
                         id: 'incomplete-publication',
                         state: 'published',
                     })
-                    .run()
             ).toThrow()
 
-            expect(() =>
-                database
-                    .insert(publications)
-                    .values({
+            expect(
+                async () =>
+                    await insertRow(database, 'publications', {
                         ...basePublication,
                         id: 'missing-error',
                         state: 'ambiguous',
                     })
-                    .run()
             ).toThrow()
 
-            expect(() =>
-                database
-                    .insert(publications)
-                    .values({
+            expect(
+                async () =>
+                    await insertRow(database, 'publications', {
                         ...basePublication,
                         id: 'unexpected-error',
                         state: 'ready',
                         errorMessage: 'Stale failure',
                     })
-                    .run()
             ).toThrow()
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
-    it('rejects incomplete credential envelopes and cross-project attribution', () => {
-        const database = createDatabase(':memory:')
+    it('rejects incomplete credential envelopes and cross-project attribution', async () => {
+        const database = (await openTestDatabase()).database
 
         try {
-            runMigrations(database)
-            const first = seedProject(database, 'credential-first')
-            const second = seedProject(database, 'credential-second')
+            const first = await seedProject(database, 'credential-first')
+            const second = await seedProject(database, 'credential-second')
             const activeCredential = {
                 workspaceId: first.workspaceId,
                 providerId: 'linkedin',
@@ -267,59 +254,50 @@ describe('domain schema', () => {
                 accessTokenCiphertext: Buffer.alloc(17, 1),
             }
 
-            expect(() =>
-                database
-                    .insert(publisherCredentials)
-                    .values({
+            expect(
+                async () =>
+                    await insertRow(database, 'publisher_credentials', {
                         ...activeCredential,
                         id: 'missing-access-nonce',
                     })
-                    .run()
             ).toThrow()
-            expect(() =>
-                database
-                    .insert(publisherCredentials)
-                    .values({
+            expect(
+                async () =>
+                    await insertRow(database, 'publisher_credentials', {
                         ...activeCredential,
                         id: 'partial-refresh-envelope',
                         accessTokenNonce: Buffer.alloc(12, 2),
                         refreshTokenCiphertext: Buffer.alloc(17, 3),
                     })
-                    .run()
             ).toThrow()
-            expect(() =>
-                database
-                    .insert(publisherCredentials)
-                    .values({
+            expect(
+                async () =>
+                    await insertRow(database, 'publisher_credentials', {
                         ...activeCredential,
                         id: 'cross-project-actor',
                         connectedByActorId: second.workspaceActorId,
                         accessTokenNonce: Buffer.alloc(12, 2),
                     })
-                    .run()
             ).toThrow()
-            expect(() =>
-                database
-                    .insert(publisherCredentials)
-                    .values({
+            expect(
+                async () =>
+                    await insertRow(database, 'publisher_credentials', {
                         ...activeCredential,
                         id: 'revoked-with-secret',
                         state: 'revoked',
                         accessTokenNonce: Buffer.alloc(12, 2),
                     })
-                    .run()
             ).toThrow()
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
-    it('rejects incomplete and contradictory OAuth authorization attempts', () => {
-        const database = createDatabase(':memory:')
+    it('rejects incomplete and contradictory OAuth authorization attempts', async () => {
+        const database = (await openTestDatabase()).database
 
         try {
-            runMigrations(database)
-            const fixture = seedProject(database, 'oauth-attempt')
+            const fixture = await seedProject(database, 'oauth-attempt')
             const pendingAttempt = {
                 projectId: fixture.projectId,
                 channelId: fixture.channelId,
@@ -338,10 +316,9 @@ describe('domain schema', () => {
                 updatedAt: 1_800_000_000_000,
             }
 
-            expect(() =>
-                database
-                    .insert(oauthAuthorizationAttempts)
-                    .values({
+            expect(
+                async () =>
+                    await insertRow(database, 'oauth_authorization_attempts', {
                         ...pendingAttempt,
                         id: 'pending-without-pkce',
                         stateDigest: Buffer.alloc(32, 2),
@@ -350,75 +327,69 @@ describe('domain schema', () => {
                         pkceVerifierCiphertext: null,
                         pkceVerifierNonce: null,
                     })
-                    .run()
             ).not.toThrow()
 
-            expect(() =>
-                database
-                    .insert(oauthAuthorizationAttempts)
-                    .values({ ...pendingAttempt, id: 'missing-pkce-nonce' })
-                    .run()
+            expect(
+                async () =>
+                    await insertRow(database, 'oauth_authorization_attempts', {
+                        ...pendingAttempt,
+                        id: 'missing-pkce-nonce',
+                    })
             ).toThrow()
-            expect(() =>
-                database
-                    .insert(oauthAuthorizationAttempts)
-                    .values({
+            expect(
+                async () =>
+                    await insertRow(database, 'oauth_authorization_attempts', {
                         ...pendingAttempt,
                         id: 'invalid-state-digest',
                         stateDigest: Buffer.alloc(31, 1),
                         pkceVerifierNonce: Buffer.alloc(12, 3),
                     })
-                    .run()
             ).toThrow()
-            expect(() =>
-                database
-                    .insert(oauthAuthorizationAttempts)
-                    .values({
+            expect(
+                async () =>
+                    await insertRow(database, 'oauth_authorization_attempts', {
                         ...pendingAttempt,
                         id: 'consumed-with-verifier',
                         status: 'consumed',
                         completedAt: 1_800_000_000_001,
                         pkceVerifierNonce: Buffer.alloc(12, 3),
                     })
-                    .run()
             ).toThrow()
-            expect(() =>
-                database
-                    .insert(oauthAuthorizationAttempts)
-                    .values({
+            expect(
+                async () =>
+                    await insertRow(database, 'oauth_authorization_attempts', {
                         ...pendingAttempt,
                         id: 'external-return-path',
                         returnPath: '//attacker.example.com',
                         pkceVerifierNonce: Buffer.alloc(12, 3),
                     })
-                    .run()
             ).toThrow()
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
-    it('rejects job rows that contradict their lifecycle state', () => {
-        const database = createDatabase(':memory:')
+    it('rejects job rows that contradict their lifecycle state', async () => {
+        const database = (await openTestDatabase()).database
 
         try {
-            runMigrations(database)
-            const fixture = seedProject(database, 'jobs')
-            database
-                .insert(publications)
-                .values({
-                    id: 'ready-publication',
-                    projectId: fixture.projectId,
-                    postId: fixture.postId,
-                    channelId: fixture.channelId,
-                    targetRevisionId: null,
-                    deliveryMode: 'manual',
-                    reviewState: 'compatible',
-                    state: 'ready',
-                    createdByActorId: fixture.actorId,
-                    stateChangedByActorId: fixture.actorId,
-                })
-                .run()
+            const fixture = await seedProject(database, 'jobs')
+            await database.sql
+                .statement(
+                    'insert into "publications" ("id", "project_id", "post_id", "channel_id", "target_revision_id", "delivery_mode", "review_state", "state", "created_by_actor_id", "state_changed_by_actor_id") values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)'
+                )
+                .run(
+                    'ready-publication',
+                    fixture.projectId,
+                    fixture.postId,
+                    fixture.channelId,
+                    null,
+                    'manual',
+                    'compatible',
+                    'ready',
+                    fixture.actorId,
+                    fixture.actorId
+                )
 
             const baseJob = {
                 projectId: fixture.projectId,
@@ -426,55 +397,51 @@ describe('domain schema', () => {
                 runAt: 1_800_000_000_000,
             }
 
-            expect(() =>
-                database
-                    .insert(jobs)
-                    .values({
+            expect(
+                async () =>
+                    await insertRow(database, 'jobs', {
                         ...baseJob,
                         id: 'dirty-pending-job',
                         state: 'pending',
                         completedAt: 1_800_000_000_001,
                     })
-                    .run()
             ).toThrow()
 
-            expect(() =>
-                database
-                    .insert(jobs)
-                    .values({
+            expect(
+                async () =>
+                    await insertRow(database, 'jobs', {
                         ...baseJob,
                         id: 'unstarted-failed-job',
                         state: 'failed',
                         completedAt: 1_800_000_000_001,
                         errorMessage: 'Connection refused',
                     })
-                    .run()
             ).toThrow()
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
-    it('enforces media representation facts and upload intent lifecycle timestamps', () => {
-        const database = createDatabase(':memory:')
+    it('enforces media representation facts and upload intent lifecycle timestamps', async () => {
+        const database = (await openTestDatabase()).database
 
         try {
-            runMigrations(database)
-            const fixture = seedProject(database, 'media-state')
+            const fixture = await seedProject(database, 'media-state')
             const timestamp = 1_800_000_000_000
 
-            database
-                .insert(mediaAssets)
-                .values({
-                    id: 'media-asset-state',
-                    projectId: fixture.projectId,
-                    originalFilename: 'state.png',
-                    state: 'reserved',
-                    createdByActorId: fixture.actorId,
-                    createdAt: timestamp,
-                    updatedAt: timestamp,
-                })
-                .run()
+            await database.sql
+                .statement(
+                    'insert into "media_assets" ("id", "project_id", "original_filename", "state", "created_by_actor_id", "created_at", "updated_at") values (?1, ?2, ?3, ?4, ?5, ?6, ?7)'
+                )
+                .run(
+                    'media-asset-state',
+                    fixture.projectId,
+                    'state.png',
+                    'reserved',
+                    fixture.actorId,
+                    timestamp,
+                    timestamp
+                )
 
             const baseRepresentation = {
                 projectId: fixture.projectId,
@@ -487,21 +454,19 @@ describe('domain schema', () => {
                 updatedAt: timestamp,
             }
 
-            expect(() =>
-                database
-                    .insert(mediaRepresentations)
-                    .values({
+            expect(
+                async () =>
+                    await insertRow(database, 'media_representations', {
                         ...baseRepresentation,
                         id: 'media-representation-ready-without-facts',
                         state: 'ready',
                     })
-                    .run()
             ).toThrow()
 
-            database
-                .insert(mediaRepresentations)
-                .values({ ...baseRepresentation, id: 'media-representation-state' })
-                .run()
+            await insertRow(database, 'media_representations', {
+                ...baseRepresentation,
+                id: 'media-representation-state',
+            })
 
             const baseIntent = {
                 projectId: fixture.projectId,
@@ -515,56 +480,49 @@ describe('domain schema', () => {
                 updatedAt: timestamp,
             }
 
-            expect(() =>
-                database
-                    .insert(mediaUploadIntents)
-                    .values({
+            expect(
+                async () =>
+                    await insertRow(database, 'media_upload_intents', {
                         ...baseIntent,
                         id: 'media-intent-uploading-without-start',
                         state: 'uploading',
                     })
-                    .run()
             ).toThrow()
 
-            database
-                .insert(mediaUploadIntents)
-                .values({ ...baseIntent, id: 'media-intent-state', state: 'pending' })
-                .run()
+            await insertRow(database, 'media_upload_intents', {
+                ...baseIntent,
+                id: 'media-intent-state',
+                state: 'pending',
+            })
 
-            expect(() =>
-                database
-                    .update(mediaUploadIntents)
-                    .set({ state: 'uploaded' })
-                    .where(eq(mediaUploadIntents.id, 'media-intent-state'))
-                    .run()
-            ).toThrow()
+            await expect(
+                database.sql
+                    .statement(
+                        'update "media_upload_intents" set "state" = ?1 where "media_upload_intents"."id" = ?2'
+                    )
+                    .run('uploaded', 'media-intent-state')
+            ).rejects.toThrow()
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
-    it('commits scheduler indexes and leaves no foreign-key violations', () => {
-        const database = createDatabase(':memory:')
+    it('commits scheduler indexes and leaves no foreign-key violations', async () => {
+        const database = (await openTestDatabase()).database
 
         try {
-            runMigrations(database)
-            seedProject(database, 'integrity')
+            await seedProject(database, 'integrity')
 
-            const publicationIndexes = database.$client
-                .query<{ name: string }, []>('pragma index_list(publications)')
-                .all()
-                .map(index => index.name)
-            const jobIndexes = database.$client
-                .query<{ name: string }, []>('pragma index_list(jobs)')
-                .all()
-                .map(index => index.name)
+            const schema = await describeSchema(database)
+            const publicationIndexes = Object.keys(schema.tables.publications!.indexes)
+            const jobIndexes = Object.keys(schema.tables.jobs!.indexes)
 
             expect(publicationIndexes).toContain('publications_state_scheduled_at_idx')
             expect(jobIndexes).toContain('jobs_state_run_at_idx')
             expect(jobIndexes).toContain('jobs_state_lease_expires_at_idx')
-            expect(database.$client.query('pragma foreign_key_check').all()).toEqual([])
+            expect(await foreignKeyViolations(database)).toEqual([])
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 })

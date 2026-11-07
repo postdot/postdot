@@ -5,16 +5,13 @@ import { join } from 'node:path'
 
 import { ChannelProfileCompiler } from '@postdot/core'
 import {
-    createDatabase,
-    closeDatabase,
-    runMigrations,
     createManualStore,
     createMediaAssetStore,
     createPublisherCredentialCipher,
     createPublisherCredentialStore,
     createPublisherStore,
 } from '@postdot/db'
-import { publications } from '@postdot/db/schema'
+import { closeTestDatabase, openTestDatabase, type TestRow } from '@postdot/db/testing'
 import { seedTestWorkspace } from '@postdot/db/testing'
 import { createLocalMediaStore } from '@postdot/media'
 import {
@@ -47,8 +44,7 @@ for (const entry of scenarios) {
     const { outcome: scenario, media: mediaKind } = entry
     const poll = 'poll' in entry && entry.poll
     test(`Telegram worker persists ${poll ? 'poll' : (mediaKind ?? 'text')} ${scenario} without replaying completed work`, async () => {
-        const database = createDatabase(':memory:')
-        runMigrations(database)
+        const database = (await openTestDatabase()).database
         const now = 1_800_000_000_000
         let clock = now
         const rootDirectory = await mkdtemp(join(tmpdir(), 'postdot-telegram-worker-'))
@@ -81,18 +77,18 @@ for (const entry of scenarios) {
             now: () => now,
         })
         try {
-            const project = store.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const project = (await store.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'Telegram worker',
                 subjectId: 'operator',
                 displayName: 'Operator',
-            })!
-            const channel = store.createChannel({
+            }))!
+            const channel = (await store.createChannel({
                 projectId: project.project.id,
                 subjectId: 'operator',
                 name: 'Announcements',
                 profile: telegramChannelProfile,
-            })!
+            }))!
             const credential = await credentials.createPublisherCredential({
                 projectId: project.project.id,
                 connectedByActorId: project.actor.id,
@@ -103,14 +99,20 @@ for (const entry of scenarios) {
             })
             if (credential.kind !== 'created') throw new Error('Credential fixture failed')
             expect(
-                publishers.createPublisherConnection({
-                    projectId: project.project.id,
-                    channelId: channel.id,
-                    subjectId: 'operator',
-                    kind: 'telegram',
-                    credentialId: credential.credential.id,
-                    destination: { type: 'channel', id: '-1001234567890', name: 'Announcements' },
-                }).kind
+                (
+                    await publishers.createPublisherConnection({
+                        projectId: project.project.id,
+                        channelId: channel.id,
+                        subjectId: 'operator',
+                        kind: 'telegram',
+                        credentialId: credential.credential.id,
+                        destination: {
+                            type: 'channel',
+                            id: '-1001234567890',
+                            name: 'Announcements',
+                        },
+                    })
+                ).kind
             ).toBe('created')
             const bytes =
                 mediaKind === 'video'
@@ -139,13 +141,13 @@ for (const entry of scenarios) {
                               )
                           ).bytes()
                         : bytes
-                const reservation = media.reserveUpload({
+                const reservation = (await media.reserveUpload({
                     projectId: project.project.id,
                     subjectId: 'operator',
                     originalFilename: member === 'video' ? 'clip.mp4' : 'photo.png',
                     contentType: member === 'video' ? 'video/mp4' : 'image/png',
                     expectedSize: memberBytes.length,
-                })!
+                }))!
                 expect(reservation).not.toBeNull()
                 expect(
                     await media.upload({
@@ -164,7 +166,7 @@ for (const entry of scenarios) {
                 ).toMatchObject({ kind: 'ready' })
                 references.push({ assetId: reservation.asset.id })
             }
-            const post = store.createPost({
+            const post = await store.createPost({
                 projectId: project.project.id,
                 subjectId: 'operator',
                 sourceContent: {
@@ -276,8 +278,8 @@ for (const entry of scenarios) {
                 await worker.processDueEvents(now)
                 if (scenario === 'retry') {
                     expect(
-                        database.$client
-                            .query(
+                        await database.sql
+                            .statement(
                                 'select state, remote_media_id as remoteId from provider_media_deliveries'
                             )
                             .all()
@@ -286,9 +288,10 @@ for (const entry of scenarios) {
                     await worker.processDueEvents(clock)
                 }
                 expect(
-                    database
-                        .select({ state: publications.state, externalId: publications.externalId })
-                        .from(publications)
+                    await database.sql
+                        .statement<TestRow>(
+                            'select "publications"."state" as "state", "publications"."external_id" as "externalId" from "publications"'
+                        )
                         .all()
                 ).toEqual([
                     {
@@ -308,8 +311,8 @@ for (const entry of scenarios) {
                 ])
                 if (mediaKind) {
                     expect(
-                        database.$client
-                            .query(
+                        await database.sql
+                            .statement(
                                 'select state, remote_media_id as remoteId from provider_media_deliveries'
                             )
                             .all()
@@ -321,8 +324,8 @@ for (const entry of scenarios) {
                         }))
                     )
                     expect(
-                        database.$client
-                            .query(
+                        await database.sql
+                            .statement(
                                 'select count(*) as count from publication_execution_revision_media'
                             )
                             .get()
@@ -377,7 +380,7 @@ for (const entry of scenarios) {
                     }
                 }
 
-                const connection = publishers.listPublisherConnections(
+                const connection = await publishers.listPublisherConnections(
                     project.project.id,
                     'operator'
                 )
@@ -388,7 +391,7 @@ for (const entry of scenarios) {
                 await worker.stop()
             }
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
             await rm(rootDirectory, { recursive: true, force: true })
         }
     })

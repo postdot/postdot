@@ -33,7 +33,7 @@ export interface PublisherCredentialExecutionPort {
     getPublisherCredential?(
         projectId: string,
         credentialId: string
-    ): { readonly scopes: readonly string[] } | null
+    ): Promise<{ readonly scopes: readonly string[] } | null>
     resolvePublisherCredentialSecrets(
         projectId: string,
         credentialId: string
@@ -41,23 +41,26 @@ export interface PublisherCredentialExecutionPort {
     replacePublisherCredentialTokens(
         input: ReplacePublisherCredentialTokensInput
     ): Promise<ReplacePublisherCredentialTokensResult>
-    markPublisherCredentialReconnectRequired(projectId: string, credentialId: string): void
+    markPublisherCredentialReconnectRequired(
+        projectId: string,
+        credentialId: string
+    ): Promise<unknown>
 }
 
 export interface ProviderMediaDeliveryPort {
-    reserve(input: ReserveProviderMediaDeliveryInput): ProviderMediaDelivery
-    start(input: StartProviderMediaDeliveryInput): ProviderMediaDelivery | null
+    reserve(input: ReserveProviderMediaDeliveryInput): Promise<ProviderMediaDelivery>
+    start(input: StartProviderMediaDeliveryInput): Promise<ProviderMediaDelivery | null>
     recordRemoteMediaId(
         input: RecordProviderMediaDeliveryRemoteIdInput
-    ): ProviderMediaDelivery | null
-    complete(input: CompleteProviderMediaDeliveryInput): ProviderMediaDelivery | null
-    fail(input: FailProviderMediaDeliveryInput): ProviderMediaDelivery | null
-    retry(input: RetryProviderMediaDeliveryInput): ProviderMediaDelivery | null
+    ): Promise<ProviderMediaDelivery | null>
+    complete(input: CompleteProviderMediaDeliveryInput): Promise<ProviderMediaDelivery | null>
+    fail(input: FailProviderMediaDeliveryInput): Promise<ProviderMediaDelivery | null>
+    retry(input: RetryProviderMediaDeliveryInput): Promise<ProviderMediaDelivery | null>
 }
 
 export interface BuiltInProviderExecutionInput {
     readonly signal?: AbortSignal
-    readonly assertActive?: () => void
+    readonly assertActive?: () => Promise<void>
     readonly target: PublisherExecutionTarget
     readonly now: number
     readonly credentials: PublisherCredentialExecutionPort

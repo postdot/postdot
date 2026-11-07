@@ -12,11 +12,7 @@ import {
 } from '@postdot/core'
 
 import { createChannelCadenceStore } from '../channel-cadence'
-import {
-    createDatabaseTransaction,
-    recordDatabaseCommitProject,
-    type PostdotDatabase,
-} from '../client'
+import { defineTransaction, recordDatabaseCommitProject, type DatabaseHandle } from '../client'
 import type { PromotePublicationDraftInput } from '../manual-store'
 import {
     canonicalJson,
@@ -115,48 +111,64 @@ export interface PublicationPromotionDependencies {
     readonly now: () => number
     readonly createId: () => string
     readonly profileCompiler: ChannelProfileCompiler
-    readonly loadActor: (projectId: string, subjectId: string) => ActorRow | null
-    readonly loadPublication: (projectId: string, publicationId: string) => PublicationRow | null
-    readonly loadPostSource: (projectId: string, postId: string) => PostSourceRow | null
-    readonly loadChannel: (projectId: string, channelId: string) => PublicationChannelRow | null
-    readonly loadProfile: (projectId: string, profileId: string) => ProfileRow | null
-    readonly loadActiveJob: (projectId: string, publicationId: string) => ActiveJobRow | null
+    readonly loadActor: (projectId: string, subjectId: string) => Promise<ActorRow | null>
+    readonly loadPublication: (
+        projectId: string,
+        publicationId: string
+    ) => Promise<PublicationRow | null>
+    readonly loadPostSource: (projectId: string, postId: string) => Promise<PostSourceRow | null>
+    readonly loadChannel: (
+        projectId: string,
+        channelId: string
+    ) => Promise<PublicationChannelRow | null>
+    readonly loadProfile: (projectId: string, profileId: string) => Promise<ProfileRow | null>
+    readonly loadActiveJob: (
+        projectId: string,
+        publicationId: string
+    ) => Promise<ActiveJobRow | null>
     readonly assessActiveProfileMedia: (
         profile: ChannelProfileDefinition,
         content: Record<string, unknown>,
         projectId: string,
         subjectId: string
-    ) => readonly ValidationIssue[]
+    ) => Promise<readonly ValidationIssue[]>
     readonly resolveTargetMedia: (
         profile: ChannelProfileDefinition,
         content: Record<string, unknown>,
         projectId: string,
         subjectId: string
-    ) => readonly ResolvedTargetMedia[]
+    ) => Promise<readonly ResolvedTargetMedia[]>
     readonly updatePendingJob: (
         projectId: string,
         jobId: string,
         runAt: number,
         updatedAt: number
-    ) => boolean
-    readonly cancelPendingJob: (projectId: string, jobId: string, completedAt: number) => boolean
-    readonly insertTargetRevision: (input: TargetRevisionInsert) => void
-    readonly insertTargetRevisionMedia: (input: TargetRevisionMediaInsert) => void
-    readonly insertJob: (input: JobInsert) => void
-    readonly insertAuditEvent: (input: AuditEventInsert) => void
+    ) => Promise<boolean>
+    readonly cancelPendingJob: (
+        projectId: string,
+        jobId: string,
+        completedAt: number
+    ) => Promise<boolean>
+    readonly insertTargetRevision: (input: TargetRevisionInsert) => Promise<unknown>
+    readonly insertTargetRevisionMedia: (input: TargetRevisionMediaInsert) => Promise<unknown>
+    readonly insertJob: (input: JobInsert) => Promise<unknown>
+    readonly insertAuditEvent: (input: AuditEventInsert) => Promise<unknown>
 }
 
 export interface PublicationPromotionStoreOptions extends PublicationPromotionDependencies {
-    readonly loadWorkingDraft: (projectId: string, publicationId: string) => WorkingDraftRow | null
+    readonly loadWorkingDraft: (
+        projectId: string,
+        publicationId: string
+    ) => Promise<WorkingDraftRow | null>
 }
 
 export function createPublicationPromotionStore(
-    database: PostdotDatabase,
+    database: DatabaseHandle,
     options: PublicationPromotionStoreOptions
 ) {
     const cadence = createChannelCadenceStore(database)
-    const client = database.$client
-    const nextTargetRevisionSequenceStatement = client.query<
+    const sql = database.sql
+    const nextTargetRevisionSequenceStatement = sql.statement<
         { sequence: number | null },
         [projectId: string, publicationId: string]
     >(`
@@ -165,7 +177,7 @@ export function createPublicationPromotionStore(
         where project_id = ?1
           and publication_id = ?2
     `)
-    const loadPendingApprovalRequestStatement = client.query<
+    const loadPendingApprovalRequestStatement = sql.statement<
         PendingApprovalRequestRow,
         [projectId: string, publicationId: string]
     >(`
@@ -179,7 +191,7 @@ export function createPublicationPromotionStore(
           and state = 'pending'
         limit 1
     `)
-    const loadApprovalTargetRevisionStatement = client.query<
+    const loadApprovalTargetRevisionStatement = sql.statement<
         ApprovalTargetRevisionRow,
         [projectId: string, publicationId: string, targetRevisionId: string]
     >(`
@@ -196,7 +208,7 @@ export function createPublicationPromotionStore(
           and publication_id = ?2
           and id = ?3
     `)
-    const approveRequestStatement = client.query<
+    const approveRequestStatement = sql.statement<
         { changes: number },
         [
             scheduledAt: number,
@@ -223,7 +235,7 @@ export function createPublicationPromotionStore(
           and draft_revision = ?9
         and state = 'pending'
     `)
-    const insertApprovalRequestStatement = client.query<
+    const insertApprovalRequestStatement = sql.statement<
         void,
         [
             id: string,
@@ -249,7 +261,7 @@ export function createPublicationPromotionStore(
             updated_at
         ) values (?1, ?2, ?3, ?4, ?5, ?6, 'pending', ?7, ?8, ?8)
     `)
-    const promotePublicationStatement = client.query<
+    const promotePublicationStatement = sql.statement<
         { changes: number },
         [
             targetRevisionId: string,
@@ -298,12 +310,15 @@ export function createPublicationPromotionStore(
         )
     }
 
-    const promotePublicationDraftTransaction = createDatabaseTransaction(
+    const promotePublicationDraftTransaction = defineTransaction(
         database,
-        (input: PromotePublicationDraftInput): Publication | null => {
-            const actorRow = options.loadActor(input.projectId, input.subjectId)
-            const publicationRow = options.loadPublication(input.projectId, input.publicationId)
-            const draftRow = options.loadWorkingDraft(input.projectId, input.publicationId)
+        async (input: PromotePublicationDraftInput): Promise<Publication | null> => {
+            const actorRow = await options.loadActor(input.projectId, input.subjectId)
+            const publicationRow = await options.loadPublication(
+                input.projectId,
+                input.publicationId
+            )
+            const draftRow = await options.loadWorkingDraft(input.projectId, input.publicationId)
             if (actorRow === null || publicationRow === null || draftRow === null) return null
             if (input.expectedRevision !== draftRow.revision) {
                 throw new DomainInvariantError(
@@ -311,7 +326,7 @@ export function createPublicationPromotionStore(
                     `Publication draft ${input.publicationId} changed after revision ${input.expectedRevision}`
                 )
             }
-            const pendingApprovalRequest = loadPendingApprovalRequestStatement.get(
+            const pendingApprovalRequest = await loadPendingApprovalRequestStatement.get(
                 input.projectId,
                 input.publicationId
             )
@@ -363,7 +378,7 @@ export function createPublicationPromotionStore(
                 )
             }
 
-            const postRow = options.loadPostSource(input.projectId, publicationRow.postId)
+            const postRow = await options.loadPostSource(input.projectId, publicationRow.postId)
             if (postRow === null) {
                 throw new DomainInvariantError(
                     'invalid_input',
@@ -377,8 +392,8 @@ export function createPublicationPromotionStore(
                 )
             }
 
-            const profileRow = options.loadProfile(input.projectId, draftRow.profileVersionId)
-            const channelRow = options.loadChannel(input.projectId, publicationRow.channelId)
+            const profileRow = await options.loadProfile(input.projectId, draftRow.profileVersionId)
+            const channelRow = await options.loadChannel(input.projectId, publicationRow.channelId)
             if (
                 channelRow === null ||
                 profileRow === null ||
@@ -389,7 +404,7 @@ export function createPublicationPromotionStore(
             const activeProfileRow =
                 draftRow.profileVersionId === channelRow.profileVersionId
                     ? profileRow
-                    : options.loadProfile(input.projectId, channelRow.profileVersionId)
+                    : await options.loadProfile(input.projectId, channelRow.profileVersionId)
             if (activeProfileRow === null || activeProfileRow.channelId !== channelRow.id) {
                 throw new DomainInvariantError('invalid_input', 'Profile unavailable')
             }
@@ -415,12 +430,12 @@ export function createPublicationPromotionStore(
                 const activeValidation = activeProfileResult.value.validate(content)
                 const activeIssues: ValidationIssue[] = [
                     ...(activeValidation.ok ? [] : activeValidation.issues),
-                    ...options.assessActiveProfileMedia(
+                    ...(await options.assessActiveProfileMedia(
                         activeProfile,
                         content,
                         input.projectId,
                         input.subjectId
-                    ),
+                    )),
                 ]
                 if (
                     publicationRow.deliveryMode === 'automatic' &&
@@ -444,7 +459,7 @@ export function createPublicationPromotionStore(
                     )
                 }
             }
-            const targetMedia = options.resolveTargetMedia(
+            const targetMedia = await options.resolveTargetMedia(
                 profileResult.value.profile,
                 content,
                 input.projectId,
@@ -453,7 +468,7 @@ export function createPublicationPromotionStore(
 
             const timestamp = requireTimestamp(options.now(), 'now')
             const contentJson = canonicalJson(content)
-            const activeJob = options.loadActiveJob(input.projectId, input.publicationId)
+            const activeJob = await options.loadActiveJob(input.projectId, input.publicationId)
             if (activeJob?.state === 'running') {
                 throw new DomainInvariantError(
                     'invalid_transition',
@@ -498,7 +513,7 @@ export function createPublicationPromotionStore(
             const approvalTargetRevision =
                 pendingApprovalRequest === null
                     ? null
-                    : loadApprovalTargetRevisionStatement.get(
+                    : await loadApprovalTargetRevisionStatement.get(
                           input.projectId,
                           input.publicationId,
                           pendingApprovalRequest.targetRevisionId
@@ -520,7 +535,7 @@ export function createPublicationPromotionStore(
                     'The publication content no longer matches the revision requested for approval'
                 )
             }
-            cadence.check({
+            await cadence.check({
                 projectId: input.projectId,
                 actorId: actorRow.id,
                 now: timestamp,
@@ -537,10 +552,14 @@ export function createPublicationPromotionStore(
             const targetRevisionId = pendingApprovalRequest?.targetRevisionId ?? options.createId()
             const sequence =
                 approvalTargetRevision?.sequence ??
-                (nextTargetRevisionSequenceStatement.get(input.projectId, input.publicationId)
-                    ?.sequence ?? 0) + 1
+                ((
+                    await nextTargetRevisionSequenceStatement.get(
+                        input.projectId,
+                        input.publicationId
+                    )
+                )?.sequence ?? 0) + 1
             if (approvalTargetRevision === null) {
-                options.insertTargetRevision({
+                await options.insertTargetRevision({
                     id: targetRevisionId,
                     projectId: input.projectId,
                     publicationId: input.publicationId,
@@ -558,7 +577,7 @@ export function createPublicationPromotionStore(
                     createdAt: timestamp,
                 })
                 for (const [position, mediaReference] of targetMedia.entries()) {
-                    options.insertTargetRevisionMedia({
+                    await options.insertTargetRevisionMedia({
                         id: options.createId(),
                         projectId: input.projectId,
                         targetRevisionId,
@@ -573,7 +592,7 @@ export function createPublicationPromotionStore(
                 }
             }
 
-            const promoted = promotePublicationStatement.run(
+            const promoted = await promotePublicationStatement.run(
                 targetRevisionId,
                 nextState,
                 scheduledAt,
@@ -593,12 +612,12 @@ export function createPublicationPromotionStore(
             if (nextState === 'scheduled' && publicationRow.deliveryMode === 'automatic') {
                 if (activeJob !== null) {
                     if (
-                        !options.updatePendingJob(
+                        !(await options.updatePendingJob(
                             input.projectId,
                             activeJob.id,
                             scheduledAt as number,
                             timestamp
-                        )
+                        ))
                     ) {
                         throw new DomainInvariantError(
                             'claim_mismatch',
@@ -620,7 +639,7 @@ export function createPublicationPromotionStore(
                         runAt: scheduledAt as number,
                         now: timestamp,
                     })
-                    options.insertJob({
+                    await options.insertJob({
                         id: job.id,
                         projectId: job.projectId,
                         publicationId: job.publicationId,
@@ -629,7 +648,7 @@ export function createPublicationPromotionStore(
                     })
                 }
             } else if (activeJob !== null) {
-                if (!options.cancelPendingJob(input.projectId, activeJob.id, timestamp)) {
+                if (!(await options.cancelPendingJob(input.projectId, activeJob.id, timestamp))) {
                     throw new DomainInvariantError(
                         'claim_mismatch',
                         `Could not cancel job ${activeJob.id}`
@@ -638,7 +657,7 @@ export function createPublicationPromotionStore(
             }
 
             if (pendingApprovalRequest !== null) {
-                const approved = approveRequestStatement.run(
+                const approved = await approveRequestStatement.run(
                     scheduledAt as number,
                     actorRow.id,
                     timestamp,
@@ -655,7 +674,7 @@ export function createPublicationPromotionStore(
                         `Could not approve publication request ${pendingApprovalRequest.id}`
                     )
                 }
-                options.insertAuditEvent({
+                await options.insertAuditEvent({
                     id: options.createId(),
                     projectId: input.projectId,
                     actorId: actorRow.id,
@@ -673,7 +692,7 @@ export function createPublicationPromotionStore(
             }
 
             if (approvalProposal !== undefined && proposedScheduledAt !== null) {
-                insertApprovalRequestStatement.run(
+                await insertApprovalRequestStatement.run(
                     requireNonBlank(approvalProposal.id, 'approval request id'),
                     input.projectId,
                     input.publicationId,
@@ -684,7 +703,7 @@ export function createPublicationPromotionStore(
                     timestamp
                 )
                 recordDatabaseCommitProject(database, input.projectId)
-                options.insertAuditEvent({
+                await options.insertAuditEvent({
                     id: options.createId(),
                     projectId: input.projectId,
                     actorId: actorRow.id,
@@ -700,7 +719,7 @@ export function createPublicationPromotionStore(
                 })
             }
 
-            options.insertAuditEvent({
+            await options.insertAuditEvent({
                 id: options.createId(),
                 projectId: input.projectId,
                 actorId: actorRow.id,
@@ -719,13 +738,15 @@ export function createPublicationPromotionStore(
                 }),
                 createdAt: timestamp,
             })
-            const updated = options.loadPublication(input.projectId, input.publicationId)
+            const updated = await options.loadPublication(input.projectId, input.publicationId)
             return updated === null ? null : toPublication(updated)
         }
     )
 
     return {
-        promotePublicationDraft(input: PromotePublicationDraftInput): Publication | null {
+        async promotePublicationDraft(
+            input: PromotePublicationDraftInput
+        ): Promise<Publication | null> {
             return promotePublicationDraftTransaction.immediate({
                 ...input,
                 projectId: requireNonBlank(input.projectId, 'projectId'),

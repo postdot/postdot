@@ -169,7 +169,7 @@ for (const provider of ['bluesky', 'mastodon'] as const)
         await expect(panel.getByText('@reader.test', { exact: true })).toBeVisible()
         expect(refreshes).toBe(2)
         await page.setViewportSize({ width: 390, height: 844 })
-        await page.getByRole('button', { name: 'Switch language to French', exact: true }).click()
+        await page.getByRole('button', { name: 'Language', exact: true }).click()
         await page.getByRole('menuitem', { name: 'French', exact: true }).click()
         await expect(panel.getByRole('alert')).toHaveText(
             frenchTranslation('comments_refresh_failed_saved')

@@ -3,7 +3,7 @@ import { runMigrations } from './migrations'
 
 const database = createDatabase(process.env.DB_FILE_NAME ?? '../../postdot.sqlite')
 
-runMigrations(database)
+await runMigrations(database)
 closeDatabase(database)
 
 console.log('Database migrations applied.')

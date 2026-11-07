@@ -1,5 +1,6 @@
 import type { ResourceLifecycleStore } from '@postdot/db'
 import type { AccessStore } from '@postdot/db'
+import { filterSequential } from '@postdot/db'
 import { Type } from 'typebox'
 
 import { sessionSecurity } from '../../plugins/auth'
@@ -36,19 +37,21 @@ export function registerProjectRoutes<const Routes extends Record<string, unknow
                     tags: ['Projects'],
                 },
             },
-            ({ apiKeyProjectIds, user, query }) => {
+            async ({ apiKeyProjectIds, user, query }) => {
                 const isAllowedByApiKeyScope = (projectId: string) =>
                     apiKeyProjectIds === undefined ||
                     apiKeyProjectIds === null ||
                     apiKeyProjectIds.includes(projectId)
-                const actorProjects = manualStore
-                    .listProjects(user.id)
-                    .filter(project => isAllowedByApiKeyScope(project.id))
+                const actorProjects = (await manualStore.listProjects(user.id)).filter(project =>
+                    isAllowedByApiKeyScope(project.id)
+                )
 
                 const projectsById = new Map(actorProjects.map(project => [project.id, project]))
-                for (const workspace of access.listWorkspacesForUser(user.id)) {
+                for (const workspace of await access.listWorkspacesForUser(user.id)) {
                     if (workspace.role !== 'owner' && workspace.role !== 'admin') continue
-                    for (const project of manualStore.listProjectsForWorkspace(workspace.id)) {
+                    for (const project of await manualStore.listProjectsForWorkspace(
+                        workspace.id
+                    )) {
                         if (isAllowedByApiKeyScope(project.id)) {
                             projectsById.set(project.id, project)
                         }
@@ -56,18 +59,18 @@ export function registerProjectRoutes<const Routes extends Record<string, unknow
                 }
 
                 return {
-                    projects: [...projectsById.values()].filter(project => {
+                    projects: await filterSequential([...projectsById.values()], async project => {
                         if (
                             !query.includeArchived &&
-                            lifecycle.projectState(project.id) !== 'active'
+                            (await lifecycle.projectState(project.id)) !== 'active'
                         )
                             return false
-                        const workspaceId = access.getProjectWorkspaceId(project.id)
+                        const workspaceId = await access.getProjectWorkspaceId(project.id)
                         return (
                             workspaceId !== null &&
-                            (access.canAccessProject(project.id, user.id) ||
+                            ((await access.canAccessProject(project.id, user.id)) ||
                                 (workspaceId !== null &&
-                                    access.canManageWorkspace(workspaceId, user.id)))
+                                    (await access.canManageWorkspace(workspaceId, user.id))))
                         )
                     }),
                 }
@@ -104,12 +107,12 @@ export function registerProjectRoutes<const Routes extends Record<string, unknow
 
                 const workspace =
                     body.workspaceId === undefined
-                        ? access.getDefaultWorkspaceForUser(user.id)
-                        : access.getWorkspace(body.workspaceId)
+                        ? await access.getDefaultWorkspaceForUser(user.id)
+                        : await access.getWorkspace(body.workspaceId)
                 if (
                     workspace === null ||
-                    lifecycle.state('workspace', workspace.id) !== 'active' ||
-                    !access.canManageWorkspace(workspace.id, user.id)
+                    (await lifecycle.state('workspace', workspace.id)) !== 'active' ||
+                    !(await access.canManageWorkspace(workspace.id, user.id))
                 ) {
                     return status(403, {
                         error: {
@@ -120,14 +123,14 @@ export function registerProjectRoutes<const Routes extends Record<string, unknow
                     })
                 }
 
-                const created = manualStore.createProject({
+                const created = await manualStore.createProject({
                     name: body.name,
                     subjectId: user.id,
                     displayName: user.name,
                     workspaceId: workspace.id,
                     timeZone: body.timeZone,
                 })
-                const ownerMembership = access.ensureProjectOwnerMembership({
+                const ownerMembership = await access.ensureProjectOwnerMembership({
                     projectId: created.project.id,
                     userId: user.id,
                 })
@@ -158,7 +161,7 @@ export function registerProjectRoutes<const Routes extends Record<string, unknow
                     security: sessionSecurity,
                 },
             },
-            ({ authMethod, body, params, status, user }) => {
+            async ({ authMethod, body, params, status, user }) => {
                 if (authMethod !== 'session') {
                     return status(403, {
                         error: {
@@ -168,7 +171,7 @@ export function registerProjectRoutes<const Routes extends Record<string, unknow
                     })
                 }
 
-                if (!access.canAccessProject(params.projectId, user.id, 'editor')) {
+                if (!(await access.canAccessProject(params.projectId, user.id, 'editor'))) {
                     return status(403, {
                         error: {
                             code: 'forbidden',
@@ -178,7 +181,7 @@ export function registerProjectRoutes<const Routes extends Record<string, unknow
                     })
                 }
 
-                const project = manualStore.updateProjectTimeZone({
+                const project = await manualStore.updateProjectTimeZone({
                     projectId: params.projectId,
                     subjectId: user.id,
                     timeZone: body.timeZone,

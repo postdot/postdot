@@ -9,11 +9,7 @@ import {
     type ValidationIssue,
 } from '@postdot/core'
 
-import {
-    createDatabaseTransaction,
-    recordDatabaseCommitProject,
-    type PostdotDatabase,
-} from '../client'
+import { defineTransaction, recordDatabaseCommitProject, type DatabaseHandle } from '../client'
 import type { CreatePostInput, CreatedPost, PublicationEditorState } from '../manual-store'
 import { publicationHasAttempt, readPublicationMovement } from '../publication-move-state'
 import { invalidProfileError, parseProfile } from './content-codec'
@@ -34,7 +30,7 @@ export interface MovePublicationInput {
     cadenceConfirmation?: string
 }
 export function createPublicationMoveStore(
-    database: PostdotDatabase,
+    database: DatabaseHandle,
     options: {
         now: () => number
         createId: () => string
@@ -43,26 +39,30 @@ export function createPublicationMoveStore(
             projectId: string,
             publicationId: string,
             subjectId: string
-        ) => PublicationEditorState | null
-        loadChannel: (projectId: string, channelId: string) => PublicationChannelRow | null
-        loadProfile: (projectId: string, profileId: string) => ProfileRow | null
+        ) => Promise<PublicationEditorState | null>
+        loadChannel: (projectId: string, channelId: string) => Promise<PublicationChannelRow | null>
+        loadProfile: (projectId: string, profileId: string) => Promise<ProfileRow | null>
         assessMedia: (
             profile: ChannelProfileDefinition,
             content: unknown,
             projectId: string,
             subjectId: string
-        ) => readonly ValidationIssue[]
-        createForPost: (input: CreatePostInput, post: Post) => CreatedPost | null
+        ) => Promise<readonly ValidationIssue[]>
+        createForPost: (input: CreatePostInput, post: Post) => Promise<CreatedPost | null>
     }
 ) {
-    const client = database.$client
-    const move = createDatabaseTransaction(database, (input: MovePublicationInput) => {
-        const current = options.getEditor(input.projectId, input.publicationId, input.subjectId)
+    const sql = database.sql
+    const move = defineTransaction(database, async (input: MovePublicationInput) => {
+        const current = await options.getEditor(
+            input.projectId,
+            input.publicationId,
+            input.subjectId
+        )
         if (!current) return null
         const { publication, post, draft } = current
         const now = requireTimestamp(options.now(), 'now')
-        const actor = client
-            .query<{ id: string }, [string, string]>(
+        const actor = await sql
+            .statement<{ id: string }, [string, string]>(
                 "select id from actors where project_id=? and subject_id=? and kind in ('human','agent','api_token') order by created_at,id limit 1"
             )
             .get(input.projectId, input.subjectId)
@@ -82,7 +82,7 @@ export function createPublicationMoveStore(
         if (
             !['draft', 'scheduled', 'ready'].includes(publication.state) ||
             (publication.scheduledAt !== null && publication.scheduledAt <= now) ||
-            publicationHasAttempt(database, input.projectId, publication.id)
+            (await publicationHasAttempt(database, input.projectId, publication.id))
         )
             throw new DomainInvariantError(
                 'invalid_transition',
@@ -93,9 +93,9 @@ export function createPublicationMoveStore(
                 'invalid_input',
                 'Choose a different destination channel'
             )
-        const target = options.loadChannel(input.projectId, input.targetChannelId)
-        const usable = client
-            .query(`select 1 from channels c join projects p on p.workspace_id=c.workspace_id
+        const target = await options.loadChannel(input.projectId, input.targetChannelId)
+        const usable = await sql
+            .statement(`select 1 from channels c join projects p on p.workspace_id=c.workspace_id
             join project_channel_attachments a on a.project_id=p.id and a.channel_id=c.id
             where p.id=? and c.id=? and c.state='active' and a.state='active'
             and not exists(select 1 from resource_lifecycles l where l.state<>'active' and
@@ -107,45 +107,47 @@ export function createPublicationMoveStore(
                 'write_conflict',
                 'The destination profile changed; reload it before moving'
             )
-        const profile = options.loadProfile(input.projectId, target.profileVersionId)
+        const profile = await options.loadProfile(input.projectId, target.profileVersionId)
         if (!profile || profile.channelId !== target.id) return null
         const compiled = options.profileCompiler.compile(parseProfile(profile.profileJson))
         if (!compiled.ok) throw invalidProfileError(compiled.issues)
         const validation = compiled.value.validate(draft.content)
-        const mediaIssues = options.assessMedia(
+        const mediaIssues = await options.assessMedia(
             compiled.value.profile,
             draft.content,
             input.projectId,
             input.subjectId
         )
         const compatible = validation.ok && !mediaIssues.some(issue => issue.severity === 'error')
-        const inherited = readPublicationMovement(database, publication, now).requestedScheduledAt
+        const inherited = (await readPublicationMovement(database, publication, now))
+            .requestedScheduledAt
         const requestedScheduledAt = publication.scheduledAt ?? inherited
-        client
-            .query(
+        await sql
+            .statement(
                 "update publications set state='cancelled',error_message=null,state_changed_by_actor_id=?,updated_at=? where project_id=? and id=?"
             )
             .run(actor.id, now, input.projectId, publication.id)
-        client
-            .query(
+        await sql
+            .statement(
                 "update jobs set state='cancelled',completed_at=?,updated_at=? where project_id=? and publication_id=? and state='pending'"
             )
             .run(now, now, input.projectId, publication.id)
-        client
-            .query('delete from publication_cadence_overrides where publication_id=?')
+        await sql
+            .statement('delete from publication_cadence_overrides where publication_id=?')
             .run(publication.id)
-        client
-            .query(
+        await sql
+            .statement(
                 "update publication_approval_requests set state='superseded',decided_by_actor_id=?,decided_at=?,updated_at=? where project_id=? and publication_id=? and state='pending'"
             )
             .run(actor.id, now, now, input.projectId, publication.id)
-        const tags = client
-            .query<{ id: string }, [string, string]>(
-                `select t.id from publication_tags a join project_tags t on t.project_id=a.project_id and t.id=a.tag_id where a.project_id=? and a.publication_id=? and t.state='active' order by t.id`
-            )
-            .all(input.projectId, publication.id)
-            .map(tag => tag.id)
-        const created = options.createForPost(
+        const tags = (
+            await sql
+                .statement<{ id: string }, [string, string]>(
+                    `select t.id from publication_tags a join project_tags t on t.project_id=a.project_id and t.id=a.tag_id where a.project_id=? and a.publication_id=? and t.state='active' order by t.id`
+                )
+                .all(input.projectId, publication.id)
+        ).map(tag => tag.id)
+        const created = await options.createForPost(
             {
                 projectId: input.projectId,
                 subjectId: input.subjectId,
@@ -166,8 +168,8 @@ export function createPublicationMoveStore(
         if (!created)
             throw new DomainInvariantError('invalid_transition', 'The destination is unavailable')
         const next = created.publications[0]!
-        client
-            .query(
+        await sql
+            .statement(
                 `insert into publication_moves(project_id,source_publication_id,destination_publication_id,requested_scheduled_at,created_by_actor_id,created_at) values (?,?,?,?,?,?)`
             )
             .run(input.projectId, publication.id, next.id, requestedScheduledAt, actor.id, now)
@@ -175,8 +177,8 @@ export function createPublicationMoveStore(
             [publication.id, 'publication.moved'],
             [next.id, 'publication.created_by_move'],
         ] as const)
-            client
-                .query(
+            await sql
+                .statement(
                     `insert into audit_events(id,project_id,actor_id,action,entity_type,entity_id,metadata_json,created_at) values (?,?,?,?,'publication',?,?,?)`
                 )
                 .run(
@@ -197,7 +199,7 @@ export function createPublicationMoveStore(
                     now
                 )
         recordDatabaseCommitProject(database, input.projectId)
-        return options.getEditor(input.projectId, next.id, input.subjectId)!
+        return (await options.getEditor(input.projectId, next.id, input.subjectId))!
     })
     return {
         movePublication(input: MovePublicationInput) {

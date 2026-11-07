@@ -1,13 +1,7 @@
 import { expect, it } from 'bun:test'
 
-import {
-    closeDatabase,
-    createDatabase,
-    createManualStore,
-    runMigrations,
-    type PublisherExecutionTarget,
-} from '@postdot/db'
-import { seedTestWorkspace } from '@postdot/db/testing'
+import { createManualStore, type PublisherExecutionTarget } from '@postdot/db'
+import { closeTestDatabase, openTestDatabase, seedTestWorkspace } from '@postdot/db/testing'
 import { mastodonChannelProfile } from '@postdot/mastodon'
 
 import { createPublisherRuntime } from '../../modules/publishers/runtime'
@@ -15,13 +9,12 @@ import { prepareMastodonReplyAccount } from './reply'
 import { createMastodonProviderAdapter } from './worker'
 
 it('shares one renewal between publication and reply preparation and ignores stale target expiry', async () => {
-    const database = createDatabase(':memory:')
-    runMigrations(database)
+    const database = (await openTestDatabase()).database
     const now = Date.now()
     let clock = now
     try {
-        const project = createManualStore(database).createProject({
-            workspaceId: seedTestWorkspace(database),
+        const project = await createManualStore(database).createProject({
+            workspaceId: await seedTestWorkspace(database),
             name: 'Refresh fixture',
             subjectId: 'owner',
             displayName: 'Owner',
@@ -122,14 +115,14 @@ it('shares one renewal between publication and reply preparation and ignores sta
             },
         })
         const deliveries = {
-            reserve: () => {
+            reserve: async () => {
                 throw new Error('No media expected')
             },
-            start: () => null,
-            recordRemoteMediaId: () => null,
-            complete: () => null,
-            fail: () => null,
-            retry: () => null,
+            start: async () => null,
+            recordRemoteMediaId: async () => null,
+            complete: async () => null,
+            fail: async () => null,
+            retry: async () => null,
         }
         const first = adapter.execute({
             target,
@@ -193,9 +186,11 @@ it('shares one renewal between publication and reply preparation and ignores sta
             ).type
         ).toBe('permanent_failure')
         expect(
-            publisher.credentialStore.getPublisherCredential(
-                project.project.id,
-                created.credential.id
+            (
+                await publisher.credentialStore.getPublisherCredential(
+                    project.project.id,
+                    created.credential.id
+                )
             )?.state
         ).toBe('active')
         expect(
@@ -207,6 +202,6 @@ it('shares one renewal between publication and reply preparation and ignores sta
             )?.accessToken
         ).toBe('new-owner-grant')
     } finally {
-        closeDatabase(database)
+        await closeTestDatabase(database)
     }
 })

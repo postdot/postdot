@@ -4,24 +4,20 @@ import { createHash } from 'node:crypto'
 import { createAuth } from '@postdot/auth'
 import type { ChannelProfileDefinition } from '@postdot/core'
 import {
-    closeDatabase,
     createInstallationEmailSettingsStore,
     createSecretCipher,
     createAccessStore,
-    createDatabase,
     createEventJournalStore,
     createNotificationStore,
     createNotificationEmailStore,
-    runMigrations,
 } from '@postdot/db'
-import { publications, publisherCredentials, user as authUser } from '@postdot/db/schema'
+import { closeTestDatabase, fromDbRow, openTestDatabase, type TestRow } from '@postdot/db/testing'
 import {
     createLinkedInMemberProfileClient,
     createLinkedInOrganizationClient,
 } from '@postdot/linkedin'
 import type { OAuthAuthorizationServer } from '@postdot/oauth'
 import type { Registry } from '@prometheus-io/client'
-import { eq } from 'drizzle-orm'
 
 import { createApp } from './app'
 import { createEmailSettingsService, type EmailSettingsService } from './modules/email/settings'
@@ -122,7 +118,7 @@ type OpenApiOperation = {
     readonly security?: readonly Record<string, readonly string[]>[]
 }
 
-function createFixture(
+async function createFixture(
     options: {
         readonly recovery?: RecoveryService
         readonly emailSettings?: EmailSettingsService
@@ -139,8 +135,7 @@ function createFixture(
         readonly allowAdditionalSignups?: boolean
     } = {}
 ) {
-    const database = createDatabase(':memory:')
-    runMigrations(database)
+    const database = (await openTestDatabase()).database
     const publisher = createPublisherRuntime(database, {
         apiOrigin: options.apiOrigin ?? baseURL,
         webOrigin: options.webOrigin ?? 'http://localhost:5173',
@@ -263,7 +258,7 @@ async function readStreamChunk(response: Response) {
 
 describe('Postdot API', () => {
     it('applies source copy only with the reviewed source and draft revisions', async () => {
-        const { app, database } = createFixture()
+        const { app, database } = await createFixture()
         try {
             const cookie = await signUp(app)
             const request = (path: string, body: unknown, method = 'POST') =>
@@ -326,12 +321,12 @@ describe('Postdot API', () => {
                 ).status
             ).toBe(409)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('returns safe profile field issues for malformed drafts without changing saved state', async () => {
-        const { app, database } = createFixture()
+        const { app, database } = await createFixture()
         try {
             const cookie = await signUp(app)
             const projectResponse = await jsonRequest(app, '/api/projects', cookie, {
@@ -419,12 +414,12 @@ describe('Postdot API', () => {
             expect(conflictBody.error.code).toBe('write_conflict')
             expect(conflictBody.error.issues).toBeUndefined()
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('derives creation fingerprints and returns structured definition feedback', async () => {
-        const { app, database } = createFixture()
+        const { app, database } = await createFixture()
         try {
             const cookie = await signUp(app)
             const projectResponse = await jsonRequest(app, '/api/projects', cookie, {
@@ -578,7 +573,7 @@ describe('Postdot API', () => {
             expect(builtin.status).toBe(201)
             expect(await listCount()).toBe(5)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
@@ -587,7 +582,7 @@ describe('Postdot API', () => {
         metrics.bindScheduler({ state: 'running' })
         metrics.observeWorkerRun({ outcome: 'success', durationSeconds: 0.25 })
         const bearerToken = 'postdot-test-monitoring-token-with-more-than-32-characters'
-        const { app, database } = createFixture({
+        const { app, database } = await createFixture({
             metrics: { registry: metrics.registry, bearerToken },
         })
         const server = Bun.serve({
@@ -651,23 +646,23 @@ describe('Postdot API', () => {
             })
         } finally {
             await server.stop(true)
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('does not expose the metrics route when monitoring is disabled', async () => {
-        const { app, database } = createFixture()
+        const { app, database } = await createFixture()
 
         try {
             const response = await app.handle(new Request(`${baseURL}/metrics`))
             expect(response.status).toBe(404)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('reports health publicly and mounts Better Auth', async () => {
-        const { app, database } = createFixture()
+        const { app, database } = await createFixture()
 
         try {
             const healthResponse = await app.handle(new Request(`${baseURL}/health`))
@@ -689,12 +684,12 @@ describe('Postdot API', () => {
             expect(authResponse.status).toBe(200)
             expect(await authResponse.json()).toEqual({ ok: true })
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('preserves Better Auth session cookies through the Elysia mount', async () => {
-        const { app, database } = createFixture()
+        const { app, database } = await createFixture()
         const email = 'elysia-auth-mount@postdot.local'
 
         try {
@@ -708,13 +703,13 @@ describe('Postdot API', () => {
             expect(response.status).toBe(200)
             expect(await response.json()).toMatchObject({ user: { email } })
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     for (const providerId of ['linkedin', 'instagram'] as const) {
         it(`${providerId}: manages runtime provider applications without exposing client secrets`, async () => {
-            const { app, database } = createFixture()
+            const { app, database } = await createFixture()
             const clientSecret = `${providerId}-client-secret`
 
             try {
@@ -782,13 +777,13 @@ describe('Postdot API', () => {
                     },
                 })
             } finally {
-                closeDatabase(database)
+                await closeTestDatabase(database)
             }
         })
     }
 
     it('lists provider-owned channel profile presets for authenticated clients', async () => {
-        const { app, database } = createFixture()
+        const { app, database } = await createFixture()
 
         try {
             const unauthenticatedResponse = await app.handle(
@@ -831,12 +826,12 @@ describe('Postdot API', () => {
                 })
             }
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('accepts a local Bluesky application without exposing public metadata', async () => {
-        const { app, database } = createFixture({
+        const { app, database } = await createFixture({
             apiOrigin: 'http://127.0.0.1:3000',
             webOrigin: 'http://127.0.0.1:5173',
         })
@@ -870,12 +865,12 @@ describe('Postdot API', () => {
             )
             expect(metadataResponse.status).toBe(404)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('uses a persisted provider application immediately for OAuth initiation', async () => {
-        const { app, database } = createFixture()
+        const { app, database } = await createFixture()
 
         try {
             const cookie = await signUp(app, 'runtime-oauth@postdot.local')
@@ -951,8 +946,8 @@ describe('Postdot API', () => {
                 'secondary-linkedin-client-id'
             )
 
-            const attempt = database.$client
-                .query<{ providerApplicationId: string | null }, []>(
+            const attempt = await database.sql
+                .statement<{ providerApplicationId: string | null }, []>(
                     `select provider_application_id as providerApplicationId
                      from oauth_authorization_attempts`
                 )
@@ -960,12 +955,12 @@ describe('Postdot API', () => {
             expect(attempt?.providerApplicationId).toBe(secondaryApplicationBody.application.id)
             expect(attempt?.providerApplicationId).not.toBe(applicationBody.application.id)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('reports readiness only when the database and runtimes are active', async () => {
-        const { app, database } = createFixture()
+        const { app, database } = await createFixture()
 
         try {
             const response = await app.handle(new Request(`${baseURL}/ready`))
@@ -980,12 +975,12 @@ describe('Postdot API', () => {
                 },
             })
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('reports ready for an active scheduler and media runtime', async () => {
-        const { app, database } = createFixture({
+        const { app, database } = await createFixture({
             runtime: {
                 scheduler: { state: 'started' },
                 mediaMaintenance: { state: 'started' },
@@ -1006,12 +1001,12 @@ describe('Postdot API', () => {
                 },
             })
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('reports runtime failure without hiding the live HTTP process', async () => {
-        const { app, database } = createFixture({
+        const { app, database } = await createFixture({
             runtime: {
                 scheduler: { state: 'failed' },
                 mediaMaintenance: { state: 'started' },
@@ -1036,19 +1031,19 @@ describe('Postdot API', () => {
                 },
             })
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('reports a database failure as not ready', async () => {
-        const { app, database } = createFixture({
+        const { app, database } = await createFixture({
             runtime: {
                 scheduler: { state: 'started' },
                 mediaMaintenance: { state: 'started' },
                 notifications: { state: 'started' },
             },
         })
-        closeDatabase(database)
+        await closeTestDatabase(database)
 
         const response = await app.handle(new Request(`${baseURL}/ready`))
         expect(response.status).toBe(503)
@@ -1064,7 +1059,7 @@ describe('Postdot API', () => {
     })
 
     it('publishes an OpenAPI inventory for the typed Postdot routes', async () => {
-        const { app, database } = createFixture()
+        const { app, database } = await createFixture()
 
         try {
             const response = await app.handle(new Request(`${baseURL}/openapi/json`))
@@ -1383,12 +1378,12 @@ describe('Postdot API', () => {
                 'not_ready'
             )
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('keeps taxonomy definitions instance-scoped and tags project-scoped', async () => {
-        const { app, database } = createFixture()
+        const { app, database } = await createFixture()
 
         try {
             const cookie = await signUp(app, 'taxonomy-operator@postdot.local')
@@ -1780,12 +1775,12 @@ describe('Postdot API', () => {
                 ],
             })
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('exposes provider-neutral project analytics from the durable event journal', async () => {
-        const { app, database } = createFixture()
+        const { app, database } = await createFixture()
 
         try {
             const cookie = await signUp(app, 'analytics@postdot.local')
@@ -1797,15 +1792,15 @@ describe('Postdot API', () => {
             const created = (await createProjectResponse.json()) as {
                 project: { id: string }
             }
-            const actor = database.$client
-                .query<{ id: string }, [string]>(
+            const actor = await database.sql
+                .statement<{ id: string }, [string]>(
                     `select id from actors where project_id = ?1 and kind = 'human'`
                 )
                 .get(created.project.id)
             expect(actor).toBeDefined()
 
             const eventAt = Date.now() - 1_000
-            createEventJournalStore(database).append({
+            await createEventJournalStore(database).append({
                 id: 'analytics-api-event',
                 projectId: created.project.id,
                 actorId: actor?.id ?? '',
@@ -1849,12 +1844,12 @@ describe('Postdot API', () => {
                 },
             })
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('keeps project email enrollment human-owned, verified and optional', async () => {
-        const { app, database } = createFixture({ emailAlerts: true })
+        const { app, database } = await createFixture({ emailAlerts: true })
         try {
             const cookie = await signUp(app)
             const created = await jsonRequest(app, '/api/projects', cookie, {
@@ -1874,7 +1869,7 @@ describe('Postdot API', () => {
                     body: JSON.stringify({ enabled: true }),
                 })
             expect((await enable()).status).toBe(400)
-            database.$client.exec('update user set email_verified = 1')
+            await database.sql.exec('update "user" set email_verified = 1')
             expect((await enable()).status).toBe(200)
             expect(await (await jsonRequest(app, path, cookie)).json()).toMatchObject({
                 enabled: true,
@@ -1906,12 +1901,12 @@ describe('Postdot API', () => {
                 ).status
             ).toBe(200)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('exposes a human-only persistent notification inbox and preferences', async () => {
-        const { app, database, notifications } = createFixture()
+        const { app, database, notifications } = await createFixture()
 
         try {
             const cookie = await signUp(app)
@@ -1923,14 +1918,14 @@ describe('Postdot API', () => {
             const created = (await createProjectResponse.json()) as {
                 project: { id: string }
             }
-            const actor = database.$client
-                .query<{ id: string }, [string]>(
+            const actor = await database.sql
+                .statement<{ id: string }, [string]>(
                     `select id from actors where project_id = ?1 and kind = 'human'`
                 )
                 .get(created.project.id)
             expect(actor).toBeDefined()
 
-            createEventJournalStore(database).append({
+            await createEventJournalStore(database).append({
                 id: 'notification-api-event',
                 projectId: created.project.id,
                 actorId: actor?.id ?? '',
@@ -1939,7 +1934,7 @@ describe('Postdot API', () => {
                 subject: { type: 'publication', id: 'publication-1' },
                 occurredAt: now,
             })
-            createEventJournalStore(database).append({
+            await createEventJournalStore(database).append({
                 id: 'notification-api-event-2',
                 projectId: created.project.id,
                 actorId: actor?.id ?? '',
@@ -1948,7 +1943,7 @@ describe('Postdot API', () => {
                 subject: { type: 'publication', id: 'publication-2' },
                 occurredAt: now,
             })
-            notifications.project(created.project.id)
+            await notifications.project(created.project.id)
 
             const inboxResponse = await jsonRequest(
                 app,
@@ -2073,12 +2068,12 @@ describe('Postdot API', () => {
                 inAppEnabled: false,
             })
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('streams authenticated project updates with durable cursor replay and safe payloads', async () => {
-        const { app, database } = createFixture({ allowAdditionalSignups: true })
+        const { app, database } = await createFixture({ allowAdditionalSignups: true })
 
         try {
             const cookie = await signUp(app, 'realtime-operator@postdot.local')
@@ -2089,8 +2084,8 @@ describe('Postdot API', () => {
             expect(projectResponse.status).toBe(201)
             const project = (await projectResponse.json()) as { project: { id: string } }
             const projectId = project.project.id
-            const actor = database.$client
-                .query<{ id: string }, [string]>(
+            const actor = await database.sql
+                .statement<{ id: string }, [string]>(
                     `select id from actors where project_id = ?1 and kind = 'human'`
                 )
                 .get(projectId)
@@ -2098,7 +2093,7 @@ describe('Postdot API', () => {
             if (actor === null) throw new Error('The test human actor is missing')
 
             const journal = createEventJournalStore(database)
-            const first = journal.append({
+            const first = await journal.append({
                 id: 'realtime-api-event-1',
                 projectId,
                 actorId: actor.id,
@@ -2145,7 +2140,7 @@ describe('Postdot API', () => {
             expect(globalChunk.text).not.toContain('provider-access-token-must-not-leak')
             expect(globalChunk.text).not.toContain(actor.id)
 
-            const second = journal.append({
+            const second = await journal.append({
                 id: 'realtime-api-event-2',
                 projectId,
                 actorId: actor.id,
@@ -2227,12 +2222,12 @@ describe('Postdot API', () => {
             )
             expect(bearerResponse.status).toBe(403)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('persists and updates the project scheduling timezone through the API', async () => {
-        const { app, database } = createFixture()
+        const { app, database } = await createFixture()
 
         try {
             const cookie = await signUp(app, 'timezone-operator@postdot.local')
@@ -2281,19 +2276,19 @@ describe('Postdot API', () => {
                 },
             })
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('authorizes project lifecycle operations with instance and project memberships', async () => {
-        const { app, auth, database } = createFixture({
+        const { app, auth, database } = await createFixture({
             allowAdditionalSignups: true,
         })
 
         try {
             const ownerCookie = await signUp(app, 'lifecycle-owner@postdot.local')
-            const owner = database.$client
-                .query<{ readonly userId: string }, []>(
+            const owner = await database.sql
+                .statement<{ readonly userId: string }, []>(
                     `select claimed_by_user_id as userId from instance_state where id = 'default'`
                 )
                 .get()
@@ -2308,8 +2303,8 @@ describe('Postdot API', () => {
                 project: { id: string }
             }
             expect(
-                database.$client
-                    .query<{ readonly role: string; readonly state: string }, [string, string]>(
+                await database.sql
+                    .statement<{ readonly role: string; readonly state: string }, [string, string]>(
                         `select role, 'active' as state
                          from project_user_grants
                          where project_id = ?1 and user_id = ?2`
@@ -2333,9 +2328,9 @@ describe('Postdot API', () => {
 
             const memberEmail = 'lifecycle-member@postdot.local'
             const memberCookie = await signUpFixtureAdditionalUser(app, memberEmail)
-            const member = database.$client
-                .query<{ readonly userId: string }, [string]>(
-                    `select id as userId from user where email = ?1`
+            const member = await database.sql
+                .statement<{ readonly userId: string }, [string]>(
+                    `select id as userId from "user" where email = ?1`
                 )
                 .get(memberEmail)
             expect(member).not.toBeNull()
@@ -2350,8 +2345,8 @@ describe('Postdot API', () => {
                 project: { id: string }
             }
             expect(
-                database.$client
-                    .query<{ readonly role: string; readonly state: string }, [string, string]>(
+                await database.sql
+                    .statement<{ readonly role: string; readonly state: string }, [string, string]>(
                         `select role, 'active' as state
                          from project_user_grants
                          where project_id = ?1 and user_id = ?2`
@@ -2521,14 +2516,14 @@ describe('Postdot API', () => {
             )
             expect(outsiderUpdateResponse.status).toBe(404)
 
-            const outsider = database.$client
-                .query<{ readonly userId: string }, [string]>(
-                    `select id as userId from user where email = ?1`
+            const outsider = await database.sql
+                .statement<{ readonly userId: string }, [string]>(
+                    `select id as userId from "user" where email = ?1`
                 )
                 .get(outsiderEmail)
             expect(outsider).not.toBeNull()
-            database.$client
-                .query(`update instance_memberships set state = 'disabled' where user_id = ?1`)
+            await database.sql
+                .statement(`update instance_memberships set state = 'disabled' where user_id = ?1`)
                 .run(outsider?.userId ?? '')
             const disabledCreateResponse = await jsonRequest(app, '/api/projects', outsiderCookie, {
                 method: 'POST',
@@ -2558,12 +2553,12 @@ describe('Postdot API', () => {
             const verifiedToken = await auth.api.verifyApiKey({ body: { key: tokenBody.token } })
             expect(verifiedToken.valid).toBe(true)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('reports unavailable media storage through the typed media surface', async () => {
-        const { app, database } = createFixture()
+        const { app, database } = await createFixture()
 
         try {
             const cookie = await signUp(app, 'media-unavailable-operator@postdot.local')
@@ -2587,12 +2582,12 @@ describe('Postdot API', () => {
                 },
             })
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('creates, previews, and activates a channel profile draft through the API', async () => {
-        const { app, database } = createFixture()
+        const { app, database } = await createFixture()
 
         try {
             const cookie = await signUp(app, 'profile-operator@postdot.local')
@@ -2696,12 +2691,12 @@ describe('Postdot API', () => {
             })
             expect(activationBody.channel.profileVersionId).toBe(draftBody.profile.id)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('exposes guarded channel lifecycle operations through the API', async () => {
-        const { app, database } = createFixture()
+        const { app, database } = await createFixture()
 
         try {
             const cookie = await signUp(app, 'channel-lifecycle-operator@postdot.local')
@@ -2829,12 +2824,12 @@ describe('Postdot API', () => {
             expect(deleteResponse.status).toBe(200)
             expect(await deleteResponse.json()).toEqual({ deleted: true })
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('creates a project-owned custom HTTP connection without exposing its secret', async () => {
-        const { app, database } = createFixture()
+        const { app, database } = await createFixture()
 
         try {
             const cookie = await signUp(app, 'custom-http-operator@postdot.local')
@@ -2885,12 +2880,12 @@ describe('Postdot API', () => {
             })
             expect(JSON.stringify(connectionBody)).not.toContain(secret)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('accepts path authentication when the active profile owns one secret path segment', async () => {
-        const { app, database } = createFixture()
+        const { app, database } = await createFixture()
 
         try {
             const cookie = await signUp(app, 'custom-path-operator@postdot.local')
@@ -2952,12 +2947,12 @@ describe('Postdot API', () => {
             }
             expect(listBody.connections[0]?.authentication).toEqual({ kind: 'path' })
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('creates and authenticates user-owned API keys within their project scope', async () => {
-        const { app, database } = createFixture()
+        const { app, database } = await createFixture()
 
         try {
             const cookie = await signUp(app, 'api-key-operator@postdot.local')
@@ -3040,8 +3035,8 @@ describe('Postdot API', () => {
             const auditBody = (await auditResponse.json()) as {
                 events: Array<{ action: string; actorId: string }>
             }
-            const humanActor = database.$client
-                .query<{ readonly id: string }, [string]>(
+            const humanActor = await database.sql
+                .statement<{ readonly id: string }, [string]>(
                     `select id from actors where project_id = ?1 and kind = 'human'`
                 )
                 .get(projectId)
@@ -3093,12 +3088,12 @@ describe('Postdot API', () => {
             const revokedResponse = await bearerRequest(app, '/api/projects', createdBody.token)
             expect(revokedResponse.status).toBe(401)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('manages project members and invitations through the Postdot access surface', async () => {
-        const { access, app, auth, database } = createFixture({
+        const { access, app, auth, database } = await createFixture({
             allowAdditionalSignups: true,
         })
 
@@ -3138,10 +3133,12 @@ describe('Postdot API', () => {
                 app,
                 'project-access-outsider@postdot.local'
             )
-            const outsider = database.$client
-                .query<{ readonly id: string }, [string]>('select id from user where email = ?1')
+            const outsider = await database.sql
+                .statement<{ readonly id: string }, [string]>(
+                    'select id from "user" where email = ?1'
+                )
                 .get('project-access-outsider@postdot.local')
-            const outsiderWorkspace = access.getDefaultWorkspace()
+            const outsiderWorkspace = await access.getDefaultWorkspace()
             expect(outsider).not.toBeNull()
             expect(outsiderWorkspace).not.toBeNull()
             if (outsider === null || outsiderWorkspace === null) {
@@ -3150,8 +3147,8 @@ describe('Postdot API', () => {
             // Additional-signup fixtures are workspace owners by default. This
             // account represents an ordinary workspace member with no project
             // grant, so it must remain hidden from the project access surface.
-            database.$client
-                .query(
+            await database.sql
+                .statement(
                     `update member
                      set role = 'member'
                      where organization_id = ?1 and user_id = ?2`
@@ -3189,10 +3186,12 @@ describe('Postdot API', () => {
             )
 
             const memberCookie = await signUpFixtureAdditionalUser(app, memberEmail)
-            const member = database.$client
-                .query<{ readonly id: string }, [string]>('select id from user where email = ?1')
+            const member = await database.sql
+                .statement<{ readonly id: string }, [string]>(
+                    'select id from "user" where email = ?1'
+                )
                 .get(memberEmail)
-            const workspace = access.getDefaultWorkspace()
+            const workspace = await access.getDefaultWorkspace()
             expect(member).not.toBeNull()
             expect(workspace).not.toBeNull()
             if (member === null || workspace === null) {
@@ -3201,8 +3200,8 @@ describe('Postdot API', () => {
             // The additional-signup fixture normally provisions a default
             // workspace for independent browser tests. Remove that fixture
             // membership so this test exercises the real invitation path.
-            database.$client
-                .query('delete from member where organization_id = ?1 and user_id = ?2')
+            await database.sql
+                .statement('delete from member where organization_id = ?1 and user_id = ?2')
                 .run(workspace.organizationId, member.id)
 
             const pendingInvitationsResponse = await jsonRequest(
@@ -3309,7 +3308,7 @@ describe('Postdot API', () => {
             )
             expect(removeResponse.status).toBe(200)
             expect(await removeResponse.json()).toEqual({ removed: true })
-            expect(access.canAccessProject(projectId, projectMember.userId)).toBe(false)
+            expect(await access.canAccessProject(projectId, projectMember.userId)).toBe(false)
 
             const afterRemoveResponse = await jsonRequest(
                 app,
@@ -3392,12 +3391,14 @@ describe('Postdot API', () => {
                 }),
             })
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('manages workspace group grants without making workspace membership project access', async () => {
-        const { access, app, auth, database } = createFixture({ allowAdditionalSignups: true })
+        const { access, app, auth, database } = await createFixture({
+            allowAdditionalSignups: true,
+        })
 
         try {
             const ownerCookie = await signUp(app, 'group-grant-owner@postdot.local')
@@ -3406,13 +3407,15 @@ describe('Postdot API', () => {
                 app,
                 'group-grant-workspace-admin@postdot.local'
             )
-            const member = database.$client
-                .query<{ readonly id: string }, [string]>('select id from user where email = ?1')
+            const member = await database.sql
+                .statement<{ readonly id: string }, [string]>(
+                    'select id from "user" where email = ?1'
+                )
                 .get('group-grant-member@postdot.local')
             expect(member).not.toBeNull()
             if (member === null) throw new Error('The group grant member was not created')
 
-            const workspace = access.getDefaultWorkspace()
+            const workspace = await access.getDefaultWorkspace()
             expect(workspace).not.toBeNull()
             if (workspace === null) throw new Error('The default workspace was not created')
             const editorsTeamId = `postdot-workspace-team:${workspace.id}:editors`
@@ -3460,8 +3463,8 @@ describe('Postdot API', () => {
             // browser fixtures can coexist. Model the invited project member
             // explicitly before checking that workspace membership alone does
             // not grant project access or workspace administration rights.
-            database.$client
-                .query(
+            await database.sql
+                .statement(
                     `update member
                      set role = 'member'
                      where organization_id = ?1
@@ -3524,7 +3527,7 @@ describe('Postdot API', () => {
             )
             expect(directGrantRemoved.status).toBe(200)
             expect(await directGrantRemoved.json()).toEqual({ removed: true })
-            expect(access.canAccessProject(projectId, member.id, 'editor')).toBe(true)
+            expect(await access.canAccessProject(projectId, member.id, 'editor')).toBe(true)
 
             const forbiddenGrant = await jsonRequest(
                 app,
@@ -3545,18 +3548,18 @@ describe('Postdot API', () => {
             )
             expect(removed.status).toBe(200)
             expect(await removed.json()).toEqual({ removed: true })
-            expect(access.canAccessProject(projectId, member.id)).toBe(false)
+            expect(await access.canAccessProject(projectId, member.id)).toBe(false)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('completes a workspace invitation through group-based project access', async () => {
-        const { access, app, database } = createFixture()
+        const { access, app, database } = await createFixture()
 
         try {
             const ownerCookie = await signUp(app, 'workspace-flow-owner@postdot.local')
-            const workspace = access.getDefaultWorkspace()
+            const workspace = await access.getDefaultWorkspace()
             expect(workspace).not.toBeNull()
             if (workspace === null) throw new Error('The default workspace was not created')
 
@@ -3601,8 +3604,10 @@ describe('Postdot API', () => {
             })
 
             const memberCookie = await signUpFixtureAdditionalUser(app, targetEmail)
-            const member = database.$client
-                .query<{ readonly id: string }, [string]>('select id from user where email = ?1')
+            const member = await database.sql
+                .statement<{ readonly id: string }, [string]>(
+                    'select id from "user" where email = ?1'
+                )
                 .get(targetEmail)
             expect(member).not.toBeNull()
             if (member === null) throw new Error('The invited workspace member was not created')
@@ -3670,28 +3675,30 @@ describe('Postdot API', () => {
                 ]),
             })
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('limits project visibility to a member group and revokes it when membership is removed', async () => {
-        const { access, app, database } = createFixture({ allowAdditionalSignups: true })
+        const { access, app, database } = await createFixture({ allowAdditionalSignups: true })
 
         try {
             const ownerCookie = await signUp(app, 'group-visibility-owner@postdot.local')
             const memberCookie = await signUp(app, 'group-visibility-member@postdot.local')
-            const member = database.$client
-                .query<{ readonly id: string }, [string]>('select id from user where email = ?1')
+            const member = await database.sql
+                .statement<{ readonly id: string }, [string]>(
+                    'select id from "user" where email = ?1'
+                )
                 .get('group-visibility-member@postdot.local')
-            const workspace = access.getDefaultWorkspace()
+            const workspace = await access.getDefaultWorkspace()
             expect(member).not.toBeNull()
             expect(workspace).not.toBeNull()
             if (member === null || workspace === null) {
                 throw new Error('The group visibility fixture is incomplete')
             }
 
-            database.$client
-                .query(
+            await database.sql
+                .statement(
                     `update member
                      set role = 'member'
                      where organization_id = ?1
@@ -3812,8 +3819,8 @@ describe('Postdot API', () => {
             expect(await projectsAfterEditorsRemovalResponse.json()).toEqual({
                 projects: [expect.objectContaining({ id: secondProject.project.id })],
             })
-            expect(access.canAccessProject(firstProject.project.id, member.id)).toBe(false)
-            expect(access.canAccessProject(secondProject.project.id, member.id)).toBe(true)
+            expect(await access.canAccessProject(firstProject.project.id, member.id)).toBe(false)
+            expect(await access.canAccessProject(secondProject.project.id, member.id)).toBe(true)
 
             const removedProjectMembersResponse = await jsonRequest(
                 app,
@@ -3837,14 +3844,14 @@ describe('Postdot API', () => {
             )
             expect(projectsAfterAllRemovalsResponse.status).toBe(200)
             expect(await projectsAfterAllRemovalsResponse.json()).toEqual({ projects: [] })
-            expect(access.canAccessProject(secondProject.project.id, member.id)).toBe(false)
+            expect(await access.canAccessProject(secondProject.project.id, member.id)).toBe(false)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('does not project legacy Better Auth organization invitations into Postdot access', async () => {
-        const { access, app, auth, database } = createFixture()
+        const { access, app, auth, database } = await createFixture()
 
         try {
             const ownerCookie = await signUp(app, 'organization-owner@postdot.local')
@@ -3861,11 +3868,11 @@ describe('Postdot API', () => {
                     name: 'Legacy organization',
                     slug: 'legacy-organization-test',
                     userId: (
-                        database.$client
-                            .query<{ readonly id: string }, [string]>(
-                                'select id from user where email = ?1'
+                        (await database.sql
+                            .statement<{ readonly id: string }, [string]>(
+                                'select id from "user" where email = ?1'
                             )
-                            .get('organization-owner@postdot.local') ?? { id: '' }
+                            .get('organization-owner@postdot.local')) ?? { id: '' }
                     ).id,
                 },
             })
@@ -3885,11 +3892,13 @@ describe('Postdot API', () => {
             })
 
             expect(accepted.member.role).toBe('editor')
-            const member = database.$client
-                .query<{ readonly id: string }, [string]>('select id from user where email = ?1')
+            const member = await database.sql
+                .statement<{ readonly id: string }, [string]>(
+                    'select id from "user" where email = ?1'
+                )
                 .get('organization-member@postdot.local')
             expect(member).not.toBeNull()
-            expect(access.canAccessProject(projectId, member?.id ?? '')).toBe(false)
+            expect(await access.canAccessProject(projectId, member?.id ?? '')).toBe(false)
 
             const projectsResponse = await jsonRequest(app, '/api/projects', memberCookie)
             expect(projectsResponse.status).toBe(200)
@@ -3910,12 +3919,12 @@ describe('Postdot API', () => {
             )
             expect(projectAfterLeave.status).toBe(404)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('protects project resources and completes the manual publication flow', async () => {
-        const { app, database, notifications } = createFixture()
+        const { app, database, notifications } = await createFixture()
         const notificationProjection = createNotificationProjectionRuntime(notifications)
 
         try {
@@ -4334,7 +4343,7 @@ describe('Postdot API', () => {
             )
             expect(duplicatePublishedResponse.status).toBe(409)
 
-            notificationProjection.runNow()
+            await notificationProjection.runNow()
             const notificationResponse = await jsonRequest(
                 app,
                 `/api/projects/${projectBody.project.id}/notifications`,
@@ -4352,12 +4361,12 @@ describe('Postdot API', () => {
                 ],
             })
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('persists and clears the new-publication composer recovery point', async () => {
-        const { app, database } = createFixture()
+        const { app, database } = await createFixture()
 
         try {
             const unauthenticatedResponse = await app.handle(
@@ -4493,12 +4502,12 @@ describe('Postdot API', () => {
             expect(idempotentDeleteResponse.status).toBe(200)
             expect(await idempotentDeleteResponse.json()).toEqual({ deleted: false })
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('reschedules and cancels groups of queued publications through the project API', async () => {
-        const { app, database } = createFixture()
+        const { app, database } = await createFixture()
 
         try {
             const cookie = await signUp(app, 'bulk-scheduling-operator@postdot.local')
@@ -4660,12 +4669,12 @@ describe('Postdot API', () => {
             )
             expect(duplicateCancelResponse.status).toBe(422)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('creates an X channel through the API', async () => {
-        const { app, database } = createFixture()
+        const { app, database } = await createFixture()
         try {
             const cookie = await signUp(app, 'x-channel-operator@postdot.local')
             const projectResponse = await jsonRequest(app, '/api/projects', cookie, {
@@ -4726,7 +4735,7 @@ describe('Postdot API', () => {
                 execution: { contractId: 'x', revision: 'post-v1' },
             })
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
@@ -4766,7 +4775,7 @@ describe('Postdot API', () => {
             tokenEndpoint: new URL('/token', provider.url).toString(),
             pkce: 'disabled',
         }
-        const { app, auth, database } = createFixture({
+        const { app, auth, database } = await createFixture({
             linkedin: {
                 clientId: 'linkedin-client-id',
                 clientSecret: 'linkedin-client-secret',
@@ -4880,8 +4889,8 @@ describe('Postdot API', () => {
                 `${channelLocation}&publisher=connected`
             )
 
-            const storedAttempt = database.$client
-                .query<{ stateDigest: Uint8Array; verifier: Uint8Array | null }, []>(`
+            const storedAttempt = await database.sql
+                .statement<{ stateDigest: Uint8Array; verifier: Uint8Array | null }, []>(`
                     select state_digest as stateDigest,
                            pkce_verifier_ciphertext as verifier
                     from oauth_authorization_attempts
@@ -4912,8 +4921,8 @@ describe('Postdot API', () => {
             expect(listBody.connections[0]).not.toHaveProperty('refreshToken')
 
             expect(
-                database.$client
-                    .query<{ providerId: string }, []>(
+                await database.sql
+                    .statement<{ providerId: string }, []>(
                         `select provider_id as providerId from account`
                     )
                     .all()
@@ -4927,7 +4936,7 @@ describe('Postdot API', () => {
             )
             expect(duplicateResponse.status).toBe(409)
 
-            database.$client.exec(`
+            await database.sql.exec(`
                 update instance_state
                 set state = 'claimable',
                     bootstrap_blocked = 0,
@@ -4936,8 +4945,16 @@ describe('Postdot API', () => {
                 where id = 'default';
                 delete from instance_memberships;
             `)
-            database.delete(authUser).run()
-            expect(database.select().from(publisherCredentials).all()).toHaveLength(1)
+            await database.sql.exec('delete from "user"')
+            expect(
+                (
+                    await database.sql
+                        .statement<TestRow>(
+                            'select "publisher_credentials"."id" as "id", "publisher_credentials"."workspace_id" as "workspaceId", "publisher_credentials"."provider_id" as "providerId", "publisher_credentials"."external_account_id" as "externalAccountId", "publisher_credentials"."external_account_name" as "externalAccountName", "publisher_credentials"."scopes" as "scopes", "publisher_credentials"."state" as "state", "publisher_credentials"."expires_at" as "expiresAt", "publisher_credentials"."connected_by_actor_id" as "connectedByActorId", "publisher_credentials"."provider_application_id" as "providerApplicationId", "publisher_credentials"."encryption_version" as "encryptionVersion", "publisher_credentials"."encryption_key_id" as "encryptionKeyId", "publisher_credentials"."access_token_ciphertext" as "accessTokenCiphertext", "publisher_credentials"."access_token_nonce" as "accessTokenNonce", "publisher_credentials"."refresh_token_ciphertext" as "refreshTokenCiphertext", "publisher_credentials"."refresh_token_nonce" as "refreshTokenNonce", "publisher_credentials"."provider_session_ciphertext" as "providerSessionCiphertext", "publisher_credentials"."provider_session_nonce" as "providerSessionNonce", "publisher_credentials"."revision" as "revision", "publisher_credentials"."created_at" as "createdAt", "publisher_credentials"."updated_at" as "updatedAt" from "publisher_credentials"'
+                        )
+                        .all()
+                ).map(row => fromDbRow<TestRow>(row, { scopes: 'json' }))
+            ).toHaveLength(1)
 
             const disconnectResponse = await app.handle(
                 new Request(
@@ -4947,14 +4964,15 @@ describe('Postdot API', () => {
             )
             expect(disconnectResponse.status).toBe(401)
             expect(
-                database
-                    .select({ state: publisherCredentials.state })
-                    .from(publisherCredentials)
+                await database.sql
+                    .statement<TestRow>(
+                        'select "publisher_credentials"."state" as "state" from "publisher_credentials"'
+                    )
                     .all()
             ).toEqual([{ state: 'active' }])
         } finally {
-            provider.stop()
-            closeDatabase(database)
+            await provider.stop()
+            await closeTestDatabase(database)
         }
     })
 
@@ -4991,7 +5009,7 @@ describe('Postdot API', () => {
             tokenEndpoint: new URL('/token', provider.url).toString(),
             pkce: 'disabled',
         }
-        const { app, database } = createFixture({
+        const { app, database } = await createFixture({
             linkedin: {
                 clientId: 'linkedin-client-id',
                 clientSecret: 'linkedin-client-secret',
@@ -5079,8 +5097,8 @@ describe('Postdot API', () => {
                 scopes: ['openid', 'profile', 'rw_organization_admin', 'w_organization_social'],
             })
         } finally {
-            provider.stop()
-            closeDatabase(database)
+            await provider.stop()
+            await closeTestDatabase(database)
         }
     })
 
@@ -5118,7 +5136,7 @@ describe('Postdot API', () => {
             tokenEndpoint: new URL('/token', provider.url).toString(),
         }
         const seenProfileTokens: string[] = []
-        const { app, database, publisher } = createFixture({
+        const { app, database, publisher } = await createFixture({
             x: {
                 clientId: 'x-client-id',
                 clientSecret: 'x-client-secret',
@@ -5247,8 +5265,8 @@ describe('Postdot API', () => {
             expect(state).toBeString()
 
             // The PKCE verifier is persisted encrypted while the attempt is pending.
-            const pendingAttempt = database.$client
-                .query<{ status: string; verifier: Uint8Array | null }, []>(`
+            const pendingAttempt = await database.sql
+                .statement<{ status: string; verifier: Uint8Array | null }, []>(`
                     select status,
                            pkce_verifier_ciphertext as verifier
                     from oauth_authorization_attempts
@@ -5284,8 +5302,8 @@ describe('Postdot API', () => {
             expect(seenProfileTokens).toEqual(['x-access-token-1'])
 
             // Consuming the attempt clears the single-use verifier ciphertext.
-            const storedAttempt = database.$client
-                .query<{ status: string; verifier: Uint8Array | null }, []>(`
+            const storedAttempt = await database.sql
+                .statement<{ status: string; verifier: Uint8Array | null }, []>(`
                     select status,
                            pkce_verifier_ciphertext as verifier
                     from oauth_authorization_attempts
@@ -5331,7 +5349,7 @@ describe('Postdot API', () => {
 
             // A revoked credential keeps the connection discoverable so the UI can offer recovery,
             // while removing secret usability until the user completes OAuth again.
-            const revokedCredential = publisher.credentialStore.revokePublisherCredential(
+            const revokedCredential = await publisher.credentialStore.revokePublisherCredential(
                 projectBody.project.id,
                 initialCredentialId
             )
@@ -5398,8 +5416,8 @@ describe('Postdot API', () => {
             expect(JSON.stringify(connectionStartBody)).not.toContain('x-refresh-token-1')
             expect(JSON.stringify(listBody)).not.toContain('x-access-token-1')
             expect(JSON.stringify(listBody)).not.toContain('x-refresh-token-1')
-            const storedSecrets = database.$client
-                .query<{ accessToken: Uint8Array; refreshToken: Uint8Array }, []>(`
+            const storedSecrets = await database.sql
+                .statement<{ accessToken: Uint8Array; refreshToken: Uint8Array }, []>(`
                     select access_token_ciphertext as accessToken,
                            refresh_token_ciphertext as refreshToken
                     from publisher_credentials
@@ -5413,8 +5431,8 @@ describe('Postdot API', () => {
             }
 
             expect(
-                database.$client
-                    .query<{ providerId: string }, []>(
+                await database.sql
+                    .statement<{ providerId: string }, []>(
                         `select provider_id as providerId from account`
                     )
                     .all()
@@ -5428,7 +5446,7 @@ describe('Postdot API', () => {
             )
             expect(duplicateResponse.status).toBe(409)
 
-            database.$client.exec(`
+            await database.sql.exec(`
                 update instance_state
                 set state = 'claimable',
                     bootstrap_blocked = 0,
@@ -5437,8 +5455,16 @@ describe('Postdot API', () => {
                 where id = 'default';
                 delete from instance_memberships;
             `)
-            database.delete(authUser).run()
-            expect(database.select().from(publisherCredentials).all()).toHaveLength(1)
+            await database.sql.exec('delete from "user"')
+            expect(
+                (
+                    await database.sql
+                        .statement<TestRow>(
+                            'select "publisher_credentials"."id" as "id", "publisher_credentials"."workspace_id" as "workspaceId", "publisher_credentials"."provider_id" as "providerId", "publisher_credentials"."external_account_id" as "externalAccountId", "publisher_credentials"."external_account_name" as "externalAccountName", "publisher_credentials"."scopes" as "scopes", "publisher_credentials"."state" as "state", "publisher_credentials"."expires_at" as "expiresAt", "publisher_credentials"."connected_by_actor_id" as "connectedByActorId", "publisher_credentials"."provider_application_id" as "providerApplicationId", "publisher_credentials"."encryption_version" as "encryptionVersion", "publisher_credentials"."encryption_key_id" as "encryptionKeyId", "publisher_credentials"."access_token_ciphertext" as "accessTokenCiphertext", "publisher_credentials"."access_token_nonce" as "accessTokenNonce", "publisher_credentials"."refresh_token_ciphertext" as "refreshTokenCiphertext", "publisher_credentials"."refresh_token_nonce" as "refreshTokenNonce", "publisher_credentials"."provider_session_ciphertext" as "providerSessionCiphertext", "publisher_credentials"."provider_session_nonce" as "providerSessionNonce", "publisher_credentials"."revision" as "revision", "publisher_credentials"."created_at" as "createdAt", "publisher_credentials"."updated_at" as "updatedAt" from "publisher_credentials"'
+                        )
+                        .all()
+                ).map(row => fromDbRow<TestRow>(row, { scopes: 'json' }))
+            ).toHaveLength(1)
 
             const disconnectResponse = await app.handle(
                 new Request(
@@ -5448,14 +5474,15 @@ describe('Postdot API', () => {
             )
             expect(disconnectResponse.status).toBe(401)
             expect(
-                database
-                    .select({ state: publisherCredentials.state })
-                    .from(publisherCredentials)
+                await database.sql
+                    .statement<TestRow>(
+                        'select "publisher_credentials"."state" as "state" from "publisher_credentials"'
+                    )
                     .all()
             ).toEqual([{ state: 'active' }])
         } finally {
-            provider.stop()
-            closeDatabase(database)
+            await provider.stop()
+            await closeTestDatabase(database)
         }
     })
 
@@ -5489,7 +5516,7 @@ describe('Postdot API', () => {
             authorizationEndpoint: new URL('/authorize', provider.url).toString(),
             tokenEndpoint: new URL('/token', provider.url).toString(),
         }
-        const { app, database } = createFixture({
+        const { app, database } = await createFixture({
             allowAdditionalSignups: true,
             x: {
                 clientId: 'x-client-id',
@@ -5634,13 +5661,13 @@ describe('Postdot API', () => {
             expect(JSON.stringify(listBody)).not.toContain('x-access-token-2')
             expect(JSON.stringify(listBody)).not.toContain('x-refresh-token-2')
         } finally {
-            provider.stop()
-            closeDatabase(database)
+            await provider.stop()
+            await closeTestDatabase(database)
         }
     })
 
     it('exposes an explicit reconciliation path for an ambiguous publication', async () => {
-        const { app, database } = createFixture()
+        const { app, database } = await createFixture()
 
         try {
             const cookie = await signUp(app, 'reconciler@postdot.local')
@@ -5690,11 +5717,11 @@ describe('Postdot API', () => {
             expect(publicationId).toBeString()
             if (publicationId === undefined) throw new Error('The test publication is missing')
 
-            database
-                .update(publications)
-                .set({ state: 'ambiguous', errorMessage: 'The external response was lost' })
-                .where(eq(publications.id, publicationId))
-                .run()
+            await database.sql
+                .statement(
+                    'update "publications" set "state" = ?1, "error_message" = ?2 where "publications"."id" = ?3'
+                )
+                .run('ambiguous', 'The external response was lost', publicationId)
 
             const response = await jsonRequest(
                 app,
@@ -5716,12 +5743,12 @@ describe('Postdot API', () => {
                 },
             })
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('applies twitter-text validation before X publication scheduling', async () => {
-        const { app, database } = createFixture()
+        const { app, database } = await createFixture()
 
         try {
             const cookie = await signUp(app)
@@ -5832,7 +5859,7 @@ describe('Postdot API', () => {
             )
             expect(promoteResponse.status).toBe(400)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 })
@@ -5844,8 +5871,7 @@ function readOpenApiStatus(response: OpenApiResponse | undefined): string | unde
 }
 
 it('restricts SMTP settings to human instance administrators and never returns credentials', async () => {
-    const settingsDatabase = createDatabase(':memory:')
-    runMigrations(settingsDatabase)
+    const settingsDatabase = (await openTestDatabase()).database
     const sent: string[] = []
     const service = await createEmailSettingsService({
         store: createInstallationEmailSettingsStore(
@@ -5862,7 +5888,7 @@ it('restricts SMTP settings to human instance administrators and never returns c
             },
         }),
     })
-    const { app, access, database } = createFixture({
+    const { app, access, database } = await createFixture({
         emailSettings: service,
         allowAdditionalSignups: true,
     })
@@ -5925,7 +5951,7 @@ it('restricts SMTP settings to human instance administrators and never returns c
             expect(response.status).toBe(403)
         }
         const memberCookie = await signUpFixtureAdditionalUser(app, 'smtp-member@postdot.local')
-        const members = access.listInstanceMemberships()
+        const members = await access.listInstanceMemberships()
         const memberId = members.find(
             member => member.email === 'smtp-member@postdot.local'
         )!.userId
@@ -5936,7 +5962,7 @@ it('restricts SMTP settings to human instance administrators and never returns c
         expect(demotion.status).toBe(200)
         expect(await demotion.json()).toMatchObject({ membership: { role: 'member' } })
         expect(
-            access.isInstanceAdmin(
+            await access.isInstanceAdmin(
                 members.find(member => member.email === 'smtp-member@postdot.local')!.userId
             )
         ).toBe(false)
@@ -5947,8 +5973,8 @@ it('restricts SMTP settings to human instance administrators and never returns c
         ).toBe(403)
         expect(sent).toHaveLength(1)
     } finally {
-        closeDatabase(database)
-        closeDatabase(settingsDatabase)
+        await closeTestDatabase(database)
+        await closeTestDatabase(settingsDatabase)
     }
 })
 
@@ -5970,29 +5996,29 @@ it('keeps recovery inspection accessible, blocks writes and requires administrat
             resumes++
         },
     }
-    const { app, database, access, auth } = createFixture({
+    const { app, database, access, auth } = await createFixture({
         recovery,
         allowAdditionalSignups: true,
     })
     try {
         const admin = await signUp(app, 'recovery-admin@postdot.local')
         const member = await signUp(app, 'recovery-member@postdot.local')
-        const memberUser = database.$client
-            .query<{ id: string }, []>(
-                "select id from user where email = 'recovery-member@postdot.local'"
+        const memberUser = (await database.sql
+            .statement<{ id: string }, []>(
+                'select id from "user" where email = \'recovery-member@postdot.local\''
             )
-            .get()!
-        const adminUser = database.$client
-            .query<{ id: string }, []>(
-                "select id from user where email = 'recovery-admin@postdot.local'"
+            .get())!
+        const adminUser = (await database.sql
+            .statement<{ id: string }, []>(
+                'select id from "user" where email = \'recovery-admin@postdot.local\''
             )
-            .get()!
+            .get())!
         await auth.api.setRole({
             body: { userId: memberUser.id, role: 'user' },
             headers: new Headers({ cookie: admin }),
         })
-        expect(access.isInstanceAdmin(adminUser.id)).toBe(true)
-        expect(access.isInstanceAdmin(memberUser.id)).toBe(false)
+        expect(await access.isInstanceAdmin(adminUser.id)).toBe(true)
+        expect(await access.isInstanceAdmin(memberUser.id)).toBe(false)
         held = true
         expect((await app.handle(new Request(`${baseURL}/api/recovery/status`))).status).toBe(200)
         expect((await jsonRequest(app, '/api/projects', admin)).status).toBe(200)
@@ -6025,13 +6051,13 @@ it('keeps recovery inspection accessible, blocks writes and requires administrat
         })
         expect(created.status).toBe(201)
     } finally {
-        closeDatabase(database)
+        await closeTestDatabase(database)
     }
 })
 
 it('serves recovery inspection as ready without masking failed runtimes', async () => {
     for (const state of ['idle', 'failed'] as const) {
-        const { app, database } = createFixture({
+        const { app, database } = await createFixture({
             runtime: {
                 recovery: { held: () => true },
                 scheduler: { state },
@@ -6046,13 +6072,13 @@ it('serves recovery inspection as ready without masking failed runtimes', async 
                 checks: { recovery: 'held', scheduler: state },
             })
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     }
 })
 
 it('saves the standalone post source with revision guards and no destination changes', async () => {
-    const { app, database, access } = createFixture({ allowAdditionalSignups: true })
+    const { app, database, access } = await createFixture({ allowAdditionalSignups: true })
     try {
         const cookie = await signUp(app)
         const projectResponse = await jsonRequest(app, '/api/projects', cookie, {
@@ -6080,15 +6106,17 @@ it('saves the standalone post source with revision guards and no destination cha
             expectedSourceRevision: 1,
             sourceContent: { body: { text: 'Updated', format: 'plain_text' }, media: [] },
         })
-        const before = database.$client.query('select * from publication_working_drafts').all()
+        const before = await database.sql
+            .statement('select * from publication_working_drafts')
+            .all()
         const updated = await jsonRequest(app, url, cookie, { method: 'PATCH', body })
         expect(updated.status).toBe(200)
         const viewerCookie = await signUpFixtureAdditionalUser(app, 'source-viewer@postdot.local')
-        const viewer = database.$client
-            .query<{ id: string }, [string]>('select id from user where email = ?1')
-            .get('source-viewer@postdot.local')!
+        const viewer = (await database.sql
+            .statement<{ id: string }, [string]>('select id from "user" where email = ?1')
+            .get('source-viewer@postdot.local'))!
         expect(
-            access.grantProjectUserAccess({
+            await access.grantProjectUserAccess({
                 projectId: project.id,
                 userId: viewer.id,
                 role: 'viewer',
@@ -6112,9 +6140,9 @@ it('saves the standalone post source with revision guards and no destination cha
                 sourceContent: { body: { text: 'Updated' } },
             }
         )
-        expect(database.$client.query('select * from publication_working_drafts').all()).toEqual(
-            before
-        )
+        expect(
+            await database.sql.statement('select * from publication_working_drafts').all()
+        ).toEqual(before)
         expect((await jsonRequest(app, url, cookie, { method: 'PATCH', body })).status).toBe(409)
         expect((await jsonRequest(app, url, '', { method: 'PATCH', body })).status).toBe(401)
         expect(
@@ -6129,6 +6157,6 @@ it('saves the standalone post source with revision guards and no destination cha
             ).status
         ).toBe(400)
     } finally {
-        closeDatabase(database)
+        await closeTestDatabase(database)
     }
 })

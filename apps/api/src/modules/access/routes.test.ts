@@ -1,13 +1,9 @@
 import { describe, expect, it } from 'bun:test'
 
 import { createAuth } from '@postdot/auth'
-import {
-    closeDatabase,
-    createAccessStore,
-    createDatabase,
-    createTaxonomyStore,
-    runMigrations,
-} from '@postdot/db'
+import type { DatabaseHandle } from '@postdot/db'
+import { createAccessStore, createTaxonomyStore } from '@postdot/db'
+import { closeTestDatabase, openTestDatabase } from '@postdot/db/testing'
 
 import { createApp } from '../../app'
 import { requiredApiKeyCapability } from '../projects/api-key-permissions'
@@ -18,9 +14,8 @@ const secret = 'postdot-test-secret-with-at-least-32-characters'
 const now = 1_800_000_000_000
 const publisherEncryptionKey = new Uint8Array(32).fill(9)
 
-function createFixture(options: { readonly allowAdditionalSignups?: boolean } = {}) {
-    const database = createDatabase(':memory:')
-    runMigrations(database)
+async function createFixture(options: { readonly allowAdditionalSignups?: boolean } = {}) {
+    const database = (await openTestDatabase()).database
     const access = createAccessStore(database, { now: () => now })
     const auth = createAuth(database, {
         baseURL,
@@ -78,13 +73,9 @@ async function signIn(app: ReturnType<typeof createApp>, email: string) {
     return response.headers.get('set-cookie')?.split(';', 1)[0] ?? ''
 }
 
-async function seedExistingUser(
-    database: ReturnType<typeof createDatabase>,
-    email: string,
-    name: string
-) {
-    const credential = database.$client
-        .query<
+async function seedExistingUser(database: DatabaseHandle, email: string, name: string) {
+    const credential = await database.sql
+        .statement<
             {
                 readonly issuer: string | null
                 readonly providerId: string
@@ -101,17 +92,17 @@ async function seedExistingUser(
 
     const userId = `user-${email.split('@')[0]}`
     const timestamp = now + 1
-    database.$client
-        .query<
+    await database.sql
+        .statement<
             void,
             [id: string, name: string, email: string, createdAt: number, updatedAt: number]
         >(
-            `insert into user (id, name, email, email_verified, created_at, updated_at)
+            `insert into "user" (id, name, email, email_verified, created_at, updated_at)
              values (?1, ?2, ?3, 0, ?4, ?5)`
         )
         .run(userId, name, email, timestamp, timestamp)
-    database.$client
-        .query<
+    await database.sql
+        .statement<
             void,
             [
                 id: string,
@@ -175,7 +166,7 @@ async function bearerJsonRequest(
 
 describe('access HTTP routes', () => {
     it('creates user-owned API keys with an optional project subset', async () => {
-        const { app, database } = createFixture()
+        const { app, database } = await createFixture()
 
         try {
             const cookie = await signUp(app, 'api-key-owner@postdot.local')
@@ -271,12 +262,12 @@ describe('access HTTP routes', () => {
 
             expect(secondProject.project.id).not.toBe(firstProject.project.id)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('enforces and updates action ceilings independently from project scope', async () => {
-        const { app, database } = createFixture()
+        const { app, database } = await createFixture()
 
         try {
             const cookie = await signUp(app, 'api-key-actions@postdot.local')
@@ -393,12 +384,12 @@ describe('access HTTP routes', () => {
             )
             expect(allowedSchedule.status).toBe(201)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('allows a manage-only API key to request approval but not schedule or approve', async () => {
-        const { app, database } = createFixture()
+        const { app, database } = await createFixture()
 
         try {
             const cookie = await signUp(app, 'publication-approval@postdot.local')
@@ -545,12 +536,12 @@ describe('access HTTP routes', () => {
                 },
             })
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('requires the separate permanent-delete capability for media purging', async () => {
-        const { app, database } = createFixture()
+        const { app, database } = await createFixture()
 
         try {
             const cookie = await signUp(app, 'api-key-media-actions@postdot.local')
@@ -601,12 +592,12 @@ describe('access HTTP routes', () => {
             )
             expect(allowedPurgeAttempt.status).toBe(503)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it("rechecks the key owner's project role after key creation", async () => {
-        const { access, app, database } = createFixture()
+        const { access, app, database } = await createFixture()
 
         try {
             const ownerCookie = await signUp(app, 'api-key-role-owner@postdot.local')
@@ -622,18 +613,18 @@ describe('access HTTP routes', () => {
                 'api-key-role-editor@postdot.local',
                 'API Key Editor'
             )
-            const defaultWorkspace = access.getDefaultWorkspace()
+            const defaultWorkspace = await access.getDefaultWorkspace()
             expect(defaultWorkspace).not.toBeNull()
             if (defaultWorkspace === null) throw new Error('The default workspace was not created')
-            database.$client
-                .query(
+            await database.sql
+                .statement(
                     `insert into instance_memberships
                      (id, user_id, role, state, created_at, updated_at)
                      values (?1, ?2, 'member', 'enabled', ?3, ?3)`
                 )
                 .run(`instance-membership:${editorUserId}`, editorUserId, now)
-            database.$client
-                .query(
+            await database.sql
+                .statement(
                     `insert into member (id, organization_id, user_id, role, created_at)
                      values (?1, ?2, ?3, 'member', ?4)`
                 )
@@ -645,7 +636,7 @@ describe('access HTTP routes', () => {
                 )
             const editorCookie = await signIn(app, 'api-key-role-editor@postdot.local')
             expect(
-                access.grantProjectUserAccess({
+                await access.grantProjectUserAccess({
                     projectId: projectBody.project.id,
                     userId: editorUserId,
                     role: 'editor',
@@ -670,7 +661,9 @@ describe('access HTTP routes', () => {
             )
             expect(allowedBeforeRevocation.status).toBe(201)
 
-            expect(access.removeProjectUserAccess(projectBody.project.id, editorUserId)).toBe(true)
+            expect(await access.removeProjectUserAccess(projectBody.project.id, editorUserId)).toBe(
+                true
+            )
             const deniedAfterRevocation = await bearerJsonRequest(
                 app,
                 `/api/projects/${projectBody.project.id}/channels`,
@@ -683,12 +676,12 @@ describe('access HTTP routes', () => {
             // action ceiling failure still answers 403 while access is held.
             expect(deniedAfterRevocation.status).toBe(404)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('publishes access paths with session security and typed status responses', async () => {
-        const { app, database } = createFixture()
+        const { app, database } = await createFixture()
 
         try {
             const setupStatus = await app.handle(new Request(`${baseURL}/api/instance/status`))
@@ -768,12 +761,12 @@ describe('access HTTP routes', () => {
                 }
             }
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('keeps setup discoverable for isolated E2E accounts without changing production defaults', async () => {
-        const { app, database } = createFixture({ allowAdditionalSignups: true })
+        const { app, database } = await createFixture({ allowAdditionalSignups: true })
 
         try {
             await signUp(app, 'e2e-bootstrap@postdot.local')
@@ -782,16 +775,16 @@ describe('access HTTP routes', () => {
             expect(status.status).toBe(200)
             expect(await status.json()).toEqual({ setupAvailable: true })
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('requires an instance admin and forbids user API keys on instance routes', async () => {
-        const { access, app, database } = createFixture()
+        const { access, app, database } = await createFixture()
 
         try {
             const adminCookie = await signUp(app, 'admin@postdot.local')
-            const adminId = access.listInstanceMemberships()[0]?.userId
+            const adminId = (await access.listInstanceMemberships())[0]?.userId
             expect(adminId).toBeString()
             if (adminId === undefined) throw new Error('The bootstrap admin was not created')
 
@@ -840,16 +833,16 @@ describe('access HTTP routes', () => {
             ).toBe(403)
             expect((await bearerRequest(app, '/api/categories', token.token)).status).toBe(403)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('lists and updates members only for admin sessions while preserving admin safety', async () => {
-        const { access, app, auth, database } = createFixture()
+        const { access, app, auth, database } = await createFixture()
 
         try {
             const adminCookie = await signUp(app, 'admin@postdot.local')
-            const adminId = access.listInstanceMemberships()[0]?.userId
+            const adminId = (await access.listInstanceMemberships())[0]?.userId
             expect(adminId).toBeString()
             if (adminId === undefined) throw new Error('The bootstrap admin was not created')
 
@@ -949,9 +942,9 @@ describe('access HTTP routes', () => {
                 membership: { userId: memberId, role: 'admin', state: 'enabled' },
             })
             expect(
-                database.$client
-                    .query<{ readonly role: string | null }, [string]>(
-                        'select role from user where id = ?1'
+                await database.sql
+                    .statement<{ readonly role: string | null }, [string]>(
+                        'select role from "user" where id = ?1'
                     )
                     .get(memberId)
             ).toEqual({ role: 'admin' })
@@ -960,7 +953,7 @@ describe('access HTTP routes', () => {
                 body: { userId: memberId, role: 'user' },
                 headers: new Headers({ cookie: adminCookie }),
             })
-            expect(access.getInstanceMembership(memberId)).toMatchObject({
+            expect(await access.getInstanceMembership(memberId)).toMatchObject({
                 role: 'member',
                 state: 'enabled',
             })
@@ -968,7 +961,7 @@ describe('access HTTP routes', () => {
                 body: { userId: memberId, role: 'admin' },
                 headers: new Headers({ cookie: adminCookie }),
             })
-            expect(access.getInstanceMembership(memberId)).toMatchObject({
+            expect(await access.getInstanceMembership(memberId)).toMatchObject({
                 role: 'admin',
                 state: 'enabled',
             })
@@ -1005,9 +998,9 @@ describe('access HTTP routes', () => {
             })
             expect(demoted.status).toBe(200)
             expect(
-                database.$client
-                    .query<{ readonly role: string | null }, [string]>(
-                        'select role from user where id = ?1'
+                await database.sql
+                    .statement<{ readonly role: string | null }, [string]>(
+                        'select role from "user" where id = ?1'
                     )
                     .get(memberId)
             ).toEqual({ role: 'user' })
@@ -1026,9 +1019,9 @@ describe('access HTTP routes', () => {
                 membership: { userId: memberId, role: 'member', state: 'disabled' },
             })
             expect(
-                database.$client
-                    .query<{ readonly banned: number | null }, [string]>(
-                        'select banned from user where id = ?1'
+                await database.sql
+                    .statement<{ readonly banned: number | null }, [string]>(
+                        'select banned from "user" where id = ?1'
                     )
                     .get(memberId)
             ).toEqual({ banned: 1 })
@@ -1044,17 +1037,17 @@ describe('access HTTP routes', () => {
             )
             expect(lastAdmin.status).toBe(409)
             expect(await lastAdmin.json()).toMatchObject({ error: { code: 'last_admin' } })
-            expect(access.getInstanceMembership(adminId)).toMatchObject({
+            expect(await access.getInstanceMembership(adminId)).toMatchObject({
                 role: 'admin',
                 state: 'enabled',
             })
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('returns invitation tokens only at creation and accepts a matching authenticated user', async () => {
-        const { access, app, database } = createFixture()
+        const { access, app, database } = await createFixture()
 
         try {
             const adminCookie = await signUp(app, 'admin@postdot.local')
@@ -1098,7 +1091,7 @@ describe('access HTTP routes', () => {
                 }
             )
             expect(wrongEmailResponse.status).toBe(403)
-            expect(access.getInstanceMembership(memberId)).toBeNull()
+            expect(await access.getInstanceMembership(memberId)).toBeNull()
 
             const acceptedResponse = await jsonRequest(
                 app,
@@ -1127,12 +1120,12 @@ describe('access HTTP routes', () => {
                 instance: { bootstrapBlocked: false },
             })
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('allows a pending invitation to bootstrap a new account before acceptance', async () => {
-        const { access, app, database } = createFixture()
+        const { access, app, database } = await createFixture()
 
         try {
             const adminCookie = await signUp(app, 'admin@postdot.local')
@@ -1151,8 +1144,10 @@ describe('access HTTP routes', () => {
             const created = (await createResponse.json()) as { token: string }
 
             const inviteeCookie = await signUp(app, targetEmail)
-            const inviteeId = database.$client
-                .query<{ readonly id: string }, [string]>('select id from user where email = ?1')
+            const inviteeId = await database.sql
+                .statement<{ readonly id: string }, [string]>(
+                    'select id from "user" where email = ?1'
+                )
                 .get(targetEmail)
             expect(inviteeId).not.toBeNull()
 
@@ -1173,7 +1168,7 @@ describe('access HTTP routes', () => {
                     state: 'enabled',
                 },
             })
-            expect(access.hasPendingInvitationForEmail(targetEmail)).toBe(false)
+            expect(await access.hasPendingInvitationForEmail(targetEmail)).toBe(false)
 
             const projectsResponse = await jsonRequest(app, '/api/projects', inviteeCookie)
             expect(projectsResponse.status).toBe(200)
@@ -1181,16 +1176,16 @@ describe('access HTTP routes', () => {
                 projects: [expect.objectContaining({ id: project.project.id })],
             })
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('invites and accepts a workspace group member through Better Auth', async () => {
-        const { access, app, database } = createFixture()
+        const { access, app, database } = await createFixture()
 
         try {
             const adminCookie = await signUp(app, 'admin@postdot.local')
-            const workspace = access.getDefaultWorkspace()
+            const workspace = await access.getDefaultWorkspace()
             expect(workspace).not.toBeNull()
             if (workspace === null) throw new Error('The default workspace was not created')
 
@@ -1263,8 +1258,10 @@ describe('access HTTP routes', () => {
             expect(created.invitation).toMatchObject({ teamId: editors.id, status: 'pending' })
 
             const inviteeCookie = await signUp(app, targetEmail)
-            const inviteeId = database.$client
-                .query<{ readonly id: string }, [string]>('select id from user where email = ?1')
+            const inviteeId = await database.sql
+                .statement<{ readonly id: string }, [string]>(
+                    'select id from "user" where email = ?1'
+                )
                 .get(targetEmail)
             expect(inviteeId).not.toBeNull()
 
@@ -1279,13 +1276,13 @@ describe('access HTTP routes', () => {
                 membership: { role: 'member' },
                 invitation: { id: created.invitation.id, status: 'accepted' },
             })
-            expect(access.getInstanceMembership(inviteeId?.id ?? '')).toMatchObject({
+            expect(await access.getInstanceMembership(inviteeId?.id ?? '')).toMatchObject({
                 role: 'member',
                 state: 'enabled',
             })
 
-            const teamMembership = database.$client
-                .query<{ readonly count: number }, [string, string]>(
+            const teamMembership = await database.sql
+                .statement<{ readonly count: number }, [string, string]>(
                     'select count(*) as count from team_member where team_id = ?1 and user_id = ?2'
                 )
                 .get(editors.id, inviteeId?.id ?? '')
@@ -1432,12 +1429,12 @@ describe('access HTTP routes', () => {
             )
             expect(forbiddenInvite.status).toBe(403)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('lets an instance administrator create a workspace with its default groups', async () => {
-        const { access, app, database } = createFixture()
+        const { access, app, database } = await createFixture()
 
         try {
             const adminCookie = await signUp(app, 'workspace-owner@postdot.local')
@@ -1468,14 +1465,14 @@ describe('access HTTP routes', () => {
                 role: 'owner',
             })
 
-            const workspace = access.getWorkspace(created.workspace.id)
+            const workspace = await access.getWorkspace(created.workspace.id)
             expect(workspace).toMatchObject({
                 name: 'Editorial workspace',
                 slug: created.workspace.slug,
                 isDefault: false,
             })
-            const teams = database.$client
-                .query<{ readonly name: string; readonly memberCount: number }, [string]>(
+            const teams = await database.sql
+                .statement<{ readonly name: string; readonly memberCount: number }, [string]>(
                     `select name, member_count as memberCount
                      from team where organization_id = ?1 order by name`
                 )
@@ -1496,7 +1493,7 @@ describe('access HTTP routes', () => {
                 ]),
             })
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 })

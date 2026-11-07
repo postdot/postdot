@@ -40,7 +40,11 @@ export function registerInstagramPublisherRoutes<const Routes extends Record<str
     app: AuthenticatedElysia<Routes>,
     publisher: PublisherRuntime,
     options: {
-        readonly canManageChannel: (projectId: string, channelId: string, userId: string) => boolean
+        readonly canManageChannel: (
+            projectId: string,
+            channelId: string,
+            userId: string
+        ) => Promise<boolean>
         readonly access: AccessStore
         readonly channels: Pick<ReturnType<typeof createManualStore>, 'listChannels'>
     }
@@ -141,9 +145,10 @@ export function registerInstagramPublisherRoutes<const Routes extends Record<str
                         return redirect(fallback)
                     const state = parameters.searchParams.get('state') ?? ''
                     if (!/^[\x21-\x7e]{32,512}$/.test(state)) return redirect(fallback)
-                    const attempt = publisher.authorizationAttemptStore.getAuthorizationAttempt(
-                        await digestAuthorizationState(state)
-                    )
+                    const attempt =
+                        await publisher.authorizationAttemptStore.getAuthorizationAttempt(
+                            await digestAuthorizationState(state)
+                        )
                     if (
                         !attempt ||
                         attempt.providerId !== 'instagram' ||
@@ -151,10 +156,20 @@ export function registerInstagramPublisherRoutes<const Routes extends Record<str
                     )
                         return redirect(fallback)
                     if (
-                        publisher.publisherStore.getProjectActorId(attempt.projectId, user.id) !==
-                            attempt.connectedByActorId ||
-                        !options.access.canAccessProject(attempt.projectId, user.id, 'editor') ||
-                        !options.canManageChannel(attempt.projectId, attempt.channelId, user.id)
+                        (await publisher.publisherStore.getProjectActorId(
+                            attempt.projectId,
+                            user.id
+                        )) !== attempt.connectedByActorId ||
+                        !(await options.access.canAccessProject(
+                            attempt.projectId,
+                            user.id,
+                            'editor'
+                        )) ||
+                        !(await options.canManageChannel(
+                            attempt.projectId,
+                            attempt.channelId,
+                            user.id
+                        ))
                     )
                         return redirect(fallback)
                     fallback = new URL(attempt.returnPath, publisher.webOrigin)

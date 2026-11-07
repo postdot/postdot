@@ -1,5 +1,5 @@
 import type { SchedulerState } from '@postdot/core'
-import type { PostdotDatabase } from '@postdot/db'
+import type { DatabaseHandle } from '@postdot/db'
 import { Elysia } from 'elysia'
 import { Type } from 'typebox'
 
@@ -24,6 +24,14 @@ const readinessChecksSchema = Type.Object({
         mediaMaintenance: runtimeStateSchema,
         notifications: runtimeStateSchema,
         recovery: Type.Optional(Type.Union([Type.Literal('held'), Type.Literal('normal')])),
+        topology: Type.Optional(
+            Type.Object({
+                engine: Type.Union([Type.Literal('sqlite'), Type.Literal('postgres')]),
+                media: Type.Union([Type.Literal('local'), Type.Literal('s3')]),
+                instances: Type.Union([Type.Literal('single'), Type.Literal('multiple')]),
+                role: Type.Union([Type.Literal('leader'), Type.Literal('follower')]),
+            })
+        ),
     }),
 })
 
@@ -37,8 +45,17 @@ const notReadyResponseSchema = Type.Intersect([
     readinessChecksSchema,
 ])
 
+/** The persistence profile and this instance's place in it (ADR-097 §7). */
+export interface InstanceTopology {
+    readonly engine: 'sqlite' | 'postgres'
+    readonly media: 'local' | 's3'
+    readonly instances: 'single' | 'multiple'
+    readonly role: 'leader' | 'follower'
+}
+
 type ReadinessChecks = {
     readonly recovery?: 'held' | 'normal'
+    readonly topology?: InstanceTopology
     readonly database: 'ok' | 'failed'
     readonly scheduler: SchedulerState | 'not_configured'
     readonly mediaMaintenance: MediaReconciliationRuntimeState | 'not_configured'
@@ -47,13 +64,14 @@ type ReadinessChecks = {
 
 type HealthRuntime = {
     readonly recovery?: { held(): boolean }
+    readonly topology?: () => InstanceTopology
     readonly scheduler?: { readonly state: SchedulerState }
     readonly mediaMaintenance?: { readonly state: MediaReconciliationRuntimeState }
     readonly notifications?: { readonly state: NotificationProjectionRuntimeState }
 }
 
 export interface HealthRoutesOptions {
-    readonly database: PostdotDatabase
+    readonly database: DatabaseHandle
     readonly runtime?: HealthRuntime
 }
 
@@ -107,7 +125,7 @@ export function createHealthRoutes({ database, runtime }: HealthRoutesOptions) {
                     },
                 },
             },
-            ({ status }) => {
+            async ({ status }) => {
                 const checks: ReadinessChecks = {
                     ...(runtime?.recovery
                         ? {
@@ -116,7 +134,8 @@ export function createHealthRoutes({ database, runtime }: HealthRoutesOptions) {
                                   : ('normal' as const),
                           }
                         : {}),
-                    database: readDatabaseStatus(database),
+                    ...(runtime?.topology ? { topology: runtime.topology() } : {}),
+                    database: await readDatabaseStatus(database),
                     scheduler: runtime?.scheduler?.state ?? 'not_configured',
                     mediaMaintenance: runtime?.mediaMaintenance?.state ?? 'not_configured',
                     notifications: runtime?.notifications?.state ?? 'not_configured',
@@ -127,9 +146,9 @@ export function createHealthRoutes({ database, runtime }: HealthRoutesOptions) {
         )
 }
 
-function readDatabaseStatus(database: PostdotDatabase): 'ok' | 'failed' {
+async function readDatabaseStatus(database: DatabaseHandle): Promise<'ok' | 'failed'> {
     try {
-        database.$client.query('select 1').get()
+        await database.sql.statement('select 1').get()
         return 'ok'
     } catch {
         return 'failed'
@@ -137,6 +156,8 @@ function readDatabaseStatus(database: PostdotDatabase): 'ok' | 'failed' {
 }
 
 function isReady(checks: ReadinessChecks) {
+    // A follower serves HTTP only; the leader runs the background runtimes.
+    if (checks.topology?.role === 'follower') return checks.database === 'ok'
     return (
         checks.database === 'ok' &&
         (isActiveRuntime(checks.scheduler) ||

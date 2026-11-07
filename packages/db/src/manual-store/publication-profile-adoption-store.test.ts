@@ -34,34 +34,34 @@ const profile: ChannelProfileDefinition = {
     },
     execution: { kind: 'built_in', contractId: 'adoption-test', revision: 'v1' },
 }
-function fixture(filename = ':memory:', pathChange = true) {
+async function fixture(filename = ':memory:', pathChange = true) {
     const database = createDatabase(filename)
-    runMigrations(database)
+    await runMigrations(database)
     const now = 1_800_000_000_000
     const store = createManualStore(database, { now: () => now })
-    const project = store.createProject({
-        workspaceId: seedTestWorkspace(database),
+    const project = await store.createProject({
+        workspaceId: await seedTestWorkspace(database),
         name: 'Adoption',
         subjectId: 'operator',
         displayName: 'Operator',
     })
     const projectId = project.project.id
-    const channel = store.createChannel({
+    const channel = (await store.createChannel({
         projectId,
         subjectId: 'operator',
         name: 'Channel',
         profile,
-    })!
-    const post = store.createPost({
+    }))!
+    const post = (await store.createPost({
         projectId,
         subjectId: 'operator',
         sourceContent: { body: { text: 'Original', format: 'plain_text' }, media: [] },
         publications: [
             { channelId: channel.id, deliveryMode: 'automatic', scheduledAt: now + 60_000 },
         ],
-    })!
+    }))!
     const publicationId = post.publications[0]!.id
-    const next = store.createChannelProfileDraft({
+    const next = (await store.createChannelProfileDraft({
         projectId,
         channelId: channel.id,
         subjectId: 'operator',
@@ -93,15 +93,15 @@ function fixture(filename = ':memory:', pathChange = true) {
                 },
             ],
         },
-    })!
-    store.activateChannelProfile({
+    }))!
+    await store.activateChannelProfile({
         projectId,
         channelId: channel.id,
         subjectId: 'operator',
         profileVersionId: next.id,
         expectedRevision: next.revision,
     })
-    const editor = store.getPublicationEditorState(projectId, publicationId, 'operator')!
+    const editor = (await store.getPublicationEditorState(projectId, publicationId, 'operator'))!
     const input = {
         projectId,
         publicationId,
@@ -127,10 +127,10 @@ function state(database: ReturnType<typeof createDatabase>) {
 }
 
 describe('explicit draft profile adoption', () => {
-    test('preserves invalid saved and local content, the selected target and jobs; supports ordinary promotion afterward', () => {
-        const { database, store, editor, input } = fixture()
+    test('preserves invalid saved and local content, the selected target and jobs; supports ordinary promotion afterward', async () => {
+        const { database, store, editor, input } = await fixture()
         try {
-            const saved = store.savePublicationDraft({
+            const saved = (await store.savePublicationDraft({
                 projectId: input.projectId,
                 publicationId: input.publicationId,
                 subjectId: input.subjectId,
@@ -140,57 +140,57 @@ describe('explicit draft profile adoption', () => {
                     extra: 'Never discard',
                     unknown: 'Invalid but retained',
                 },
-            })!
-            const before = store.getPublicationEditorState(
+            }))!
+            const before = (await store.getPublicationEditorState(
                 input.projectId,
                 input.publicationId,
                 input.subjectId
-            )!
+            ))!
             const jobs = database.$client.query('select * from jobs').all()
             const source = before.post
-            const adopted = store.adoptPublicationDraftProfile({
+            const adopted = (await store.adoptPublicationDraftProfile({
                 ...input,
                 expectedRevision: saved.revision,
                 previousLocalContent: { body: 'Unsaved', extra: 'Local extra' },
-            })!
+            }))!
             expect(adopted.profileVersionId).toBe(input.activeProfileVersionId)
             expect(adopted.content).toEqual(input.targetContent)
             expect(adopted.reviewState).toBe('compatible')
             expect(adopted.revision).toBe(saved.revision + 1)
-            const after = store.getPublicationEditorState(
+            const after = (await store.getPublicationEditorState(
                 input.projectId,
                 input.publicationId,
                 input.subjectId
-            )!
+            ))!
             expect(after.post).toEqual(source)
             expect(after.publication).toEqual(before.publication)
             expect(after.selectedTarget).toEqual(editor.selectedTarget)
             expect(after.selectedTargetProfile?.id).toBe(editor.profile.id)
             expect(after.profile.id).toBe(input.activeProfileVersionId)
             expect(database.$client.query('select * from jobs').all()).toEqual(jobs)
-            const history = store.listPublicationDraftAdoptions(
+            const history = (await store.listPublicationDraftAdoptions(
                 input.projectId,
                 input.publicationId,
                 input.subjectId
-            )!
+            ))!
             expect(history).toHaveLength(1)
             expect(history[0]!.draft).toEqual(saved)
             expect(history[0]!.localContent).toEqual({ body: 'Unsaved', extra: 'Local extra' })
             expect(
                 database.$client.query('select id from publication_target_revisions').all()
             ).toHaveLength(2)
-            store.promotePublicationDraft({
+            await store.promotePublicationDraft({
                 projectId: input.projectId,
                 publicationId: input.publicationId,
                 subjectId: input.subjectId,
                 expectedRevision: adopted.revision,
             })
             expect(
-                store.getPublicationEditorState(
+                (await store.getPublicationEditorState(
                     input.projectId,
                     input.publicationId,
                     input.subjectId
-                )!.selectedTarget!.profileVersionId
+                ))!.selectedTarget!.profileVersionId
             ).toBe(input.activeProfileVersionId)
         } finally {
             closeDatabase(database)
@@ -199,7 +199,7 @@ describe('explicit draft profile adoption', () => {
     test('retains snapshot-only media and restores adoption history with a complete backup', async () => {
         const root = await mkdtemp(join(tmpdir(), 'postdot-adoption-'))
         const filename = join(root, 'source.sqlite')
-        const { database, store, input } = fixture(filename)
+        const { database, store, input } = await fixture(filename)
         let closed = false
         try {
             const storage = createLocalMediaStore({
@@ -208,11 +208,11 @@ describe('explicit draft profile adoption', () => {
                 maxObjectBytes: 2_000_000,
             })
             const media = createMediaAssetStore(database, storage, { now: () => 1_800_000_000_000 })
-            const reservation = media.reserveUpload({
+            const reservation = (await media.reserveUpload({
                 projectId: input.projectId,
                 subjectId: input.subjectId,
                 originalFilename: 'preserved.png',
-            })!
+            }))!
             const bytes = new Uint8Array(33)
             bytes.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
             bytes.set([0, 0, 0, 13, 73, 72, 68, 82], 8)
@@ -232,24 +232,25 @@ describe('explicit draft profile adoption', () => {
                     })
                 ).kind
             ).toBe('ready')
-            const saved = store.savePublicationDraft({
+            const saved = (await store.savePublicationDraft({
                 projectId: input.projectId,
                 publicationId: input.publicationId,
                 subjectId: input.subjectId,
                 expectedRevision: input.expectedRevision,
                 targetContent: { body: 'Previous', extra: reservation.asset.id },
-            })!
-            store.adoptPublicationDraftProfile({ ...input, expectedRevision: saved.revision })
-            const history = store.listPublicationDraftAdoptions(
+            }))!
+            await store.adoptPublicationDraftProfile({ ...input, expectedRevision: saved.revision })
+            const history = await store.listPublicationDraftAdoptions(
                 input.projectId,
                 input.publicationId,
                 input.subjectId
             )
             expect(
-                media.getAssetUsage(input.projectId, reservation.asset.id, input.subjectId)?.active
+                (await media.getAssetUsage(input.projectId, reservation.asset.id, input.subjectId))
+                    ?.active
             ).toHaveLength(1)
             expect(
-                media.requestDeletion(input.projectId, reservation.asset.id, input.subjectId)
+                await media.requestDeletion(input.projectId, reservation.asset.id, input.subjectId)
             ).toEqual({ kind: 'blocked', reason: 'referenced' })
             closeDatabase(database)
             closed = true
@@ -274,14 +275,14 @@ describe('explicit draft profile adoption', () => {
             const restored = createDatabase(restoredFile)
             try {
                 expect(
-                    createManualStore(restored).listPublicationDraftAdoptions(
+                    await createManualStore(restored).listPublicationDraftAdoptions(
                         input.projectId,
                         input.publicationId,
                         input.subjectId
                     )
                 ).toEqual(history)
                 expect(
-                    createMediaAssetStore(restored, restoredStorage).requestDeletion(
+                    await createMediaAssetStore(restored, restoredStorage).requestDeletion(
                         input.projectId,
                         reservation.asset.id,
                         input.subjectId
@@ -295,22 +296,22 @@ describe('explicit draft profile adoption', () => {
             await rm(root, { recursive: true, force: true })
         }
     })
-    test('adopts an already-compatible draft explicitly and supersedes its pending approval without scheduling it', () => {
-        const { database, store, input } = fixture(':memory:', false)
+    test('adopts an already-compatible draft explicitly and supersedes its pending approval without scheduling it', async () => {
+        const { database, store, input } = await fixture(':memory:', false)
         try {
-            store.promotePublicationDraft({
+            await store.promotePublicationDraft({
                 projectId: input.projectId,
                 publicationId: input.publicationId,
                 subjectId: input.subjectId,
                 expectedRevision: input.expectedRevision,
                 scheduledAt: null,
             })
-            const draft = store.getPublicationEditorState(
+            const draft = (await store.getPublicationEditorState(
                 input.projectId,
                 input.publicationId,
                 input.subjectId
-            )!.draft
-            const request = store.submitPublicationForApproval({
+            ))!.draft
+            const request = await store.submitPublicationForApproval({
                 projectId: input.projectId,
                 publicationId: input.publicationId,
                 subjectId: input.subjectId,
@@ -318,20 +319,20 @@ describe('explicit draft profile adoption', () => {
                 proposedScheduledAt: 1_800_000_060_000,
             })
             expect(request).not.toBeNull()
-            const before = store.getPublicationEditorState(
+            const before = (await store.getPublicationEditorState(
                 input.projectId,
                 input.publicationId,
                 input.subjectId
-            )!
-            const adopted = store.adoptPublicationDraftProfile({
+            ))!
+            const adopted = (await store.adoptPublicationDraftProfile({
                 ...input,
                 expectedRevision: before.draft.revision,
-            })!
-            const after = store.getPublicationEditorState(
+            }))!
+            const after = (await store.getPublicationEditorState(
                 input.projectId,
                 input.publicationId,
                 input.subjectId
-            )!
+            ))!
             expect(adopted.profileVersionId).toBe(input.activeProfileVersionId)
             expect(after.publication).toEqual(before.publication)
             expect(
@@ -344,18 +345,18 @@ describe('explicit draft profile adoption', () => {
             closeDatabase(database)
         }
     })
-    test('validation is read-only and invalid candidates change nothing', () => {
-        const { database, store, input } = fixture()
+    test('validation is read-only and invalid candidates change nothing', async () => {
+        const { database, store, input } = await fixture()
         try {
             const before = state(database)
-            expect(store.assessPublicationDraftAdoption(input)?.valid).toBe(true)
+            expect((await store.assessPublicationDraftAdoption(input))?.valid).toBe(true)
             expect(
-                store.assessPublicationDraftAdoption({ ...input, targetContent: {} })?.valid
+                (await store.assessPublicationDraftAdoption({ ...input, targetContent: {} }))?.valid
             ).toBe(false)
             expect(state(database)).toEqual(before)
-            expect(() =>
+            await expect(
                 store.adoptPublicationDraftProfile({ ...input, targetContent: {} })
-            ).toThrow('invalid')
+            ).rejects.toThrow('invalid')
             expect(state(database)).toEqual(before)
         } finally {
             closeDatabase(database)
@@ -366,16 +367,16 @@ describe('explicit draft profile adoption', () => {
         'expectedSourceRevision',
         'expectedProfileVersionId',
         'activeProfileVersionId',
-    ] as const)('rejects stale %s atomically', field => {
-        const { database, store, input } = fixture()
+    ] as const)('rejects stale %s atomically', async field => {
+        const { database, store, input } = await fixture()
         try {
             const before = state(database)
-            expect(() =>
+            await expect(
                 store.adoptPublicationDraftProfile({
                     ...input,
                     [field]: typeof input[field] === 'number' ? 999 : 'stale-profile',
                 })
-            ).toThrow('changed')
+            ).rejects.toThrow('changed')
             expect(state(database)).toEqual(before)
         } finally {
             closeDatabase(database)

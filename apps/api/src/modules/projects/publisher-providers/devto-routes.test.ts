@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'bun:test'
 
 import { createAuth } from '@postdot/auth'
-import { closeDatabase, createDatabase, createNotificationStore, runMigrations } from '@postdot/db'
+import { createNotificationStore } from '@postdot/db'
+import { closeTestDatabase, openTestDatabase } from '@postdot/db/testing'
 import type { DevtoFetcher } from '@postdot/devto'
 
 import { createApp } from '../../../app'
@@ -33,9 +34,8 @@ function createDevtoFetcher(responses: readonly Response[]): {
     return { fetcher, calls }
 }
 
-function createFixture(devtoFetcher?: DevtoFetcher, configured = false) {
-    const database = createDatabase(':memory:')
-    runMigrations(database)
+async function createFixture(devtoFetcher?: DevtoFetcher, configured = false) {
+    const database = (await openTestDatabase()).database
     const publisher = createPublisherRuntime(database, {
         apiOrigin: baseURL,
         webOrigin: 'http://localhost:5173',
@@ -117,7 +117,7 @@ describe('DEV.to publisher connection routes', () => {
         const devto = createDevtoFetcher([
             jsonResponse({ id: 42, username: 'postdot', name: 'Postdot' }),
         ])
-        const { app, database } = createFixture(devto.fetcher)
+        const { app, database } = await createFixture(devto.fetcher)
 
         try {
             const cookie = await signUp(app, 'devto-operator@postdot.local')
@@ -142,13 +142,13 @@ describe('DEV.to publisher connection routes', () => {
             const headers = new Headers(devto.calls[0]?.init?.headers)
             expect(headers.get('api-key')).toBe(apiKey)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('rejects an invalid API key without creating a credential', async () => {
         const devto = createDevtoFetcher([jsonResponse({ error: 'unauthorized' }, 401)])
-        const { app, database } = createFixture(devto.fetcher)
+        const { app, database } = await createFixture(devto.fetcher)
 
         try {
             const cookie = await signUp(app, 'devto-invalid@postdot.local')
@@ -163,7 +163,7 @@ describe('DEV.to publisher connection routes', () => {
             expect(response.status).toBe(400)
             expect(await response.json()).toMatchObject({ error: { code: 'invalid_api_key' } })
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
@@ -172,7 +172,7 @@ describe('DEV.to publisher connection routes', () => {
             jsonResponse({ id: 42, username: 'postdot', name: 'Postdot' }),
             jsonResponse({ id: 42, username: 'postdot', name: 'Postdot' }),
         ])
-        const { app, database, publisher } = createFixture(devto.fetcher)
+        const { app, database, publisher } = await createFixture(devto.fetcher)
 
         try {
             const cookie = await signUp(app, 'devto-reconnect@postdot.local')
@@ -188,7 +188,7 @@ describe('DEV.to publisher connection routes', () => {
                 connection: { credentialId: string }
             }
 
-            publisher.credentialStore.markPublisherCredentialReconnectRequired(
+            await publisher.credentialStore.markPublisherCredentialReconnectRequired(
                 projectId,
                 initialBody.connection.credentialId
             )
@@ -207,12 +207,12 @@ describe('DEV.to publisher connection routes', () => {
                 },
             })
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('requires a human session to connect DEV.to', async () => {
-        const { app, database } = createFixture()
+        const { app, database } = await createFixture()
 
         try {
             const response = await jsonRequest(
@@ -223,13 +223,13 @@ describe('DEV.to publisher connection routes', () => {
             )
             expect(response.status).toBe(401)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 })
 
 it('reports OAuth prerequisites without exposing configuration or mistaking failure for absence', async () => {
-    const { app, database, publisher } = createFixture()
+    const { app, database, publisher } = await createFixture()
     try {
         const cookie = await signUp(app, 'oauth-readiness@postdot.local')
         const { projectId } = await createDevtoChannel(app, cookie)
@@ -253,12 +253,12 @@ it('reports OAuth prerequisites without exposing configuration or mistaking fail
         expect(JSON.stringify(body)).not.toContain('PRIVATE_CONFIGURATION_SENTINEL')
         expect((await jsonRequest(app, path, '')).status).toBe(401)
     } finally {
-        closeDatabase(database)
+        await closeTestDatabase(database)
     }
 })
 
 it('recognizes existing server OAuth configuration without returning credentials', async () => {
-    const { app, database } = createFixture(undefined, true)
+    const { app, database } = await createFixture(undefined, true)
     try {
         const cookie = await signUp(app, 'configured-readiness@postdot.local')
         const { projectId } = await createDevtoChannel(app, cookie)
@@ -268,6 +268,6 @@ it('recognizes existing server OAuth configuration without returning credentials
         expect(body.oauthReadiness.linkedin).toBe('ready')
         expect(JSON.stringify(body)).not.toContain('PRIVATE_CLIENT_SECRET')
     } finally {
-        closeDatabase(database)
+        await closeTestDatabase(database)
     }
 })
