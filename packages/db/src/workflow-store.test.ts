@@ -10,9 +10,16 @@ import {
 } from '@postdot/core'
 
 import type { PostdotDatabase } from './client'
-import { closeDatabase, createDatabase, type DatabaseHandle } from './client'
+import {
+    closeDatabase,
+    createDatabase,
+    createPostgresDatabase,
+    closePostgresDatabase,
+    type DatabaseHandle,
+} from './client'
 import { runMigrations } from './migrations'
 import { createResourceLifecycleStore } from './resource-lifecycle-store'
+import type { SqlDatabase, SqlParams } from './sql/port'
 import {
     closeTestDatabase,
     dropRejectingTrigger,
@@ -1595,3 +1602,278 @@ for (const boundary of ['before-effect', 'after-effect'] as const) {
         }
     })
 }
+
+function preEffectFaultDatabase(
+    database: DatabaseHandle,
+    options: {
+        error: Error
+        committedMarker?: boolean
+        failCleanupAudit?: boolean
+        afterAbort?: () => Promise<void>
+    }
+) {
+    let attempted = false
+    let acknowledged = false
+    let failures = 0
+    const sql = new Proxy<SqlDatabase>(database.sql, {
+        get(target, key) {
+            if (key === 'statement')
+                return (query: string) => {
+                    const statement = target.statement<unknown, SqlParams>(query)
+                    return new Proxy(statement, {
+                        get(s, method) {
+                            if (method === 'run')
+                                return async (...params: SqlParams) => {
+                                    if (/update publications\s+set state = 'ready'/.test(query)) {
+                                        attempted = true
+                                        if (!options.committedMarker) {
+                                            failures++
+                                            throw options.error
+                                        }
+                                    }
+                                    if (
+                                        attempted &&
+                                        options.failCleanupAudit &&
+                                        query.includes('insert into audit_events')
+                                    )
+                                        throw new Error('synthetic cleanup audit failure')
+                                    return s.run(...params)
+                                }
+                            const value = Reflect.get(s, method, s)
+                            return typeof value === 'function' ? value.bind(s) : value
+                        },
+                    })
+                }
+            if (key === 'transaction')
+                return async <T>(
+                    operation: () => Promise<T>,
+                    mode?: Parameters<SqlDatabase['transaction']>[1]
+                ) => {
+                    const outermost = !target.inTransaction()
+                    let result: T
+                    try {
+                        result = await target.transaction(operation, mode)
+                    } catch (error) {
+                        if (outermost && error === options.error) await options.afterAbort?.()
+                        throw error
+                    }
+                    if (outermost && attempted && options.committedMarker && !acknowledged) {
+                        acknowledged = true
+                        throw options.error
+                    }
+                    return result
+                }
+            const value = Reflect.get(target, key, target)
+            return typeof value === 'function' ? value.bind(target) : value
+        },
+    })
+    return {
+        database: { sql },
+        failures: () => failures,
+    }
+}
+
+it('releases an owned pre-effect conflict immediately with an atomic recovery fact', async () => {
+    const database = (await openTestDatabase()).database
+    try {
+        const f = await seedDueJob(database, 'release')
+        const durable = createWorkflowStore(database)
+        await durable.claimNextDueJob({
+            actorId: f.systemActorId,
+            claimToken: 'old',
+            now: dueAt,
+            leaseExpiresAt: dueAt + 300000,
+        })
+        const error = Object.assign(new Error('conflict'), { errno: '40001' })
+        const fault = preEffectFaultDatabase(database, { error })
+        await expect(
+            createWorkflowStore(fault.database).startExternalEffect(f.jobId, 'old', dueAt)
+        ).rejects.toBe(error)
+        expect(fault.failures()).toBe(testEngine === 'postgres' ? 8 : 1)
+        expect(
+            await database.sql
+                .statement(
+                    'select state,attempts,claim_token,effect_started_at,run_at from jobs where id=?'
+                )
+                .get(f.jobId)
+        ).toEqual({
+            state: 'pending',
+            attempts: 1,
+            claim_token: null,
+            effect_started_at: null,
+            run_at: dueAt,
+        })
+        const facts = await executionAuditEvents(database, f.publicationId)
+        expect(
+            facts.filter(e => e.action === 'publication.execution.claim_recovered')
+        ).toHaveLength(1)
+        expect(JSON.parse(String(facts.at(-1)!.metadataJson)).reason).toBe(
+            'owner_released_after_pre_effect_transaction_conflict'
+        )
+        let effects = 0
+        await processNextWorkflowEvent({
+            store: durable,
+            actorId: f.systemActorId,
+            now: () => dueAt + 1,
+            leaseDuration: 300000,
+            createClaimToken: () => 'new',
+            retryPolicy: createExponentialRetryPolicy({
+                maxAttempts: 3,
+                initialDelay: 1000,
+                maximumDelay: 10000,
+            }),
+            performExternalEffect: () => {
+                effects++
+                return { type: 'published', externalId: 'synthetic' }
+            },
+        })
+        expect(effects).toBe(1)
+        expect(
+            await database.sql.statement('select state from jobs where id=?').get(f.jobId)
+        ).toEqual({ state: 'succeeded' })
+    } finally {
+        await closeTestDatabase(database)
+    }
+})
+
+for (const scenario of [
+    'new-owner',
+    'expired',
+    'committed-marker',
+    'cleanup-audit',
+    'unknown-error',
+] as const) {
+    it(`does not release unsafe or uncommitted cleanup: ${scenario}`, async () => {
+        const database = (await openTestDatabase()).database
+        try {
+            const f = await seedDueJob(database, 'guard')
+            const durable = createWorkflowStore(database)
+            await durable.claimNextDueJob({
+                actorId: f.systemActorId,
+                claimToken: 'old',
+                now: dueAt,
+                leaseExpiresAt: dueAt + 300000,
+            })
+            const error =
+                scenario === 'unknown-error'
+                    ? new Error('unknown failure')
+                    : Object.assign(new Error('conflict'), { errno: '40001' })
+            const fault = preEffectFaultDatabase(database, {
+                error,
+                committedMarker: scenario === 'committed-marker',
+                failCleanupAudit: scenario === 'cleanup-audit',
+                afterAbort: async () => {
+                    if (scenario === 'new-owner')
+                        await database.sql
+                            .statement("update jobs set claim_token='new-owner' where id=?")
+                            .run(f.jobId)
+                    if (scenario === 'expired')
+                        await database.sql
+                            .statement('update jobs set lease_expires_at=? where id=?')
+                            .run(dueAt + 1, f.jobId)
+                },
+            })
+            await expect(
+                createWorkflowStore(fault.database).startExternalEffect(f.jobId, 'old', dueAt + 1)
+            ).rejects.toBe(error)
+            expect(
+                await database.sql
+                    .statement('select state,claim_token from jobs where id=?')
+                    .get(f.jobId)
+            ).toEqual({
+                state: 'running',
+                claim_token: scenario === 'new-owner' ? 'new-owner' : 'old',
+            })
+            expect(
+                (await executionAuditEvents(database, f.publicationId)).filter(
+                    e => e.action === 'publication.execution.claim_recovered'
+                )
+            ).toHaveLength(0)
+            if (scenario === 'committed-marker') {
+                const recovery = await durable.recoverExpiredClaims(dueAt + 300000)
+                expect(recovery.ambiguousJobIds).toEqual([f.jobId])
+            }
+        } finally {
+            await closeTestDatabase(database)
+        }
+    })
+}
+
+it.skipIf(testEngine !== 'postgres')(
+    'a concurrent committed marker wins over pre-effect cleanup',
+    async () => {
+        const database = (await openTestDatabase()).database
+        const name = await database.sql
+            .statement<{ name: string }>('select current_database() as name')
+            .get()
+        const url = new URL(process.env.POSTDOT_TEST_POSTGRES_URL!)
+        url.pathname = '/' + name!.name
+        const second = createPostgresDatabase(url.toString())
+        try {
+            const f = await seedDueJob(database, 'release-race')
+            await createWorkflowStore(database).claimNextDueJob({
+                actorId: f.systemActorId,
+                claimToken: 'owned',
+                now: dueAt,
+                leaseExpiresAt: dueAt + 300000,
+            })
+            const error = Object.assign(new Error('synthetic conflict'), { errno: '40001' })
+            const fault = preEffectFaultDatabase(database, { error })
+            let raced = false
+            const sql = new Proxy<SqlDatabase>(fault.database.sql, {
+                get(target, key) {
+                    if (key === 'statement')
+                        return (query: string) => {
+                            const statement = target.statement<unknown, SqlParams>(query)
+                            return new Proxy(statement, {
+                                get(s, method) {
+                                    if (method === 'run')
+                                        return async (...params: SqlParams) => {
+                                            if (
+                                                !raced &&
+                                                /update jobs\s+set state = 'pending', claim_token = null/.test(
+                                                    query
+                                                )
+                                            ) {
+                                                raced = true
+                                                expect(
+                                                    await createWorkflowStore(
+                                                        second
+                                                    ).startExternalEffect(
+                                                        f.jobId,
+                                                        'owned',
+                                                        dueAt + 1
+                                                    )
+                                                ).toBe(true)
+                                            }
+                                            return s.run(...params)
+                                        }
+                                    const value = Reflect.get(s, method, s)
+                                    return typeof value === 'function' ? value.bind(s) : value
+                                },
+                            })
+                        }
+                    const value = Reflect.get(target, key, target)
+                    return typeof value === 'function' ? value.bind(target) : value
+                },
+            })
+            await expect(
+                createWorkflowStore({ sql }).startExternalEffect(f.jobId, 'owned', dueAt)
+            ).rejects.toBe(error)
+            expect(raced).toBe(true)
+            expect(
+                await database.sql
+                    .statement('select state,effect_started_at from jobs where id=?')
+                    .get(f.jobId)
+            ).toEqual({ state: 'running', effect_started_at: dueAt + 1 })
+            expect(
+                (await executionAuditEvents(database, f.publicationId)).filter(
+                    e => e.action === 'publication.execution.claim_recovered'
+                )
+            ).toHaveLength(0)
+        } finally {
+            await closePostgresDatabase(second)
+            await closeTestDatabase(database)
+        }
+    }
+)

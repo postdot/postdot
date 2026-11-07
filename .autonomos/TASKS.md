@@ -100,6 +100,8 @@ receipt while durable media cleanup retries independently.
 
 ## 🚀 Active Sprint
 
+- [x] **[DB-618]** Release owner-held publication claims after pre-effect conflicts `Priority: 🟠` `Complexity: L` `Completed: 2026-11-07` — Token-fenced publication cleanup after pre-effect conflicts; marker race, audit rollback and conservative fallback verified. Controlled full drain improves from 348 s to 66 s without duplicates. [Evidence](worklogs/2026-11-07-DB-618.md).
+
 - [x] **[PERF-617]** Qualify sustained overload and scheduler recovery `Priority: 🟠` `Complexity: M` `Completed: 2026-11-07` — DB-616 follow-up: 4,080 jobs succeeded across sustained workloads; natural and injected conflicts recovered without duplicate effects or admission violations. [Evidence](worklogs/2026-11-07-PERF-617.md).
 
 - [x] **[DB-616]** Recover workflow scheduling after exhausted PostgreSQL conflicts `Priority: 🟠` `Complexity: L` `Completed: 2026-11-07` — ISSUE-196; classified bounded recovery, durable rereads, fault injection on both sides of external effects, shutdown drain and no duplicate delivery. [Evidence](worklogs/2026-11-07-DB-616.md).

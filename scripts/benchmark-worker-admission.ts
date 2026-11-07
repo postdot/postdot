@@ -25,6 +25,7 @@ const { values } = parseArgs({
         engine: { type: 'string' },
         'effect-spread-ms': { type: 'string', default: '0' },
         'conflict-seconds': { type: 'string', default: '0' },
+        'conflict-boundary': { type: 'string', default: 'claim' },
         'drain-seconds': { type: 'string', default: '120' },
     },
 })
@@ -37,6 +38,9 @@ const projectCount = Number(values.projects)
 const effectMs = Number(values['effect-ms'])
 const effectSpreadMs = Number(values['effect-spread-ms'])
 const conflictSeconds = Number(values['conflict-seconds'])
+const conflictBoundary = values['conflict-boundary']
+if (conflictBoundary !== 'claim' && conflictBoundary !== 'pre-effect')
+    throw new Error('conflict boundary: claim or pre-effect')
 if (!Number.isFinite(effectSpreadMs) || effectSpreadMs < 0 || effectSpreadMs > 5000)
     throw new Error('effect spread: 0–5000')
 if (!Number.isFinite(conflictSeconds) || conflictSeconds < 0 || conflictSeconds > 60)
@@ -157,14 +161,18 @@ for (const engine of engines) {
                 if (key === 'statement')
                     return (query: string) => {
                         const statement = target.statement<unknown, SqlParams>(query)
-                        if (
-                            !query.includes('select min(event_at)') &&
-                            !/update jobs\s+set state = 'running'/.test(query)
-                        )
-                            return statement
+                        const faultQuery =
+                            conflictBoundary === 'pre-effect'
+                                ? /update publications\s+set state = 'ready'/.test(query)
+                                : query.includes('select min(event_at)') ||
+                                  /update jobs\s+set state = 'running'/.test(query)
+                        if (!faultQuery) return statement
                         return new Proxy(statement, {
                             get(s, method) {
-                                if (method === 'get')
+                                if (
+                                    (method === 'get' && conflictBoundary === 'claim') ||
+                                    (method === 'run' && conflictBoundary === 'pre-effect')
+                                )
                                     return async (...params: SqlParams) => {
                                         const elapsed = (performance.now() - started) / 1000
                                         if (
@@ -180,7 +188,9 @@ for (const engine of engines) {
                                                 { errno: '40001' }
                                             )
                                         }
-                                        return s.get(...params)
+                                        return method === 'get'
+                                            ? s.get(...params)
+                                            : s.run(...params)
                                     }
                                 const value = Reflect.get(s, method, s)
                                 return typeof value === 'function' ? value.bind(s) : value
@@ -311,6 +321,7 @@ for (const engine of engines) {
             effectMs,
             effectSpreadMs,
             conflictSeconds,
+            conflictBoundary,
             injectedConflicts,
             duplicateEffects,
             timeline,
@@ -341,6 +352,7 @@ for (const engine of engines) {
         results.push(result)
         console.error(JSON.stringify({ ...result, starts: undefined }))
         if (
+            (conflictSeconds > 0 && injectedConflicts === 0) ||
             schedulerStateBeforeStop !== 'started' ||
             duplicateEffects ||
             admissionViolations ||
