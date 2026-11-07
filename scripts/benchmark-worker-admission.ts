@@ -148,6 +148,7 @@ for (const engine of engines) {
             endedAtMs: number
         }[] = []
         const errors: string[] = []
+        const producerErrors: { offeredAtMs: number; message: string }[] = []
         const enqueueMs: number[] = []
         const producerLagMs: number[] = []
         let maximumActive = 0
@@ -268,21 +269,32 @@ for (const engine of engines) {
             const project = projects[index % projects.length]!
             const before = performance.now()
             creationTime = Date.now()
-            const post = await manual.createPost({
-                projectId: project.projectId,
-                subjectId: 'operator',
-                sourceContent: {
-                    body: { text: String(offeredAtMs), format: 'plain_text' },
-                    media: [],
-                },
-                publications: [
-                    {
-                        channelId: project.channelId,
-                        deliveryMode: 'automatic',
-                        scheduledAt: creationTime,
+            let insertionFailed = false
+            const post = await manual
+                .createPost({
+                    projectId: project.projectId,
+                    subjectId: 'operator',
+                    sourceContent: {
+                        body: { text: String(offeredAtMs), format: 'plain_text' },
+                        media: [],
                     },
-                ],
-            })
+                    publications: [
+                        {
+                            channelId: project.channelId,
+                            deliveryMode: 'automatic',
+                            scheduledAt: creationTime,
+                        },
+                    ],
+                })
+                .catch(error => {
+                    insertionFailed = true
+                    producerErrors.push({
+                        offeredAtMs,
+                        message: error instanceof Error ? error.message : String(error),
+                    })
+                    return null
+                })
+            if (insertionFailed) continue
             if (!post) throw new Error('Enqueue fixture failed')
             created++
             enqueueMs.push(performance.now() - before)
@@ -311,6 +323,23 @@ for (const engine of engines) {
                 'select state, count(*) as count from jobs group by state'
             )
             .all()
+        const claimRecoveryReasons: Record<string, number> = {}
+        for (const event of await database.sql
+            .statement<{ metadata: string }>(
+                "select metadata_json as metadata from audit_events where action = 'publication.execution.claim_recovered'"
+            )
+            .all()) {
+            const reason = String(JSON.parse(event.metadata).reason ?? 'unspecified')
+            claimRecoveryReasons[reason] = (claimRecoveryReasons[reason] ?? 0) + 1
+        }
+        const publicationStates = await database.sql
+            .statement<{ state: string; count: number }>(
+                'select state, count(*) as count from publications group by state'
+            )
+            .all()
+        const claimAttempts = await database.sql
+            .statement('select max(attempts) as maximum, sum(attempts) as total from jobs')
+            .get()
         const result = {
             engine: engine.name,
             seconds,
@@ -325,7 +354,9 @@ for (const engine of engines) {
             injectedConflicts,
             duplicateEffects,
             timeline,
+            offered: count,
             created,
+            producerErrors,
             arrivalElapsedMs,
             schedulerStateAfterArrivals,
             schedulerStateBeforeStop,
@@ -337,6 +368,9 @@ for (const engine of engines) {
             admissionViolations,
             errors,
             states,
+            publicationStates,
+            claimRecoveryReasons,
+            claimAttempts,
             enqueueP95Ms: percentile(enqueueMs, 0.95),
             producerLagP95Ms: percentile(producerLagMs, 0.95),
             queueWaitP50Ms: percentile(
@@ -352,6 +386,7 @@ for (const engine of engines) {
         results.push(result)
         console.error(JSON.stringify({ ...result, starts: undefined }))
         if (
+            producerErrors.length ||
             (conflictSeconds > 0 && injectedConflicts === 0) ||
             schedulerStateBeforeStop !== 'started' ||
             duplicateEffects ||

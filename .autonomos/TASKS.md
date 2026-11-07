@@ -100,6 +100,8 @@ receipt while durable media cleanup retries independently.
 
 ## 🚀 Active Sprint
 
+- [x] **[PERF-620]** Qualify early claim release under prolonged natural contention `Priority: 🟠` `Complexity: M` `Completed: 2026-11-08` — 7,200 durable successes under five-minute natural contention; 1,775 observed server serialization failures absorbed, zero duplicate effects or scheduler errors. Early release was not needed in this run. Local checkpoint only. [Evidence](worklogs/2026-11-08-PERF-620.md).
+
 - [x] **[META-619]** Restore local intermediate integration and milestone PRs `Priority: 🟠` `Complexity: S` `Completed: 2026-11-08` — Owner-directed cadence; focused local validation, no matrix merely for a local merge, grouped milestone PRs. [Evidence](worklogs/2026-11-08-META-619.md).
 
 - [x] **[DB-618]** Release owner-held publication claims after pre-effect conflicts `Priority: 🟠` `Complexity: L` `Completed: 2026-11-07` — Token-fenced publication cleanup after pre-effect conflicts; marker race, audit rollback and conservative fallback verified. Controlled full drain improves from 348 s to 66 s without duplicates. [Evidence](worklogs/2026-11-07-DB-618.md).
