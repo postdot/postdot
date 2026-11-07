@@ -1994,7 +1994,7 @@ posture` is an exact patch duplicate of `aa889111`, and
 ## [ISSUE-194] Offer PostgreSQL alongside SQLite with an explicit instance topology
 
 - Type: proposal
-- Status: open
+- Status: open — DB-609 to DB-612 delivered (PostgreSQL profile, topology, multi-server coordination); profile transfer (DB-613) remains
 - Priority: high — owner direction for deployment standardization and a future hosted offer
 - Evidence: Recent deployment work showed that the SQLite profile (single writer, file-level backup/restore, sidecar runtime lock) prevents rolling releases and multiple instances. Some operators would prefer a standard PostgreSQL deployment. A hosted offer would need the same capabilities.
 - Impact: Without a server-database profile, Postdot can only run as one instance per database, which may read as amateur to operators with standard deployment practices.
