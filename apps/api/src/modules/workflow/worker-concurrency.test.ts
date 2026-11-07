@@ -334,6 +334,12 @@ test('an immediate local backlog yields to stop signals instead of draining in a
     const project = await f.project('Immediate-backlog')
     for (let index = 0; index < 10; index++) await project.enqueue(`item-${index}`)
     let started = 0
+    let requestStop!: () => void
+    const stopped = new Promise<void>((resolve, reject) => {
+        requestStop = () => {
+            void worker.stop().then(resolve, reject)
+        }
+    })
     const worker = createPublicationWorker({
         ...f.options,
         builtInProviderRegistry: {
@@ -343,17 +349,13 @@ test('an immediate local backlog yields to stop signals instead of draining in a
                 revision: 'test',
                 async execute() {
                     started++
+                    if (started === 1) setTimeout(requestStop, 0)
                     return { type: 'published' }
                 },
             }),
         },
     })
     const run = worker.processDueEvents(Date.now())
-    const stopped = new Promise<void>((resolve, reject) => {
-        setTimeout(() => {
-            void worker.stop().then(resolve, reject)
-        }, 0)
-    })
     try {
         await stopped
         await run
@@ -365,3 +367,72 @@ test('an immediate local backlog yields to stop signals instead of draining in a
         await closeTestDatabase(f.database)
     }
 })
+
+test.skipIf(process.env.POSTDOT_TEST_ENGINE !== 'postgres')(
+    'worker recovers a PostgreSQL planning conflict',
+    async () => {
+        const f = await fixture()
+        let now = Date.now()
+        let timer: (() => void | Promise<void>) | undefined
+        let fail = true
+        const errors: unknown[] = []
+        const conflict = Object.assign(new Error('synthetic exhausted transaction'), {
+            errno: '40001',
+        })
+        const sql = new Proxy(f.database.sql, {
+            get(target, key) {
+                if (key === 'statement')
+                    return (query: string) => {
+                        if (fail && query.includes('select min(event_at)')) {
+                            const statement = target.statement(query)
+                            return new Proxy(statement, {
+                                get(s, method) {
+                                    if (method === 'get')
+                                        return async () => {
+                                            if (fail) {
+                                                fail = false
+                                                throw conflict
+                                            }
+                                            return s.get()
+                                        }
+                                    const value = Reflect.get(s, method, s)
+                                    return typeof value === 'function' ? value.bind(s) : value
+                                },
+                            })
+                        }
+                        return target.statement(query)
+                    }
+                const value = Reflect.get(target, key, target)
+                return typeof value === 'function' ? value.bind(target) : value
+            },
+        })
+        const worker = createPublicationWorker({
+            ...f.options,
+            builtInProviderRegistry: { resolve: () => null },
+            database: { ...f.database, sql },
+            now: () => now,
+            onError: error => errors.push(error),
+            timers: {
+                set: callback => {
+                    timer = callback
+                    return callback
+                },
+                clear: () => {
+                    timer = undefined
+                },
+            },
+        })
+        try {
+            await worker.start()
+            expect(worker.scheduler.state).toBe('recovering')
+            await worker.replan()
+            now += 1000
+            await timer!()
+            expect(errors).toEqual([conflict])
+            expect(worker.scheduler.state).toBe('started')
+        } finally {
+            await worker.stop()
+            await closeTestDatabase(f.database)
+        }
+    }
+)

@@ -1503,3 +1503,95 @@ it('paces actual retries after restart and keeps the original requested schedule
         await closeTestDatabase(database)
     }
 })
+
+for (const boundary of ['before-effect', 'after-effect'] as const) {
+    it(`recovers a database conflict ${boundary} without repeating an external effect`, async () => {
+        const database = (await openTestDatabase()).database
+        try {
+            const fixture = await seedDueJob(database, 'recovery')
+            const durable = createWorkflowStore(database)
+            const conflict = Object.assign(new Error('synthetic serialization conflict'), {
+                errno: '40001',
+            })
+            let injected = false
+            let effects = 0
+            let now = dueAt
+            const store = {
+                ...durable,
+                async startExternalEffect(...args: Parameters<typeof durable.startExternalEffect>) {
+                    if (boundary === 'before-effect' && !injected) {
+                        injected = true
+                        throw conflict
+                    }
+                    return durable.startExternalEffect(...args)
+                },
+                async completeExternalEffect(
+                    ...args: Parameters<typeof durable.completeExternalEffect>
+                ) {
+                    if (boundary === 'after-effect' && !injected) {
+                        injected = true
+                        throw conflict
+                    }
+                    return durable.completeExternalEffect(...args)
+                },
+            }
+            let timer: (() => void | Promise<void>) | undefined
+            const errors: unknown[] = []
+            const scheduler = new NextEventScheduler({
+                getNextEventAt: () => durable.getNextEventAt(),
+                processDueEvents: async () => {
+                    await processNextWorkflowEvent({
+                        store,
+                        actorId: fixture.systemActorId,
+                        leaseDuration: 1000,
+                        now: () => now,
+                        createClaimToken: () => crypto.randomUUID(),
+                        retryPolicy: createExponentialRetryPolicy({
+                            maxAttempts: 3,
+                            initialDelay: 1000,
+                            maximumDelay: 10000,
+                        }),
+                        performExternalEffect: () => {
+                            effects++
+                            return { type: 'published', externalId: 'synthetic' }
+                        },
+                    })
+                },
+                retryDelay: error => (error === conflict ? 100 : null),
+                onError: error => errors.push(error),
+                clock: { now: () => now },
+                timers: {
+                    set: callback => {
+                        timer = callback
+                        return callback
+                    },
+                    clear: () => {
+                        timer = undefined
+                    },
+                },
+            })
+            await scheduler.start()
+            await timer!()
+            expect(scheduler.state).toBe('recovering')
+            now += 100
+            await timer!()
+            expect(scheduler.scheduledAt).toBe(dueAt + 1000)
+            now = dueAt + 1000
+            await timer!()
+            expect(effects).toBe(1)
+            expect(errors).toEqual([conflict])
+            expect(
+                await database.sql.statement('select state from jobs where id=?').get(fixture.jobId)
+            ).toEqual({ state: boundary === 'before-effect' ? 'succeeded' : 'failed' })
+            if (boundary === 'after-effect')
+                expect(
+                    await database.sql
+                        .statement('select state from publications where id=?')
+                        .get(fixture.publicationId)
+                ).toEqual({ state: 'ambiguous' })
+            await scheduler.stop()
+        } finally {
+            await closeTestDatabase(database)
+        }
+    })
+}

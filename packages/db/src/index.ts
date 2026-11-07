@@ -426,3 +426,5 @@ export type { MovePublicationInput } from './manual-store/publication-move-store
 export { everySequential, filterSequential, mapSequential, someSequential } from './sql/sequential'
 export { isResourceReadOnlyTriggerError, isUniqueConstraintError } from './sql/dialect'
 export * from './transfer'
+
+export { isPostgresTransactionConflict } from './sql/postgres-adapter'

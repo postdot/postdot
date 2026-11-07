@@ -159,7 +159,8 @@ export class PostgresSqlDatabase implements SqlDatabase {
                 return result as T
             } catch (error) {
                 root.closed = true
-                if (attempt >= this.#maxAttempts || !isSerializationFailure(error)) throw error
+                if (attempt >= this.#maxAttempts || !isPostgresTransactionConflict(error))
+                    throw error
                 // Small jittered backoff before replaying the whole transaction.
                 await Bun.sleep(Math.min(100, 2 ** attempt) * Math.random())
             }
@@ -214,7 +215,7 @@ export class PostgresSqlDatabase implements SqlDatabase {
     }
 }
 
-function isSerializationFailure(error: unknown): boolean {
+export function isPostgresTransactionConflict(error: unknown): boolean {
     const errno = (error as { readonly errno?: unknown } | null)?.errno
     return typeof errno === 'string' && serializationFailures.has(errno)
 }

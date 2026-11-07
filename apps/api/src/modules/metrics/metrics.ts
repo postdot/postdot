@@ -3,7 +3,7 @@ import { Counter, Gauge, Histogram, Registry } from '@prometheus-io/client'
 
 import type { PublicationWorkerRunObservation } from '../workflow/worker'
 
-const schedulerStates = ['idle', 'started', 'running', 'stopped', 'failed'] as const
+const schedulerStates = ['idle', 'started', 'running', 'recovering', 'stopped', 'failed'] as const
 
 export interface PostdotMetrics {
     readonly registry: Registry
