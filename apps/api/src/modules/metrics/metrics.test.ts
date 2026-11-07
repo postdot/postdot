@@ -23,3 +23,12 @@ describe('Postdot Prometheus metrics', () => {
         expect(exposition).not.toMatch(/(?:project|user)_id=/)
     })
 })
+
+it('exposes recovery as its own scheduler state', async () => {
+    const metrics = createPostdotMetrics()
+    const scheduler = { state: 'recovering' as const }
+    metrics.bindScheduler(scheduler)
+    const exposition = await metrics.registry.metrics()
+    expect(exposition).toContain('postdot_publication_scheduler_state{state="recovering"} 1')
+    expect(exposition).toContain('postdot_publication_scheduler_state{state="failed"} 0')
+})

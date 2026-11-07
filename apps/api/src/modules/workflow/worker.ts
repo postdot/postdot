@@ -26,6 +26,7 @@ import {
 import { permanentFailure, retryableFailure } from './outcomes'
 import { cancelMediaStream, verifyPinnedMediaContent } from './providers/media-integrity'
 import type { BuiltInProviderRegistry } from './providers/registry'
+import { workflowRecoveryDelay } from './recovery'
 
 const defaultLeaseDuration = 5 * 60_000
 const defaultRetryPolicy = createExponentialRetryPolicy({
@@ -266,6 +267,8 @@ export function createPublicationWorker(options: PublicationWorkerOptions): Publ
             return times.length ? Math.min(...times) : null
         },
         processDueEvents,
+        retryDelay: (error, failures) =>
+            workflowRecoveryDelay(options.database.sql.dialect, error, failures),
         onError: options.onError ?? defaultWorkerErrorHandler,
         clock: { now },
         timers: options.timers,

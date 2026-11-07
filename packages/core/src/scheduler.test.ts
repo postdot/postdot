@@ -301,3 +301,76 @@ describe('next-event scheduler', () => {
 function fixtureTime(offset: number): number {
     return 1_800_000_000_000 + offset
 }
+
+test('recovery backs off, ignores wakeup hints and resets after durable success', async () => {
+    const clock = new FakeClock(1000)
+    const timers = new FakeTimers()
+    const errors: unknown[] = []
+    let failures = 2
+    const scheduler = new NextEventScheduler({
+        clock,
+        timers,
+        onError: error => errors.push(error),
+        retryDelay: (_, count) => Math.min(30000, 1000 * 2 ** (count - 1)),
+        getNextEventAt: async () => {
+            if (failures-- > 0) throw new Error('conflict')
+            return null
+        },
+        processDueEvents: () => {
+            throw new Error('no work expected')
+        },
+    })
+    await scheduler.start()
+    expect(scheduler.state).toBe('recovering')
+    expect(timers.onlyDelay).toBe(1000)
+    await scheduler.replan()
+    expect(timers.onlyDelay).toBe(1000)
+    clock.current += 1000
+    await timers.fireOnly()
+    expect(timers.onlyDelay).toBe(2000)
+    clock.current += 2000
+    await timers.fireOnly()
+    expect(scheduler.state).toBe('started')
+    expect(timers.onlyDelay).toBeNull()
+    failures = 1
+    await scheduler.replan()
+    expect(timers.onlyDelay).toBe(1000)
+    const stale = [...timers.active.values()][0]!.callback
+    await scheduler.stop()
+    await stale()
+    expect(scheduler.state).toBe('stopped')
+    expect(timers.active.size).toBe(0)
+    expect(errors).toHaveLength(3)
+})
+
+test('recovery honors capped timers and keeps unclassified errors terminal', async () => {
+    const clock = new FakeClock(1000)
+    const timers = new FakeTimers()
+    const conflict = new Error('conflict')
+    const permanent = new Error('permanent')
+    let error = conflict
+    const errors: unknown[] = []
+    const scheduler = new NextEventScheduler({
+        clock,
+        timers,
+        maximumDelay: 100,
+        getNextEventAt: async () => {
+            throw error
+        },
+        processDueEvents: () => {},
+        retryDelay: failure => (failure === conflict ? 1000 : null),
+        onError: failure => errors.push(failure),
+    })
+    await scheduler.start()
+    clock.current += 100
+    await timers.fireOnly()
+    expect(errors).toEqual([conflict])
+    expect(timers.onlyDelay).toBe(100)
+    clock.current += 900
+    error = permanent
+    await timers.fireOnly()
+    expect(scheduler.state).toBe('failed')
+    expect(timers.active.size).toBe(0)
+    expect(errors).toEqual([conflict, permanent])
+    await scheduler.stop()
+})

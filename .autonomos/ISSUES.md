@@ -2026,7 +2026,7 @@ posture` is an exact patch duplicate of `aa889111`, and
 ## [ISSUE-196] Recover background scheduling after exhausted database retries
 
 - Type: problem
-- Status: open
+- Status: resolved — DB-616 adds classified workflow recovery and boundary fault injection
 - Priority: high — one transient database error can leave background execution stopped
 - Evidence: PERF-615's supported API worker probe (two active projects globally,
   one effect per project) with four projects, synthetic 100 ms effects and 24
@@ -2056,3 +2056,5 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Related: ADR-090, ADR-097, DB-614, PERF-615,
   [capacity evidence](worklogs/2026-11-07-PERF-615.md).
 - Source: owner request to measure when the durable worker becomes fragile, 2026-11-07.
+
+- Resolution evidence for ISSUE-196: [DB-616](worklogs/2026-11-07-DB-616.md). PostgreSQL transaction conflicts recover; unknown and connection errors retain the existing terminal policy.

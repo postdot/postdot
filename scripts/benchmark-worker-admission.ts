@@ -10,6 +10,7 @@ import {
     createPublisherStore,
     runMigrations,
 } from '../packages/db/src'
+import type { SqlDatabase, SqlParams } from '../packages/db/src/sql/port'
 import { testEngines } from '../packages/db/src/sql/test-engines'
 import { seedTestWorkspace } from '../packages/db/src/testing'
 import { linkedinChannelProfile } from '../packages/linkedin/src'
@@ -22,18 +23,34 @@ const { values } = parseArgs({
         projects: { type: 'string', default: '4' },
         'effect-ms': { type: 'string', default: '100' },
         engine: { type: 'string' },
+        'effect-spread-ms': { type: 'string', default: '0' },
+        'conflict-seconds': { type: 'string', default: '0' },
+        'drain-seconds': { type: 'string', default: '120' },
     },
 })
+const drainSeconds = Number(values['drain-seconds'])
+if (!Number.isFinite(drainSeconds) || drainSeconds < 1 || drainSeconds > 600)
+    throw new Error('drain seconds: 1–600')
 const seconds = Number(values.seconds)
 const rate = Number(values.rate)
 const projectCount = Number(values.projects)
 const effectMs = Number(values['effect-ms'])
+const effectSpreadMs = Number(values['effect-spread-ms'])
+const conflictSeconds = Number(values['conflict-seconds'])
+if (!Number.isFinite(effectSpreadMs) || effectSpreadMs < 0 || effectSpreadMs > 5000)
+    throw new Error('effect spread: 0–5000')
+if (!Number.isFinite(conflictSeconds) || conflictSeconds < 0 || conflictSeconds > 60)
+    throw new Error('conflict seconds: 0–60')
 if (!Number.isFinite(seconds) || seconds < 5 || seconds > 300) throw new Error('seconds: 5–300')
 if (!Number.isFinite(rate) || rate <= 0 || rate > 100) throw new Error('rate: >0–100')
 if (!Number.isInteger(projectCount) || projectCount < 1 || projectCount > 20)
     throw new Error('projects: 1–20')
 if (!Number.isFinite(effectMs) || effectMs < 0 || effectMs > 5_000)
     throw new Error('effect-ms: 0–5000')
+if (conflictSeconds && seconds <= 30)
+    throw new Error('Conflict injection requires more than 30 seconds of arrivals')
+if (conflictSeconds && values.engine !== 'postgres')
+    throw new Error('Conflict injection requires --engine postgres')
 const engines = testEngines.filter(engine => !values.engine || engine.name === values.engine)
 if (!engines.length)
     throw new Error('Requested engine unavailable; PostgreSQL needs POSTDOT_TEST_POSTGRES_URL')
@@ -45,6 +62,7 @@ const results = []
 for (const engine of engines) {
     const opened = await engine.open()
     const database = opened.database
+    const timersToClear: ReturnType<typeof setInterval>[] = []
     let worker: ReturnType<typeof createPublicationWorker> | undefined
     try {
         await runMigrations(database)
@@ -108,6 +126,17 @@ for (const engine of engines) {
         }
         await database.sql.exec('ANALYZE')
         const active = new Set<string>()
+        const effectIds = new Set<string>()
+        let duplicateEffects = 0
+        let injectedConflicts = 0
+        const timeline: {
+            elapsedMs: number
+            created: number
+            finished: number
+            errors: number
+            state: string
+            rssBytes: number
+        }[] = []
         const starts: {
             projectId: string
             offeredAtMs: number
@@ -123,8 +152,47 @@ for (const engine of engines) {
         let finished = 0
         let completedDuringArrivals = 0
         const started = performance.now()
+        const workerSql = new Proxy<SqlDatabase>(database.sql, {
+            get(target, key) {
+                if (key === 'statement')
+                    return (query: string) => {
+                        const statement = target.statement<unknown, SqlParams>(query)
+                        if (
+                            !query.includes('select min(event_at)') &&
+                            !/update jobs\s+set state = 'running'/.test(query)
+                        )
+                            return statement
+                        return new Proxy(statement, {
+                            get(s, method) {
+                                if (method === 'get')
+                                    return async (...params: SqlParams) => {
+                                        const elapsed = (performance.now() - started) / 1000
+                                        if (
+                                            conflictSeconds &&
+                                            elapsed >= 30 &&
+                                            elapsed < 30 + conflictSeconds
+                                        ) {
+                                            injectedConflicts++
+                                            throw Object.assign(
+                                                new Error(
+                                                    'Synthetic exhausted serialization conflict'
+                                                ),
+                                                { errno: '40001' }
+                                            )
+                                        }
+                                        return s.get(...params)
+                                    }
+                                const value = Reflect.get(s, method, s)
+                                return typeof value === 'function' ? value.bind(s) : value
+                            },
+                        })
+                    }
+                const value = Reflect.get(target, key, target)
+                return typeof value === 'function' ? value.bind(target) : value
+            },
+        })
         worker = createPublicationWorker({
-            database,
+            database: { ...database, sql: workerSql },
             publisherStore,
             publisherCredentialStore: credentials,
             onError: error => {
@@ -137,6 +205,8 @@ for (const engine of engines) {
                     contractId: 'linkedin',
                     revision: 'benchmark',
                     async execute(input) {
+                        if (effectIds.has(input.target.jobId)) duplicateEffects++
+                        effectIds.add(input.target.jobId)
                         const projectId = input.target.projectId
                         if (active.has(projectId) || active.size >= 2) admissionViolations++
                         active.add(projectId)
@@ -149,7 +219,9 @@ for (const engine of engines) {
                         }
                         starts.push(sample)
                         try {
-                            await Bun.sleep(effectMs)
+                            await Bun.sleep(
+                                effectMs + ((starts.length * 7919) % (effectSpreadMs + 1))
+                            )
                             sample.endedAtMs = performance.now() - started
                             finished++
                             return {
@@ -163,6 +235,19 @@ for (const engine of engines) {
                 }),
             },
         })
+        const sampler = setInterval(
+            () =>
+                timeline.push({
+                    elapsedMs: performance.now() - started,
+                    created,
+                    finished,
+                    errors: errors.length,
+                    state: worker!.scheduler.state,
+                    rssBytes: process.memoryUsage().rss,
+                }),
+            1000
+        )
+        timersToClear.push(sampler)
         await worker.start()
         // Open-loop schedule: retain intended timestamps if insertion falls behind.
         // Sequential writes bound the producer; record its lag instead of hiding overload.
@@ -198,9 +283,16 @@ for (const engine of engines) {
         const arrivalElapsedMs = performance.now() - started
         const schedulerStateAfterArrivals = worker.scheduler.state
         completedDuringArrivals = finished
-        const deadline = performance.now() + 120_000
-        while (finished < created && performance.now() < deadline && !errors.length)
-            await Bun.sleep(20)
+        const deadline = performance.now() + drainSeconds * 1000
+        while (performance.now() < deadline && worker.scheduler.state !== 'failed') {
+            const remaining = await database.sql
+                .statement<{ count: number }>(
+                    "select count(*) as count from jobs where state in ('pending','running')"
+                )
+                .get()
+            if (remaining?.count === 0 && worker.scheduler.state === 'started') break
+            await Bun.sleep(1000)
+        }
         const schedulerStateBeforeStop = worker.scheduler.state
         await worker.stop()
         const elapsedMs = performance.now() - started
@@ -212,10 +304,16 @@ for (const engine of engines) {
         const result = {
             engine: engine.name,
             seconds,
+            drainSeconds,
             settings,
             rate,
             projects: projectCount,
             effectMs,
+            effectSpreadMs,
+            conflictSeconds,
+            injectedConflicts,
+            duplicateEffects,
+            timeline,
             created,
             arrivalElapsedMs,
             schedulerStateAfterArrivals,
@@ -243,13 +341,15 @@ for (const engine of engines) {
         results.push(result)
         console.error(JSON.stringify({ ...result, starts: undefined }))
         if (
-            errors.length ||
+            schedulerStateBeforeStop !== 'started' ||
+            duplicateEffects ||
             admissionViolations ||
             states.some(row => row.state !== 'succeeded') ||
             finished !== created
         )
             process.exitCode = 1
     } finally {
+        for (const timer of timersToClear) clearInterval(timer)
         try {
             await worker?.stop()
         } finally {
@@ -263,7 +363,7 @@ console.log(
             generatedAt: new Date().toISOString(),
             runtime: Bun.version,
             cpu: cpus()[0]?.model,
-            scope: 'Actual API worker and scheduler; two projects globally, one effect per project. Synthetic provider latency, publication family only, no HTTP/media/network or provider limits. Statistics refreshed before arrivals; no warmup. Offered timestamps include producer lag. Completion counts are provider returns; final job states verify persistence.',
+            scope: 'Durable drain and healthy scheduler required; recovered errors retained; duplicate provider job IDs checked. Actual API worker and scheduler; two projects globally, one effect per project. Synthetic provider latency, publication family only, no HTTP/media/network or provider limits. Statistics refreshed before arrivals; no warmup. Offered timestamps include producer lag. Completion counts are provider returns; final job states verify persistence.',
             results,
         },
         null,

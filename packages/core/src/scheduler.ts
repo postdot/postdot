@@ -11,12 +11,14 @@ export interface SchedulerTimers {
     clear(handle: unknown): void
 }
 
-export type SchedulerState = 'idle' | 'started' | 'running' | 'stopped' | 'failed'
+export type SchedulerState = 'idle' | 'started' | 'running' | 'stopped' | 'failed' | 'recovering'
 
 export interface NextEventSchedulerOptions {
     readonly getNextEventAt: () => Promise<number | null>
     readonly processDueEvents: (now: number) => void | Promise<void>
     readonly onError: (error: unknown) => void
+    /** Opt-in recovery; null keeps an error terminal. Delays must be positive. */
+    readonly retryDelay?: (error: unknown, consecutiveFailures: number) => number | null
     readonly clock?: SchedulerClock
     readonly timers?: SchedulerTimers
     readonly maximumDelay?: number
@@ -37,6 +39,8 @@ const systemTimers: SchedulerTimers = {
 
 export class NextEventScheduler {
     readonly #getNextEventAt: () => Promise<number | null>
+    readonly #retryDelay: NextEventSchedulerOptions['retryDelay']
+    #consecutiveFailures = 0
     #planSequence = 0
     readonly #processDueEvents: (now: number) => void | Promise<void>
     readonly #onError: (error: unknown) => void
@@ -53,6 +57,7 @@ export class NextEventScheduler {
     #scheduledAt: number | null = null
 
     constructor(options: NextEventSchedulerOptions) {
+        this.#retryDelay = options.retryDelay
         this.#getNextEventAt = options.getNextEventAt
         this.#processDueEvents = options.processDueEvents
         this.#onError = options.onError
@@ -91,7 +96,7 @@ export class NextEventScheduler {
 
     /** Re-reads the next event; the returned promise settles once the plan is armed. */
     replan(): Promise<void> {
-        if (this.#state === 'running') return Promise.resolve()
+        if (this.#state === 'running' || this.#state === 'recovering') return Promise.resolve()
         if (this.#state !== 'started') {
             throw new DomainInvariantError(
                 'invalid_transition',
@@ -143,7 +148,22 @@ export class NextEventScheduler {
     }
 
     async #wake(generation: number): Promise<void> {
-        if (generation !== this.#generation || this.#state !== 'started') return
+        if (
+            generation !== this.#generation ||
+            (this.#state !== 'started' && this.#state !== 'recovering')
+        )
+            return
+
+        if (this.#state === 'recovering' && this.#scheduledAt !== null) {
+            const remaining = this.#scheduledAt - this.#clock.now()
+            if (remaining > 0) {
+                this.#timer = this.#timers.set(
+                    () => this.#wake(generation),
+                    Math.min(remaining, this.#maximumDelay)
+                )
+                return
+            }
+        }
 
         const activeRun = this.#run()
         this.#activeRun = activeRun
@@ -169,6 +189,7 @@ export class NextEventScheduler {
             }
 
             if (this.#state !== 'running') return
+            this.#consecutiveFailures = 0
             this.#state = 'started'
             await this.#plan()
         } catch (error) {
@@ -191,7 +212,18 @@ export class NextEventScheduler {
 
     #fail(error: unknown): void {
         this.#clearTimer()
-        this.#state = 'failed'
+        const delay = this.#stopping ? null : this.#retryDelay?.(error, ++this.#consecutiveFailures)
+        if (delay !== null && delay !== undefined && Number.isSafeInteger(delay) && delay > 0) {
+            this.#state = 'recovering'
+            this.#scheduledAt = requireTimestamp(this.#clock.now(), 'now') + delay
+            const generation = this.#generation
+            this.#timer = this.#timers.set(
+                () => this.#wake(generation),
+                Math.min(delay, this.#maximumDelay)
+            )
+        } else {
+            this.#state = 'failed'
+        }
         this.#onError(error)
     }
 }
