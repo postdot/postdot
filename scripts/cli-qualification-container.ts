@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { randomBytes, randomUUID } from 'node:crypto'
-import { chmod, mkdir } from 'node:fs/promises'
+import { chmod } from 'node:fs/promises'
 import { join } from 'node:path'
 
 import type { CliQualificationFixture } from './cli-qualification-fixture'
@@ -12,9 +12,6 @@ export async function createContainerCliFixture(
 ): Promise<CliQualificationFixture> {
     assert.match(image, /^ghcr\.io\/postdot\/postdot@sha256:[a-f0-9]{64}$/)
     const name = `postdot-cli-acceptance-${randomUUID()}`
-    const data = join(directory, 'container-data')
-    await mkdir(data)
-    await chmod(data, 0o777)
     const environment = join(directory, 'container.env')
     const configuration = {
         BETTER_AUTH_URL: 'http://localhost:3000',
@@ -45,7 +42,7 @@ export async function createContainerCliFixture(
     let started = false
     async function stop() {
         if (!started) return
-        await docker(['rm', '--force', name])
+        await docker(['rm', '--force', '--volumes', name])
         started = false
     }
     try {
@@ -56,19 +53,19 @@ export async function createContainerCliFixture(
             metadata.Architecture,
             'Container acceptance requires a native host'
         )
+        // Qualify the shipped user configuration, independent of the host UID.
+        // Docker owns the temporary data volume and removes it with the container.
         await docker([
             'run',
             '--detach',
             '--name',
             name,
-            '--user',
-            `${process.getuid?.() ?? 1000}:${process.getgid?.() ?? 1000}`,
             '--publish',
             '127.0.0.1::3000',
             '--env-file',
             environment,
-            '--volume',
-            `${data}:/data`,
+            '--mount',
+            'type=volume,destination=/data',
             image,
         ])
         started = true
