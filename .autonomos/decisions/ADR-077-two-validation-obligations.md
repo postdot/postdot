@@ -22,6 +22,16 @@ impact determines the required scope. Full validation is reserved for meaningful
 milestones or demonstrated cross-cutting risk. The current root AGENT.md takes
 precedence over the earlier trigger list retained below as history.
 
+## Owner amendment — 2026-11-08
+
+Intermediate integration is local again: use proportionate local static and
+focused behavioral checks, then merge into local `main`. Neither a local merge
+nor an intermediate checkpoint requires a full matrix or a GitHub Actions wait.
+Reserve broad qualification and grouped PRs for substantial milestones or a
+concrete cross-cutting risk. Preserve test assertions and the static commit gate;
+this changes when validation is grouped, not the required behavior. The latest
+root AGENT.md governs this cadence and supersedes the 2026-11-07 PR-only policy.
+
 ## Context
 
 `AGENT.md` currently names one obligation: run the full `bun run check`. Because

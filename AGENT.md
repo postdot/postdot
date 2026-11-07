@@ -31,11 +31,19 @@ content generator.
 
 - **Handoff:** End every completed pass with a concrete recommended next task, or explicitly state that no next task was identified so the owner can plan another sprint.
 - **Skills maintenance:** Periodically refresh installed skills with `npx skills update`, review the resulting changes, and use the Solar catalog when choosing icons rather than guessing glyph names.
-- **Integration (owner direction, 2026-11-07):** Integrate completed work through
-  pull requests. Group related changes into substantial, coherent PRs rather than
-  opening small PRs that could be combined. Validate locally before pushing and
-  avoid unnecessary pushes or repeated GitHub Actions runs that slow delivery.
-  This replaces the temporary direct-to-local-main integration policy.
+- **Integration and validation cadence (owner direction, 2026-11-08):** Use
+  local integration into `main` for intermediate work after proportionate local
+  validation. Keep feature branches/worktrees where useful, record the checks,
+  and preserve existing commits. A local merge alone does not trigger a full
+  test matrix or require waiting for GitHub Actions. Run focused affected tests
+  and the static gate locally; cover both database engines when persistence
+  changes and focused browser journeys when UI behavior changes. Reserve broad
+  local qualification and grouped pull requests for substantial milestones or
+  demonstrated cross-cutting risk. Batch remote pushes to avoid redundant CI;
+  continue independent local work while milestone CI runs. Investigate failures
+  and resolve relevant blockers before remote integration or release. Local
+  integration does not itself publish, deploy, or push remote `main`. This
+  supersedes the 2026-11-07 requirement to use a PR for every completed slice.
 - **Proportionate validation (owner direction, 2026-10-10):** Verify local UI
   and copy changes with static checks and the focused affected scenario or test.
   Do not run the whole repository because a selector path is unmapped, a shared
