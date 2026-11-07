@@ -84,16 +84,18 @@ export function createShutdownDependencies(
  */
 export function createShutdownHandler(
     dependencies: ShutdownDependencies
-): (signal: NodeJS.Signals) => Promise<void> {
+): (signal: NodeJS.Signals, minimumExitCode?: ShutdownExitCode) => Promise<void> {
     const log = dependencies.log ?? defaultShutdownLog
     let shuttingDown = false
 
-    return async signal => {
+    // A drain started for a failure (lost topology lock) exits non-zero even
+    // when every step succeeds, so a supervisor restarts the process.
+    return async (signal, minimumExitCode = 0) => {
         if (shuttingDown) return
         shuttingDown = true
 
         log(`${signal} received; draining worker and runtimes`)
-        let exitCode: ShutdownExitCode = 0
+        let exitCode: ShutdownExitCode = minimumExitCode
         let step = 'worker-stop'
         try {
             await dependencies.stopWorker()

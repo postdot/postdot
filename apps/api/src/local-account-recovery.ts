@@ -2,7 +2,14 @@ import { statSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 import { hashPostdotPassword, postdotPasswordPolicy } from '@postdot/auth'
-import { recoverLocalAccountPassword } from '@postdot/db'
+import {
+    closePostgresDatabase,
+    createPostgresDatabase,
+    recoverAccountPasswordInDatabase,
+    recoverLocalAccountPassword,
+    type DatabaseAccountPasswordRecoveryResult,
+    type LocalAccountPasswordRecoveryResult,
+} from '@postdot/db'
 
 export interface AccountRecoveryPromptOptions {
     readonly hidden?: boolean
@@ -16,8 +23,10 @@ export type AccountRecoveryPrompt = (
 export async function runLocalAccountPasswordRecovery(
     args: readonly string[],
     prompt: AccountRecoveryPrompt = promptTerminal
-) {
-    assertRecoveryCommandArguments(args)
+): Promise<LocalAccountPasswordRecoveryResult | DatabaseAccountPasswordRecoveryResult> {
+    const target = assertRecoveryCommandArguments(args)
+    if (target === '--database-url')
+        return recoverPostgresAccount(requiredOption(args, target), prompt)
 
     const databaseArgument = requiredOption(args, '--database')
     const databaseFilename = resolve(databaseArgument)
@@ -38,6 +47,58 @@ export async function runLocalAccountPasswordRecovery(
         throw new Error('Database path confirmation did not match; no changes were made')
     }
 
+    const { email, passwordHash } = await promptCredentials(prompt)
+    const result = recoverLocalAccountPassword({
+        databaseFilename,
+        email,
+        passwordHash,
+    })
+
+    console.log(`Password updated for ${result.email}.`)
+    console.log(
+        `${result.revokedSessionCount} session(s) revoked; ${result.invalidatedResetTokenCount} reset link(s) invalidated.`
+    )
+    console.log(`Recovery backup: ${result.backupFilename}`)
+
+    return result
+}
+
+/**
+ * PostgreSQL profile: the account is changed in one transaction; servers may
+ * keep running. Back the database up with the PostgreSQL tooling first.
+ */
+async function recoverPostgresAccount(url: string, prompt: AccountRecoveryPrompt) {
+    let target: URL
+    try {
+        target = new URL(url)
+    } catch {
+        throw new Error('--database-url must be a postgres:// or postgresql:// URL')
+    }
+    if (target.protocol !== 'postgres:' && target.protocol !== 'postgresql:')
+        throw new Error('--database-url must be a postgres:// or postgresql:// URL')
+    const name = decodeURIComponent(target.pathname.replace(/^\//, ''))
+    if (name.length === 0) throw new Error('--database-url must name a database')
+    const confirmation = await prompt(
+        `Target PostgreSQL database: ${name} on ${target.hostname || 'local socket'}\nType the database name to confirm: `
+    )
+    if (confirmation !== name) {
+        throw new Error('Database name confirmation did not match; no changes were made')
+    }
+    const { email, passwordHash } = await promptCredentials(prompt)
+    const database = createPostgresDatabase(url, { max: 1 })
+    try {
+        const result = await recoverAccountPasswordInDatabase(database, { email, passwordHash })
+        console.log(`Password updated for ${result.email}.`)
+        console.log(
+            `${result.revokedSessionCount} session(s) revoked; ${result.invalidatedResetTokenCount} reset link(s) invalidated.`
+        )
+        return result
+    } finally {
+        await closePostgresDatabase(database)
+    }
+}
+
+async function promptCredentials(prompt: AccountRecoveryPrompt) {
     const email = (await prompt('Account email: ')).trim()
     if (email.length === 0) throw new Error('An account email is required')
 
@@ -57,44 +118,37 @@ export async function runLocalAccountPasswordRecovery(
         throw new Error('The passwords do not match; no changes were made')
     }
 
-    const passwordHash = await hashPostdotPassword(password)
-    const result = recoverLocalAccountPassword({
-        databaseFilename,
-        email,
-        passwordHash,
-    })
-
-    console.log(`Password updated for ${result.email}.`)
-    console.log(
-        `${result.revokedSessionCount} session(s) revoked; ${result.invalidatedResetTokenCount} reset link(s) invalidated.`
-    )
-    console.log(`Recovery backup: ${result.backupFilename}`)
-
-    return result
+    return { email, passwordHash: await hashPostdotPassword(password) }
 }
 
-function assertRecoveryCommandArguments(args: readonly string[]): void {
+/** Exactly one explicit target: a SQLite file (`--database`) or a PostgreSQL URL. */
+function assertRecoveryCommandArguments(args: readonly string[]): '--database' | '--database-url' {
     if (args[0] !== 'account' || args[1] !== 'recover-password') {
-        throw new Error('Usage: postdot account recover-password --database <path>')
+        throw new Error(
+            'Usage: postdot account recover-password --database <path> | --database-url <postgres-url>'
+        )
     }
 
-    let databaseOptionCount = 0
+    const targets: ('--database' | '--database-url')[] = []
     for (let index = 2; index < args.length; index += 1) {
         const argument = args[index]
-        if (argument !== '--database') {
+        if (argument !== '--database' && argument !== '--database-url') {
             throw new Error(`Unknown account recovery option: ${argument ?? ''}`)
         }
-        databaseOptionCount += 1
+        targets.push(argument)
         const value = args[index + 1]
         if (value === undefined || value.startsWith('--')) {
-            throw new Error('Missing value for --database')
+            throw new Error(`Missing value for ${argument}`)
         }
         index += 1
     }
 
-    if (databaseOptionCount !== 1) {
-        throw new Error('Account recovery requires exactly one explicit --database path')
+    if (targets.length !== 1) {
+        throw new Error(
+            'Account recovery requires exactly one explicit --database path or --database-url'
+        )
     }
+    return targets[0]!
 }
 
 function requiredOption(args: readonly string[], name: string): string {

@@ -38,6 +38,7 @@ Generate missing image previews against an existing offline database.
 Stop the server first. --dry-run reports work without generating previews.`,
     account: `Usage: bun /app/postdot.js account bootstrap --database <path> --input <private-json-file>
        bun /app/postdot.js account recover-password --database <path>
+       bun /app/postdot.js account recover-password --database-url <postgres-url>
 
 Bootstrap creates the first administrator offline from a private JSON file with
 name, email and password. Stop the server; existing installations are refused.

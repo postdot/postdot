@@ -79,6 +79,12 @@ export function migrationSql(migration: PortableMigration, dialect: SqlDialect):
 
 export interface PortableMigrationResult {
     readonly applied: readonly string[]
+    /**
+     * Migrations recorded by a newer release. During a rolling release the
+     * older servers keep running on the expanded schema (expand/contract
+     * policy), so this is reported, not refused.
+     */
+    readonly newer: readonly string[]
 }
 
 const createHistorySql = `create table if not exists postdot_migrations (
@@ -152,7 +158,17 @@ export async function runPortableMigrations(
             }, 'immediate')
             if (done) applied.push(`${String(migration.id).padStart(4, '0')}_${migration.name}`)
         }
-        return { applied }
+        const known = new Set(migrations.map(migration => migration.id))
+        const newer = (
+            await sql
+                .statement<{ id: number; name: string }>(
+                    'select id, name from postdot_migrations order by id'
+                )
+                .all()
+        )
+            .filter(row => !known.has(Number(row.id)))
+            .map(row => `${String(row.id).padStart(4, '0')}_${row.name}`)
+        return { applied, newer }
     } finally {
         if (sql.dialect === 'sqlite') {
             await sql.exec(`pragma foreign_keys = ${foreignKeysWereEnabled ? 'on' : 'off'}`)

@@ -255,10 +255,11 @@ Do not set `DB_FILE_NAME` at the same time: Postdot refuses to start when both
 name a database. At startup Postdot applies its migrations to the PostgreSQL
 database; restarting it is safe.
 
-One server runs per database. A second server started against the same PostgreSQL
-database stops with an error instead of sharing it. Media stored locally still
-needs the `/data` volume; use S3-compatible storage if the server should keep no
-local state.
+With local media, one server runs per database: a second server started against
+the same PostgreSQL database stops with an error instead of sharing it. With
+PostgreSQL **and** S3-compatible media, several servers may share the database,
+for availability and rolling updates. See
+[PostgreSQL operations](/docs/postgresql/) for that setup, backups and upgrades.
 
 With PostgreSQL, the `backup` and `restore` commands below do not apply: they work
 on the SQLite file. Back up the database with your PostgreSQL tooling (for example

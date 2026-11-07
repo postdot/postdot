@@ -1,9 +1,12 @@
 import type { DatabaseHandle } from './client'
 
-// Separate store facades over one database share its queue (keyed by the port);
-// independent credentials never wait for each other's network operation.
-const queues = new WeakMap<object, Map<string, Promise<void>>>()
-
+/**
+ * Serializes network refreshes of one publisher credential across every
+ * Postdot process on the database (ADR-097 §7): providers that rotate refresh
+ * tokens invalidate the loser of two concurrent refreshes. Independent
+ * credentials never wait for each other. An aborted caller stops waiting at
+ * once; its operation never runs.
+ */
 export async function coordinatePublisherCredentialRefresh<T>(
     database: DatabaseHandle,
     credentialId: string,
@@ -11,37 +14,24 @@ export async function coordinatePublisherCredentialRefresh<T>(
     signal?: AbortSignal
 ): Promise<T> {
     signal?.throwIfAborted()
-    let queue = queues.get(database.sql)
-    if (!queue) {
-        queue = new Map()
-        queues.set(database.sql, queue)
-    }
-    const previous = queue.get(credentialId) ?? Promise.resolve()
-    let release!: () => void
-    const turn = new Promise<void>(resolve => {
-        release = resolve
+    const turn = database.sql.exclusive(`publisher-credential:${credentialId}`, async () => {
+        signal?.throwIfAborted()
+        return operation()
     })
-    const tail = previous.then(() => turn)
-    queue.set(credentialId, tail)
+    if (signal === undefined) return turn
+    // The section still ends on its own; an aborted caller does not wait for it.
+    turn.catch(() => {})
     let onAbort: (() => void) | undefined
     try {
-        if (signal) {
-            await Promise.race([
-                previous,
-                new Promise<never>((_resolve, reject) => {
-                    onAbort = () => reject(signal.reason)
-                    signal.addEventListener('abort', onAbort, { once: true })
-                    if (signal.aborted) onAbort()
-                }),
-            ])
-        } else await previous
-        signal?.throwIfAborted()
-        return await operation()
+        return await Promise.race([
+            turn,
+            new Promise<never>((_resolve, reject) => {
+                onAbort = () => reject(signal.reason)
+                signal.addEventListener('abort', onAbort, { once: true })
+                if (signal.aborted) onAbort()
+            }),
+        ])
     } finally {
-        if (onAbort) signal?.removeEventListener('abort', onAbort)
-        release()
-        void tail.then(() => {
-            if (queue.get(credentialId) === tail) queue.delete(credentialId)
-        })
+        if (onAbort) signal.removeEventListener('abort', onAbort)
     }
 }

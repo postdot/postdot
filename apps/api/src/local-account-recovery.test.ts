@@ -127,6 +127,49 @@ describe('local account recovery command', () => {
         }
     })
 
+    it('targets PostgreSQL by explicit URL and refuses before connecting without the database name', async () => {
+        const prompt = async () => {
+            throw new Error('The terminal must not be prompted for invalid arguments')
+        }
+        await expect(
+            runLocalAccountPasswordRecovery(
+                [
+                    'account',
+                    'recover-password',
+                    '--database',
+                    '/tmp/postdot.sqlite',
+                    '--database-url',
+                    'postgres://localhost/postdot',
+                ],
+                prompt
+            )
+        ).rejects.toThrow('exactly one explicit')
+        await expect(
+            runLocalAccountPasswordRecovery(
+                ['account', 'recover-password', '--database-url', 'mysql://localhost/postdot'],
+                prompt
+            )
+        ).rejects.toThrow('postgres:// or postgresql://')
+        // An unreachable host proves no connection is attempted before confirmation.
+        const asked: string[] = []
+        await expect(
+            runLocalAccountPasswordRecovery(
+                [
+                    'account',
+                    'recover-password',
+                    '--database-url',
+                    'postgres://unreachable.invalid/postdot',
+                ],
+                async message => {
+                    asked.push(message)
+                    return 'another-database'
+                }
+            )
+        ).rejects.toThrow('confirmation did not match')
+        expect(asked).toHaveLength(1)
+        expect(asked[0]).toContain('postdot on unreachable.invalid')
+    })
+
     it('requires exactly one explicit database path and rejects unknown options', async () => {
         const prompt = async () => {
             throw new Error('The terminal must not be prompted for invalid arguments')

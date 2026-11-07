@@ -30,7 +30,21 @@ type LifecycleRow = {
 }
 const activity = new WeakMap<object, { requests: Map<string, number>; writes: number }>()
 
-export function createResourceLifecycleStore(database: DatabaseHandle) {
+export interface ResourceLifecycleStoreOptions {
+    /**
+     * Minimum age of a retired object before it is deleted. In-flight object
+     * writes are tracked in memory, which only covers this process; with
+     * several servers (ADR-097 §7) a write started elsewhere before
+     * retirement is covered by this delay instead. Zero with one server.
+     */
+    readonly cleanupGraceMs?: number
+}
+
+export function createResourceLifecycleStore(
+    database: DatabaseHandle,
+    options: ResourceLifecycleStoreOptions = {}
+) {
+    const cleanupGraceMs = options.cleanupGraceMs ?? 0
     const sql = database.sql
     const live = activity.get(database) ?? { requests: new Map<string, number>(), writes: 0 }
     activity.set(database, live)
@@ -655,7 +669,10 @@ export function createResourceLifecycleStore(database: DatabaseHandle) {
                 store_id: string
                 object_key: string
                 project_id: string
-            }>('select * from resource_cleanup_objects order by updated_at limit 50')) {
+            }>(
+                'select * from resource_cleanup_objects where updated_at <= ? order by updated_at limit 50',
+                Date.now() - cleanupGraceMs
+            )) {
                 if (
                     live.writes ||
                     (await count(

@@ -1,0 +1,121 @@
+---
+title: PostgreSQL operations
+description: Run Postdot on PostgreSQL, with one or several servers, and back it up, update it and recover an account.
+---
+
+Postdot runs on an embedded SQLite file by default. The same image can use an
+existing PostgreSQL server instead when `POSTDOT_DATABASE_URL` is set; see
+[Installation](/docs/installation/#postgresql-database) for the first setup.
+PostgreSQL 18 is the tested version.
+
+## How many servers can run
+
+The storage choices decide how many Postdot servers may share one installation.
+Postdot enforces it at startup; you do not configure it.
+
+| Database   | Media      | Servers                                                          |
+| ---------- | ---------- | ---------------------------------------------------------------- |
+| SQLite     | any        | one (the database file has a runtime lock)                       |
+| PostgreSQL | local disk | one (a second server stops with an error)                        |
+| PostgreSQL | S3         | several (every server serves requests; one runs background work) |
+
+With several servers, every server answers web and API requests, including live
+updates: a change made through one server reaches browsers connected to another.
+One server, elected automatically, runs the background work: publishing, media
+maintenance, video previews, notifications and email delivery. If it stops or
+loses its database connection, another server takes over a few seconds after
+that connection ends. A server
+that loses its leadership stops on purpose and should be restarted by your
+orchestrator (Docker restart policy, Kubernetes, systemd).
+
+Startup logs and `GET /ready` report the profile and the server's role (excerpt):
+
+```json
+{
+    "status": "ready",
+    "checks": {
+        "database": "ok",
+        "topology": {
+            "engine": "postgres",
+            "media": "s3",
+            "instances": "multiple",
+            "role": "follower"
+        }
+    }
+}
+```
+
+A follower is ready as soon as its database answers; route traffic to every ready
+server. Sticky sessions are not needed.
+
+### Several servers: requirements
+
+- Every server uses the same `POSTDOT_DATABASE_URL`, S3 settings and
+  `POSTDOT_MEDIA_STORE_ID`.
+- Every server uses the same secrets: `BETTER_AUTH_SECRET`,
+  `POSTDOT_MEDIA_PUBLIC_URL_SECRET`, `POSTDOT_PUBLISHER_ENCRYPTION_KEY` and its key
+  ID. Sessions, signed media links and stored credentials depend on them.
+- `BETTER_AUTH_URL` and `POSTDOT_WEB_ORIGIN` are the public addresses of the load
+  balancer, not of one server.
+- Each server opens up to `POSTDOT_DATABASE_POOL_SIZE` connections (default 10),
+  plus up to three for coordination. Size `max_connections` accordingly.
+
+## Updates and rolling releases
+
+Postdot applies its migrations at startup. Migrations are serialized by a database
+lock, so several servers starting together apply each one exactly once.
+
+With several servers, you can update one server at a time. Postdot's migrations
+follow an **expand then contract** policy: a release only adds to the schema
+(tables, nullable or defaulted columns, indexes), so the previous release keeps
+working on the new schema. Removing what the previous release still uses happens
+in a later release. A server of the previous release that starts against a newer
+schema logs `the database has migrations from a newer release` and keeps running.
+Update every server before the next release.
+
+With one server, stop it, start the new release, and check `GET /ready`.
+
+## Backup and restore
+
+The `backup` and `restore` commands of the image work on the SQLite file and
+refuse to run with PostgreSQL. Use the PostgreSQL tooling instead:
+
+```sh
+pg_dump --format=custom --file=postdot.dump "$POSTDOT_DATABASE_URL"
+pg_restore --clean --if-exists --dbname="$POSTDOT_DATABASE_URL" postdot.dump
+```
+
+Back up the media storage at the same time: with S3, use the bucket's versioning
+or replication; with local media, copy the media directory while Postdot is
+stopped. Keep `POSTDOT_PUBLISHER_ENCRYPTION_KEY` and its key ID separately: a
+restored database cannot decrypt stored provider credentials without them.
+
+Restore with every Postdot server stopped, then start one server and check
+`GET /ready` before starting the others.
+
+## Recover an account password
+
+When email password recovery is unavailable, reset a password from a shell that
+can reach the database. Pass the same URL as `POSTDOT_DATABASE_URL`. The command
+asks you to type the database name, then the account email and the new password:
+
+```sh
+docker compose run --rm --no-deps -it postdot account recover-password \
+    --database-url 'postgres://postdot:replace-with-password@db.example.com:5432/postdot'
+```
+
+It changes the password, signs the account out everywhere and invalidates its
+reset links, in one transaction. Servers may keep running. Take a `pg_dump`
+backup first.
+
+## Text ordering
+
+PostgreSQL sorts text by the database collation. Lists ordered by name follow it:
+with a `en_US.UTF-8` collation, capitals and accents sort the way people expect;
+with `C`, ordering is by byte, as with SQLite. Both work; choose the collation when
+creating the database, since changing it later requires rebuilding indexes.
+
+## Moving between SQLite and PostgreSQL
+
+Moving an existing installation between SQLite and PostgreSQL is not supported
+yet. Start a new installation on the profile you want.

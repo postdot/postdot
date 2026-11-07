@@ -201,6 +201,11 @@ export function createVideoPosterRuntime(options: {
             for (const item of await options.pending()) enqueue(item.projectId, item.id)
             wake()
         },
+        /** Picks up previews requested on other instances. */
+        async rescan() {
+            if (!started) return
+            for (const item of await options.pending()) enqueue(item.projectId, item.id)
+        },
         async stop() {
             started = false
             queue.clear()

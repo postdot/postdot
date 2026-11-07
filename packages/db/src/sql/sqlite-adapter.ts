@@ -2,6 +2,7 @@ import type { Database, SQLQueryBindings, Statement } from 'bun:sqlite'
 import { AsyncLocalStorage } from 'node:async_hooks'
 
 import { normalizeStatementSql } from './dialect'
+import { KeyedQueue } from './exclusive'
 import type {
     SqlCommitScope,
     SqlDatabase,
@@ -67,6 +68,7 @@ export class SqliteSqlDatabase implements SqlDatabase {
     readonly dialect = 'sqlite' as const
     readonly #client: Database
     readonly #gate = new WriterGate()
+    readonly #exclusive = new KeyedQueue()
     #savepointSequence = 0
 
     constructor(client: Database) {
@@ -110,6 +112,13 @@ export class SqliteSqlDatabase implements SqlDatabase {
 
     transactionScope(): object | undefined {
         return this.#currentFrame()?.root
+    }
+
+    /** One process owns a SQLite database (runtime lock), so exclusion is in-process. */
+    exclusive<T>(key: string, operation: () => Promise<T>): Promise<T> {
+        if (this.inTransaction())
+            throw new Error('An exclusive section cannot run inside a transaction')
+        return this.#exclusive.run(key, operation)
     }
 
     afterCommit(callback: () => void, scope: SqlCommitScope = 'savepoint'): void {

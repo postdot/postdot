@@ -489,7 +489,6 @@ export function createMediaAssetStore(
     const now = options.now ?? Date.now
     const createId = options.createId ?? (() => crypto.randomUUID())
     const uploadIntentTtlMs = options.uploadIntentTtlMs ?? DEFAULT_UPLOAD_INTENT_TTL_MS
-    const previewGeneration = new Map<string, Promise<void>>()
     const inspectionLimits = options.inspectionLimits ?? defaultMediaInspectionLimits
     const deletionGracePeriodMs = options.deletionGracePeriodMs ?? DEFAULT_DELETION_GRACE_PERIOD_MS
     const inspectors = new MediaInspectionRegistry()
@@ -1598,25 +1597,37 @@ export function createMediaAssetStore(
         return missing
     }
 
-    async function ensureImagePreviews(
+    /**
+     * Preview writes and physical purge of one asset never overlap, on this
+     * server or another (ADR-097 §7): a delayed preview write must not
+     * recreate a purged file.
+     */
+    const assetSection = <T>(assetId: string, operation: () => Promise<T>) =>
+        sql.exclusive(`media-asset:${assetId}`, operation)
+
+    function ensureImagePreviews(
         projectId: string,
         assetId: string,
         source: MediaRepresentation,
         requiredState: 'inspecting' | 'ready',
         timestamp: number
     ): Promise<boolean> {
-        await previewGeneration.get(assetId)
+        return assetSection(assetId, () =>
+            ensureImagePreviewsExclusively(projectId, assetId, source, requiredState, timestamp)
+        )
+    }
+
+    async function ensureImagePreviewsExclusively(
+        projectId: string,
+        assetId: string,
+        source: MediaRepresentation,
+        requiredState: 'inspecting' | 'ready',
+        timestamp: number
+    ): Promise<boolean> {
         const asset = await readMedia(projectId, assetId)
         if (asset === null || asset.asset.state !== requiredState) return false
         const missing = await missingImagePreviews(asset, true)
         if (missing.length === 0) return true
-        let releasePreview!: () => void
-        previewGeneration.set(
-            assetId,
-            new Promise<void>(resolve => {
-                releasePreview = resolve
-            })
-        )
         try {
             const poster =
                 source.family === 'video'
@@ -1719,9 +1730,6 @@ export function createMediaAssetStore(
             }
             console.error('[postdot-media] Preview generation failed')
             return false
-        } finally {
-            previewGeneration.delete(assetId)
-            releasePreview()
         }
         return true
     }
@@ -1896,14 +1904,22 @@ export function createMediaAssetStore(
         }
     }
 
-    async function purgeInternal(
+    function purgeInternal(
         projectId: string,
         assetId: string,
         at: number,
         gracePeriodMs: number
     ): Promise<PurgeMediaAssetResult> {
-        // Finish writes before physical deletion; a delayed put must not recreate a purged file.
-        await previewGeneration.get(assetId)
+        // Finish preview writes before physical deletion; a delayed put must not recreate a purged file.
+        return assetSection(assetId, () => purgeExclusively(projectId, assetId, at, gracePeriodMs))
+    }
+
+    async function purgeExclusively(
+        projectId: string,
+        assetId: string,
+        at: number,
+        gracePeriodMs: number
+    ): Promise<PurgeMediaAssetResult> {
         if ((await activeBackupFenceStatement.get(at)) !== null) {
             return { kind: 'blocked', reason: 'backup_in_progress' }
         }

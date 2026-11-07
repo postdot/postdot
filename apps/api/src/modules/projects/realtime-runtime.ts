@@ -32,6 +32,11 @@ export interface ProjectRealtimeRuntime {
     /** Never rejects: failures are reported through `onError`. */
     publish(projectIds: readonly string[]): Promise<void>
     publishUsers(userIds: readonly string[]): void
+    /**
+     * Wakes every waiting stream so it rereads the durable journal: used when
+     * cross-instance signals may have been missed (ADR-097 §7).
+     */
+    wakeAll(): void
     stop(): Promise<void>
 }
 
@@ -188,6 +193,12 @@ export function createProjectRealtimeRuntime(
         notify(userWaiters, uniqueUserIds)
     }
 
+    function wakeAll(): void {
+        if (stopped) return
+        notify(projectWaiters, [...projectWaiters.keys()])
+        notify(userWaiters, [...userWaiters.keys()])
+    }
+
     async function stop(): Promise<void> {
         stopped = true
         // The served streams are told first. A stream that waits for a wakeup
@@ -237,6 +248,7 @@ export function createProjectRealtimeRuntime(
         },
         publish,
         publishUsers,
+        wakeAll,
         stop,
     }
 }

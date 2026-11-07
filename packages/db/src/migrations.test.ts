@@ -110,6 +110,18 @@ describe('database migrations', () => {
         })
     })
 
+    it('reports migrations recorded by a newer release without refusing them', async () => {
+        await withDatabase(async database => {
+            await runMigrations(database)
+            database.$client.run(
+                "insert into postdot_migrations (id, name, checksum, applied_at) values (9999, 'from_the_future', 'x', 0)"
+            )
+            const result = await runMigrations(database)
+            expect(result.applied).toEqual([])
+            expect(result.newer).toEqual(['9999_from_the_future'])
+        })
+    })
+
     it('refuses an applied migration that was modified afterwards', async () => {
         const folder = mkdtempSync(join(tmpdir(), 'postdot-migrations-'))
         try {

@@ -11,6 +11,9 @@ import {
     createSecretCipher,
 } from '@postdot/db'
 import {
+    createLocalCoordination,
+    createPostgresCoordination,
+    type InstanceCoordination,
     acquirePostgresInstanceLock,
     closeDatabase,
     closePostgresDatabase,
@@ -24,7 +27,6 @@ import {
     setDatabaseCommitObserver,
     runMigrations,
     type DatabaseHandle,
-    type PostgresInstanceLock,
 } from '@postdot/db'
 import { createMastodonThreadReader, createMastodonAnalyticsReader } from '@postdot/mastodon'
 
@@ -38,6 +40,7 @@ import {
 import { printMaintenanceHelp, runMaintenanceCommand } from './maintenance'
 import { createPostdotAuthEmailDelivery } from './modules/email/delivery'
 import { createEmailSettingsService } from './modules/email/settings'
+import type { InstanceTopology } from './modules/health/routes'
 import { createMediaPublicDelivery } from './modules/media/public-delivery'
 import {
     createConfiguredMediaStore,
@@ -49,7 +52,10 @@ import { createNotificationEmailRuntime } from './modules/notifications/email-ru
 import { createNotificationProjectionRuntime } from './modules/notifications/runtime'
 import { createPublicationFirstCommentService } from './modules/projects/publication-first-comment-service'
 import { createPublicationRepliesService } from './modules/projects/publication-replies-service'
-import { createProjectRealtimeRuntime } from './modules/projects/realtime-runtime'
+import {
+    createProjectRealtimeRuntime,
+    type DraftChangeSignal,
+} from './modules/projects/realtime-runtime'
 import { createPublisherRuntime } from './modules/publishers/runtime'
 import { createBuiltInProviderRegistry } from './modules/workflow/providers/registry'
 import { createPublicationWorker } from './modules/workflow/worker'
@@ -143,31 +149,74 @@ async function startServer(config = createPostdotConfig()) {
     process.once('SIGTERM', () => requestShutdown('SIGTERM'))
     process.once('SIGHUP', () => requestShutdown('SIGHUP'))
 
+    // A lost topology lock (connection gone) drains and exits non-zero, so a
+    // supervisor restarts this server as a follower instead of letting it run
+    // beside the instance that took over.
+    const lose = (what: string) => {
+        console.error(`[postdot-topology] ${what} lost; stopping this server`)
+        shutdownRequested = true
+        void handleShutdown('SIGTERM', 1)
+    }
+    const media = config.media.driver
     if (config.database.engine === 'sqlite') {
         const lock = acquireRuntimeQuiescenceLock(config.database.fileName, 'server')
         runtimeLock = lock
         try {
-            await startServerWithRuntimeLock(config, dependencies, () => shutdownRequested)
+            await startServerWithRuntimeLock(config, dependencies, () => shutdownRequested, {
+                coordination: createLocalCoordination(),
+                topology: { engine: 'sqlite', media, instances: 'single' },
+                lose,
+            })
         } catch (error) {
             lock.release()
             throw error
         }
         return
     }
-    // PostgreSQL: the single-server guarantee is a session lock that ends with
-    // its connection, closed after the database pool at shutdown.
-    const lock = await acquirePostgresInstanceLock(config.database.url)
+    if (media === 'local') {
+        // Local media keeps state on this server: one server per database.
+        const lock = await acquirePostgresInstanceLock(config.database.url, {
+            onLost: () => lose('The single-server lock'),
+        })
+        try {
+            await startServerWithRuntimeLock(config, dependencies, () => shutdownRequested, {
+                coordination: createLocalCoordination(),
+                topology: { engine: 'postgres', media, instances: 'single' },
+                lose,
+                closeTopology: () => lock.close(),
+            })
+        } catch (error) {
+            await lock.close()
+            throw error
+        }
+        return
+    }
+    // PostgreSQL and S3: several servers; one elected leader runs the runtimes.
+    const coordination = createPostgresCoordination(config.database.url)
     try {
-        await startServerWithRuntimeLock(config, dependencies, () => shutdownRequested, lock)
+        await startServerWithRuntimeLock(config, dependencies, () => shutdownRequested, {
+            coordination,
+            topology: { engine: 'postgres', media, instances: 'multiple' },
+            lose,
+            closeTopology: () => coordination.close(),
+        })
     } catch (error) {
-        await lock.close()
+        await coordination.close()
         throw error
     }
 }
 
+interface ServerTopology {
+    readonly coordination: InstanceCoordination
+    readonly topology: Omit<InstanceTopology, 'role'>
+    readonly lose: (what: string) => void
+    /** Ends the topology lock or coordination after the database pool closes. */
+    readonly closeTopology?: () => Promise<void>
+}
+
 async function openConfiguredDatabase(
     database: PostdotConfig['database'],
-    instanceLock: PostgresInstanceLock | undefined
+    closeTopology: (() => Promise<void>) | undefined
 ): Promise<{ readonly database: DatabaseHandle; readonly close: () => Promise<void> | void }> {
     if (database.engine === 'sqlite') {
         const opened = createDatabase(database.fileName)
@@ -178,7 +227,7 @@ async function openConfiguredDatabase(
         database: opened,
         close: async () => {
             await closePostgresDatabase(opened)
-            await instanceLock?.close()
+            await closeTopology?.()
         },
     }
 }
@@ -187,8 +236,9 @@ async function startServerWithRuntimeLock(
     config: ReturnType<typeof createPostdotConfig>,
     dependencies: MutableShutdownDependencies,
     shutdownRequested: () => boolean,
-    instanceLock?: PostgresInstanceLock
+    server: ServerTopology
 ) {
+    const { coordination } = server
     let resumeRuntimes: (() => Promise<void>) | undefined
     // Recovery holds are written by the SQLite restore command; PostgreSQL is
     // restored with its own tooling and never starts in a recovery hold.
@@ -200,10 +250,16 @@ async function startServerWithRuntimeLock(
             )
         }
     )
-    const opened = await openConfiguredDatabase(config.database, instanceLock)
+    const opened = await openConfiguredDatabase(config.database, server.closeTopology)
     const database = opened.database
     dependencies.closeDatabase = opened.close
-    await runMigrations(database, config.database.migrationsDirectory)
+    const migrations = await runMigrations(database, config.database.migrationsDirectory)
+    if (migrations.newer.length > 0) {
+        // Expand/contract: an older server keeps running on an expanded schema.
+        console.warn(
+            `[postdot-migrations] the database has migrations from a newer release: ${migrations.newer.join(', ')}`
+        )
+    }
     const access = createAccessStore(database)
     const notifications = createNotificationStore(database)
     const notificationProjection = createNotificationProjectionRuntime(notifications)
@@ -220,7 +276,8 @@ async function startServerWithRuntimeLock(
             })
         ),
         initial: config.email?.smtp,
-        onChange: () => void emailRuntime?.replan(),
+        // Every instance rereads the settings; the leader replans delivery.
+        onChange: () => coordination.publish({ kind: 'email-settings' }),
         deliveryAllowed: () => !recovery.held(),
     })
     emailRuntime = createNotificationEmailRuntime({
@@ -232,6 +289,8 @@ async function startServerWithRuntimeLock(
     const realtime = createProjectRealtimeRuntime({
         // Both projections are independent wakeups and never reject.
         onProjectsChanged: projectIds => {
+            // Projection and email delivery are background runtimes: leader only.
+            if (!coordination.isLeader()) return
             void notificationProjection.runProjects(projectIds)
             void emailRuntime?.runProjects(projectIds)
         },
@@ -241,11 +300,16 @@ async function startServerWithRuntimeLock(
     dependencies.stopRealtime = () => realtime.stop()
     const clearDatabaseCommitObserver = setDatabaseCommitObserver(
         database,
-        projectIds => void realtime.publish(projectIds),
+        // Every instance's streams reread the journal after this signal.
+        projectIds => coordination.publish({ kind: 'projects', projectIds }),
         error => console.error('[postdot-realtime] post-commit observer failed', error)
     )
     dependencies.clearCommitObserver = () => clearDatabaseCommitObserver()
-    const resourceLifecycle = createResourceLifecycleStore(database)
+    const resourceLifecycle = createResourceLifecycleStore(database, {
+        // Writes in flight on another server are not visible here: wait out an upload.
+        cleanupGraceMs:
+            server.topology.instances === 'multiple' ? config.media.uploadIntentTtlMs : 0,
+    })
     const objectStorage = resourceLifecycle.wrapMedia(createConfiguredMediaStore(config.media))
     const avatars = createUserAvatarStore(database, objectStorage)
     const posterExtractor = createVideoPosterExtractor(objectStorage)
@@ -253,7 +317,9 @@ async function startServerWithRuntimeLock(
     const media = createMediaAssetStore(database, objectStorage, {
         videoPoster: key => posterExtractor.extract(key),
         onVideoReady: (projectId, assetId) => {
-            if (posterExtractor.available) posterRuntime?.enqueue(projectId, assetId)
+            if (!posterExtractor.available) return
+            if (coordination.isLeader()) posterRuntime?.enqueue(projectId, assetId)
+            else coordination.publish({ kind: 'media' })
         },
         uploadIntentTtlMs: config.media.uploadIntentTtlMs,
         deletionGracePeriodMs: config.media.deletionGracePeriodMs,
@@ -269,10 +335,13 @@ async function startServerWithRuntimeLock(
         signingSecret: config.security.mediaPublicUrlSecret,
         lifetimeMs: config.media.publicUrlLifetimeMs,
     })
-    if (!recovery.held()) {
+    // Startup maintenance belongs to the runtime leader (at once when single).
+    const reconcileAtStart = async () => {
+        if (recovery.held()) return
         await media.reconcile()
         await resourceLifecycle.reconcile(objectStorage)
     }
+    if (coordination.mode === 'single') await reconcileAtStart()
     const mediaMaintenance = createMediaReconciliationRuntime({
         reconcile: async () => {
             const result = await media.reconcile()
@@ -390,16 +459,28 @@ async function startServerWithRuntimeLock(
                       bearerToken: metricsConfiguration.bearerToken,
                   },
               }),
-        onWorkScheduled: () => void worker.replan(),
+        onWorkScheduled: () => coordination.publish({ kind: 'work' }),
         access,
         allowAdditionalSignups,
         notifications,
         emailSettings,
         emailAlerts: { store: emailStore, available: () => emailSettings.current() !== undefined },
-        projectChanges: realtime.hub,
+        projectChanges: {
+            ...realtime.hub,
+            // Draft viewers may be connected to another instance.
+            publishDraftChange: change =>
+                coordination.publish({
+                    kind: 'draft',
+                    change: change as unknown as Readonly<Record<string, unknown>>,
+                }),
+        },
         userChanges: realtime.userHub,
         runtime: {
             recovery,
+            topology: () => ({
+                ...server.topology,
+                role: coordination.isLeader() ? ('leader' as const) : ('follower' as const),
+            }),
             scheduler: worker.scheduler,
             mediaMaintenance,
             notifications: notificationProjection,
@@ -420,19 +501,82 @@ async function startServerWithRuntimeLock(
             emailRuntime?.start(),
         ])
     }
-    // A termination received during startup must not start a runtime that is
-    // already draining, and must not start serving. No signal can arrive
-    // between this check and the listen call, because no await separates them.
-    if (shutdownRequested()) return
-    if (!recovery.held()) {
-        await resumeRuntimes().catch(error =>
-            console.error('[postdot-runtime] start failed', error)
-        )
+    await coordination.subscribe({
+        signal: signal => {
+            const leader = coordination.isLeader()
+            switch (signal.kind) {
+                case 'projects':
+                    void realtime.publish(signal.projectIds)
+                    break
+                case 'work':
+                    if (leader) void worker.replan()
+                    break
+                case 'media':
+                    if (leader) void posterRuntime?.rescan()
+                    break
+                case 'email-settings':
+                    void emailSettings
+                        .reload()
+                        .then(() => (coordination.isLeader() ? emailRuntime?.replan() : undefined))
+                        .catch(error =>
+                            console.error('[postdot-email] settings reload failed', error)
+                        )
+                    break
+                case 'draft':
+                    realtime.hub.publishDraftChange?.(signal.change as unknown as DraftChangeSignal)
+                    break
+            }
+        },
+        // Signals may have been missed while reconnecting: reread durable state.
+        resync: () => {
+            realtime.wakeAll()
+            void emailSettings
+                .reload()
+                .catch(error => console.error('[postdot-email] settings reload failed', error))
+            if (!coordination.isLeader()) return
+            void notificationProjection.runNow()
+            void worker.replan()
+            void posterRuntime?.rescan()
+            void emailRuntime?.replan()
+        },
+    })
+    console.info(
+        `[postdot-topology] ${server.topology.engine} database, ${server.topology.media} media, ` +
+            `${server.topology.instances === 'single' ? 'single instance' : 'several instances (leader-elected runtimes)'}`
+    )
+    if (coordination.mode === 'single') {
+        // One server: it leads at once, and runtimes start before serving.
+        coordination.lead({ acquired: () => {}, lost: () => server.lose('Runtime leadership') })
+        // A termination received during startup must not start a runtime that is
+        // already draining, and must not start serving. No signal can arrive
+        // between this check and the listen call, because no await separates them.
+        if (shutdownRequested()) return
+        if (!recovery.held()) {
+            await resumeRuntimes().catch(error =>
+                console.error('[postdot-runtime] start failed', error)
+            )
+        }
+        if (shutdownRequested()) return
+        notificationProjection.start()
+        if (recovery.held())
+            console.warn('[postdot-recovery] inspection only; resume from installation settings')
+    } else {
+        // Several servers: every one serves; the elected leader runs the runtimes.
+        coordination.lead({
+            acquired: () => {
+                console.info('[postdot-topology] this instance now leads the background runtimes')
+                void (async () => {
+                    if (shutdownRequested()) return
+                    await reconcileAtStart()
+                    await resumeRuntimes?.()
+                    if (shutdownRequested()) return
+                    notificationProjection.start()
+                })().catch(error => console.error('[postdot-runtime] start failed', error))
+            },
+            lost: () => server.lose('Runtime leadership'),
+        })
+        if (shutdownRequested()) return
     }
-    if (shutdownRequested()) return
-    notificationProjection.start()
-    if (recovery.held())
-        console.warn('[postdot-recovery] inspection only; resume from installation settings')
     app.listen(config.server.port)
     registerServingHandle(app.server)
 }

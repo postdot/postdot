@@ -1,12 +1,18 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 
+import { SQL } from 'bun'
+
 import {
     defineTransaction,
     recordDatabaseCommitProject,
     setDatabaseCommitObserver,
     type DatabaseHandle,
 } from '../client'
-import { acquirePostgresInstanceLock } from '../client'
+import {
+    acquirePostgresInstanceLock,
+    closePostgresDatabase,
+    createPostgresDatabase,
+} from '../client'
 import { isUniqueConstraintError } from './dialect'
 import { postgresTestUrl, testEngines, type OpenedTestDatabase } from './test-engines'
 
@@ -35,6 +41,31 @@ for (const engine of testEngines) {
 
         afterEach(async () => {
             await opened.close()
+        })
+
+        test('runs exclusive sections one at a time per key, never inside a transaction', async () => {
+            const trace: string[] = []
+            const section = (key: string, label: string, pause: number) =>
+                database.sql.exclusive(key, async () => {
+                    trace.push(`${label}:start`)
+                    await Bun.sleep(pause)
+                    trace.push(`${label}:end`)
+                    return label
+                })
+            const results = await Promise.all([
+                section('credential:a', 'first', 30),
+                section('credential:a', 'second', 1),
+                section('credential:b', 'other', 1),
+            ])
+            expect(results).toEqual(['first', 'second', 'other'])
+            // The same key never overlaps; another key does not wait.
+            expect(trace.indexOf('second:start')).toBeGreaterThan(trace.indexOf('first:end'))
+            expect(trace.indexOf('other:end')).toBeLessThan(trace.indexOf('first:end'))
+            await expect(
+                database.sql.transaction(() =>
+                    database.sql.exclusive('credential:a', async () => 1)
+                )
+            ).rejects.toThrow('inside a transaction')
         })
 
         test('maps rows, nulls, int8 values and camelCase aliases identically', async () => {
@@ -214,6 +245,36 @@ for (const engine of testEngines) {
     })
 }
 
+describe.skipIf(postgresTestUrl === undefined)('PostgreSQL exclusive sections', () => {
+    test('exclude each other across independent connection pools, as across processes', async () => {
+        const first = createPostgresDatabase(postgresTestUrl!, { max: 2 })
+        const second = createPostgresDatabase(postgresTestUrl!, { max: 2 })
+        try {
+            const trace: string[] = []
+            const hold = Promise.withResolvers<void>()
+            const entered = Promise.withResolvers<void>()
+            const a = first.sql.exclusive('cross-process', async () => {
+                trace.push('a:start')
+                entered.resolve()
+                await hold.promise
+                trace.push('a:end')
+            })
+            await entered.promise
+            const b = second.sql.exclusive('cross-process', async () => {
+                trace.push('b:start')
+            })
+            await Bun.sleep(100)
+            expect(trace).toEqual(['a:start'])
+            hold.resolve()
+            await Promise.all([a, b])
+            expect(trace).toEqual(['a:start', 'a:end', 'b:start'])
+        } finally {
+            await closePostgresDatabase(first)
+            await closePostgresDatabase(second)
+        }
+    })
+})
+
 describe.skipIf(postgresTestUrl === undefined)('PostgreSQL instance lock', () => {
     test('refuses a second server on the same database until the first releases', async () => {
         const first = await acquirePostgresInstanceLock(postgresTestUrl!)
@@ -226,5 +287,30 @@ describe.skipIf(postgresTestUrl === undefined)('PostgreSQL instance lock', () =>
         }
         const again = await acquirePostgresInstanceLock(postgresTestUrl!)
         await again.close()
+    })
+
+    test('reports a lock lost with its connection', async () => {
+        let lost = 0
+        const lock = await acquirePostgresInstanceLock(postgresTestUrl!, {
+            heartbeatMs: 50,
+            onLost: () => lost++,
+        })
+        try {
+            const admin = new SQL(postgresTestUrl!, { max: 1 })
+            try {
+                await admin.unsafe(
+                    `select pg_terminate_backend(pid) from pg_locks
+                     where locktype = 'advisory' and objsubid = 1
+                       and ((classid::bigint << 32) | objid::bigint) = 7310201612`
+                )
+            } finally {
+                await admin.close()
+            }
+            const deadline = Date.now() + 5_000
+            while (lost === 0 && Date.now() < deadline) await Bun.sleep(20)
+            expect(lost).toBe(1)
+        } finally {
+            await lock.close().catch(() => {})
+        }
     })
 })

@@ -70,4 +70,13 @@ export interface SqlDatabase {
      * transaction instead.
      */
     afterCommit(callback: () => void, scope?: SqlCommitScope): void
+    /**
+     * Runs `operation` while no other holder of `key` runs, across every
+     * Postdot process on this database (ADR-097 §7). It is not a transaction
+     * and is meant for external I/O that must not overlap, such as an OAuth
+     * token refresh. The exclusion ends with the operation or, should the
+     * process die, with its connection. It must not be entered inside a
+     * transaction.
+     */
+    exclusive<T>(key: string, operation: () => Promise<T>): Promise<T>
 }

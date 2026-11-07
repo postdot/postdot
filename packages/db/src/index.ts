@@ -27,7 +27,11 @@ export type {
     SqlValue,
 } from './sql/port'
 export { backupDatabase, backupWithMedia, restoreDatabase, restoreWithMedia } from './backup'
-export { recoverLocalAccountPassword } from './local-account-recovery'
+export {
+    recoverAccountPasswordInDatabase,
+    recoverLocalAccountPassword,
+} from './local-account-recovery'
+export type { DatabaseAccountPasswordRecoveryResult } from './local-account-recovery'
 export type {
     MediaBackupManifest,
     MediaBackupOptions,
@@ -39,6 +43,13 @@ export type {
     LocalAccountPasswordRecoveryResult,
 } from './local-account-recovery'
 export { acquireRuntimeQuiescenceLock } from './runtime-quiescence'
+export { createLocalCoordination, createPostgresCoordination } from './coordination'
+export type {
+    CoordinationHandlers,
+    CoordinationSignal,
+    InstanceCoordination,
+    LeadershipHandlers,
+} from './coordination'
 export type { RuntimeQuiescenceLock, RuntimeQuiescenceOwner } from './runtime-quiescence'
 export { defaultMigrationsFolder, runMigrations } from './migrations'
 export { createWorkflowStore } from './workflow-store'

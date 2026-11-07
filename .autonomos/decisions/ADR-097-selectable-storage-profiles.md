@@ -88,8 +88,14 @@ Measured starting point (2026-11-06, `main` at `aa33df034`):
      already refuses a second process. PostgreSQL with local media takes a database-held
      singleton lease and refuses to start while another live instance holds it.
    - PostgreSQL **and** S3 → **multiple instances allowed**: serialized migrations (advisory
-     lock), `SKIP LOCKED` claims, cross-instance wakeup (`LISTEN/NOTIFY` with the durable
-     journal remaining the source of truth), database-backed credential-refresh coordination.
+     lock), cross-instance wakeup (`LISTEN/NOTIFY` with the durable journal remaining the source
+     of truth), database-backed credential-refresh coordination.
+   - Background runtimes (publication worker, media maintenance, video previews, notification
+     projection, email) run on **one elected leader** (amended 2026-11-07, owner): a session
+     advisory lock, released when its connection ends, so another instance takes over after a
+     crash or during a rolling release. Every instance serves HTTP. This replaces distributing
+     job claims with `SKIP LOCKED`: the goal is availability and rolling releases, not
+     throughput, and claims stay lease-guarded and serializable should distribution be needed.
    Health and startup logs report the active profile and its instance capability.
 8. **Transfer between profiles is an explicit offline operation.** A logical, engine-neutral
    export (rows in dependency order, schema version, checksums) can be imported into an empty

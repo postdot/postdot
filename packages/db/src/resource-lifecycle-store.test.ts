@@ -409,3 +409,35 @@ it('rolls back retirement and retains foreign-key enforcement when a dependency 
         closeDatabase(database)
     }
 })
+
+it('waits out the cleanup grace before deleting a retired object (several servers)', async () => {
+    const db = createDatabase(':memory:')
+    try {
+        await runMigrations(db)
+        const now = Date.now()
+        db.$client
+            .query(
+                `insert into resource_cleanup_objects (id, project_id, store_id, object_key, updated_at)
+                 values ('recent', 'gone', 'grace-store', 'recent-key', ?1),
+                        ('old', 'gone', 'grace-store', 'old-key', ?2)`
+            )
+            .run(now, now - 120_000)
+        const deleted: string[] = []
+        const storage = {
+            storeId: 'grace-store',
+            maxObjectBytes: 1,
+            put: async () => ({}) as never,
+            open: async () => null,
+            stat: async () => null,
+            delete: async (key: string) => {
+                deleted.push(key)
+            },
+        }
+        await createResourceLifecycleStore(db, { cleanupGraceMs: 60_000 }).reconcile(storage)
+        expect(deleted).toEqual(['old-key'])
+        await createResourceLifecycleStore(db).reconcile(storage)
+        expect(deleted).toEqual(['old-key', 'recent-key'])
+    } finally {
+        closeDatabase(db)
+    }
+})

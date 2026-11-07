@@ -180,28 +180,68 @@ export interface PostgresInstanceLock {
     close(): Promise<void>
 }
 
+export interface PostgresInstanceLockOptions {
+    /** Called once if the lock disappears without being released (lost connection). */
+    readonly onLost?: () => void
+    readonly heartbeatMs?: number
+}
+
 /**
  * Holds the single-server guarantee on PostgreSQL, as the runtime lock file
- * does for SQLite: realtime fan-out and runtime coordination are in-process,
- * so a second server on the same database is refused (ADR-097 §5) until
- * multi-instance coordination exists. The lock lives on a dedicated session
- * and disappears with it, including when the process dies.
+ * does for SQLite (ADR-097 §7): profiles that keep local state (media files)
+ * allow one server per database. The lock lives on a reserved session and
+ * disappears with it, including when the process dies; a heartbeat reports a
+ * lock lost with its connection so the server stops instead of running beside
+ * a newcomer.
  */
-export async function acquirePostgresInstanceLock(url: string): Promise<PostgresInstanceLock> {
+export async function acquirePostgresInstanceLock(
+    url: string,
+    options: PostgresInstanceLockOptions = {}
+): Promise<PostgresInstanceLock> {
     const client = new SQL(url, { max: 1, idleTimeout: 0 })
+    let session: Awaited<ReturnType<SQL['reserve']>> | undefined
     try {
-        const [row] = (await client.unsafe('select pg_try_advisory_lock($1) as acquired', [
+        session = await client.reserve()
+        const [row] = (await session.unsafe('select pg_try_advisory_lock($1) as acquired', [
             postgresInstanceLock,
         ])) as { acquired: boolean }[]
         if (row?.acquired !== true) {
             throw new Error(
                 'Another Postdot server is already using this PostgreSQL database. ' +
-                    'Running several instances is not supported yet; stop the other server first.'
+                    'This profile allows one server (local media); stop the other server first.'
             )
         }
     } catch (error) {
+        await session?.release()
         await client.close()
         throw error
     }
-    return { close: () => client.close() }
+    let closed = false
+    const heartbeat = setInterval(() => {
+        void session!
+            .unsafe(
+                `select exists (select 1 from pg_locks where locktype = 'advisory' and granted
+                   and pid = pg_backend_pid() and objsubid = 1
+                   and ((classid::bigint << 32) | objid::bigint) = $1) as held`,
+                [postgresInstanceLock]
+            )
+            .then(
+                rows => (rows as { held: boolean }[])[0]?.held === true,
+                () => false
+            )
+            .then(held => {
+                if (held || closed) return
+                closed = true
+                clearInterval(heartbeat)
+                options.onLost?.()
+            })
+    }, options.heartbeatMs ?? 5_000)
+    return {
+        async close() {
+            closed = true
+            clearInterval(heartbeat)
+            await session!.release()
+            await client.close()
+        },
+    }
 }

@@ -3,6 +3,7 @@ import { AsyncLocalStorage } from 'node:async_hooks'
 import type { SQL, TransactionSQL } from 'bun'
 
 import { normalizeStatementSql } from './dialect'
+import { exclusiveLockKey, exclusiveLockNamespace, KeyedQueue } from './exclusive'
 import type {
     SqlCommitScope,
     SqlDatabase,
@@ -58,6 +59,7 @@ export class PostgresSqlDatabase implements SqlDatabase {
     readonly dialect = 'postgres' as const
     readonly #client: SQL
     readonly #maxAttempts: number
+    readonly #exclusive = new KeyedQueue()
     #savepointSequence = 0
 
     constructor(client: SQL, options: PostgresSqlDatabaseOptions = {}) {
@@ -104,6 +106,31 @@ export class PostgresSqlDatabase implements SqlDatabase {
 
     transactionScope(): object | undefined {
         return this.#currentFrame()?.root
+    }
+
+    /**
+     * Local callers queue first, so one connection per key waits on the
+     * server; the advisory lock then excludes every other Postdot process.
+     * It is session-level on a reserved connection, so it never spans a
+     * transaction and disappears if the connection is lost.
+     */
+    exclusive<T>(key: string, operation: () => Promise<T>): Promise<T> {
+        if (this.inTransaction())
+            throw new Error('An exclusive section cannot run inside a transaction')
+        return this.#exclusive.run(key, async () => {
+            const connection = await this.#client.reserve()
+            const lock = [exclusiveLockNamespace, exclusiveLockKey(key)]
+            try {
+                await connection.unsafe('select pg_advisory_lock($1, $2)', lock)
+                try {
+                    return await operation()
+                } finally {
+                    await connection.unsafe('select pg_advisory_unlock($1, $2)', lock)
+                }
+            } finally {
+                await connection.release()
+            }
+        })
     }
 
     afterCommit(callback: () => void, scope: SqlCommitScope = 'savepoint'): void {
