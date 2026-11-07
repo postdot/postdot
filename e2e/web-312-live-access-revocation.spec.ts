@@ -226,7 +226,10 @@ async function waitForProjectMember(page: Page, projectId: string, email: string
     await expect
         .poll(
             async () => {
-                const response = await page.request.get(`/api/projects/${projectId}/members`)
+                // This setup read is idempotent; retry connection resets only.
+                const response = await page.request.get(`/api/projects/${projectId}/members`, {
+                    maxRetries: 2,
+                })
                 if (!response.ok()) return null
                 const body = (await response.json()) as { members: { email: string; id: string }[] }
                 memberId = body.members.find(member => member.email === email)?.id
