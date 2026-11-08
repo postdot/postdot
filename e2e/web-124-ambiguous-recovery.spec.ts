@@ -50,6 +50,8 @@ test('resolves an ambiguous publication without retrying the provider', async ({
         throw new Error(`Expected a publication id in ${publicationHref}`)
     }
 
+    let resolvedPublication: Record<string, unknown> | undefined
+    let publishedRereads = 0
     let editorResponse: { editor: Record<string, unknown> } | undefined
     await page.route(
         `**/api/projects/${projectId}/publications/${publicationId}/editor`,
@@ -63,20 +65,22 @@ test('resolves an ambiguous publication without retrying the provider', async ({
             const body = (await response.json()) as { editor: Record<string, unknown> }
             const publication = body.editor.publication as Record<string, unknown>
             editorResponse = body
+            const responsePublication = resolvedPublication ?? {
+                ...publication,
+                errorMessage: 'The provider response was lost',
+                state: 'ambiguous',
+            }
             await route.fulfill({
                 status: response.status(),
                 contentType: 'application/json',
                 body: JSON.stringify({
                     editor: {
                         ...body.editor,
-                        publication: {
-                            ...publication,
-                            errorMessage: 'The provider response was lost',
-                            state: 'ambiguous',
-                        },
+                        publication: responsePublication,
                     },
                 }),
             })
+            if (responsePublication.state === 'published') publishedRereads++
         }
     )
 
@@ -109,36 +113,54 @@ test('resolves an ambiguous publication without retrying the provider', async ({
             })
             const publication = editorResponse?.editor.publication
             if (publication === undefined) throw new Error('Editor fixture was not loaded')
+            resolvedPublication = {
+                ...publication,
+                errorMessage: null,
+                externalId: 'provider-publication-124',
+                externalUrl: requestBody.externalUrl,
+                publishedAt: Date.now(),
+                state: 'published',
+            }
             await route.fulfill({
                 status: 200,
                 contentType: 'application/json',
                 body: JSON.stringify({
-                    publication: {
-                        ...publication,
-                        errorMessage: null,
-                        externalUrl: requestBody.externalUrl,
-                        publishedAt: Date.now(),
-                        state: 'published',
-                    },
+                    publication: resolvedPublication,
                 }),
             })
         }
     )
 
-    await publicationLink.click()
-    await expect(page.getByRole('alert')).toContainText('Publication outcome needs your decision')
-    await expect(page.getByRole('button', { name: 'Mark as published', exact: true })).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Mark as failed', exact: true })).toBeVisible()
+    try {
+        await publicationLink.click()
+        await expect(page.getByRole('alert')).toContainText(
+            'Publication outcome needs your decision'
+        )
+        await expect(
+            page.getByRole('button', { name: 'Mark as published', exact: true })
+        ).toBeVisible()
+        await expect(
+            page.getByRole('button', { name: 'Mark as failed', exact: true })
+        ).toBeVisible()
 
-    await page.getByRole('button', { name: 'Mark as failed', exact: true }).click()
-    await expect(page.getByRole('alert')).toContainText('The request could not be completed.')
-    await expect(page.getByRole('button', { name: 'Mark as published', exact: true })).toBeVisible()
+        await page.getByRole('button', { name: 'Mark as failed', exact: true }).click()
+        await expect(page.getByRole('alert')).toContainText('The request could not be completed.')
+        await expect(
+            page.getByRole('button', { name: 'Mark as published', exact: true })
+        ).toBeVisible()
 
-    await page.getByLabel('Provider publication ID').fill('provider-publication-124')
-    await page.getByLabel('Published URL (optional)').fill('https://example.test/postdot/recovery')
-    await page.getByRole('button', { name: 'Mark as published', exact: true }).click()
-    await expect(page.getByRole('alert')).toHaveCount(0)
-    expect(reconcileCalls).toBe(2)
+        await page.getByLabel('Provider publication ID').fill('provider-publication-124')
+        await page
+            .getByLabel('Published URL (optional)')
+            .fill('https://example.test/postdot/recovery')
+        await page.getByRole('button', { name: 'Mark as published', exact: true }).click()
+        await expect.poll(() => publishedRereads).toBeGreaterThan(0)
+        await expect(page.getByRole('alert')).toHaveCount(0)
+        expect(reconcileCalls).toBe(2)
+    } finally {
+        // Let in-flight route.fetch/fulfill handlers settle before context disposal.
+        await page.unrouteAll({ behavior: 'wait' })
+    }
 })
 
 async function createAccountAndProject(page: Page, suffix: string): Promise<string> {

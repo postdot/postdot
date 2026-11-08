@@ -22,6 +22,7 @@ import {
     type AutomaticExecutionAuditAction,
 } from './execution-audit'
 import { createRetainedTargetAssessor } from './retained-target-assessment'
+import { isPostgresTransactionConflict } from './sql/postgres-adapter'
 
 interface ClaimDueJobInput {
     readonly actorId: string
@@ -1232,6 +1233,44 @@ export function createWorkflowStore(
           and effect_started_at is not null
     `)
 
+    // This is an owner giving back a claim after its pre-effect transaction
+    // aborted, not a lease takeover. The token and null marker fence the write.
+    const releaseUnstartedClaimTransaction = defineTransaction(
+        database,
+        async (jobId: string, claimToken: string, now: number): Promise<void> => {
+            const claim = await loadRunningJobStatement.get(jobId, claimToken, now)
+            if (claim === null || !['scheduled', 'ready'].includes(claim.publicationState)) return
+            const released = await sql
+                .statement(`
+                update jobs
+                set state = 'pending', claim_token = null, claimed_by_actor_id = null,
+                    claimed_at = null, lease_expires_at = null, started_at = null,
+                    completed_at = null, error_message = null, updated_at = ?1
+                where id = ?2 and state = 'running' and claim_token = ?3
+                  and lease_expires_at > ?1 and effect_started_at is null
+            `)
+                .run(now, jobId, claimToken)
+            if (released.changes !== 1) return
+            await insertExecutionAuditEvent({
+                id: createId(),
+                projectId: claim.projectId,
+                actorId: claim.claimedByActorId,
+                action: automaticExecutionAuditActions.claimRecovered,
+                publicationId: claim.publicationId,
+                jobId,
+                attempt: claim.attempts,
+                occurredAt: now,
+                details: {
+                    fromState: 'running',
+                    toState: 'pending',
+                    recoveredAt: now,
+                    runAt: claim.runAt,
+                    reason: 'owner_released_after_pre_effect_transaction_conflict',
+                },
+            })
+        }
+    )
+
     const recoverExpiredClaimsTransaction = defineTransaction(
         database,
         async (now: number): Promise<ExpiredClaimRecovery> => {
@@ -1404,11 +1443,22 @@ export function createWorkflowStore(
             claimToken: string,
             now: number
         ): Promise<boolean> {
-            return startExternalEffectTransaction.immediate(
-                requireNonBlank(jobId, 'jobId'),
-                requireNonBlank(claimToken, 'claimToken'),
-                requireTimestamp(now, 'now')
-            )
+            const id = requireNonBlank(jobId, 'jobId')
+            const token = requireNonBlank(claimToken, 'claimToken')
+            const at = requireTimestamp(now, 'now')
+            try {
+                return await startExternalEffectTransaction.immediate(id, token, at)
+            } catch (error) {
+                if (isPostgresTransactionConflict(error)) {
+                    try {
+                        await releaseUnstartedClaimTransaction.immediate(id, token, at)
+                    } catch {
+                        // Preserve the original conflict for scheduler recovery. If cleanup
+                        // cannot commit, the durable lease remains the safe fallback.
+                    }
+                }
+                throw error
+            }
         },
 
         async completeExternalEffect(

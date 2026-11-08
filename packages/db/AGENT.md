@@ -30,3 +30,5 @@
 - **Account recovery:** Offline password recovery must acquire the database runtime lock, validate and protect a pre-change backup, update only the selected Better Auth credential, revoke that user's sessions and reset links, and preserve project data, API keys, publisher credentials, and historical actors.
 
 - **Personal avatars:** Keep person-owned image lifecycle in `user_avatars`, separate from project media assets. Use the shared storage port and complete-backup deletion fence; complete recovery includes avatar bytes as well as project representations.
+
+- **Owner pre-effect release:** Publication claims may be returned after a recognized aborted pre-effect transaction only with the same token, a null durable effect marker and eligible publication/lease state. Commit the recovery fact with the release, preserve the original error for scheduler backoff, and retain lease recovery if cleanup fails. Never use this path after a provider call or to clear an uncertain effect marker.

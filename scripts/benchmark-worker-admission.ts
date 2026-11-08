@@ -25,6 +25,7 @@ const { values } = parseArgs({
         engine: { type: 'string' },
         'effect-spread-ms': { type: 'string', default: '0' },
         'conflict-seconds': { type: 'string', default: '0' },
+        'conflict-boundary': { type: 'string', default: 'claim' },
         'drain-seconds': { type: 'string', default: '120' },
     },
 })
@@ -37,6 +38,9 @@ const projectCount = Number(values.projects)
 const effectMs = Number(values['effect-ms'])
 const effectSpreadMs = Number(values['effect-spread-ms'])
 const conflictSeconds = Number(values['conflict-seconds'])
+const conflictBoundary = values['conflict-boundary']
+if (conflictBoundary !== 'claim' && conflictBoundary !== 'pre-effect')
+    throw new Error('conflict boundary: claim or pre-effect')
 if (!Number.isFinite(effectSpreadMs) || effectSpreadMs < 0 || effectSpreadMs > 5000)
     throw new Error('effect spread: 0–5000')
 if (!Number.isFinite(conflictSeconds) || conflictSeconds < 0 || conflictSeconds > 60)
@@ -144,6 +148,7 @@ for (const engine of engines) {
             endedAtMs: number
         }[] = []
         const errors: string[] = []
+        const producerErrors: { offeredAtMs: number; message: string }[] = []
         const enqueueMs: number[] = []
         const producerLagMs: number[] = []
         let maximumActive = 0
@@ -157,14 +162,18 @@ for (const engine of engines) {
                 if (key === 'statement')
                     return (query: string) => {
                         const statement = target.statement<unknown, SqlParams>(query)
-                        if (
-                            !query.includes('select min(event_at)') &&
-                            !/update jobs\s+set state = 'running'/.test(query)
-                        )
-                            return statement
+                        const faultQuery =
+                            conflictBoundary === 'pre-effect'
+                                ? /update publications\s+set state = 'ready'/.test(query)
+                                : query.includes('select min(event_at)') ||
+                                  /update jobs\s+set state = 'running'/.test(query)
+                        if (!faultQuery) return statement
                         return new Proxy(statement, {
                             get(s, method) {
-                                if (method === 'get')
+                                if (
+                                    (method === 'get' && conflictBoundary === 'claim') ||
+                                    (method === 'run' && conflictBoundary === 'pre-effect')
+                                )
                                     return async (...params: SqlParams) => {
                                         const elapsed = (performance.now() - started) / 1000
                                         if (
@@ -180,7 +189,9 @@ for (const engine of engines) {
                                                 { errno: '40001' }
                                             )
                                         }
-                                        return s.get(...params)
+                                        return method === 'get'
+                                            ? s.get(...params)
+                                            : s.run(...params)
                                     }
                                 const value = Reflect.get(s, method, s)
                                 return typeof value === 'function' ? value.bind(s) : value
@@ -258,21 +269,32 @@ for (const engine of engines) {
             const project = projects[index % projects.length]!
             const before = performance.now()
             creationTime = Date.now()
-            const post = await manual.createPost({
-                projectId: project.projectId,
-                subjectId: 'operator',
-                sourceContent: {
-                    body: { text: String(offeredAtMs), format: 'plain_text' },
-                    media: [],
-                },
-                publications: [
-                    {
-                        channelId: project.channelId,
-                        deliveryMode: 'automatic',
-                        scheduledAt: creationTime,
+            let insertionFailed = false
+            const post = await manual
+                .createPost({
+                    projectId: project.projectId,
+                    subjectId: 'operator',
+                    sourceContent: {
+                        body: { text: String(offeredAtMs), format: 'plain_text' },
+                        media: [],
                     },
-                ],
-            })
+                    publications: [
+                        {
+                            channelId: project.channelId,
+                            deliveryMode: 'automatic',
+                            scheduledAt: creationTime,
+                        },
+                    ],
+                })
+                .catch(error => {
+                    insertionFailed = true
+                    producerErrors.push({
+                        offeredAtMs,
+                        message: error instanceof Error ? error.message : String(error),
+                    })
+                    return null
+                })
+            if (insertionFailed) continue
             if (!post) throw new Error('Enqueue fixture failed')
             created++
             enqueueMs.push(performance.now() - before)
@@ -301,6 +323,23 @@ for (const engine of engines) {
                 'select state, count(*) as count from jobs group by state'
             )
             .all()
+        const claimRecoveryReasons: Record<string, number> = {}
+        for (const event of await database.sql
+            .statement<{ metadata: string }>(
+                "select metadata_json as metadata from audit_events where action = 'publication.execution.claim_recovered'"
+            )
+            .all()) {
+            const reason = String(JSON.parse(event.metadata).reason ?? 'unspecified')
+            claimRecoveryReasons[reason] = (claimRecoveryReasons[reason] ?? 0) + 1
+        }
+        const publicationStates = await database.sql
+            .statement<{ state: string; count: number }>(
+                'select state, count(*) as count from publications group by state'
+            )
+            .all()
+        const claimAttempts = await database.sql
+            .statement('select max(attempts) as maximum, sum(attempts) as total from jobs')
+            .get()
         const result = {
             engine: engine.name,
             seconds,
@@ -311,10 +350,13 @@ for (const engine of engines) {
             effectMs,
             effectSpreadMs,
             conflictSeconds,
+            conflictBoundary,
             injectedConflicts,
             duplicateEffects,
             timeline,
+            offered: count,
             created,
+            producerErrors,
             arrivalElapsedMs,
             schedulerStateAfterArrivals,
             schedulerStateBeforeStop,
@@ -326,6 +368,9 @@ for (const engine of engines) {
             admissionViolations,
             errors,
             states,
+            publicationStates,
+            claimRecoveryReasons,
+            claimAttempts,
             enqueueP95Ms: percentile(enqueueMs, 0.95),
             producerLagP95Ms: percentile(producerLagMs, 0.95),
             queueWaitP50Ms: percentile(
@@ -341,6 +386,8 @@ for (const engine of engines) {
         results.push(result)
         console.error(JSON.stringify({ ...result, starts: undefined }))
         if (
+            producerErrors.length ||
+            (conflictSeconds > 0 && injectedConflicts === 0) ||
             schedulerStateBeforeStop !== 'started' ||
             duplicateEffects ||
             admissionViolations ||
