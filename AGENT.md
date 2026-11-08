@@ -93,6 +93,13 @@ content generator.
 - **Dependency isolation:** A delegated dependency harness must own every directory it writes. Never create or replace workspace links through a symlink to the canonical `node_modules`; that mutates the shared installation. Before final acceptance after worktree cleanup, verify canonical workspace links do not reference deleted agent checkouts.
 - Worktrees do not receive secrets by default. Any runtime work must use isolated ports, database files, and media roots; ignored credential files remain outside worktrees unless explicitly required and approved.
 - The orchestrator must not dispatch Sol-high reviews. If an internal independent review is explicitly justified, prefer a short, bounded Luna-max mission with a neutral prompt; the reviewer may recommend changes but cannot edit, merge, or authorize external effects.
+- **Checkout and worktree hygiene (owner direction, 2026-11-08):** The canonical
+  checkout (the primary worktree that holds `.git`) stays on `main`; sessions
+  start there.
+  Do branch work in a harness-managed worktree (T3 `workspaceStrategy`) rather
+  than ad-hoc sibling directories, and never park `main` in another worktree.
+  Remove the worktree (`git worktree remove`, then `git worktree prune`) and
+  delete the merged local branch as soon as its work is integrated.
 - Delegated implementation work must have a durable, operator-visible identity, observable status, clear interruption semantics, attribution, and verifiable cleanup. If the current workflow cannot provide that, use a dedicated, registered Git worktree; integration and cleanup remain under orchestrator ownership.
 
 ### Decision Discipline
