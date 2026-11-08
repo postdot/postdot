@@ -588,3 +588,5 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] SITE-476 — Add destination-specific scheduling annotations to the existing distribution illustration with matching static and animated states.
 
 - [x] PRODUCT-477 — Inventory product expansion gaps and record staged proposals for platforms, structured channel authoring, engagement, native formats and locales.
+
+- [x] **[META-622]** Upgrade Autonomos to 0.8.0 and migrate records to the current artifact format `Priority: 🟠` `Complexity: M` `Completed: 2026-11-08` — Format 2; current registries hold open work only. [Evidence](../../worklogs/2026-11-08-META-622.md).

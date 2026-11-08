@@ -39,7 +39,6 @@ The current published image is `0.1.0-alpha.7`, with native AMD64/ARM64 upgrade
 and restoration acceptance from `0.1.0-alpha.6` under RELEASE-621. Distribution
 notices remain packaged; release policy follows ADR-093.
 The anonymous login entry meets the 180 KiB JavaScript target under WEB-587; build CI guards it.
-ISSUE-182/183 retain broader cleanup scope.
 
 Calendar/Queue delivery follows the current route, timezone and reading contracts
 in [ADR-057](decisions/ADR-057-propose-route-information-architecture.md),
@@ -56,12 +55,10 @@ Access/recovery follows [ADR-061](decisions/ADR-061-human-account-and-instance-a
 [ADR-066](decisions/ADR-066-smtp-auth-email-delivery.md); user-owned API keys
 inherit live access with explicit action ceilings. See the
 [API-key guide](../apps/docs/content/docs/reference/authentication.mdx) and current scoped API guidance.
-ISSUE-062/153 retain account-lifecycle and access-audit follow-ups. The accepted
-deployment-key limitation remains in ADR-012; ISSUE-111 is resolved.
+The accepted deployment-key limitation remains in ADR-012.
 The [channel builder reference](<../apps/docs/content/docs/(guides)/(studio)/channels.mdx>) describes
 bounded lossless content/mapped-request editing and explicit profile activation;
 Manual template loading/activation remains explicit; automatic upstream discovery is not implemented.
-ISSUE-167/175 retain broader builder and shutdown questions.
 
 Runtime and recovery follow the [operational boundary](<../apps/docs/content/docs/(self-hosting)/(operations)/operations.mdx>)
 and [deployment guide](<../apps/docs/content/docs/(developers)/(architecture)/architecture.mdx>): restore
@@ -69,8 +66,7 @@ requires quiescence and an explicit recovery acknowledgement; backup scheduling,
 retention and off-machine protection remain administrator-owned. SQLite durability
 is governed by [ADR-089](decisions/ADR-089-explicit-sqlite-wal-policy.md); project-effect
 admission and renewable ownership by [ADR-090](decisions/ADR-090-bounded-project-effects-and-renewal.md).
-ISSUE-127 retains the unaccepted kernel-lock alternative; ISSUE-175 retains its
-shutdown investigation. Metrics stay opt-in and bearer-protected; transactional
+ISSUE-127 retains the unaccepted kernel-lock alternative. Metrics stay opt-in and bearer-protected; transactional
 SMTP and durable personal outcome alerts have separate delivery contracts.
 
 Current evidence exceptions: the 0.8 migration (META-622) moved every checked task
@@ -86,7 +82,7 @@ receipt while durable media cleanup retries independently.
 
 ## 🚀 Active Sprint
 
-- [/] **[META-622]** Upgrade Autonomos to 0.8.0 and migrate records to the current artifact format `Priority: 🟠` `Complexity: M` — Owner-requested protocol upgrade on `chore/autonomos-0.8`.
+- [ ] **[META-623]** Bring AGENT.md files within 0.8 context budgets `Priority: 🔵` `Complexity: M` — Root 18.6 KB and six scoped files over budget; owner to confirm where root directives move. See [META-622](worklogs/2026-11-08-META-622.md).
 
 ## Deferred backlog
 
