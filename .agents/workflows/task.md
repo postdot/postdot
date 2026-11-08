@@ -18,7 +18,7 @@ description: 'Mandatory procedure before starting a new task. Invoke before touc
 
 ## STEP 2 — Declare plan
 
-State in 3–5 steps what you will do. The user must be able to say OK or adjust.
+State in 3–5 steps what you will do. The user must be able to say OK or adjust; when the request already authorizes this work (explicit or delegated instruction), state the plan and proceed.
 
 ## STEP 3 — Execute
 

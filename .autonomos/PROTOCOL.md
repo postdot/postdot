@@ -1,4 +1,4 @@
-# AUTONOMOS PROTOCOL (v0.8.0-alpha)
+# AUTONOMOS PROTOCOL (v0.8.1-alpha)
 
 > This file defines the project's AI workflow contract. The workflows execute it. Do not duplicate workflow steps here.
 
@@ -127,7 +127,7 @@ Advisory limits reported by `autonomos status` (`--strict` makes them fail): roo
 
 ## Artifact Format and Migration
 
-`manifest.json` records `artifactFormat` (absent means 1); this protocol defines format 2. Installing a new protocol performs no automatic cleanup: `autonomos update` only replaces managed artifacts. `autonomos migrate` is the explicit, content-preserving upgrade: it closes finished records, moves pre-format-2 worklogs to `.autonomos/archive/worklogs-format-1/` so they stop serving as examples, repairs references and records the format. Run it with `--dry-run` first on a clean working tree, then resolve the remaining `status` findings with `/reconcile`.
+`manifest.json` records `artifactFormat` (absent means 1); this protocol defines format 2. Installing a new protocol performs no automatic cleanup: `autonomos update` only replaces managed artifacts. `autonomos migrate` is the explicit, content-preserving upgrade: it closes finished records, moves pre-format-2 worklogs to `.autonomos/archive/worklogs-format-1/` so they stop serving as examples, repairs references and records the format. It also moves checked items without an ID tag, keeps git-ignored worklogs ignored, and lists closed records that still mention unfinished work. Run it with `--dry-run` first, with unrelated changes committed (registering the migration task first is fine); move each reported follow-up into an open record, then resolve the remaining `status` findings with `/reconcile`. In a linked git worktree, rerun it after merging in each checkout that holds git-ignored worklogs.
 
 ## Task Format
 

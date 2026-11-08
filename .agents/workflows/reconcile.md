@@ -12,7 +12,7 @@ description: 'Investigate drift, consolidate current knowledge and archive settl
 1. Read root and applicable scoped `AGENT.md`, current tasks/issues and relevant accepted records. Follow the protocol's archival criteria; search history only for a specific question.
 2. Classify individual claims as current guidance, current state, historical evidence, or version-pinned protocol content; a paragraph may mix them.
 3. Check managed integrity and context budgets with `autonomos status` when available; repair managed artifacts only through authorized `autonomos update`.
-4. If the artifact format is outdated, run an authorized `autonomos migrate --dry-run`, then `autonomos migrate`, before semantic work; its remaining findings become this pass's work items.
+4. If the artifact format is outdated, run an authorized `autonomos migrate --dry-run`, then `autonomos migrate`, before semantic work; its remaining findings become this pass's work items. Move each follow-up it reports into an open record; leftover prose about closed work is yours to archive.
 
 ## STEP 2 — Investigate
 
