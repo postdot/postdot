@@ -22,7 +22,7 @@ State in 3–5 steps what you will do. The user must be able to say OK or adjust
 
 ## STEP 3 — Execute
 
-Mark the task `[/]` in `.autonomos/TASKS.md`, then work.
+Register a new task as one line (format in `PROTOCOL.md`), mark it `[/]` in `.autonomos/TASKS.md`, then work. Evidence never goes into the task entry.
 
 ## During execution
 

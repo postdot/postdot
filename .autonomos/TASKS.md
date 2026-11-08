@@ -102,6 +102,8 @@ receipt while durable media cleanup retries independently.
 
 ## 🚀 Active Sprint
 
+- [/] **[META-622]** Upgrade Autonomos to 0.8.0 and migrate records to the current artifact format `Priority: 🟠` `Complexity: M` — Owner-requested protocol upgrade on `chore/autonomos-0.8`.
+
 - [x] **[PERF-620]** Qualify early claim release under prolonged natural contention `Priority: 🟠` `Complexity: M` `Completed: 2026-11-08` — 7,200 durable successes under five-minute natural contention; 1,775 observed server serialization failures absorbed, zero duplicate effects or scheduler errors. Early release was not needed in this run. Local checkpoint only. [Evidence](worklogs/2026-11-08-PERF-620.md).
 
 - [x] **[META-619]** Restore local intermediate integration and milestone PRs `Priority: 🟠` `Complexity: S` `Completed: 2026-11-08` — Owner-directed cadence; focused local validation, no matrix merely for a local merge, grouped milestone PRs. [Evidence](worklogs/2026-11-08-META-619.md).
