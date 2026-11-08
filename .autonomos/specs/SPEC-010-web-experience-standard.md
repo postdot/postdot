@@ -2,7 +2,7 @@
 
 - Status: accepted (2026-10-28, including the destination-colour revision after owner review)
 - Scope: authenticated web application journeys, navigation hierarchy, scope transitions, page width classes, wayfinding and cross-route coherence
-- Provenance: owner review after alpha.3 and owner decisions (2026-10-28), recorded below; COMM-016 review by the communications agent; baseline audit in [UX-389 worklog](../worklogs/2026-10-28-UX-389.md)
+- Provenance: owner review after alpha.3 and owner decisions (2026-10-28), recorded below; COMM-016 review by the communications agent; baseline audit in [UX-389 worklog](../archive/worklogs-format-1/2026-10-28-UX-389.md)
 - Related issue: ISSUE-192
 - Related task: UX-389
 - Related specifications: SPEC-006, SPEC-007 (accepted; this standard does not amend them)

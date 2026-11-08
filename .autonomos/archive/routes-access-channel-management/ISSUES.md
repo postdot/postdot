@@ -127,7 +127,7 @@ remain preserved; applicable current contracts stay in accepted records.
   Better Auth `viewer` role receiving `201 Created` from both channel creation and
   post creation. The same fixture received `403` for the existing project timezone
   mutation, proving that the role is known but not enforced consistently. See the
-  [security audit](../../worklogs/2026-09-11-postbot-audit/01-security-and-access.md).
+  [security audit](../worklogs-format-1/2026-09-11-postbot-audit/01-security-and-access.md).
 - Impact: A principal explicitly granted read-only access can modify project
   content and potentially influence downstream publication work. The current
   route-level test coverage can therefore pass while the product-wide role contract
@@ -157,7 +157,7 @@ remain preserved; applicable current contracts stay in accepted records.
   membership, confirmed a new project read was rejected, and then observed a later
   `channel.created` event on the already-open stream. The stream currently checks
   access at connection time but does not revalidate the principal during its
-  lifetime. See the [security audit](../../worklogs/2026-09-11-postbot-audit/01-security-and-access.md).
+  lifetime. See the [security audit](../worklogs-format-1/2026-09-11-postbot-audit/01-security-and-access.md).
 - Impact: Revoked members can continue observing project identifiers, event types,
   subjects, and timestamps. The reproduction did not expose post text, tokens, or
   provider responses, but it violates the expected lifetime of a revoked project

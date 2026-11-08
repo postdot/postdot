@@ -9,8 +9,8 @@ SQLite durability and build-context hygiene.
 - [Retired current-claim provenance](current-claim-provenance.md): original ISSUE-114 classification.
 - Worklogs retain original file names; old literal paths map by unchanged name.
 - OPS-193, NOTIFY-199/200, WORKFLOW-201 and OPS-208 use shared
-  [AUDIT-189](../../worklogs/2026-09-22-AUDIT-189.md), its
-  [closeout](../../worklogs/2026-09-24-AUDIT-189-closeout.md), related resolved
+  [AUDIT-189](../worklogs-format-1/2026-09-22-AUDIT-189.md), its
+  [closeout](../worklogs-format-1/2026-09-24-AUDIT-189-closeout.md), related resolved
   issue text and later implementation evidence. Those broader audits stay current.
 - Earlier serial-fairness conclusions in OPS-151/WORKFLOW-201 describe their
   original scope. Current accepted ADR-090 governs two internal slots, one effect

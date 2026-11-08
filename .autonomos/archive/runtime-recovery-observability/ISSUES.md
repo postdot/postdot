@@ -70,7 +70,7 @@ remain preserved; applicable current contracts stay in accepted records.
 - Evidence: `packages/db/package.json` defines `clean` as `rimraf dist .turbo drizzle`,
   while `drizzle` contains the committed migration SQL and metadata. The audit did
   not execute the destructive command against the repository, but the script and
-  tracked files establish the behavior statically. See the [reliability audit](../../worklogs/2026-09-11-postbot-audit/02-reliability-data-and-operations.md).
+  tracked files establish the behavior statically. See the [reliability audit](../worklogs-format-1/2026-09-11-postbot-audit/02-reliability-data-and-operations.md).
 - Impact: A normal cleanup can remove the source history required for a fresh
   startup or package build. Git can restore committed files, but a local migration
   that has not been committed is not recoverable through that path.
@@ -94,7 +94,7 @@ remain preserved; applicable current contracts stay in accepted records.
 - Evidence: `bun run check` reaches workspace tests through Turbo but does not run
   the eight tests under `scripts/`; those tests are only green when invoked
   separately with `bun test scripts`. The audit confirmed the omission in the Turbo
-  task graph and the root package scripts. See the [client and quality audit](../../worklogs/2026-09-11-postbot-audit/03-architecture-client-and-quality.md).
+  task graph and the root package scripts. See the [client and quality audit](../worklogs-format-1/2026-09-11-postbot-audit/03-architecture-client-and-quality.md).
 - Impact: Regressions in the CLI and runtime-isolation helpers can merge while the
   repository's advertised check remains green. This weakens confidence in the same
   orchestration paths used by local development and browser validation.

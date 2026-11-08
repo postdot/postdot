@@ -9,7 +9,7 @@ consultation work. Superseded experiments and later corrections remain historica
   corrections for viewer affordances.
 - [Worklogs](worklogs/): 36 distinct original file names; one is shared by two tasks. Old literal paths under
   .autonomos/worklogs/ map to the same file name here.
-- WEB-203 shares [AUDIT-189 evidence](../../worklogs/2026-09-22-AUDIT-189.md);
+- WEB-203 shares [AUDIT-189 evidence](../worklogs-format-1/2026-09-22-AUDIT-189.md);
   that broader audit record remains at its original location.
 
 Moved by META-573 on 2026-10-24. No original completion date was inferred.

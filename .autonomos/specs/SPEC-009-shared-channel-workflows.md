@@ -5,7 +5,7 @@
 - Related decision: [ADR-095](../decisions/ADR-095-workspace-channels-and-project-attachments.md)
 - Delivery: implemented in source; grouped release acceptance remains in progress.
   The published alpha.2 image does not support channel sharing.
-  [Acceptance evidence](../worklogs/2026-10-27-SHARE-592.md).
+  [Acceptance evidence](../archive/worklogs-format-1/2026-10-27-SHARE-592.md).
 
 ## Ordinary use and sharing
 

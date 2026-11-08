@@ -43,5 +43,5 @@ raw provider messages as UI copy.
 
 ## Evidence
 
-See [UX-329 diagnostic](../worklogs/2026-10-07-UX-329.md) and
-[UX-330 implementation](../worklogs/2026-10-07-UX-330.md).
+See [UX-329 diagnostic](../archive/worklogs-format-1/2026-10-07-UX-329.md) and
+[UX-330 implementation](../archive/worklogs-format-1/2026-10-07-UX-330.md).

@@ -83,7 +83,7 @@ remain preserved; applicable current contracts stay in accepted records.
   API returns only `{ publications }` and the web project context consumes that
   array as the complete data set for Queue and calendar views. The audit created 101
   stored publications and received 100 with no continuation metadata. See the
-  [reliability audit](../../worklogs/2026-09-11-postbot-audit/02-reliability-data-and-operations.md).
+  [reliability audit](../worklogs-format-1/2026-09-11-postbot-audit/02-reliability-data-and-operations.md).
 - Impact: Queue filters, counters, and the calendar can silently omit valid work.
   Ordering the bounded result before the calendar groups it can also hide future
   publications behind older history; the database rows themselves are not lost.

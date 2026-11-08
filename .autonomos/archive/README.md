@@ -24,3 +24,6 @@ history. Use the original worklog basename when following an old literal path.
 - [Retired root documentation](root-documentation-2026-10-25/README.md): dated
   reference snapshots, plans, BENCH-395 samples and design calibration fixtures.
   Current public documentation is maintained in apps/docs.
+
+- `closed/` — closed tasks and issues, appended when work closes (artifact format 2). Search by ID.
+- `worklogs-format-1/` — 475 files written before artifact format 2, moved on 2026-11-08. Historical evidence only; not a model for new worklogs.

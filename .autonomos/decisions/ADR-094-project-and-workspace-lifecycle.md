@@ -49,4 +49,4 @@ media upload/preview/backup races; deletion retry/restart; archived reads and
 write refusal; default replacement; workspace aggregation; restoration without
 rescheduling; SQLite migration and backup/restore; EN/FR UI and CLI contracts.
 
-Implementation and validation: [LIFE-588](../worklogs/2026-10-26-LIFE-588.md).
+Implementation and validation: [LIFE-588](../archive/worklogs-format-1/2026-10-26-LIFE-588.md).

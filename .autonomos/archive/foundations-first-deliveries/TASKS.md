@@ -289,7 +289,7 @@ archival does not infer completion dates or create new current instructions.
 
 <a id="meta-62"></a>
 
-- [x] **[META-62]** Prove visible control for app-managed worktree missions `Priority: 🟠` `Complexity: M` — retired by owner as no longer relevant to current Postbot work; this closure is not a claim that the Codex control-plane limitation was fixed. See [META-228 worklog](../../worklogs/2026-09-26-META-228.md).
+- [x] **[META-62]** Prove visible control for app-managed worktree missions `Priority: 🟠` `Complexity: M` — retired by owner as no longer relevant to current Postbot work; this closure is not a claim that the Codex control-plane limitation was fixed. See [META-228 worklog](../worklogs-format-1/2026-09-26-META-228.md).
 
 <a id="web-63"></a>
 

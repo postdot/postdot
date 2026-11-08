@@ -90,5 +90,5 @@ is kept for generic, access, and other failures).
 
 ## Evidence
 
-See [UX-331 diagnostic](../worklogs/2026-10-07-UX-331.md) and
-[UX-332 implementation](../worklogs/2026-10-07-UX-332.md).
+See [UX-331 diagnostic](../archive/worklogs-format-1/2026-10-07-UX-331.md) and
+[UX-332 implementation](../archive/worklogs-format-1/2026-10-07-UX-332.md).

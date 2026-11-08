@@ -9,7 +9,7 @@ validation claims are preserved; this move does not revalidate the product.
 - Worklogs retain original names; old literal worklog paths map by basename.
 - PLAN-04 shares GOV-12 acceptance. SPEC-001 is superseded by SPEC-005;
   specifications and decisions remain in their existing current locations.
-- FIX-58 shares [EVAL-57](../../worklogs/2026-09-03-EVAL-57.md).
+- FIX-58 shares [EVAL-57](../worklogs-format-1/2026-09-03-EVAL-57.md).
   EVAL-53/54/57 logs remain current for recurring open ISSUE-021 validation.
 - I18N-100 shares I18N-95 and ISSUE-049 evidence. ADR-046 and open ISSUE-162
   retain the localization boundary; catalog coverage is not translation quality.

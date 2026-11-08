@@ -3,7 +3,7 @@
 - Status: accepted (owner approval of UX-328 on 2026-10-07)
 - Scope: saving newly edited channel profile drafts
 - Related decisions: ADR-020, ADR-079
-- Evidence: [UX-327 diagnostic](../worklogs/2026-10-07-UX-327.md)
+- Evidence: [UX-327 diagnostic](../archive/worklogs-format-1/2026-10-07-UX-327.md)
 
 ## Context
 

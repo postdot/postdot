@@ -107,7 +107,7 @@ archival does not infer completion dates or create new current instructions.
 
 <a id="ops-271"></a>
 
-- [x] **[OPS-271]** Restart the development API gracefully on source changes `Priority: 🟠` `Complexity: M` — Bun watch restarts retain the runtime lock after disposing the previous module, preventing the next startup. Preserve the fail-closed lock contract; coordinate process shutdown/drain before a replacement starts, cover repeated reloads, and avoid automatic stale-lock deletion. [Evidence](../../worklogs/2026-10-01-UX-268.md). Serialized development launcher implemented and validated with delayed-drain subprocess tests, three isolated real API reloads and the full root gate. [Completion](worklogs/2026-10-03-OPS-271.md).
+- [x] **[OPS-271]** Restart the development API gracefully on source changes `Priority: 🟠` `Complexity: M` — Bun watch restarts retain the runtime lock after disposing the previous module, preventing the next startup. Preserve the fail-closed lock contract; coordinate process shutdown/drain before a replacement starts, cover repeated reloads, and avoid automatic stale-lock deletion. [Evidence](../worklogs-format-1/2026-10-01-UX-268.md). Serialized development launcher implemented and validated with delayed-drain subprocess tests, three isolated real API reloads and the full root gate. [Completion](worklogs/2026-10-03-OPS-271.md).
 
 <a id="ops-289"></a>
 
