@@ -20,6 +20,8 @@
 
 - [x] **[CLI-608]** Add offline Bash, Zsh and Fish shell completion `Priority: 🔵` `Complexity: M` `Completed: 2026-11-02` — Delivered `postdot completion <bash|zsh|fish>` and grammar-only candidate generation from Commander metadata without server calls, profile reads or startup-file edits; qualified 54 interactive PTY cases across Bash, Zsh and Fish under Bun and Node plus CLI Changeset and docs. [Evidence](worklogs/2026-11-02-CLI-608.md).
 
+- [x] **[RELEASE-621]** Publish 0.1.0-alpha.7 container release with PostgreSQL and S3 support `Priority: 🟠` `Complexity: L` `Completed: 2026-11-08` — Published multi-platform image (`ghcr.io/postdot/postdot:0.1.0-alpha.7`, digest `sha256:83d27b3d17fcdde437b9821441c2277dd16b55cba316f0e1399f7e11acf3474f`) after successful push CI on `main` and native AMD64/ARM64 acceptance from `0.1.0-alpha.6`. Includes PostgreSQL 16/17 persistence backend, multi-server instance topology, S3 storage profile, database transfer, worker scheduling resilience, Spanish/German localizations, command palette shortcuts, and deployment guides. [Evidence](worklogs/2026-11-08-RELEASE-621-alpha7.md).
+
 ## Current direction
 
 Shared-channel implementation follows [ADR-095](decisions/ADR-095-workspace-channels-and-project-attachments.md)
@@ -50,8 +52,8 @@ the durable server journal; see [ADR-047](decisions/ADR-047-evaluate-reactive-cl
 and [ADR-050](decisions/ADR-050-post-commit-project-realtime-signal.md).
 The comparison experiment is retired; future DB adoption requires a concrete need.
 Foundation maintenance follows [ADR-092](decisions/ADR-092-propose-foundation-release-baseline.md).
-The current published image is `0.1.0-alpha.6`, with native AMD64/ARM64 upgrade
-and restoration acceptance from `0.1.0-alpha.5` under RELEASE-606. Distribution
+The current published image is `0.1.0-alpha.7`, with native AMD64/ARM64 upgrade
+and restoration acceptance from `0.1.0-alpha.6` under RELEASE-621. Distribution
 notices remain packaged; release policy follows ADR-093.
 The anonymous login entry meets the 180 KiB JavaScript target under WEB-587; build CI guards it.
 ISSUE-182/183 retain broader cleanup scope.

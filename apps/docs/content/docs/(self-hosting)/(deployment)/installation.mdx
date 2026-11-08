@@ -5,9 +5,9 @@ description: Install Postdot with Docker Compose and configure persistent storag
 
 Postdot runs its API, dashboard, publication worker and scheduler in one Bun
 container. SQLite and local media share one persistent volume. The current release is
-`0.1.0-alpha.6`. This guide uses release-matched Compose/configuration files and the public
-`ghcr.io/postdot/postdot:0.1.0-alpha.6` image, accepted on Linux AMD64 and ARM64.
-Upgrade from `0.1.0-alpha.5` and restoration of its pre-update backup have been
+`0.1.0-alpha.7`. This guide uses release-matched Compose/configuration files and the public
+`ghcr.io/postdot/postdot:0.1.0-alpha.7` image, accepted on Linux AMD64 and ARM64.
+Upgrade from `0.1.0-alpha.6` and restoration of its pre-update backup have been
 validated on both platforms; see the [release record](/docs/releases/). For cluster
 orchestration environments, see the [Kubernetes guide](/docs/kubernetes/) or the
 [Docker Swarm guide](/docs/docker-swarm/).
@@ -21,12 +21,12 @@ Before starting, have these available:
 - OpenSSL to generate the deployment secrets.
 
 Create a new installation directory and download both files from the image's
-[source revision](https://github.com/postdot/postdot/tree/a09294317eba13fe4fd1427e585b8db924e3f38a):
+[source revision](https://github.com/postdot/postdot/tree/8de7fb5762324657aa4c74cfcdfdee8e73b9debf):
 
 ```sh
 mkdir postdot
 cd postdot
-POSTDOT_SOURCE=a09294317eba13fe4fd1427e585b8db924e3f38a
+POSTDOT_SOURCE=8de7fb5762324657aa4c74cfcdfdee8e73b9debf
 curl --fail --location --output compose.yaml "https://raw.githubusercontent.com/postdot/postdot/$POSTDOT_SOURCE/compose.yaml"
 curl --fail --location --output compose.env.example "https://raw.githubusercontent.com/postdot/postdot/$POSTDOT_SOURCE/compose.env.example"
 ```
@@ -57,7 +57,7 @@ Git and never publish the output of `docker compose config`, which includes secr
 ### 2. Pull, start and check readiness
 
 ```sh
-printf '\nPOSTDOT_IMAGE=ghcr.io/postdot/postdot:0.1.0-alpha.6\n' >> .env
+printf '\nPOSTDOT_IMAGE=ghcr.io/postdot/postdot:0.1.0-alpha.7\n' >> .env
 docker compose config --quiet
 docker compose pull
 docker compose up -d --no-build --wait
@@ -68,7 +68,7 @@ The readiness request must succeed before you continue. If startup fails, inspec
 `docker compose logs --tail 100 postdot` before changing the configuration.
 
 For reproducible content, replace the tag in `POSTDOT_IMAGE` with
-`ghcr.io/postdot/postdot@sha256:92321cb2a782b8c06c679b71b511185d6575d432a2a1d84a737952dd525d4ab1`.
+`ghcr.io/postdot/postdot@sha256:83d27b3d17fcdde437b9821441c2277dd16b55cba316f0e1399f7e11acf3474f`.
 See the [release record](/docs/releases/) for its matching source and limits.
 
 To build from source instead, obtain the full repository in a separate directory:
@@ -76,7 +76,7 @@ To build from source instead, obtain the full repository in a separate directory
 ```sh
 git clone https://github.com/postdot/postdot.git postdot-source
 cd postdot-source
-git checkout a09294317eba13fe4fd1427e585b8db924e3f38a
+git checkout 8de7fb5762324657aa4c74cfcdfdee8e73b9debf
 ```
 
 Repeat the configuration step there, leave `POSTDOT_IMAGE` unset, run

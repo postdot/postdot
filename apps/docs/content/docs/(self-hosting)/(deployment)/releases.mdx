@@ -3,6 +3,45 @@ title: Releases
 description: Published images, changes, source revisions and validated upgrade paths.
 ---
 
+## 0.1.0-alpha.7
+
+- Image: `ghcr.io/postdot/postdot:0.1.0-alpha.7`
+- Manifest digest: `sha256:83d27b3d17fcdde437b9821441c2277dd16b55cba316f0e1399f7e11acf3474f`
+- Platforms: Linux AMD64 and ARM64; anonymous registry access verified.
+- [Matching source](https://github.com/postdot/postdot/tree/8de7fb5762324657aa4c74cfcdfdee8e73b9debf).
+- [Publication and native acceptance](https://github.com/postdot/postdot/actions/runs/42514156016).
+- [Source integration CI](https://github.com/postdot/postdot/actions/runs/42475103977).
+
+### Changes
+
+- Run Postdot on PostgreSQL 16/17 alongside the default SQLite engine via
+  `POSTDOT_DATABASE_URL`, backed by portable SQL migrations and dialect abstraction.
+- Run multiple coordinating Postdot instances on PostgreSQL with topology heartbeats
+  and advisory-lock worker distribution.
+- Store media assets in S3-compatible object storage (AWS S3, Cloudflare R2, MinIO)
+  via `POSTDOT_STORAGE_PROFILE` alongside local disk storage.
+- Transfer complete installations between SQLite and PostgreSQL, and between local
+  and S3 media stores, using the built-in transfer utility.
+- Improve publication scheduling reliability with missed-wakeup recovery, bounded
+  eligibility query planning under high volume, and automatic claim release after
+  conflicts.
+- Add full Spanish and German interface localization with lazy-loaded translation
+  bundles and 100% i18n coverage.
+- Add quick search command palette shortcuts for publication composing and navigation.
+- Document qualified Kubernetes, Docker Swarm, and production reverse-proxy deployments.
+
+### Upgrade from 0.1.0-alpha.6
+
+Back up the database and media and preserve deployment secrets before updating.
+Portable migrations ensure database schema compatibility. Native checks on both
+Linux AMD64 and ARM64 upgraded an alpha.6 data set and restored its pre-update
+backup with the alpha.6 executable. Login, projects, channels, drafts, media,
+recorded connections, and queued work were preserved. No provider request was
+dispatched by these acceptance fixtures.
+
+The public CLI and n8n packages have their own versions and release process;
+this container release does not publish a new npm version.
+
 ## 0.1.0-alpha.6
 
 - Image: `ghcr.io/postdot/postdot:0.1.0-alpha.6`

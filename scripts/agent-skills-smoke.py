@@ -6,7 +6,7 @@ Requires Python 3, Docker and the pinned image locally. No provider is connected
 import json, os, pathlib, secrets, socket, subprocess, tempfile, time, urllib.request, urllib.error, http.cookiejar
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-IMAGE = "ghcr.io/postdot/postdot@sha256:92321cb2a782b8c06c679b71b511185d6575d432a2a1d84a737952dd525d4ab1"
+IMAGE = "ghcr.io/postdot/postdot@sha256:83d27b3d17fcdde437b9821441c2277dd16b55cba316f0e1399f7e11acf3474f"
 name = "postdot-agent580-" + secrets.token_hex(4)
 with tempfile.TemporaryDirectory(prefix="postdot-agent580-live-") as d:
     p = pathlib.Path(d)

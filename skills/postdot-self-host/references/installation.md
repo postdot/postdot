@@ -1,15 +1,15 @@
-# Install Postdot 0.1.0-alpha.6
+# Install Postdot 0.1.0-alpha.7
 
 Requires Docker Engine/Compose v2.20+, Python 3 for the optional preparer, and an
 operator-controlled host. Supported image platforms: Linux AMD64 and ARM64.
 The matching application source is commit
-`a09294317eba13fe4fd1427e585b8db924e3f38a` in `postdot/postdot`.
+`8de7fb5762324657aa4c74cfcdfdee8e73b9debf` in `postdot/postdot`.
 
 Image:
-`ghcr.io/postdot/postdot:0.1.0-alpha.6`
+`ghcr.io/postdot/postdot:0.1.0-alpha.7`
 
 Pinned manifest:
-`ghcr.io/postdot/postdot@sha256:92321cb2a782b8c06c679b71b511185d6575d432a2a1d84a737952dd525d4ab1`
+`ghcr.io/postdot/postdot@sha256:83d27b3d17fcdde437b9821441c2277dd16b55cba316f0e1399f7e11acf3474f`
 
 ## Prepare private configuration
 
@@ -64,7 +64,7 @@ cannot complete built-in publisher OAuth. The exact OAuth requirements vary:
 public Bluesky metadata/callbacks must be reachable at their configured HTTPS
 URLs; loopback development uses a distinct profile. Do not invent a universal
 callback URL. Inspect the provider's configuration UI and the matching version's
-[provider requirements](https://github.com/postdot/postdot/blob/a09294317eba13fe4fd1427e585b8db924e3f38a/apps/docs/content/docs/%28self-hosting%29/%28deployment%29/provider-configuration.mdx).
+[provider requirements](https://github.com/postdot/postdot/blob/8de7fb5762324657aa4c74cfcdfdee8e73b9debf/apps/docs/content/docs/%28self-hosting%29/%28deployment%29/provider-configuration.mdx).
 
 SMTP is optional. Without it, automatic verification/password-reset emails and
 email alerts are unavailable. Copyable invitation links remain available. Do not
