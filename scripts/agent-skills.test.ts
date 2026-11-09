@@ -46,7 +46,7 @@ describe('installed self-host skill', () => {
         expect((await stat(join(target, '.env'))).mode & 0o777).toBe(0o600)
         const image = config.split('\n').find(line => line.startsWith('POSTDOT_IMAGE='))
         expect(image).toBe(
-            'POSTDOT_IMAGE=ghcr.io/postdot/postdot@sha256:92321cb2a782b8c06c679b71b511185d6575d432a2a1d84a737952dd525d4ab1'
+            'POSTDOT_IMAGE=ghcr.io/postdot/postdot@sha256:83d27b3d17fcdde437b9821441c2277dd16b55cba316f0e1399f7e11acf3474f'
         )
         expect(
             (await run(prepare, [target, '--origin', 'https://other.example.com'])).code
