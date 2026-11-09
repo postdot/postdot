@@ -89,3 +89,7 @@ relationship at the SQLite foreign-key boundary and repeats it in the claimed-de
 resolver. The complete repository gate passed before this final relationship
 hardening and after it: formatting, lint, strict typecheck, unit/integration tests,
 browser E2E, and package builds all pass.
+
+## Persistence operating rule
+
+- **External notification secrets:** Keep provider credentials in versioned encrypted destination-secret rows, separate from public configuration and delivery history. Capture the secret version at projection time and resolve it only for a claimed delivery; never log, return, or snapshot plaintext material.

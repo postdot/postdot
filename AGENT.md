@@ -13,110 +13,33 @@ It provides one source of truth for automated and manual destinations. It does n
 replace project-specific communications repositories or act as an embedded AI
 content generator.
 
-- **License review scope (owner direction, 2026-10-11):** Preserve upstream declarations and available notices with minimal attribution. Do not pursue exhaustive transitive-license investigations during product work; keep unresolved release facts recorded without adding user-facing reading requirements.
-
-- **Naming and hosting direction (owner, 2026-10-21):** The accepted future name is Postdot, with postdot.app as its domain. Active code, configuration, documentation and screenshots use Postdot only (BRAND-551). Compatibility with earlier installations is limited to deprecated `POSTBOT_*` variables, adoption of `postbot.sqlite`, the `postbot_pat_` API-key prefix, the `postbot_webhook` mode inside saved custom profiles (their hashes cover it), stored identities rewritten by migration 0026 and the opaque encrypted-envelope authenticated-data bytes that cannot be rewritten without the keys; do not add other aliases or reintroduce old names. `apps/docs` is a prerendered TanStack Start site deployed at postdot.app on Cloudflare Workers static assets (DOCS-567, ISSUE-180). The existing postdot/postdot source repository is public under PUBLIC-554 with preserved history (ISSUE-181); site/docs deploys run from main through the dedicated workflow. Preserve the self-hosted application runtime boundary; website hosting does not migrate Studio or the API.
-
-- **Licensing:** Original Postdot code is AGPL-3.0-only. Preserve third-party licenses and notices; do not add proprietary editions, contributor copyright assignments, or commercial relicensing grants without an explicit owner decision. Preparing launch artifacts does not authorize making the repository public or publishing releases.
-
-- **Provider access (owner direction, 2026-11-01):** Postdot is self-hosted, with no central SaaS provider application or shared API entitlement. Document each destination's registration, account, approval and cost requirements before presenting it as ready to connect. Distinguish an operator's own assets from services connecting external businesses; do not initiate central App Review or a reviewer-hosted service without an explicitly accepted need.
+- **Licensing:** Original Postdot code is AGPL-3.0-only with minimal third-party attribution; follow [ADR-086](.autonomos/decisions/ADR-086-agpl-only-distribution.md) for license review and distribution scope.
+- **Naming, hosting, provider access, and publication scope:** Follow [SPEC-005](.autonomos/specs/SPEC-005-continuous-product-scope.md) for the Postdot naming/legacy-prefix boundary, `apps/docs` static hosting, self-hosted provider-access documentation, public readiness, publication history preservation, and repository hygiene.
 
 ## ⚙️ Workflow & Preferences
 
 - **Commits:** Conventional Commits
-- **Work batching (owner direction, 2026-10-23):** Complete coherent end-to-end issue slices with grouped validation. Batch release publication after substantial product work; validate changes directly rather than requiring an operator feedback cycle for each fix. Keep the deployed alpha in use while development proceeds. Avoid repeated approvals and commits for a handful of equivalent functions; request owner decisions for actual scope or architecture choices.
-- **Dependency maintenance (owner direction, 2026-10-23):** Prereleases are acceptable before the product has users or its own stable release. Do not freeze or replace a dependency solely because it is prerelease; justify a hold with a concrete compatibility/regression reason and a review trigger. Review stable Bun updates approximately every one to two weeks and apply them with proportionate validation, keeping development checks, CI and production packaging aligned. This does not authorize unattended updates or replacing the operator's global runtime.
-
-- **Public readiness:** Keep public main functional with proportionate validation. Public hero, README and installation guidance must match the actual release maturity and available artifacts; an alpha label does not replace functional checks or imply a published image.
-
-- **Handoff:** End every completed pass with a concrete recommended next task, or explicitly state that no next task was identified so the owner can plan another sprint.
-- **Skills maintenance:** Periodically refresh installed skills with `npx skills update`, review the resulting changes, and use the Solar catalog when choosing icons rather than guessing glyph names.
-- **Integration and validation cadence (owner direction, 2026-11-08):** Use
-  local integration into `main` for intermediate work after proportionate local
-  validation. Keep feature branches/worktrees where useful, record the checks,
-  and preserve existing commits. A local merge alone does not trigger a full
-  test matrix or require waiting for GitHub Actions. Run focused affected tests
-  and the static gate locally; cover both database engines when persistence
-  changes and focused browser journeys when UI behavior changes. Reserve broad
-  local qualification and grouped pull requests for substantial milestones or
-  demonstrated cross-cutting risk. Batch remote pushes to avoid redundant CI;
-  continue independent local work while milestone CI runs. Investigate failures
-  and resolve relevant blockers before remote integration or release. Local
-  integration does not itself publish, deploy, or push remote `main`. This
-  supersedes the 2026-11-07 requirement to use a PR for every completed slice.
-- **Proportionate validation (owner direction, 2026-10-10):** Verify local UI
-  and copy changes with static checks and the focused affected scenario or test.
-  Do not run the whole repository because a selector path is unmapped, a shared
-  primitive is touched, or a local commit is being made. The selector is advisory;
-  use the actual semantic impact to choose checks and record the scope honestly.
-  Run full validation for a meaningful integration milestone or demonstrated
-  cross-cutting risk, not mechanically for every change. Never weaken assertions.
-- **Browser modes:** The default Playwright matrix includes the development-only `/editor-lab`. Run that complete matrix in its default development mode. Use `POSTDOT_E2E_PRODUCTION_WEB=true` for supported application journeys; the lab intentionally redirects in a production build.
-- **Evidence records are documentation:** `.autonomos/**`, authored Markdown/MDX, and evidence records
-  are observed by no scenario, so a worklog or task-board change does not by itself
-  require the matrix. A code path in the same change set decides on its own terms,
-  and unknown or transversal code still falls back to the full matrix. This is a
-  policy classification, not a coverage claim; static gates still apply.
-- **Flakes:** investigate first, at the smallest scope that reproduces. A new full
-  control is warranted only when the investigation justifies it — the fix touches
-  shared transport or a transversal path, the cause stays unknown, the fix weakens
-  an assertion, or the flake recurs only under the full matrix. See
-  `.autonomos/decisions/ADR-077-two-validation-obligations.md`.
-- **Evolving tests (owner direction, 2026-10-19):** This is an early-stage project. Update tests when accepted product direction or API contracts change; historical assertions are not immutable requirements. Use project context and change provenance to distinguish obsolete mechanisms from real regressions. Preserve meaningful current outcomes, replace obsolete assertions deliberately, and investigate newly exposed failures before changing their expected results.
 - **Language:** English
 - **Repository language:** Keep code, comments, documentation, Autonomos artifacts,
   and test descriptions in English. French is allowed only in application
   translation catalogs and generated localization output; run the CSpell
   repository spelling gate when adding text.
 - **Protocol:** Follow `.autonomos/PROTOCOL.md` and the installed harness workflows. Keep task state in `.autonomos/TASKS.md` and session evidence in `.autonomos/worklogs/`.
+- **Handoff:** End every completed pass with a concrete recommended next task, or explicitly state that no next task was identified so the owner can plan another sprint.
+- **Validation, integration cadence, and testing:** Follow [ADR-077](.autonomos/decisions/ADR-077-two-validation-obligations.md) for local integration into `main`, proportionate validation, browser modes (`/editor-lab` vs `POSTDOT_E2E_PRODUCTION_WEB=true`), documentation-only changes, flake investigation, and evolving test assertions.
+- **Engineering operating model, batching, dependencies, parallel agents, and decision discipline:** Follow [SPEC-002](.autonomos/specs/SPEC-002-engineering-operating-model.md) for work batching, prerelease/Bun dependency maintenance, `postdot.code-workspace` and `Dockerfile` manifest updates, the Parallel Agent Protocol (work directly in parent unless delegated, canonical checkout on `main`, isolated worktree dependencies), and decision discipline.
 - **Public documentation:** Use `.agents/skills/postdot-writing/SKILL.md` for authored reader-facing documentation. Use `.agents/skills/postdot-fumadocs/SKILL.md` when changing its MDX presentation, navigation or generation. These project skills coordinate the installed writing skills; routine worklogs and generated endpoint files are not prose-rewrite targets. Public documentation is authored only under `apps/docs/content/docs/`; do not recreate a root `docs/` tree in parallel. Keep development state in Autonomos and distribution notices in root `licenses/`. Treat archived material as dated evidence, not current authority.
 - **Design:** Read the root `DESIGN.md` before changing a user-facing surface; keep unresolved visual findings in `.autonomos/worklogs/` and promote only owner-accepted rules.
 - **Experience standard (owner, 2026-10-28):** Journeys, navigation, scope changes, page width and wayfinding follow `.autonomos/specs/SPEC-010-web-experience-standard.md`; review them with `postdot-experience-review` and cite rule identifiers. Postdot's governing values are intuitiveness, modernity, performance and completeness; take initiative when you can name the value that motivates it, and report the trade-off when values conflict.
 - **Tooling:** Prefer the `@tala-tools/*` packages already used by the surrounding projects; improve a shared tool when a missing capability belongs there.
-- **IDE workspace:** Update `postdot.code-workspace` in the same change whenever an app or package under `apps/*` or `packages/*` is added, removed, or renamed.
-- **Container inputs:** Update the manifest-only workspace `COPY` list in `Dockerfile` whenever an app or package is added, removed, or renamed, then validate a fresh production image build.
-- **Publication scope (owner, 2026-10-21):** Preserve accumulated commits, branches and pull requests. Apply proportionate current-record corrections; no orphan history, bulk removal of Autonomos or history rewrite for harmless identifiers/local context. Revisit history only for a confirmed serious exposure. PUBLIC-553 prepares the existing repository transition. The owner reports reserving postdot.app, npm/GitHub postdot and Docker Hub ID postdot.
-- **Repository hygiene:** Treat user conversations, personal context, and one-off analysis as private by default. Track only durable, implementation-relevant, public-ready guidance. Comparative research is allowed only when it is deliberately scoped to a repository artifact.
-
-### Parallel Agent Protocol (Operational policy)
-
-<!-- cspell:disable-next-line -->
-- **Delegation preference (owner direction, 2026-10-20):** Work directly in the parent. The owner stopped the delegated experiment after stalled progress; do not restart sub-agents unless the owner explicitly requests delegation again. Preserve and review partial worker artifacts before integration.
-
-- The orchestrator owns the canonical checkout, shared development servers, live browser validation, external-provider actions, integration, pull-request decisions, merges, branch deletion, and advancement of `main`.
-- Before dispatch, each mission records its Autonomos task ID, base commit, worktree and branch, semantic ownership, allowed paths, forbidden paths and resources, acceptance criteria, permitted checks, stop condition, report format, and cleanup owner.
-- Shared governance files and hotspots—including `.autonomos/`, root configuration, lockfiles, migrations, central dispatch code, and integration metadata—are reserved for one owner at a time; file-level separation alone does not make two missions independent.
-- Implementation workers run in dedicated Git worktrees with explicitly scoped missions. They may inspect the repository, change only their assigned scope, run named deterministic checks that do not require shared services, commit their own branch when implementation is requested, and report evidence. They must not merge, modify `main`, start shared development servers, use real provider credentials, or trigger external side effects.
-- Review workers are read-only by default. They receive only the context needed for the review and return findings with severity, evidence, and file references. Findings become implementation work only after orchestrator triage.
-- Safe worker checks are limited to read-only inspection and explicitly isolated package-local format, lint, typecheck, and unit/integration checks. Browser and E2E runs, development servers, restore/backup operations, container validation, real-provider validation, external network calls, default shared ports, default database/media paths, and commands that delete shared or fixed temporary paths belong to the orchestrator.
-- Parallel missions require non-overlapping semantic ownership and explicit acceptance criteria. The orchestrator updates each contribution against the current canonical head, integrates one mission at a time, runs the complete gate, then updates Autonomos tracking and cleans up the worktree and branch.
-- **Dependency isolation:** A delegated dependency harness must own every directory it writes. Never create or replace workspace links through a symlink to the canonical `node_modules`; that mutates the shared installation. Before final acceptance after worktree cleanup, verify canonical workspace links do not reference deleted agent checkouts.
-- Worktrees do not receive secrets by default. Any runtime work must use isolated ports, database files, and media roots; ignored credential files remain outside worktrees unless explicitly required and approved.
-- The orchestrator must not dispatch Sol-high reviews. If an internal independent review is explicitly justified, prefer a short, bounded Luna-max mission with a neutral prompt; the reviewer may recommend changes but cannot edit, merge, or authorize external effects.
-- **Checkout and worktree hygiene (owner direction, 2026-11-08):** The canonical
-  checkout (the primary worktree that holds `.git`) stays on `main`; sessions
-  start there.
-  Do branch work in a harness-managed worktree (T3 `workspaceStrategy`) rather
-  than ad-hoc sibling directories, and never park `main` in another worktree.
-  Remove the worktree (`git worktree remove`, then `git worktree prune`) and
-  delete the merged local branch as soon as its work is integrated.
-- Delegated implementation work must have a durable, operator-visible identity, observable status, clear interruption semantics, attribution, and verifiable cleanup. If the current workflow cannot provide that, use a dedicated, registered Git worktree; integration and cleanup remain under orchestrator ownership.
-
-### Decision Discipline
-
-- Autonomy authorizes execution within accepted boundaries; it does not authorize silent decisions about product scope, architecture, data ownership, security, lifecycle semantics, or public contracts.
-- Before a consequential decision, state the problem, assumptions, credible alternatives, trade-offs, reversibility, and supporting evidence. Stop for explicit project-governance approval when more than one credible direction remains.
-- Do not confuse a dependency's technical capability with ownership of a domain responsibility.
-- Existing code and effort are not evidence that a direction should be preserved. Discard or revise work when its foundation is unsound.
-- Optimize for durable progress and solutions expected to remain, not for local speed, the smallest immediate diff, or the least code written.
-- Never conceal structural uncertainty behind a temporary fallback on a critical path. Make the ambiguity visible and resolve it before implementation continues.
+- **Skills maintenance:** Periodically refresh installed skills with `npx skills update`, review the resulting changes, and use the Solar catalog when choosing icons rather than guessing glyph names.
 
 ## 🏗 Stack & Architecture
 
 - **Tech:** Bun, Turborepo, TypeScript, Elysia 2 beta (API), Bun SQLite or PostgreSQL behind Postdot's persistence port, Better Auth, React 19, TanStack Router, Vite, Tailwind CSS, shadcn/ui with Base UI, Host Grotesk, and Solar Icons React v2 Linear
 - **Patterns:** A single process for API, static dashboard, scheduler, and worker; framework-independent domain logic in `packages/core`.
 - **Authentication boundary:** Better Auth authenticates people into Postdot and currently uses email/password only. OAuth belongs exclusively to publisher-channel connections unless a later accepted decision explicitly changes the application-authentication strategy.
-- **Publisher ownership:** Released alpha.1/alpha.2 connections and credentials are project-owned. From alpha.3, migration 0023 moves channels, profiles, publishers, connections and credentials to workspace ownership with explicit project attachments, per [ADR-095](.autonomos/decisions/ADR-095-workspace-channels-and-project-attachments.md) and [SPEC-009](.autonomos/specs/SPEC-009-shared-channel-workflows.md); every new project must belong to a workspace. This schema conversion is not a delivered sharing feature: the live authorization adapters, HTTP/CLI/Studio workflows and release acceptance remain under SHARE-592. The connecting actor is audit attribution, not personal secret ownership; actor departure does not revoke the connection.
+- **Publisher ownership:** Workspace-owned channels, profiles, publishers, connections and credentials with explicit project attachments per [ADR-095](.autonomos/decisions/ADR-095-workspace-channels-and-project-attachments.md) and [SPEC-009](.autonomos/specs/SPEC-009-shared-channel-workflows.md); every new project belongs to a workspace, and connecting actors provide audit attribution rather than personal secret ownership.
 
 ## 📁 Key Directories
 

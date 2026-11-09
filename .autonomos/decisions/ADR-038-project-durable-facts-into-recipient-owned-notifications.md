@@ -69,3 +69,7 @@ and retry policy. They must not call publication workflow code directly.
 Tests must prove human-only recipient resolution, default and explicit preferences,
 idempotent replay, atomic cursor advancement, restart continuation, unsupported-event
 skipping, project isolation, and idempotent read/archive transitions.
+
+## Persistence operating rule
+
+- **Notification projection:** Keep recipient-owned inbox state separate from the fact journal. Project only explicitly supported event names and versions, resolve current project human actors independently from event attribution, advance each projection cursor atomically with deduplicated writes, and keep complete history reachable through stable keyset pagination.

@@ -590,3 +590,7 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] PRODUCT-477 — Inventory product expansion gaps and record staged proposals for platforms, structured channel authoring, engagement, native formats and locales.
 
 - [x] **[META-622]** Upgrade Autonomos to 0.8.0 and migrate records to the current artifact format `Priority: 🟠` `Complexity: M` `Completed: 2026-11-08` — Format 2; current registries hold open work only. [Evidence](../../worklogs/2026-11-08-META-622.md).
+
+## Closed 2026-11-09
+
+- [x] **[META-623]** Upgrade Autonomos to 0.8.4, bring AGENT.md files within 0.8 context budgets and audit closed follow-ups `Priority: 🔵` `Complexity: M` `Completed: 2026-11-09` — Root 18.6 KB and six scoped files over budget; AI agents resolve where root directives move. [META-622](../../worklogs/2026-11-08-META-622.md).

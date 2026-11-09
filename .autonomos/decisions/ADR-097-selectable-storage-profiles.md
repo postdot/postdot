@@ -38,7 +38,7 @@ Measured starting point (2026-11-06, `main` at `aa33df034`):
   from 96 files and reaches `$client` directly in 3 places.
 - The SQLite-specific SQL is limited: `json_*` (27), `unixepoch` (16), `glob` (7),
   `sqlite_master` (3), `rowid` (2) and `PRAGMA`. Some operations work at file level: `VACUUM
-  INTO` backup, pathname-replacement restore, sidecar runtime lock, WAL recovery.
+INTO` backup, pathname-replacement restore, sidecar runtime lock, WAL recovery.
 - Some coordination exists only inside the process: credential-refresh queues, the realtime
   wakeup hub and the poster/bootstrap maps.
 - Bun 1.4 ships `Bun.SQL`, one async client for SQLite, PostgreSQL and MySQL selected by URL.
@@ -84,22 +84,22 @@ Measured starting point (2026-11-06, `main` at `aa33df034`):
    timestamps are `bigint`. Drizzle's remaining uses (API response schemas, test queries,
    the Better Auth adapter) are replaced; Better Auth uses an adapter on the persistence port.
 7. **Topology is enforced by construction.** The profile defines the instance capability:
-   - SQLite **or** local media → **single instance**. With SQLite, the existing sidecar lock
-     already refuses a second process. PostgreSQL with local media takes a database-held
-     singleton lease and refuses to start while another live instance holds it.
-   - PostgreSQL **and** S3 → **multiple instances allowed**: serialized migrations (advisory
-     lock), cross-instance wakeup (`LISTEN/NOTIFY` with the durable journal remaining the source
-     of truth), database-backed credential-refresh coordination. Missed signals are covered by
-     a non-overlapping safety rescan every 30 seconds after the previous pass completes, plus
-     rescan on listener reconnect (owner-approved hardening, 2026-11-07, DB-614). Slow database
-     reads add to recovery latency; this interval is not a hard execution deadline.
-   - Background runtimes (publication worker, media maintenance, video previews, notification
-     projection, email) run on **one elected leader** (amended 2026-11-07, owner): a session
-     advisory lock, released when its connection ends, so another instance takes over after a
-     crash or during a rolling release. Every instance serves HTTP. This replaces distributing
-     job claims with `SKIP LOCKED`: the goal is availability and rolling releases, not
-     throughput, and claims stay lease-guarded and serializable should distribution be needed.
-   Health and startup logs report the active profile and its instance capability.
+    - SQLite **or** local media → **single instance**. With SQLite, the existing sidecar lock
+      already refuses a second process. PostgreSQL with local media takes a database-held
+      singleton lease and refuses to start while another live instance holds it.
+    - PostgreSQL **and** S3 → **multiple instances allowed**: serialized migrations (advisory
+      lock), cross-instance wakeup (`LISTEN/NOTIFY` with the durable journal remaining the source
+      of truth), database-backed credential-refresh coordination. Missed signals are covered by
+      a non-overlapping safety rescan every 30 seconds after the previous pass completes, plus
+      rescan on listener reconnect (owner-approved hardening, 2026-11-07, DB-614). Slow database
+      reads add to recovery latency; this interval is not a hard execution deadline.
+    - Background runtimes (publication worker, media maintenance, video previews, notification
+      projection, email) run on **one elected leader** (amended 2026-11-07, owner): a session
+      advisory lock, released when its connection ends, so another instance takes over after a
+      crash or during a rolling release. Every instance serves HTTP. This replaces distributing
+      job claims with `SKIP LOCKED`: the goal is availability and rolling releases, not
+      throughput, and claims stay lease-guarded and serializable should distribution be needed.
+      Health and startup logs report the active profile and its instance capability.
 8. **Transfer between profiles is an explicit offline operation.** A logical, engine-neutral
    export (rows in dependency order, schema version, checksums) can be imported into an empty
    target at the same schema version: SQLite ↔ PostgreSQL. A media copy through the storage
@@ -120,13 +120,13 @@ Measured starting point (2026-11-06, `main` at `aa33df034`):
 
 ## Phasing
 
-| Task | Content |
-|------|---------|
-| DB-609 | Phase 0: async port, SQLite writer gate, ambient transactions, every store and caller converted, SQLite only, no behaviour change |
-| DB-610 | Phase 1: dialect module and portable SQL audit of runtime statements |
+| Task   | Content                                                                                                                                                 |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| DB-609 | Phase 0: async port, SQLite writer gate, ambient transactions, every store and caller converted, SQLite only, no behaviour change                       |
+| DB-610 | Phase 1: dialect module and portable SQL audit of runtime statements                                                                                    |
 | DB-611 | Phase 2: PostgreSQL adapter, portable SQL migrations and runner with schema parity, Better Auth on the port, Drizzle retired, CI parity on both engines |
-| DB-612 | Phase 3: topology guard, multi-instance coordination, PostgreSQL operations runbook |
-| DB-613 | Phase 4: profile transfer (database export/import, media copy) and documentation |
+| DB-612 | Phase 3: topology guard, multi-instance coordination, PostgreSQL operations runbook                                                                     |
+| DB-613 | Phase 4: profile transfer (database export/import, media copy) and documentation                                                                        |
 
 Rolling releases additionally require an expand/contract migration policy (old and new versions
 must share a schema). That policy is defined in DB-612.
@@ -152,3 +152,9 @@ must share a schema). That policy is defined in DB-612.
   explicit property of the profile rather than a product limitation.
 - `AGENT.md` constraints on horizontal scaling and universal database abstractions must be
   updated when this ADR is accepted.
+
+## Operating rules (from `packages/db/AGENT.md`)
+
+- **Migration safety:** Keep migration application fail-closed. Validate foreign keys and domain preservation inside the migration transaction, before committing schema, data and `postdot_migrations` history together. Applied migrations are immutable (checksums). `legacy-migrations/` is the frozen pre-ADR-097 Drizzle chain: never edit it; it only serves adoption tests. Preserve and restore affected triggers when rebuilding referenced tables. Do not add idempotent SQL or automatic database resets merely to hide a schema/history mismatch; unreleased local databases may be archived and recreated explicitly, while databases with data must be investigated and preserved.
+- **Instance topology (ADR-097 §7):** SQLite or local media means one server; PostgreSQL with S3 allows several. Never assume process-local state is shared: external I/O that must not overlap across servers (credential refresh, media writes versus purge) uses `sql.exclusive(key, op)` outside transactions; cross-server wakeups go through `InstanceCoordination` signals, which only wake—readers reread durable state. A new in-memory map or counter needs an explicit multi-server story.
+- **Missed wakeups:** PostgreSQL coordination rereads durable sources every 30 seconds after the previous pass finishes, and after listener reconnects. Recovery callbacks must return their work so passes cannot overlap and shutdown can drain them. Signals remain hints; the interval is not a hard execution deadline under database load. This does not recreate ephemeral draft signals or reset a failed scheduler.

@@ -85,3 +85,7 @@ the effect boundary, bounded retries, terminal failures, and restart reconstruct
 ## References
 
 - Ntfy publish API: https://docs.ntfy.sh/publish/
+
+## Persistence operating rule
+
+- **External notification delivery:** Keep destinations, per-kind subscriptions, projection cursors, immutable delivery snapshots, leases, and ambiguity state separate from the in-app inbox. External projection and cursor advancement must be atomic and replay-safe; only the executor may cross the durable effect boundary.

@@ -55,3 +55,7 @@ DB-555 covers reader snapshots, independent-process writer release, timeout,
 prepared-statement closure, online snapshots with commits still in the WAL,
 migrations and both restore modes after SIGKILL. Removing WAL retirement makes
 the restore regression tests fail with corruption or an unsafe replacement.
+
+## Persistence operating rule (from `packages/db/AGENT.md`)
+
+- **SQLite policy:** Main file connections require WAL, FULL durability and a 5-second busy timeout (ADR-089). Strictly close prepared statements before releasing the runtime lock. Restore must retire the old WAL through SQLite before pathname replacement; never unlink sidecars to bypass contention.

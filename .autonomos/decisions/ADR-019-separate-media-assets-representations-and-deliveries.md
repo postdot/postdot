@@ -157,3 +157,10 @@ complete recoverable Postbot backup after media storage is enabled.
   lifecycle services rather than filesystem side effects hidden in route handlers.
 - New formats and processors can be added without replacing publication or storage
   records, but each needs real inspection and capability evidence before use.
+
+## Persistence operating rules (from `packages/db/AGENT.md`)
+
+- **Media lifecycle:** Keep project-owned asset, representation, upload-intent, inspection, retention, and reconciliation state in this package. Use `@postdot/media` only through its storage contract, and keep opaque object keys out of public API responses. Persist a provider-reported remote-media expiry alongside a delivery checkpoint when one is available; consumers must still apply their own conservative reuse bound.
+- **Media previews:** Internal thumbnails are versioned derived representations, not library assets or publication defaults. Preserve original bytes; track storage ownership before writes and finish preview writes before physical asset deletion. Video posters are optional background work: decoding failure must preserve a ready original, and shutdown cancellation must remain eligible for startup recovery.
+- **Media recovery:** Treat SQLite-only backup as a low-level primitive. Complete media recovery must use the manifest-and-bytes bundle, verify every checksum, and fence physical media deletion while the bundle is being copied.
+- **Personal avatars:** Keep person-owned image lifecycle in `user_avatars`, separate from project media assets. Use the shared storage port and complete-backup deletion fence; complete recovery includes avatar bytes as well as project representations.

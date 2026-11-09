@@ -142,16 +142,16 @@ than that ref is locally validated only, and saying so is part of reporting.
 after it were documentation-only. That was wrong. Measured from the commits
 themselves:
 
-| Commit | Files | Level actually validated | Selector verdict for that change set |
-| ------ | ----- | ------------------------ | ------------------------------------- |
-| `d70108840` | worklog, task board, corrections to three historical worklogs | **fully validated** — `bun run check` green: 84 E2E in 19.4 min, 2 password-reset in 10.6 s, 256 API / 129 web / 168 db / 92 core / 45 script unit tests, build, format, lint, typecheck | not applicable: this is the reference state |
-| `9c1c669f9` | one worklog | documentation checks only | documentation only |
-| `15e7c9475` | task board, this record, two worklogs | documentation checks only | documentation only |
-| `1b3b80871` | `cspell.json`, `e2e/web-314-editor-access-state.spec.ts`, two Autonomos files | **code and test change**, targeted: the spec run twice | full matrix — `e2e/**` is transversal |
-| `a31d2c792` | task board | documentation checks only | documentation only |
-| `56429fb48` | `cspell.json`, `e2e/web-314-editor-access-state.spec.ts`, two Autonomos files | **code and test change**, targeted | full matrix |
-| `0259edf56` | `e2e/web-314-editor-access-state.spec.ts`, two Autonomos files | **code and test change**, targeted | full matrix |
-| `be1a070fe` | two spec comment blocks, task board, one worklog | **comment change in test files**, targeted | full matrix |
+| Commit      | Files                                                                         | Level actually validated                                                                                                                                                                 | Selector verdict for that change set        |
+| ----------- | ----------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| `d70108840` | worklog, task board, corrections to three historical worklogs                 | **fully validated** — `bun run check` green: 84 E2E in 19.4 min, 2 password-reset in 10.6 s, 256 API / 129 web / 168 db / 92 core / 45 script unit tests, build, format, lint, typecheck | not applicable: this is the reference state |
+| `9c1c669f9` | one worklog                                                                   | documentation checks only                                                                                                                                                                | documentation only                          |
+| `15e7c9475` | task board, this record, two worklogs                                         | documentation checks only                                                                                                                                                                | documentation only                          |
+| `1b3b80871` | `cspell.json`, `e2e/web-314-editor-access-state.spec.ts`, two Autonomos files | **code and test change**, targeted: the spec run twice                                                                                                                                   | full matrix — `e2e/**` is transversal       |
+| `a31d2c792` | task board                                                                    | documentation checks only                                                                                                                                                                | documentation only                          |
+| `56429fb48` | `cspell.json`, `e2e/web-314-editor-access-state.spec.ts`, two Autonomos files | **code and test change**, targeted                                                                                                                                                       | full matrix                                 |
+| `0259edf56` | `e2e/web-314-editor-access-state.spec.ts`, two Autonomos files                | **code and test change**, targeted                                                                                                                                                       | full matrix                                 |
+| `be1a070fe` | two spec comment blocks, task board, one worklog                              | **comment change in test files**, targeted                                                                                                                                               | full matrix                                 |
 
 Two things follow, and both are recorded rather than smoothed over.
 
@@ -216,3 +216,38 @@ surface, and it is the first thing the five missions should quantify.
 - Remote caching, Docker layer reuse, and any harness or worker change.
 - The password-reset harness and container acceptance, whose commands are already
   separate and stay separate.
+
+## Active validation and test directives (from root `AGENT.md`)
+
+- **Integration and validation cadence (owner direction, 2026-11-08):** Use
+  local integration into `main` for intermediate work after proportionate local
+  validation. Keep feature branches/worktrees where useful, record the checks,
+  and preserve existing commits. A local merge alone does not trigger a full
+  test matrix or require waiting for GitHub Actions. Run focused affected tests
+  and the static gate locally; cover both database engines when persistence
+  changes and focused browser journeys when UI behavior changes. Reserve broad
+  local qualification and grouped pull requests for substantial milestones or
+  demonstrated cross-cutting risk. Batch remote pushes to avoid redundant CI;
+  continue independent local work while milestone CI runs. Investigate failures
+  and resolve relevant blockers before remote integration or release. Local
+  integration does not itself publish, deploy, or push remote `main`. This
+  supersedes the 2026-11-07 requirement to use a PR for every completed slice.
+- **Proportionate validation (owner direction, 2026-10-10):** Verify local UI
+  and copy changes with static checks and the focused affected scenario or test.
+  Do not run the whole repository because a selector path is unmapped, a shared
+  primitive is touched, or a local commit is being made. The selector is advisory;
+  use the actual semantic impact to choose checks and record the scope honestly.
+  Run full validation for a meaningful integration milestone or demonstrated
+  cross-cutting risk, not mechanically for every change. Never weaken assertions.
+- **Browser modes:** The default Playwright matrix includes the development-only `/editor-lab`. Run that complete matrix in its default development mode. Use `POSTDOT_E2E_PRODUCTION_WEB=true` for supported application journeys; the lab intentionally redirects in a production build.
+- **Evidence records are documentation:** `.autonomos/**`, authored Markdown/MDX, and evidence records
+  are observed by no scenario, so a worklog or task-board change does not by itself
+  require the matrix. A code path in the same change set decides on its own terms,
+  and unknown or transversal code still falls back to the full matrix. This is a
+  policy classification, not a coverage claim; static gates still apply.
+- **Flakes:** investigate first, at the smallest scope that reproduces. A new full
+  control is warranted only when the investigation justifies it — the fix touches
+  shared transport or a transversal path, the cause stays unknown, the fix weakens
+  an assertion, or the flake recurs only under the full matrix. See
+  `.autonomos/decisions/ADR-077-two-validation-obligations.md`.
+- **Evolving tests (owner direction, 2026-10-19):** This is an early-stage project. Update tests when accepted product direction or API contracts change; historical assertions are not immutable requirements. Use project context and change provenance to distinguish obsolete mechanisms from real regressions. Preserve meaningful current outcomes, replace obsolete assertions deliberately, and investigate newly exposed failures before changing their expected results.

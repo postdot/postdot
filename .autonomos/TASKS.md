@@ -80,10 +80,6 @@ Project/workspace retirement follows [ADR-094](decisions/ADR-094-project-and-wor
 Restore does not requeue cancelled work; permanent deletion retains a minimal
 receipt while durable media cleanup retries independently.
 
-## 🚀 Active Sprint
-
-- [ ] **[META-623]** Bring AGENT.md files within 0.8 context budgets `Priority: 🔵` `Complexity: M` — Root 18.6 KB and six scoped files over budget; owner to confirm where root directives move. See [META-622](worklogs/2026-11-08-META-622.md).
-
 ## Deferred backlog
 
 - [ ] **[UX-283]** Specify and implement animated attachments for supported destinations `Priority: 🔵` `Complexity: L` — Owner-deferred until core workflows are ready; contracts first, no GIF-editor substitute. [Criteria](archive/worklogs-format-1/2026-10-03-UX-286-gif-deferral.md).

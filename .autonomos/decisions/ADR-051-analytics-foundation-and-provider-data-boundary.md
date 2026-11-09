@@ -75,14 +75,14 @@ new authority.
 
 ### Source and ownership map
 
-| Read-model concern | Authoritative source | Semantics |
-| --- | --- | --- |
-| Current publication inventory | `publications`, joined to `channels` and current publisher configuration | One row per publication as observed at request evaluation time |
-| Current execution and queue state | `jobs` joined to `publications` | One active job per project/publication; `pending` and `running` are current work, not historical event counts |
-| Historical publication lifecycle | Versioned `audit_events` facts for publication subjects | Count supported transition facts by their occurrence time; do not infer missing transitions from `updated_at` |
-| Historical execution attempts and outcomes | Versioned automatic execution facts in `audit_events` | One claim/effect/outcome/recovery fact per durable transition, correlated by job and attempt metadata |
-| Notifications | `notifications` and its projection cursor | Recipient-owned presentation state; never an analytics source |
-| Provider engagement | Future provider-owned observations/snapshots | External provider data with its own scope, freshness, authorization, retention, and aggregation semantics |
+| Read-model concern                         | Authoritative source                                                     | Semantics                                                                                                     |
+| ------------------------------------------ | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
+| Current publication inventory              | `publications`, joined to `channels` and current publisher configuration | One row per publication as observed at request evaluation time                                                |
+| Current execution and queue state          | `jobs` joined to `publications`                                          | One active job per project/publication; `pending` and `running` are current work, not historical event counts |
+| Historical publication lifecycle           | Versioned `audit_events` facts for publication subjects                  | Count supported transition facts by their occurrence time; do not infer missing transitions from `updated_at` |
+| Historical execution attempts and outcomes | Versioned automatic execution facts in `audit_events`                    | One claim/effect/outcome/recovery fact per durable transition, correlated by job and attempt metadata         |
+| Notifications                              | `notifications` and its projection cursor                                | Recipient-owned presentation state; never an analytics source                                                 |
+| Provider engagement                        | Future provider-owned observations/snapshots                             | External provider data with its own scope, freshness, authorization, retention, and aggregation semantics     |
 
 ### Postbot operational analytics
 
@@ -130,27 +130,27 @@ manual channel with no publisher just as they work for an automatic channel.
 
 #### Execution and workload metrics
 
-An execution *attempt* is identified by `(project_id, job_id, attempt)` in the
+An execution _attempt_ is identified by `(project_id, job_id, attempt)` in the
 execution fact metadata. A claim can exist without an external attempt: a lease
 may expire before the effect boundary and be recovered safely.
 
-| Metric | Exact semantics |
-| --- | --- |
-| `execution.scheduled_depth` | Current automatic jobs with `jobs.state = 'pending'`; includes both future and overdue work. Manual scheduled publications are not executions. |
-| `execution.due_depth` | The scheduled depth subset whose current `jobs.run_at` is less than or equal to the single `observedAt` used for the response. |
-| `execution.claimed_count` | Number of supported `publication.execution.claimed` facts in the event interval. A claim recovered before the effect boundary still counts as a claim. |
-| `execution.running_depth` | Current automatic jobs with `jobs.state = 'running'` at `observedAt`. A current running job is the current representation of claimed, unfinished work; there is no separate current claimed state. |
-| `execution.attempt_count` | Distinct attempts with a supported `publication.execution.effect_started` fact. A pre-boundary claim recovery is not an attempt. |
-| `execution.succeeded_count` | Distinct attempts with `publication.execution.succeeded`; counts definitive automatic publication success, not provider engagement. |
-| `execution.failed_count` | Distinct attempts with `publication.execution.failed`; this is terminal automatic failure only. It excludes `retry_scheduled` and ambiguity. |
-| `execution.retryable_count` | Distinct attempts with `publication.execution.retry_scheduled` where Postbot durably requeued the job. It is the count of accepted retry scheduling, not an inference from a provider error string. |
-| `execution.ambiguous_count` | Distinct attempts with either `publication.execution.ambiguous` or `publication.execution.ambiguity_recovered`. These paths are reported separately as direct ambiguity and post-boundary recovery, then may be shown as a total. |
-| `execution.claim_recovered_count` | Count of pre-effect lease recoveries. These are useful workload/reliability facts but are not external attempts. |
-| `execution.ambiguity_recovered_count` | Count of post-effect-boundary lease recoveries that moved the publication to `ambiguous`. They are not retryable. |
-| `execution.retryable_pending_depth` | Current pending automatic jobs whose latest supported execution outcome is `retry_scheduled`. A job that has already been claimed again is running, not retryable-pending. |
-| `execution.succeeded_depth` | Current jobs with `jobs.state = 'succeeded'`, joined to a published publication. This is a current job inventory and is distinct from ranged historical success count. |
-| `execution.failed_depth` | Current failed jobs whose publication is currently `failed`. Jobs failed while resolving an ambiguous external outcome are excluded from this terminal-failure bucket. |
-| `execution.ambiguous_depth` | Current publications with `publications.state = 'ambiguous'` and an external execution history. This is reconciliation workload, not a proof of provider success or failure. |
+| Metric                                | Exact semantics                                                                                                                                                                                                                   |
+| ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `execution.scheduled_depth`           | Current automatic jobs with `jobs.state = 'pending'`; includes both future and overdue work. Manual scheduled publications are not executions.                                                                                    |
+| `execution.due_depth`                 | The scheduled depth subset whose current `jobs.run_at` is less than or equal to the single `observedAt` used for the response.                                                                                                    |
+| `execution.claimed_count`             | Number of supported `publication.execution.claimed` facts in the event interval. A claim recovered before the effect boundary still counts as a claim.                                                                            |
+| `execution.running_depth`             | Current automatic jobs with `jobs.state = 'running'` at `observedAt`. A current running job is the current representation of claimed, unfinished work; there is no separate current claimed state.                                |
+| `execution.attempt_count`             | Distinct attempts with a supported `publication.execution.effect_started` fact. A pre-boundary claim recovery is not an attempt.                                                                                                  |
+| `execution.succeeded_count`           | Distinct attempts with `publication.execution.succeeded`; counts definitive automatic publication success, not provider engagement.                                                                                               |
+| `execution.failed_count`              | Distinct attempts with `publication.execution.failed`; this is terminal automatic failure only. It excludes `retry_scheduled` and ambiguity.                                                                                      |
+| `execution.retryable_count`           | Distinct attempts with `publication.execution.retry_scheduled` where Postbot durably requeued the job. It is the count of accepted retry scheduling, not an inference from a provider error string.                               |
+| `execution.ambiguous_count`           | Distinct attempts with either `publication.execution.ambiguous` or `publication.execution.ambiguity_recovered`. These paths are reported separately as direct ambiguity and post-boundary recovery, then may be shown as a total. |
+| `execution.claim_recovered_count`     | Count of pre-effect lease recoveries. These are useful workload/reliability facts but are not external attempts.                                                                                                                  |
+| `execution.ambiguity_recovered_count` | Count of post-effect-boundary lease recoveries that moved the publication to `ambiguous`. They are not retryable.                                                                                                                 |
+| `execution.retryable_pending_depth`   | Current pending automatic jobs whose latest supported execution outcome is `retry_scheduled`. A job that has already been claimed again is running, not retryable-pending.                                                        |
+| `execution.succeeded_depth`           | Current jobs with `jobs.state = 'succeeded'`, joined to a published publication. This is a current job inventory and is distinct from ranged historical success count.                                                            |
+| `execution.failed_depth`              | Current failed jobs whose publication is currently `failed`. Jobs failed while resolving an ambiguous external outcome are excluded from this terminal-failure bucket.                                                            |
+| `execution.ambiguous_depth`           | Current publications with `publications.state = 'ambiguous'` and an external execution history. This is reconciliation workload, not a proof of provider success or failure.                                                      |
 
 The current workload read model additionally exposes the facts needed to operate
 the queue: `manual_due_depth`, `ambiguous_reconciliation_depth`,
@@ -185,7 +185,7 @@ timestamps produce `null`/no sample, never a zero.
   `retry_scheduled_count / attempt_count` for the same interval; it is not a
   cohort success probability. `execution.attempts_per_publication` is
   `attempt_count / distinct automatic publications with an effect started in
-  the interval`.
+the interval`.
 
 The first response may return latency summaries as `{ count, totalMs, minMs,
 maxMs, averageMs }`. Percentiles and histograms are deferred until a concrete

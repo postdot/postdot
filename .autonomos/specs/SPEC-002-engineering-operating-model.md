@@ -141,14 +141,14 @@ Measurements use a documented Linux amd64 reference environment and fixed fixtur
 data. The exact command, Bun version, build mode, sample duration, and result are
 kept with milestone evidence so numbers remain comparable.
 
-| Metric                                       | When measured                          |                                   Initial V1 budget |
-| -------------------------------------------- | -------------------------------------- | --------------------------------------------------: |
-| Idle resident memory after warm-up           | Runtime-affecting server change        |    target at or below 150 MiB; hard ceiling 250 MiB |
-| Peak resident memory for one publication job | Scheduler, worker, or publisher change |      baseline in M2, then no unexplained regression |
-| Cold start to healthy                        | Runtime or startup change              |      baseline in M0, then no unexplained regression |
-| API production artifact                      | Server dependency or bundling change   |                           target at or below 15 MiB |
-| Initial web JavaScript, gzip                 | Web dependency or routing change       |                          target at or below 180 KiB |
-| Compressed production OCI image              | Packaging or runtime dependency change |          target below 100 MiB; hard ceiling 150 MiB |
+| Metric                                       | When measured                          |                                    Initial V1 budget |
+| -------------------------------------------- | -------------------------------------- | ---------------------------------------------------: |
+| Idle resident memory after warm-up           | Runtime-affecting server change        |     target at or below 150 MiB; hard ceiling 250 MiB |
+| Peak resident memory for one publication job | Scheduler, worker, or publisher change |       baseline in M2, then no unexplained regression |
+| Cold start to healthy                        | Runtime or startup change              |       baseline in M0, then no unexplained regression |
+| API production artifact                      | Server dependency or bundling change   |                            target at or below 15 MiB |
+| Initial web JavaScript, gzip                 | Web dependency or routing change       |                           target at or below 180 KiB |
+| Compressed production OCI image              | Packaging or runtime dependency change |           target below 100 MiB; hard ceiling 150 MiB |
 | Runtime process and service count            | Deployment change                      | one Postbot process, zero required external services |
 
 The budgets are provisional guardrails, not marketing claims. M0 records the first
@@ -227,3 +227,44 @@ evidence and checks are reproducible.
 - Mandatory external provider access in the default test gate.
 - Architecture records for trivial implementation details.
 - Infrastructure or abstractions justified only by hypothetical future use.
+
+## Operating directives (from root `AGENT.md`)
+
+- **Work batching (owner direction, 2026-10-23):** Complete coherent end-to-end issue slices with grouped validation. Batch release publication after substantial product work; validate changes directly rather than requiring an operator feedback cycle for each fix. Keep the deployed alpha in use while development proceeds. Avoid repeated approvals and commits for a handful of equivalent functions; request owner decisions for actual scope or architecture choices.
+- **Dependency maintenance (owner direction, 2026-10-23):** Prereleases are acceptable before the product has users or its own stable release. Do not freeze or replace a dependency solely because it is prerelease; justify a hold with a concrete compatibility/regression reason and a review trigger. Review stable Bun updates approximately every one to two weeks and apply them with proportionate validation, keeping development checks, CI and production packaging aligned. This does not authorize unattended updates or replacing the operator's global runtime.
+- **IDE workspace:** Update `postdot.code-workspace` in the same change whenever an app or package under `apps/*` or `packages/*` is added, removed, or renamed.
+- **Container inputs:** Update the manifest-only workspace `COPY` list in `Dockerfile` whenever an app or package is added, removed, or renamed, then validate a fresh production image build.
+
+### Parallel Agent Protocol (Operational policy)
+
+<!-- cspell:disable-next-line -->
+
+- **Delegation preference (owner direction, 2026-10-20):** Work directly in the parent. The owner stopped the delegated experiment after stalled progress; do not restart sub-agents unless the owner explicitly requests delegation again. Preserve and review partial worker artifacts before integration.
+
+- The orchestrator owns the canonical checkout, shared development servers, live browser validation, external-provider actions, integration, pull-request decisions, merges, branch deletion, and advancement of `main`.
+- Before dispatch, each mission records its Autonomos task ID, base commit, worktree and branch, semantic ownership, allowed paths, forbidden paths and resources, acceptance criteria, permitted checks, stop condition, report format, and cleanup owner.
+- Shared governance files and hotspots—including `.autonomos/`, root configuration, lockfiles, migrations, central dispatch code, and integration metadata—are reserved for one owner at a time; file-level separation alone does not make two missions independent.
+- Implementation workers run in dedicated Git worktrees with explicitly scoped missions. They may inspect the repository, change only their assigned scope, run named deterministic checks that do not require shared services, commit their own branch when implementation is requested, and report evidence. They must not merge, modify `main`, start shared development servers, use real provider credentials, or trigger external side effects.
+- Review workers are read-only by default. They receive only the context needed for the review and return findings with severity, evidence, and file references. Findings become implementation work only after orchestrator triage.
+- Safe worker checks are limited to read-only inspection and explicitly isolated package-local format, lint, typecheck, and unit/integration checks. Browser and E2E runs, development servers, restore/backup operations, container validation, real-provider validation, external network calls, default shared ports, default database/media paths, and commands that delete shared or fixed temporary paths belong to the orchestrator.
+- Parallel missions require non-overlapping semantic ownership and explicit acceptance criteria. The orchestrator updates each contribution against the current canonical head, integrates one mission at a time, runs the complete gate, then updates Autonomos tracking and cleans up the worktree and branch.
+- **Dependency isolation:** A delegated dependency harness must own every directory it writes. Never create or replace workspace links through a symlink to the canonical `node_modules`; that mutates the shared installation. Before final acceptance after worktree cleanup, verify canonical workspace links do not reference deleted agent checkouts.
+- Worktrees do not receive secrets by default. Any runtime work must use isolated ports, database files, and media roots; ignored credential files remain outside worktrees unless explicitly required and approved.
+- The orchestrator must not dispatch Sol-high reviews. If an internal independent review is explicitly justified, prefer a short, bounded Luna-max mission with a neutral prompt; the reviewer may recommend changes but cannot edit, merge, or authorize external effects.
+- **Checkout and worktree hygiene (owner direction, 2026-11-08):** The canonical
+  checkout (the primary worktree that holds `.git`) stays on `main`; sessions
+  start there.
+  Do branch work in a harness-managed worktree (T3 `workspaceStrategy`) rather
+  than ad-hoc sibling directories, and never park `main` in another worktree.
+  Remove the worktree (`git worktree remove`, then `git worktree prune`) and
+  delete the merged local branch as soon as its work is integrated.
+- Delegated implementation work must have a durable, operator-visible identity, observable status, clear interruption semantics, attribution, and verifiable cleanup. If the current workflow cannot provide that, use a dedicated, registered Git worktree; integration and cleanup remain under orchestrator ownership.
+
+### Decision Discipline
+
+- Autonomy authorizes execution within accepted boundaries; it does not authorize silent decisions about product scope, architecture, data ownership, security, lifecycle semantics, or public contracts.
+- Before a consequential decision, state the problem, assumptions, credible alternatives, trade-offs, reversibility, and supporting evidence. Stop for explicit project-governance approval when more than one credible direction remains.
+- Do not confuse a dependency's technical capability with ownership of a domain responsibility.
+- Existing code and effort are not evidence that a direction should be preserved. Discard or revise work when its foundation is unsound.
+- Optimize for durable progress and solutions expected to remain, not for local speed, the smallest immediate diff, or the least code written.
+- Never conceal structural uncertainty behind a temporary fallback on a critical path. Make the ambiguity visible and resolve it before implementation continues.

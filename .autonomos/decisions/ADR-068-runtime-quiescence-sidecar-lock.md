@@ -65,3 +65,7 @@ quiescence.
 OPS-140 adds lock and restore regression coverage, documents the operator
 lifecycle in the root and database recovery guides, and keeps the full quality
 gate as the integration requirement.
+
+## Persistence operating rule (from `packages/db/AGENT.md`)
+
+- **Runtime quiescence:** The server/restore/recovery lock is fail-closed and never reclaimed automatically. `release()` reports whether the marker is gone, memoized across repeated calls without retrying removal or closing twice; callers must surface a retained marker instead of inferring success from the absence of an exception.

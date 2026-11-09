@@ -50,3 +50,8 @@ write refusal; default replacement; workspace aggregation; restoration without
 rescheduling; SQLite migration and backup/restore; EN/FR UI and CLI contracts.
 
 Implementation and validation: [LIFE-588](../archive/worklogs-format-1/2026-10-26-LIFE-588.md).
+
+## Persistence operating rules (from `packages/db/AGENT.md`)
+
+- **Resource retirement:** Delete the SQL graph inside the existing transaction with FK enforcement enabled and checks deferred until commit. Original/derived media have self-referential RESTRICT edges whose cascade order is not stable. Queue storage locators before dropping SQL ownership; a dependency outside the deleted graph must still roll back the transaction.
+- **Account recovery:** Offline password recovery must acquire the database runtime lock, validate and protect a pre-change backup, update only the selected Better Auth credential, revoke that user's sessions and reset links, and preserve project data, API keys, publisher credentials, and historical actors.

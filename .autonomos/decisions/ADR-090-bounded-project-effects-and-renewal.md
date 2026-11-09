@@ -57,3 +57,8 @@ side effect is introduced by this decision.
   is never reconstructed from an in-memory assertion that the operation is alive.
 - An operation that ignores cancellation can prolong shutdown. Forced termination
   remains crash recovery, with an ambiguous result after the effect boundary.
+
+## Persistence operating rules (from `packages/db/AGENT.md`)
+
+- **Publisher secrets:** Keep publisher credential encryption behind an explicit internal boundary. Metadata APIs must never expose token material, and persisted publisher credentials must never reference Better Auth users or accounts. Mechanical renewal uses `withPublisherCredentialRefresh`: reload inside the credential queue, use its live clock and persist through its revision-fenced context. Separate store facades share the SQLite connection queue; unrelated credentials remain independent.
+- **Owner pre-effect release:** Publication claims may be returned after a recognized aborted pre-effect transaction only with the same token, a null durable effect marker and eligible publication/lease state. Commit the recovery fact with the release, preserve the original error for scheduler backoff, and retain lease recovery if cleanup fails. Never use this path after a provider call or to clear an uncertain effect marker.

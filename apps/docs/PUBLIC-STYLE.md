@@ -119,6 +119,22 @@ The owner rejected the digit-scramble interaction: their sites were examples of
 ambition, not animations to transplant. Remove the interaction and its adapted
 component. The 404 typography remains a candidate, not a completed visual identity.
 
+## Landing page and visual boundaries
+
+The landing page is a design candidate, not an accepted replacement for the
+application design system. Do not invent release claims.
+
+The owner rejected the SITE-403 landing sections and copy as filler. They are
+not approved public messaging. Never use Unicode arrows instead of Solar icons.
+Continue visual work without treating the existing sections as editorial direction.
+
+Section headings use a title and, when useful, one short description. Do not add
+eyebrows, kickers or other pre-title labels (owner direction, 2026-10-15).
+
+Capability illustrations should communicate an idea rather than imitate a simplified
+product interface. Use actual product screenshots when interface fidelity matters.
+Keep advanced configuration subordinate to the main built-in publishing path.
+
 React Bits' free catalogue is a visual research source, not a shopping list.
 Study movement, pacing and composition independently of its component source.
 No source extraction or paid implementation is necessary to learn from a visual
