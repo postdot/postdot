@@ -30,7 +30,7 @@ For each candidate ask: **Would this still guide a different future task?** Then
 
 Mark `[x]` only if complete, `[!]` only if an unresolved dependency prevents progress, or keep `[/]` for partial work. Check linked issue acceptance separately.
 Move finished records out of current context now: `autonomos close <ID>` moves a `[x]` task (adding `Completed:`) or a resolved/declined issue to `.autonomos/archive/closed/`; without the CLI, move the entry by hand. A closed issue gets a one-line resolution, never a progress journal.
-Verify the actual resulting text and links; preserve unrelated concurrent edits.
+Verify the actual resulting text and links; preserve unrelated concurrent edits. Then run `autonomos status --strict` when available: it checks structure and flags records removed or shortened without their content landing elsewhere. A clean status is not completion; the work is recorded only once its task, worklog (unless S) and closure exist.
 
 ## STEP 4 — User response
 

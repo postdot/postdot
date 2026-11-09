@@ -1,4 +1,4 @@
-# AUTONOMOS PROTOCOL (v0.8.1-alpha)
+# AUTONOMOS PROTOCOL (v0.8.4-alpha)
 
 > This file defines the project's AI workflow contract. The workflows execute it. Do not duplicate workflow steps here.
 
@@ -123,11 +123,11 @@ Only user/project governance accepts a specification or decision as normative. A
 
 ## Context Budgets
 
-Advisory limits reported by `autonomos status` (`--strict` makes them fail): root `AGENT.md` 8,000 bytes, local `AGENT.md` 4,000 bytes, `TASKS.md` 16 KB, `ISSUES.md` 24 KB, one task entry 300 characters, one worklog 2,500 bytes, and no closed record in current registries. Over budget, consolidate or move knowledge to its narrowest home before adding more. Root `AGENT.md` admits only guidance that applies to most tasks in the project.
+Advisory limits reported by `autonomos status` (`--strict` makes them fail): root `AGENT.md` 8,000 bytes, local `AGENT.md` 4,000 bytes, `TASKS.md` 16 KB, `ISSUES.md` 24 KB, one task entry 300 characters, one worklog 2,500 bytes, and no closed record in current registries. Over budget, consolidate or move knowledge to its narrowest home before adding more; never delete a record or its content to meet a limit. `autonomos status` also flags tasks and issues removed or shortened since the last commit (`--since <rev>` to review a branch) whose words appear neither in the change nor in the files they link to. It also notes a change with no task edit, worklog or closure yet. A clean status checks structure, not completion. Root `AGENT.md` admits only guidance that applies to most tasks in the project.
 
 ## Artifact Format and Migration
 
-`manifest.json` records `artifactFormat` (absent means 1); this protocol defines format 2. Installing a new protocol performs no automatic cleanup: `autonomos update` only replaces managed artifacts. `autonomos migrate` is the explicit, content-preserving upgrade: it closes finished records, moves pre-format-2 worklogs to `.autonomos/archive/worklogs-format-1/` so they stop serving as examples, repairs references and records the format. It also moves checked items without an ID tag, keeps git-ignored worklogs ignored, and lists closed records that still mention unfinished work. Run it with `--dry-run` first, with unrelated changes committed (registering the migration task first is fine); move each reported follow-up into an open record, then resolve the remaining `status` findings with `/reconcile`. In a linked git worktree, rerun it after merging in each checkout that holds git-ignored worklogs.
+`manifest.json` records `artifactFormat` (absent means 1); this protocol defines format 2. Installing a new protocol performs no automatic cleanup: `autonomos update` only replaces managed artifacts. `autonomos migrate` is the explicit, content-preserving upgrade: it closes finished records, moves pre-format-2 worklogs to `.autonomos/archive/worklogs-format-1/` so they stop serving as examples, repairs references and records the format. It also moves checked items without an ID tag, keeps git-ignored worklogs ignored, and lists closed records that still mention unfinished work. It ends with the next steps that finish the upgrade. Run it with `--dry-run` first, with unrelated changes committed (registering the migration task first is fine); move each reported follow-up into an open record, then resolve the remaining `status` findings with `/reconcile`. In a linked git worktree, rerun it after merging in each checkout that holds git-ignored worklogs.
 
 ## Task Format
 

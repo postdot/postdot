@@ -8,7 +8,7 @@
         "@postdot/client": "workspace:*",
       },
       "devDependencies": {
-        "@autonomos/cli": "^0.8.1",
+        "@autonomos/cli": "^0.8.4",
         "@axe-core/playwright": "^4.13.0",
         "@commitlint/cli": "21.2.3",
         "@commitlint/config-conventional": "21.2.3",
@@ -502,9 +502,9 @@
 
     "@atproto/xrpc": ["@atproto/xrpc@0.8.14", "", { "dependencies": { "@atproto/lexicon": "^0.7.15", "zod": "^3.23.8" } }, "sha512-9r3cGbm6Q35SMzfBGaJiHbb1OlznOpf1PwKj9Q8nrSRh01xGl0GgCUDXe47t3IgFth4WJmnEcY2EbyoJF05WCQ=="],
 
-    "@autonomos/cli": ["@autonomos/cli@0.8.1", "", { "dependencies": { "@autonomos/core": "0.8.1", "@inquirer/prompts": "^7.0.0", "commander": "^14.0.2", "picocolors": "1.1.1" }, "bin": { "autonomos": "dist/index.mjs" } }, "sha512-rFjEdd7J2PEFk6FJueFj9demRlZ+srq6vTfEvlnDL0lusKlD/YpumjcqD+jDOEqhKNN4vO8WV8wBWcg3KOF5Jw=="],
+    "@autonomos/cli": ["@autonomos/cli@0.8.4", "", { "dependencies": { "@autonomos/core": "0.8.4", "@inquirer/prompts": "^7.0.0", "commander": "^14.0.2", "picocolors": "1.1.1" }, "bin": { "autonomos": "dist/index.mjs" } }, "sha512-UXoZ2pz9CUKIB+0A+7VKls9aEo3jCLLnNvfji2U9HhrIjggR+l7FnRp6DiPpUpbeh8yIlS1o0hNZQ7gNQYA7gA=="],
 
-    "@autonomos/core": ["@autonomos/core@0.8.1", "", { "dependencies": { "js-yaml": "4.1.0", "zod": "3.24.1" } }, "sha512-5vEt17e8xHqgLSLJWPoqd+x7KGSV5j7eq4HgaZ0lJC5rtEyCW6Pmv5P39BCYVPHq+mYJGNgMUiZF5PQ+nRCmqw=="],
+    "@autonomos/core": ["@autonomos/core@0.8.4", "", { "dependencies": { "js-yaml": "4.1.0", "zod": "3.24.1" } }, "sha512-MoSYT34sqSpLp8y8SVhsSplm41QTkERgfWtpZz780/NZXGzEtI96EcdRnL3klB1J3CMbC+QLjISEuPpD5HdvDA=="],
 
     "@axe-core/playwright": ["@axe-core/playwright@4.13.0", "", { "dependencies": { "axe-core": "~4.13.0" }, "peerDependencies": { "playwright-core": ">= 1.0.0" } }, "sha512-6YLx+kxXu5GJceG4ozFg+33a2EMTdjYwWGloJ3sb9Kta5pp+ZNS53uxGVog5JetIY8s++P5UrtX+cri+u0VAVg=="],
 
