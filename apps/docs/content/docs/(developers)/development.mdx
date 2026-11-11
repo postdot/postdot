@@ -3,51 +3,39 @@ title: Development
 description: Connect your tools to Postdot or contribute to its codebase.
 ---
 
-The API and CLI work with the same projects and publications as Studio. Choose
-the CLI to run commands from a script or an agent, or use HTTP for an integration
-that makes its own requests.
+Use the CLI, API and integrations with a running Postdot instance.
+You need a source checkout only when working on Postdot itself.
 
-## Build an integration
+## Connect a tool or agent
 
 <Cards>
-    <Card title="Start with the CLI" href="/docs/automation/#create-a-draft-for-review">
-        Create an unscheduled draft with a limited API key, then review it in Studio. Run the
-        walkthrough from a source checkout with Bun.
+    <Card title="CLI" href="/docs/automation/#create-a-draft-for-review">
+        Install the public CLI and create your first draft with a scoped API key.
     </Card>
-    <Card title="Call the HTTP API" href="/docs/reference/authentication/">
-        Choose an authentication method and key permissions, then look up request and response
-        contracts in the API reference.
+    <Card title="MCP" href="/docs/mcp/">
+        Connect an MCP-compatible agent to your instance.
+    </Card>
+    <Card title="n8n" href="/docs/n8n/">
+        Create publication drafts from your self-hosted n8n workflows.
+    </Card>
+    <Card title="HTTP API" href="/docs/reference/authentication/">
+        Authenticate requests and choose permissions for your integration.
     </Card>
 </Cards>
 
-The [agent skills](https://github.com/postdot/postdot#agent-skills) support the
-first alpha. A supported n8n integration and a mobile client remain planned. An
-agent can connect with [MCP](/docs/mcp/), use HTTP directly or follow the source CLI
-walkthrough.
+The [agent skills](https://github.com/postdot/postdot/tree/main/skills) include
+instructions for self-hosting, publishing workflows and troubleshooting.
+For command details, see the [CLI reference](/docs/cli-reference/).
 
-## Choose an access surface
+API keys follow project scope, action permissions and server roles. Connect social
+accounts and manage installation access in Studio. See
+[authentication](/docs/reference/authentication/) for the supported access methods.
 
-| Surface      | Supported role                                                                          |
-| ------------ | --------------------------------------------------------------------------------------- |
-| Studio       | Direct authoring, review, provider connection and administration within the user's role |
-| HTTP API     | Programmatic operations subject to server roles, project scope and action limits        |
-| Source CLI   | Selected project/channel discovery, media and publication lifecycle operations          |
-| Agent skills | Guidance and helpers for the supported HTTP and deployment workflows                    |
+## Contribute to Postdot
 
-These surfaces do not promise command-for-command parity. The CLI is a source
-script, not a separately published package. Built-in publisher OAuth, human
-approval and installation administration require a session; an API key cannot
-replace it. Provider analytics and full access administration are not covered by
-the source CLI's publication commands. See [authentication](/docs/reference/authentication/)
-and the [CLI reference](/docs/cli-reference/) for the actual boundaries.
+Start with [development setup](/docs/contributing/) to run the project locally.
+[Architecture](/docs/architecture/) explains the server and client boundaries;
+[apps and packages](/docs/packages/) helps you find the code for a feature.
 
-## Work on Postdot
-
-Start with [architecture](/docs/architecture/) for the server and client boundaries.
-Use [contributing](/docs/contributing/) to run the project locally and
-[apps and packages](/docs/packages/) to locate the code responsible for a feature.
-The typed HTTP client lives in `packages/client`; the CLI entry point is
-`scripts/postdot.ts`.
-
-For running an instance, go to [Self-hosting](/docs/self-hosting/). For preparing
-and reviewing publications, use [Guides](/docs/).
+For running an instance, use [Self-hosting](/docs/self-hosting/).
+For writing and reviewing publications, use [Guides](/docs/).

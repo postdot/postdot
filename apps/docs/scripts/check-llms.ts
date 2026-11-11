@@ -27,7 +27,12 @@ for await (const _file of new Bun.Glob('docs/**/*.html').scan(root)) pages++
 if (await Bun.file(`${root}/docs.html`).exists()) pages++
 if (count === 0 || count !== pages) throw new Error(`Markdown coverage: ${count}/${pages}`)
 const lesson = await Bun.file(`${root}/llms.mdx/docs/first-publication/content.md`).text()
-for (const phrase of ['Create your project', 'Review in Studio', 'Example request to your agent']) {
+for (const phrase of [
+    'Choose a project',
+    'Review your draft',
+    'Schedule it',
+    '/docs/automation/#create-a-draft-for-review',
+]) {
     if (!lesson.includes(phrase)) throw new Error(`Missing lesson content: ${phrase}`)
 }
 if (/<\/?Steps?\b/.test(lesson)) throw new Error('Steps must preserve readable Markdown children')

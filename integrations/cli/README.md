@@ -1,7 +1,13 @@
 # Postdot CLI
 
-Operate a remote Postdot instance from your terminal using a scoped API key.
-This is an alpha release for publication workflows.
+Manage your Postdot publications from the terminal.
+
+[CLI reference](https://postdot.app/docs/cli-reference/) ·
+[Install Postdot](https://postdot.app/docs/installation/) ·
+[Report an issue](https://github.com/postdot/postdot/issues)
+
+Start with [installation](#install), [connect your instance](#connect-to-an-instance)
+and [create a draft](#create-a-draft). For scripts, see [automation](#run-in-automation).
 
 ## Install
 
@@ -17,52 +23,6 @@ With Bun, run the same package explicitly through Bun:
 ```sh
 bunx --bun --package @postdot/cli postdot --help
 ```
-
-## Shell completion
-
-Complete commands, options and declared choices in Bash, Zsh or Fish 4+.
-For example, Tab can expand `postdot publications sh` to `show` and
-`--resolution=p` to `--resolution=published`. Completion stays offline and does
-not read saved credentials or query project/account names.
-
-The generated script uses the runtime and installed CLI that generated it. This
-also supports an explicit Bun invocation. Regenerate the script after upgrading
-or moving the CLI or runtime. The commands below print scripts; they do not edit
-shell startup files.
-
-### Bash
-
-```sh
-mkdir -p ~/.local/share/postdot
-postdot completion bash > ~/.local/share/postdot/completion.bash
-source ~/.local/share/postdot/completion.bash
-```
-
-For later sessions, add the `source` line to your `~/.bashrc`.
-
-### Zsh
-
-```sh
-mkdir -p ~/.local/share/postdot
-postdot completion zsh > ~/.local/share/postdot/completion.zsh
-autoload -Uz compinit
-compinit
-source ~/.local/share/postdot/completion.zsh
-```
-
-Add the `source` line to `~/.zshrc` after your existing `compinit` setup.
-
-### Fish
-
-```fish
-mkdir -p ~/.config/fish/completions
-postdot completion fish > ~/.config/fish/completions/postdot.fish
-source ~/.config/fish/completions/postdot.fish
-```
-
-Fish loads this completion file in later sessions. `postdot completion bash --json`
-returns one JSON object with `shell` and `script` for tools that need to save the
-script themselves.
 
 ## Connect to an instance
 
@@ -234,3 +194,58 @@ server rules also apply.
 Run `postdot --help` or `postdot publications promote --help` for command-specific
 options. Project/channel setup, sharing configuration, account administration and
 audit remain in Studio for this first CLI alpha.
+
+## Shell completion
+
+Complete commands, options and declared choices in Bash, Zsh or Fish 4+.
+For example, Tab can expand `postdot publications sh` to `show` and
+`--resolution=p` to `--resolution=published`. Completion stays offline and does
+not read saved credentials or query project/account names.
+
+The generated script uses the runtime and installed CLI that generated it. This
+also supports an explicit Bun invocation. Regenerate the script after upgrading
+or moving the CLI or runtime. The commands below print scripts; they do not edit
+shell startup files.
+
+### Bash
+
+```sh
+mkdir -p ~/.local/share/postdot
+postdot completion bash > ~/.local/share/postdot/completion.bash
+source ~/.local/share/postdot/completion.bash
+```
+
+For later sessions, add the `source` line to your `~/.bashrc`.
+
+### Zsh
+
+```sh
+mkdir -p ~/.local/share/postdot
+postdot completion zsh > ~/.local/share/postdot/completion.zsh
+autoload -Uz compinit
+compinit
+source ~/.local/share/postdot/completion.zsh
+```
+
+Add the `source` line to `~/.zshrc` after your existing `compinit` setup.
+
+### Fish
+
+```fish
+mkdir -p ~/.config/fish/completions
+postdot completion fish > ~/.config/fish/completions/postdot.fish
+source ~/.config/fish/completions/postdot.fish
+```
+
+Fish loads this completion file in later sessions. `postdot completion bash --json`
+returns one JSON object with `shell` and `script` for tools that need to save the
+script themselves.
+
+## Help and license
+
+This package is in alpha. See the [CLI reference](https://postdot.app/docs/cli-reference/)
+for the command reference and [GitHub Discussions](https://github.com/postdot/postdot/discussions)
+for questions. When reporting an issue, include CLI and server versions and remove
+credentials and private content.
+
+Licensed under [AGPL-3.0-only](https://github.com/postdot/postdot/blob/main/integrations/cli/LICENSE).

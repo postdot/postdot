@@ -1,66 +1,49 @@
 ---
 title: Self-hosting
-description: Install your instance, preserve its data and plan maintenance.
+description: Install Postdot, choose your storage and manage your instance.
 ---
 
-Postdot runs the API, Studio, scheduler and publication worker in one Bun process.
-The default Docker Compose setup uses SQLite and local media storage, with no
-separate database or queue service to operate.
+Run Studio, the API, scheduler and publication worker from one Docker image.
+Use SQLite and local media for a self-contained installation, or connect PostgreSQL
+and S3-compatible storage. You can [transfer an existing installation](/docs/transfer/)
+between these backends.
 
-Before choosing publishing destinations, compare
-[connection setup effort](/docs/providers/setup-effort/). Provider credentials,
-developer applications, API eligibility and charges remain part of your setup,
-even when Postdot itself runs locally.
+## Install Postdot
 
-## Choose your starting point
+Start with the [Docker Compose guide](/docs/installation/). It covers the published
+image, secrets, persistent storage and your first account. A source build is also
+available. Postdot is in alpha; check the [release notes](/docs/releases/) for changes
+and upgrade instructions.
+
+Before connecting accounts, check the [platform setup requirements](/docs/providers/setup-effort/).
+Some platforms require a developer application or paid API access.
+
+## Choose your setup
 
 <Cards>
-    <Card title="Install Postdot" href="/docs/installation/#first-installation">
-        Use the published alpha image, configure secrets and start your instance with Docker
-        Compose. Building from source remains an option.
+    <Card title="SQLite and local media" href="/docs/installation/#first-installation">
+        Keep the database and media in a persistent volume, with no separate database or queue
+        service.
     </Card>
-    <Card title="Configure reverse proxy" href="/docs/reverse-proxy/">
-        Terminate HTTPS with Let's Encrypt, configure streaming for SSE events and adjust media
-        upload limits using Caddy, Nginx, or Traefik.
+    <Card title="PostgreSQL and S3" href="/docs/postgresql/">
+        Use your existing database and object storage, or run coordinated Postdot instances.
     </Card>
-    <Card title="Back up or update an instance" href="/docs/operations/">
-        Check what to preserve, prepare for an upgrade and understand recovery after restoring a
-        backup.
+    <Card title="HTTPS and reverse proxy" href="/docs/reverse-proxy/">
+        Configure a public origin, streaming and upload limits with Caddy, Nginx or Traefik.
     </Card>
 </Cards>
 
-<Callout title="Early alpha">
-    Version 0.1.0-alpha.1 is available for Linux AMD64 and ARM64. Contracts and migrations may
-    change; no upgrade from a previous public release has been validated.
-</Callout>
+For orchestrated deployments, see [Kubernetes](/docs/kubernetes/) and
+[Docker Swarm](/docs/docker-swarm/), including their storage and replica requirements.
 
-## Know what to preserve
+## Maintain your instance
 
-The default Compose setup keeps application data in a persistent volume. Deployment
-secrets need separate protection.
+Preserve the database, media and deployment secrets. Keep backups outside the
+machine running Postdot. Use the backup procedure for your storage setup:
+[SQLite](/docs/installation/#backup-and-restoration) or [PostgreSQL](/docs/postgresql/).
 
-| Item               | What it contains                                                 |
-| ------------------ | ---------------------------------------------------------------- |
-| SQLite database    | Application state, including projects and publication records    |
-| Media storage      | Uploaded originals, derived previews and avatars                 |
-| Deployment secrets | Authentication, media-link signing and publisher encryption keys |
+- [Operations](/docs/operations/): routine maintenance and recovery.
+- [Storage transfer](/docs/transfer/): move the database and media between backends.
+- [Release notes](/docs/releases/): changes and upgrade evidence.
 
-Keep backup copies outside the machine running Postdot. For commands and recovery
-precautions, see [backup and restoration](/docs/installation/#backup-and-restoration).
-
-## Adapt the installation
-
-- **Public HTTPS access:** set the instance origin and reverse proxy before
-  connecting accounts. Follow the [reverse proxy deployment guide](/docs/reverse-proxy/)
-  for Caddy, Nginx, or Traefik configurations. [Provider connections](/docs/providers/) explains
-  the authorization requirements for local and public deployments.
-- **Cluster orchestrators:** to run Postdot in a cluster environment while respecting
-  its single-replica SQLite architecture, follow the [Kubernetes guide](/docs/kubernetes/)
-  or the [Docker Swarm guide](/docs/docker-swarm/).
-- **Email or S3-compatible media storage:** follow
-  [optional email, S3 and PostgreSQL](/docs/installation/#optional-email-s3-and-postgresql).
-  Changing the storage setting does not migrate existing media.
-
-Once the instance is ready, follow [your first publication](/docs/first-publication/)
-to try Studio. For routine commands, use
-[persistent data and ordinary operation](/docs/installation/#persistent-data-and-ordinary-operation).
+Once Studio is running, follow [your first publication](/docs/first-publication/).

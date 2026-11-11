@@ -5,6 +5,8 @@
 > **Complexity:** [S] Small (1h), [M] Medium (4h), [L] Large (1-2 days), [XL] Huge (Planning req.)
 > **Status:** [ ] Todo, [/] In Progress, [x] Done, [!] Blocked
 
+- [/] **[SITE-626]** Publish and verify public documentation updates `Priority: 🟠` `Complexity: S`
+
 ## Current direction
 
 Shared-channel implementation follows [ADR-095](decisions/ADR-095-workspace-channels-and-project-attachments.md)

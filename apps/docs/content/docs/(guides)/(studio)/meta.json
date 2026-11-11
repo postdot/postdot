@@ -3,12 +3,12 @@
     "defaultOpen": true,
     "pages": [
         "concepts",
-        "projects",
         "providers",
         "media",
+        "first-comments",
         "channels",
         "shared-channels",
-        "first-comments",
+        "projects",
         "application-privacy",
         "delete-application-data"
     ],
