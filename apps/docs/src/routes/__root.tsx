@@ -6,7 +6,7 @@ import { Analytics } from '@/components/analytics'
 import { CookieConsent } from '@/components/cookie-consent'
 import { Providers, PublicThemeScript } from '@/components/providers'
 import { PublicError } from '@/components/public-error'
-import { siteDescription } from '@/lib/social-metadata'
+import { siteDescription, siteName, siteUrl } from '@/lib/social-metadata'
 
 import appCss from '@/styles/globals.css?url'
 
@@ -28,6 +28,7 @@ export const Route = createRootRoute({
                 crossOrigin: 'anonymous',
             },
             { rel: 'icon', href: '/icon.svg', type: 'image/svg+xml' },
+            { rel: 'alternate', type: 'text/plain', href: '/llms.txt', title: 'LLMs Context' },
         ],
     }),
     shellComponent: RootDocument,
@@ -36,11 +37,46 @@ export const Route = createRootRoute({
 })
 
 function RootDocument({ children }: { children: ReactNode }) {
+    const jsonLd = {
+        '@context': 'https://schema.org',
+        '@graph': [
+            {
+                '@type': 'WebSite',
+                '@id': `${siteUrl}/#website`,
+                url: siteUrl,
+                name: siteName,
+                description: siteDescription,
+                inLanguage: 'en-US',
+            },
+            {
+                '@type': 'SoftwareApplication',
+                '@id': `${siteUrl}/#software`,
+                name: siteName,
+                description: siteDescription,
+                applicationCategory: 'BusinessApplication',
+                operatingSystem: 'All',
+                url: siteUrl,
+                license: 'https://github.com/saoudi-h/postdot/blob/main/LICENSE',
+                offers: {
+                    '@type': 'Offer',
+                    price: '0',
+                    priceCurrency: 'USD',
+                },
+            },
+        ],
+    }
+
     return (
         <html lang="en" suppressHydrationWarning>
             <head>
                 <HeadContent />
                 <PublicThemeScript />
+                <script
+                    type="application/ld+json"
+                    dangerouslySetInnerHTML={{
+                        __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c'),
+                    }}
+                />
             </head>
             <body>
                 <Providers>{children}</Providers>
