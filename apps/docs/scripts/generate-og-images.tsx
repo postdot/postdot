@@ -46,6 +46,18 @@ interface Card {
     home?: boolean
 }
 
+/** The title is dark text on the light left half; a layer painted over it leaves only background. */
+function assertTitleVisible(rgba: Uint8Array, title: string) {
+    let dark = 0
+    for (let y = 150; y < 500; y++) {
+        for (let x = 64; x < 560; x++) {
+            const i = (y * 1200 + x) * 4
+            if (rgba[i]! < 90 && rgba[i + 1]! < 90 && rgba[i + 2]! < 90) dark++
+        }
+    }
+    if (dark < 500) throw new Error(`OG image title is not visible: ${title}`)
+}
+
 async function render(card: Card) {
     const { title, description, section, home = false } = card
     const size = home ? 72 : title.length > 65 ? 50 : title.length > 42 ? 58 : 72
@@ -58,17 +70,13 @@ async function render(card: Card) {
                 height: '100%',
                 padding: '52px 64px',
                 backgroundColor: '#f4f4f4',
+                // A background, not a sibling image: satori paints an absolute child above the text.
+                backgroundImage: `url(${home ? homeMaterial : material})`,
+                backgroundSize: '1200px 630px',
                 color: '#1c1c1c',
                 fontFamily: 'Host Grotesk',
                 position: 'relative',
             }}>
-            <img
-                src={home ? homeMaterial : material}
-                alt=""
-                width={1200}
-                height={630}
-                style={{ position: 'absolute', top: 0, left: 0 }}
-            />
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 {PostdotLogo({ width: 44, height: 44, style: { color: '#1c1c1c' } })}
                 <span style={{ display: 'flex', fontSize: 34, letterSpacing: '-1.5px' }}>
@@ -153,7 +161,9 @@ async function render(card: Card) {
             ],
         }
     )
-    return new Resvg(svg).render().asPng()
+    const image = new Resvg(svg).render()
+    assertTitleVisible(image.pixels, title)
+    return image.asPng()
 }
 
 async function write(file: string, card: Card) {
