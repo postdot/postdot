@@ -68,6 +68,7 @@ import { createBlueskyMetadataRoutes } from './modules/publishers/metadata-route
 import type { PublisherRuntime } from './modules/publishers/runtime'
 import { createAuthRoutes } from './plugins/auth'
 import { createErrorHandler } from './plugins/error-handler'
+import { createHttpPolicy } from './plugins/http-policy'
 import { createPostdotLogger, createRequestLogger } from './plugins/logger'
 import { recoveryBlocksRequest, type RecoveryService } from './recovery'
 
@@ -204,7 +205,8 @@ function createDomainApp({
         })
     const eventJournal = createEventJournalStore(database)
 
-    return new Elysia({ name: 'postdot-api' })
+    const app = new Elysia({ name: 'postdot-api' })
+        .use(createHttpPolicy(async (request): Promise<Response> => app.handle(request)))
         .request(({ request }) => {
             if (recovery?.held() && recoveryBlocksRequest(request))
                 return Response.json(
@@ -348,6 +350,7 @@ function createDomainApp({
             })
         )
         .use(publicMediaRoutes)
+    return app
 }
 
 /**

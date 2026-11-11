@@ -12,6 +12,11 @@ For initial single-node container deployment, follow the
 [Docker Compose installation guide](/docs/installation/). For OAuth callback domains and
 external reachability constraints, see [provider configuration](/docs/provider-configuration/).
 
+Postdot instances discourage search engine indexing by default: `/robots.txt`
+disallows crawling, HTTP responses include `X-Robots-Tag: noindex, nofollow`, and
+Studio includes the equivalent HTML meta tag. These crawler directives do not
+restrict access; keep authentication and your network access controls in place.
+
 ## Proxy requirements
 
 A reverse proxy in front of Postdot must satisfy four operational requirements:

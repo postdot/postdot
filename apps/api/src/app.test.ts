@@ -665,6 +665,22 @@ describe('Postdot API', () => {
         const { app, database } = await createFixture()
 
         try {
+            for (const path of [
+                '/health',
+                '/ready',
+                '/api/auth/ok',
+                '/openapi/json',
+                '/robots.txt',
+                '/api/unknown',
+            ]) {
+                const get = await app.handle(new Request(`${baseURL}${path}`))
+                const head = await app.handle(new Request(`${baseURL}${path}`, { method: 'HEAD' }))
+                expect(head.status).toBe(get.status)
+                expect(head.headers.get('content-type')).toBe(get.headers.get('content-type'))
+                expect(head.headers.get('x-robots-tag')).toBe('noindex, nofollow')
+                expect(get.headers.get('x-robots-tag')).toBe('noindex, nofollow')
+                expect(await head.text()).toBe('')
+            }
             const healthResponse = await app.handle(new Request(`${baseURL}/health`))
             expect(healthResponse.status).toBe(200)
             expect(await healthResponse.json()).toEqual({ status: 'ok' })

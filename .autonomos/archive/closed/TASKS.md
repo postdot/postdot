@@ -595,8 +595,8 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 
 - [x] **[META-623]** Upgrade Autonomos to 0.8.4, bring AGENT.md files within 0.8 context budgets and audit closed follow-ups `Priority: 🔵` `Complexity: M` `Completed: 2026-11-09` — Root 18.6 KB and six scoped files over budget; AI agents resolve where root directives move. [META-622](../../worklogs/2026-11-08-META-622.md).
 
-
 ## Closed 2026-11-11
 
 - [x] **[DOCS-624]** Improve root and integration README entry points `Priority: 🟠` `Complexity: M` `Completed: 2026-11-11`
 - [x] **[SITE-625]** Align homepage and documentation entry paths `Priority: 🟠` `Complexity: M` `Completed: 2026-11-11`
+- [x] **[HTTP-623]** Fix HEAD requests and prevent instance indexing (GitHub #25, #26) `Priority: 🟠` `Complexity: S` `Completed: 2026-11-11`
