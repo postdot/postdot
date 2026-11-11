@@ -2,7 +2,15 @@ import { expect, it } from 'bun:test'
 
 const workflow = Bun.YAML.parse(
     await Bun.file(new URL('../.github/workflows/container-release.yml', import.meta.url)).text()
-) as { jobs: { preflight: { steps: { with?: { script?: string } }[] } } }
+) as {
+    jobs: {
+        preflight: { steps: { with?: { script?: string } }[] }
+        publish: {
+            permissions: { contents: string }
+            steps: { name: string; if?: string; with?: { script?: string } }[]
+        }
+    }
+}
 const script = workflow.jobs.preflight.steps.find(step => step.with?.script)?.with?.script
 if (!script) throw new Error('Release preflight script not found')
 const preflight = new (Object.getPrototypeOf(async () => {}).constructor)(
@@ -80,4 +88,102 @@ it('refuses aliases, mutable previous-image tags, missing acknowledgement, faile
         expect(result.failures).toHaveLength(1)
         expect(result.notices).toEqual([])
     }
+})
+
+const releaseStep = workflow.jobs.publish.steps.find(
+    step => step.name === 'Publish the matching GitHub Release'
+)
+if (!releaseStep?.with?.script) throw new Error('GitHub Release step not found')
+const publishRelease = new (Object.getPrototypeOf(async () => {}).constructor)(
+    'context',
+    'github',
+    'process',
+    releaseStep.with.script
+) as (...args: unknown[]) => Promise<void>
+
+it('tags the accepted source and marks preview images as prereleases', async () => {
+    const created: Record<string, unknown>[] = []
+    await publishRelease(
+        { repo: { owner: 'postdot', repo: 'postdot' }, runId: 42 },
+        {
+            rest: {
+                repos: {
+                    createRelease: async (release: Record<string, unknown>) =>
+                        created.push(release),
+                },
+            },
+        },
+        {
+            env: {
+                IMAGE_TAG: '0.1.0-alpha.8',
+                SOURCE_SHA: 'a'.repeat(40),
+                IMAGE_DIGEST: `sha256:${'b'.repeat(64)}`,
+                RELEASE_NOTES: 'New publishing tools.',
+                PREVIOUS_IMAGE: 'previous-image',
+            },
+        }
+    )
+    expect(created).toHaveLength(1)
+    expect(created[0]).toMatchObject({
+        tag_name: 'v0.1.0-alpha.8',
+        target_commitish: 'a'.repeat(40),
+        prerelease: true,
+        make_latest: 'false',
+    })
+    expect(created[0]?.body).toContain(`ghcr.io/postdot/postdot@sha256:${'b'.repeat(64)}`)
+    expect(created[0]?.body).toContain('/actions/runs/42')
+    expect(workflow.jobs.publish.permissions.contents).toBe('write')
+    expect(releaseStep.if).toContain("steps.anonymous_pull.outcome == 'success'")
+})
+
+it('refuses to create a release without an immutable image digest', async () => {
+    let writes = 0
+    await expect(
+        publishRelease(
+            { repo: { owner: 'postdot', repo: 'postdot' }, runId: 42 },
+            {
+                rest: {
+                    repos: {
+                        createRelease: async () => {
+                            writes++
+                        },
+                    },
+                },
+            },
+            {
+                env: {
+                    IMAGE_TAG: '0.1.0',
+                    SOURCE_SHA: 'a'.repeat(40),
+                    IMAGE_DIGEST: '',
+                    RELEASE_NOTES: 'Changes.',
+                },
+            }
+        )
+    ).rejects.toThrow('verified image digest')
+    expect(writes).toBe(0)
+})
+
+it('marks stable image releases as latest', async () => {
+    const created: Record<string, unknown>[] = []
+    await publishRelease(
+        { repo: { owner: 'postdot', repo: 'postdot' }, runId: 42 },
+        {
+            rest: {
+                repos: {
+                    createRelease: async (release: Record<string, unknown>) =>
+                        created.push(release),
+                },
+            },
+        },
+        {
+            env: {
+                IMAGE_TAG: '0.1.0',
+                SOURCE_SHA: 'a'.repeat(40),
+                IMAGE_DIGEST: `sha256:${'b'.repeat(64)}`,
+                RELEASE_NOTES: 'Stable release.',
+                PREVIOUS_IMAGE: 'previous-image',
+            },
+        }
+    )
+    expect(created[0]).toMatchObject({ tag_name: 'v0.1.0', prerelease: false, make_latest: 'true' })
 })

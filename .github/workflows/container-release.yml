@@ -149,7 +149,7 @@ jobs:
         runs-on: ubuntu-24.04
         timeout-minutes: 120
         permissions:
-            contents: read
+            contents: write
             packages: write
         steps:
             - name: Check out the accepted source
@@ -183,6 +183,8 @@ jobs:
                   tags: ghcr.io/postdot/postdot:${{ inputs.image_tag }}
                   labels: |
                       org.opencontainers.image.title=Postdot
+                      org.opencontainers.image.description=Self-hosted social publishing for you and your agents.
+                      org.opencontainers.image.url=https://postdot.app
                       org.opencontainers.image.source=https://github.com/postdot/postdot
                       org.opencontainers.image.revision=${{ inputs.source_sha }}
                       org.opencontainers.image.version=${{ inputs.image_tag }}
@@ -221,6 +223,59 @@ jobs:
               run: |
                   docker logout ghcr.io
                   docker buildx imagetools inspect "$IMAGE" --raw > /dev/null
+
+            - name: Publish the matching GitHub Release
+              if: steps.anonymous_pull.outcome == 'success' && steps.manifest.outcome == 'success'
+              uses: actions/github-script@v9.0.0
+              env:
+                  IMAGE_TAG: ${{ inputs.image_tag }}
+                  SOURCE_SHA: ${{ inputs.source_sha }}
+                  IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
+                  RELEASE_NOTES: ${{ inputs.release_notes }}
+                  PREVIOUS_IMAGE: ${{ inputs.previous_image }}
+              with:
+                  script: |
+                      const version = process.env.IMAGE_TAG.trim()
+                      const source = process.env.SOURCE_SHA.trim()
+                      const digest = process.env.IMAGE_DIGEST
+                      if (!/^sha256:[0-9a-f]{64}$/.test(digest ?? '')) {
+                          throw new Error('A verified image digest is required for a GitHub Release.')
+                      }
+                      const body = [
+                          process.env.RELEASE_NOTES.trim(),
+                          '',
+                          '## Install',
+                          '[Docker Compose guide](https://postdot.app/docs/installation/) · [Release record](https://postdot.app/docs/releases/)',
+                          '',
+                          `Image: \`ghcr.io/postdot/postdot:${version}\``,
+                          `Pinned image: \`ghcr.io/postdot/postdot@${digest}\``,
+                          'Platforms: Linux AMD64 and ARM64.',
+                          `Source: [${source.slice(0, 7)}](https://github.com/postdot/postdot/tree/${source})`,
+                          '',
+                          'Native acceptance covers the previous-image upgrade and backup restoration.',
+                          `Previous image: \`${process.env.PREVIOUS_IMAGE}\``,
+                          `[Publication and acceptance run](https://github.com/postdot/postdot/actions/runs/${context.runId})`,
+                          '',
+                          'CLI and n8n packages have their own versions and release process.',
+                      ].join('\n')
+                      await github.rest.repos.createRelease({
+                          ...context.repo,
+                          tag_name: `v${version}`,
+                          target_commitish: source,
+                          name: `Postdot ${version}`,
+                          body,
+                          prerelease: /-(alpha|beta|rc)\./.test(version),
+                          make_latest: version.includes('-') ? 'false' : 'true',
+                      })
+
+            - name: Attach release-matched installation files
+              if: steps.anonymous_pull.outcome == 'success' && steps.manifest.outcome == 'success'
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  IMAGE_TAG: ${{ inputs.image_tag }}
+              run: |
+                  sha256sum compose.yaml compose.env.example > SHA256SUMS
+                  gh release upload "v${IMAGE_TAG}" compose.yaml compose.env.example SHA256SUMS --repo "$GITHUB_REPOSITORY"
 
             - name: Record the image publication
               if: always()

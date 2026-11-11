@@ -7,6 +7,8 @@
 
 - [/] **[SITE-626]** Publish and verify public documentation updates `Priority: 🟠` `Complexity: S`
 
+- [/] **[PUB-627]** Complete GitHub profile, application releases and clean-install acceptance `Priority: 🟠` `Complexity: L`
+
 ## Current direction
 
 Shared-channel implementation follows [ADR-095](decisions/ADR-095-workspace-channels-and-project-attachments.md)

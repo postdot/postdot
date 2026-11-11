@@ -141,9 +141,15 @@ reachability requirements: see [provider requirements](/docs/provider-configurat
 
 ## Persistent data and ordinary operation
 
-Compose owns a `postdot-data` volume under its project name. `/data/postdot.sqlite`
-contains application state; `/data/media` contains originals, previews and avatars.
-Keep the Compose project name stable so a later invocation uses the same volume.
+The default Compose file uses a named volume called `postdot-data`.
+`/data/postdot.sqlite` contains application state; `/data/media` contains originals,
+previews and avatars. `POSTDOT_DATA_VOLUME` selects another volume name. Keep that
+name when updating or restarting an installation.
+
+For a second installation on the same host, set a different `POSTDOT_DATA_VOLUME`
+in its `.env`, along with its own HTTP port and matching origins. Changing the
+Compose project name alone does not change this explicitly named volume.
+
 The image contains committed migrations, which apply automatically at startup.
 
 ### Check and control the container

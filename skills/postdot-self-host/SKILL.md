@@ -27,9 +27,10 @@ bundled preparation script only in a new dedicated deployment directory. Resolve
 
 ## Verify the deployment
 
-- Keep the deployment on one application process with persistent SQLite/media on
-  a local filesystem supporting SQLite locks. Do not share one database between
-  multiple running instances or place it on an unverified network filesystem.
+- The bundled setup uses one application process with persistent SQLite/media on
+  a local filesystem supporting SQLite locks. Do not share that SQLite database
+  between running instances. For PostgreSQL and coordinated instances, follow
+  [PostgreSQL operations](https://postdot.app/docs/postgresql/).
 - Bind to loopback behind the selected HTTPS proxy. Set the two application
   origins to the same public HTTPS origin. A proxy container needs an explicit
   private-network arrangement; host loopback is not reachable from that container.
