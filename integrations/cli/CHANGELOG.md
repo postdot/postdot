@@ -1,5 +1,12 @@
 # @postdot/cli
 
+## 0.1.0-alpha.4
+
+### Patch Changes
+
+- 76311ec: Improve package introductions, setup links and README navigation. Keep CLI connection
+  and first-draft instructions ahead of optional shell completion setup.
+
 ## 0.1.0-alpha.3
 
 ### Patch Changes
