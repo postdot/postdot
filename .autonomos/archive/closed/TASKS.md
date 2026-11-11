@@ -597,6 +597,8 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 
 ## Closed 2026-11-11
 
+- [x] **[HTTP-623]** Fix HEAD requests and prevent instance indexing (GitHub #25, #26) `Priority: 🟠` `Complexity: S` `Completed: 2026-11-11`
+
 - [x] **[DOCS-624]** Improve root and integration README entry points `Priority: 🟠` `Complexity: M` `Completed: 2026-11-11`
 - [x] **[SITE-625]** Align homepage and documentation entry paths `Priority: 🟠` `Complexity: M` `Completed: 2026-11-11`
 - [x] **[HTTP-623]** Fix HEAD requests and prevent instance indexing (GitHub #25, #26) `Priority: 🟠` `Complexity: S` `Completed: 2026-11-11`
