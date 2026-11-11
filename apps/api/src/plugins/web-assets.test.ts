@@ -6,6 +6,7 @@ import { join } from 'node:path'
 import { Elysia } from 'elysia'
 
 import { createAuthRoutes } from './auth'
+import { createHttpPolicy } from './http-policy'
 import { createWebAssets } from './web-assets'
 
 describe('Postdot web assets', () => {
@@ -55,9 +56,27 @@ describe('Postdot web assets', () => {
                     }),
             }
             const app = new Elysia()
+                .use(createHttpPolicy(async (request): Promise<Response> => app.handle(request)))
                 .use(createAuthRoutes(auth))
                 .use(await createWebAssets(directory))
 
+            for (const path of [
+                '/',
+                '/dashboard',
+                '/assets/app.js',
+                '/assets/missing.js',
+                '/api/auth/get-session',
+            ]) {
+                const get = await app.handle(new Request(`http://localhost${path}`))
+                const head = await app.handle(
+                    new Request(`http://localhost${path}`, { method: 'HEAD' })
+                )
+                expect(head.status).toBe(get.status)
+                expect(head.headers.get('content-type')).toBe(get.headers.get('content-type'))
+                expect(head.headers.get('x-robots-tag')).toBe('noindex, nofollow')
+                expect(get.headers.get('x-robots-tag')).toBe('noindex, nofollow')
+                expect(await head.text()).toBe('')
+            }
             const session = await app.handle(new Request('http://localhost/api/auth/get-session'))
             expect(session.status).toBe(200)
             expect(await session.json()).toEqual({
