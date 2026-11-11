@@ -1,5 +1,3 @@
-// cspell:ignore مرحبًا
-
 import { GalleryIcon } from '@solar-icons/react/linear/gallery'
 import { PaperclipIcon } from '@solar-icons/react/linear/paperclip'
 import { SmileCircleIcon } from '@solar-icons/react/linear/smile-circle'
@@ -93,25 +91,20 @@ export function PublicCapabilities() {
                 <article className="capability-detail capability-languages">
                     <div
                         className="capability-greetings"
-                        aria-label="Hello, Bonjour, and an Arabic greeting">
+                        aria-label="Hello, Bonjour, Hola and Hallo">
                         <span lang="en">Hello.</span>
                         <span lang="fr">Bonjour.</span>
-                        <span lang="ar" dir="rtl">
-                            مرحبًا.
-                        </span>
+                        <span lang="es">Hola.</span>
+                        <span lang="de">Hallo.</span>
                     </div>
                     <div
                         className="capability-flag-ribbon"
-                        aria-label="English and French are available. Other flags illustrate future language expansion.">
+                        aria-label="Available in English, French, Spanish and German">
                         {[
                             ['gb', 'English', true],
                             ['fr', 'French', true],
-                            ['jp', 'Japanese', false],
-                            ['cn', 'Chinese', false],
-                            ['ae', 'Arabic', false],
-                            ['es', 'Spanish', false],
-                            ['de', 'German', false],
-                            ['it', 'Italian', false],
+                            ['es', 'Spanish', true],
+                            ['de', 'German', true],
                         ].map(([code, name, current]) => (
                             <img
                                 key={String(code)}
@@ -126,9 +119,7 @@ export function PublicCapabilities() {
                         ))}
                     </div>
                     <h3 className="sr-only">A multilingual interface</h3>
-                    <p className="capability-small-caption">
-                        EN & FR today. More languages to come.
-                    </p>
+                    <p className="capability-small-caption">English, French, Spanish and German.</p>
                 </article>
             </div>
         </section>

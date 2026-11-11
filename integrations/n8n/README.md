@@ -1,8 +1,16 @@
 # Postdot for n8n
 
-Create publication drafts in [Postdot](https://postdot.app) from your n8n workflows. Send text from a form, feed or another workflow step to a Postdot project, choose a channel, and review the draft in Postdot Studio.
+Turn text from a feed, form or workflow into a draft in
+[Postdot](https://postdot.app). Choose a project and channel in n8n, then review
+and schedule the publication in Postdot Studio.
 
-This community node supports **self-hosted n8n**. It is an alpha release, tested with n8n 2.45.6, and is not verified for n8n Cloud.
+[Setup guide](https://postdot.app/docs/n8n/) ·
+[Example workflow](https://raw.githubusercontent.com/postdot/postdot/main/integrations/n8n/examples/create-draft.json) ·
+[Install Postdot](https://postdot.app/docs/installation/)
+
+This alpha community node works with **self-hosted n8n**. It is not verified for
+n8n Cloud. It creates text drafts and reads projects, channels and publications;
+use Studio to add media, schedule and publish.
 
 ## Install
 
@@ -61,8 +69,6 @@ You can also [download the example workflow](https://raw.githubusercontent.com/p
 | **Channel** | **Get Many** | Lists channels attached to the selected project. |
 | **Post** | **Create Draft** | Creates a post and one unscheduled, text-only publication for each input item. |
 | **Publication** | **Get** | Reads a publication's saved draft, state, selected target and recorded outcome. |
-
-This version supports draft creation and reads. Upload media, connect publishing accounts, schedule and publish from Postdot Studio.
 
 ## If a request fails
 

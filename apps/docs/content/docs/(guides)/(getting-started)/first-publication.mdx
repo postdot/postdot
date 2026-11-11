@@ -1,118 +1,80 @@
 ---
 title: Your first publication
-description: Create a draft, review its destination and schedule it from Studio.
+description: Create a draft in Studio, review it and choose when it goes live.
 ---
 
-Prepare a short text post for one destination. By the end of this guide, you will
-have a draft you can review in Studio and choose whether to schedule.
+Create a short text publication for one channel. You need access to a running
+Postdot instance and permission to edit a project. To set up your own instance,
+follow [installation](/docs/installation/) first.
 
-You need access to a Postdot installation and permission to edit a project. If you
-are setting up your own instance, follow [installation](/docs/installation/) first.
-The first account becomes the installation administrator.
+This guide uses Studio. To prepare the draft with an agent instead, use the
+[CLI walkthrough](/docs/automation/#create-a-draft-for-review) or [MCP guide](/docs/mcp/),
+then return to [review your draft](#4-review-in-studio).
 
 <Steps>
 <Step>
 
-## Create your project [#1-create-your-project]
+## Choose a project [#1-create-your-project]
 
-Open Studio and create a project for the account or brand you want to publish for.
-If you already have one, select it.
-
-Keep this project selected for the rest of the guide. Its posts and media stay
-within the project. In current source builds, adding a channel here attaches a
-workspace-owned destination to this project; you do not need to configure sharing
-for this first publication. See [shared channels](/docs/shared-channels/) for the
-source-build and published-image differences.
+Open Studio and select a project, or create one for the account or brand you
+publish for. Keep it selected throughout this guide.
 
 </Step>
 <Step>
 
-## Connect a destination [#2-connect-a-destination]
+## Add a channel [#2-connect-a-destination]
 
 Open **Channels**, add a built-in channel and select your network. Follow its
-[connection guide](/docs/providers/), then check the account attached to the channel.
-Connect through Studio; keep social account credentials out of agent prompts.
+[connection guide](/docs/providers/) and check the connected account.
 
-For a local installation, [Bluesky](/docs/providers/bluesky/) supports a connection
-without a developer application or tunnel when the browser and Postdot run on the
-same machine.
-
-To try Postdot without a social account, add a manual channel instead. You can
-prepare drafts and track publications, but you will deliver the content yourself.
+To try Postdot without connecting a social account, add a manual channel. You can
+prepare and schedule the publication in Postdot, then publish it yourself.
+For a local automatic connection without a developer application or tunnel,
+see [Bluesky](/docs/providers/bluesky/).
 
 </Step>
 <Step>
 
-## Prepare a draft [#3-prepare-a-draft]
+## Save a draft [#3-prepare-a-draft]
 
-### In Studio
-
-Open **New publication**, write a short message and choose your channel. For example:
+Open **New publication**, choose your channel and write a short message. For example:
 
 <Callout title="Example post" icon={false}>
     Our new collection arrives on Friday. Take a look at what we have been working on.
 </Callout>
 
-Check the destination's content and save a draft without a scheduled time. Use text
-alone for this first attempt so you can leave media requirements for later.
-
-<Callout title="Keyboard shortcuts" icon={false}>
-    Press `Cmd+K` (or `Ctrl+K`) anywhere in Studio to open the quick search palette. Inside the
-    publication composer, press `Cmd+S` (or `Ctrl+S`) to save your draft, and `Cmd+Enter` (or
-    `Ctrl+Enter`) to publish or schedule.
-</Callout>
-
-### With your agent
-
-If your agent can run terminal commands, configure its access with the
-[draft-only CLI walkthrough](/docs/automation/#create-a-draft-for-review).
-It uses an API key limited to reading and draft management. Assistants that speak
-MCP can connect to your instance instead; see [Connect an agent with MCP](/docs/mcp/).
-
-Then ask your agent:
-
-<Callout title="Example request to your agent" icon={false}>
-    Prepare a short announcement that our new collection is available on Friday. Use the connected
-    Bluesky channel in this project. Save an unscheduled draft in Postdot for me to review. Do not
-    schedule or publish it. Return the post and publication IDs.
-</Callout>
-
-Send this request to your existing agent. Postdot has no embedded chat. The key's
-permissions prevent scheduling or publication even if the agent attempts it.
+Use a channel that accepts text without media for this first attempt. Check the
+destination content, leave the scheduled time empty and save the draft.
 
 </Step>
 <Step>
 
-## Review in Studio [#4-review-in-studio]
+## Review your draft [#4-review-in-studio]
 
-Open **Queue** in the same project and open the draft. Refresh the list if it was
-already open. Check the text, destination, connected account and absence of a
-scheduled time. You can edit an agent-created draft in the same editor.
+Open **Queue** in the same project and select the draft. Check its text, channel,
+connected account and absence of a scheduled time. Edit anything you want to change.
 
-<Callout type="warn" title="Check before retrying">
-    If the CLI reported a transport error or an uncertain result, check the queue before repeating
-    the creation command. The server may have saved the draft even if the response did not reach the
-    client.
-</Callout>
+If an agent created the draft, review it here too. If its request timed out, check
+Queue before asking it to create the draft again: Postdot may have saved it.
 
 </Step>
 <Step>
 
-## Choose when it goes live [#5-choose-when-it-goes-live]
+## Schedule it [#5-choose-when-it-goes-live]
 
-You can leave the draft here until you are ready. To schedule it, review the
-destination, choose a future time and confirm scheduling in Studio. For an automatic
-destination, this authorizes Postdot to send the content at that time.
+You can leave the draft unscheduled until you are ready. To schedule it, choose
+a future time, review the destination and confirm scheduling in Studio. For an
+automatic channel, this authorizes Postdot to send the content at that time.
 
-Use **Queue** to check delivery and **Overview** to see the publication in the
-calendar. A scheduled state confirms the plan, not a successful send. Inspect the
-delivery result before retrying a failed or uncertain attempt.
+Check the publication in **Queue** or find it on the **Overview** calendar.
+After the scheduled time, inspect its delivery result. If delivery failed or the
+outcome is uncertain, check the recorded result before retrying.
 
-For a manual channel, publish through the destination yourself and record the
-result through Postdot's manual workflow.
+For a manual channel, publish on the destination yourself, then record the result
+in Postdot.
 
 </Step>
 </Steps>
 
-To add an image or video, continue with [media](/docs/media/). To understand how one
-post can serve several destinations, read [posts and destinations](/docs/concepts/).
+To adapt a post for more destinations, read [posts and destinations](/docs/concepts/).
+To add files, continue with [images and videos](/docs/media/).

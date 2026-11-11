@@ -8,6 +8,7 @@ import { ProductImage } from './product-image'
 
 import './public-home.css'
 import './usage-study.css'
+import { Link } from './site-link'
 import { WorkflowIllustration } from './workflow-illustration'
 
 export function UsageGallery({ embedded = false }: { embedded?: boolean }) {
@@ -24,12 +25,8 @@ export function UsageGallery({ embedded = false }: { embedded?: boolean }) {
             className={`usage-section ${embedded ? 'usage-embedded' : ''}`}
             aria-labelledby="usage-title">
             <div className="usage-heading">
-                <h2 id="usage-title">
-                    Your tools.
-                    <br />
-                    Your way to publish.
-                </h2>
-                <p>Open the Studio. Bring your agent. Connect your workflows.</p>
+                <h2 id="usage-title">Connect your tools.</h2>
+                <p>Use the CLI, API, MCP or n8n to work with the same publications as Studio.</p>
             </div>
             <div className="usage-gallery" ref={stage}>
                 <article className="usage-studio">
@@ -38,7 +35,7 @@ export function UsageGallery({ embedded = false }: { embedded?: boolean }) {
                             Available
                         </span>
                         <h3>Studio</h3>
-                        <p>A place to make it yours.</p>
+                        <p>Write, review and schedule in your browser.</p>
                     </div>
                     <motion.div
                         className="usage-browser"
@@ -79,7 +76,7 @@ export function UsageGallery({ embedded = false }: { embedded?: boolean }) {
                             Available
                         </span>
                         <h3>MCP</h3>
-                        <p>Your agent’s way in.</p>
+                        <p>Connect your agent to your instance.</p>
                     </div>
                     <motion.div
                         className="usage-mcp-mark"
@@ -98,7 +95,7 @@ export function UsageGallery({ embedded = false }: { embedded?: boolean }) {
                             Alpha
                         </span>
                         <h3>n8n</h3>
-                        <p>Publishing, in your flow.</p>
+                        <p>Create drafts from your workflows.</p>
                     </div>
                     <WorkflowIllustration />
                     <span className="usage-medium">Workflow integration</span>
@@ -111,7 +108,7 @@ export function UsageGallery({ embedded = false }: { embedded?: boolean }) {
                             Available
                         </span>
                         <h3>CLI & API</h3>
-                        <p>Make it part of your toolkit.</p>
+                        <p>Manage publications from scripts and agents.</p>
                     </div>
                     <div
                         ref={terminal}
@@ -135,7 +132,7 @@ export function UsageGallery({ embedded = false }: { embedded?: boolean }) {
                         <div key={terminalRun} className="usage-terminal-body">
                             <div className="usage-command-line">
                                 <span aria-hidden="true">$</span>
-                                <code>bun run postdot --help</code>
+                                <code>postdot --help</code>
                                 <span className="usage-terminal-cursor" aria-hidden="true" />
                             </div>
                             <div
@@ -170,11 +167,11 @@ export function UsageGallery({ embedded = false }: { embedded?: boolean }) {
                     whileInView={reduced ? 'rest' : 'open'}
                     viewport={{ once: true, amount: 0.7 }}>
                     <div className="usage-small-heading">
-                        <span className="usage-status" data-status="launch">
-                            Launch target
+                        <span className="usage-status" data-status="available">
+                            Available
                         </span>
                         <h3>Agent skills</h3>
-                        <p>Give your agent the know-how.</p>
+                        <p>Install setup and publishing instructions.</p>
                     </div>
                     <div className="usage-skill-deck" aria-hidden="true">
                         <motion.div
@@ -249,8 +246,12 @@ export function UsageGallery({ embedded = false }: { embedded?: boolean }) {
                 </motion.article>
             </div>
             <p className="usage-study-note">
-                Studio, CLI/API, MCP and the n8n alpha exist today. Skills and mobile show the
-                direction ahead.
+                <Link href="/docs/cli-reference/">CLI</Link> ·{' '}
+                <Link href="/docs/reference/">HTTP API</Link> · <Link href="/docs/mcp/">MCP</Link> ·{' '}
+                <Link href="/docs/n8n/">n8n</Link> ·{' '}
+                <a href="https://github.com/postdot/postdot/tree/main/skills">Agent skills</a>
+                <br />
+                The mobile client is planned.
             </p>
         </section>
     )

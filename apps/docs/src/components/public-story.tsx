@@ -8,44 +8,32 @@ import { UsageGallery } from './usage-study'
 
 const questions = [
     {
-        title: 'Do I need an AI agent?',
-        answer: 'No. You can write, adapt and manage publications entirely in the web app. The CLI and REST API give your existing agents and scripts another way to work with the same posts.',
-    },
-    {
-        title: 'Does Postdot generate content?',
-        answer: 'Postdot does not contain a built-in AI writer. Your own agent can prepare content and create drafts through the CLI or API. You choose its access and what it is allowed to do.',
-    },
-    {
         title: 'Which destinations can I connect?',
-        answer: 'Bluesky, Discord, LinkedIn, Mastodon, X and DEV.to, plus manual and custom HTTP destinations. Available content types and connection requirements vary by provider.',
-    },
-    {
-        title: 'Where does Postdot run?',
-        answer: 'On infrastructure you manage. The installation guide uses Docker Compose from a source checkout, with local media storage by default and optional S3-compatible storage.',
-    },
-    {
-        title: 'Can I use my existing AI tools?',
-        answer: 'Yes, if they can run CLI commands or call a REST API. Give the integration a scoped API key. Postdot does not require a particular model or AI subscription. MCP-compatible assistants can connect to your instance with that key.',
-    },
-    {
-        title: 'Will creating a draft publish it?',
-        answer: 'No. Draft creation and publication are separate actions. A destination must be explicitly promoted for delivery. Give agents only the actions they need when creating their API keys.',
-    },
-    {
-        title: 'Can each network have different content?',
-        answer: 'Yes. A post has shared source content and separate destination drafts. Text, media and scheduling can be adapted for each destination without changing a previous publication.',
+        answer: 'Bluesky, Discord, LinkedIn, Mastodon, X, Telegram and DEV.to, plus manual and custom HTTP destinations. Check the connection guides for supported content and account requirements.',
     },
     {
         title: 'Do I need developer accounts for the networks?',
-        answer: 'Some connections need provider application configuration or credentials. Requirements differ between networks, and a provider may apply its own access limits or charges. The connection guides explain what is needed.',
+        answer: 'Some platforms require your own developer application or API credentials. Their access rules and charges apply to your installation. The connection guides explain the setup for each network.',
     },
     {
-        title: 'Can I keep images and videos in S3?',
-        answer: 'Yes. Postdot supports S3-compatible media storage as well as local storage. Display previews are separate from the original files used for publishing.',
+        title: 'Can each network have different content?',
+        answer: 'Yes. Each destination has its own text, media and schedule. You can adapt a publication without changing the source or an earlier published version.',
     },
     {
-        title: 'Who handles backups?',
-        answer: 'You operate and back up your installation. The operations guide covers the database, media and configuration needed to restore a workspace. Postdot does not replace your infrastructure backup system.',
+        title: 'Can I use Postdot without an agent?',
+        answer: 'Yes. Write, adapt, review and schedule in Studio. If you use an agent, connect it through MCP, the CLI or the API with a scoped API key. Postdot has no built-in AI writer.',
+    },
+    {
+        title: 'Does an agent-created draft publish automatically?',
+        answer: 'An unscheduled draft stays in your queue for review. Scheduling and delivery require separate actions and permissions. A draft-only API key lets an agent prepare content without permission to publish it.',
+    },
+    {
+        title: 'Can I change databases or media storage later?',
+        answer: 'Yes. The image includes tools to transfer an installation between SQLite and PostgreSQL, and media between local and S3-compatible storage. Stop the servers and follow the transfer guide; changing a setting alone does not move existing data.',
+    },
+    {
+        title: 'How do I update and back up my installation?',
+        answer: 'Read the release notes before updating. Back up your database, media and deployment secrets. The installation and operations guides cover the steps for each storage setup.',
     },
 ]
 
@@ -54,12 +42,39 @@ export function PublicStory() {
         <div className="home-product-story">
             <UsageGallery embedded />
             <PublicCapabilities />
+            <section className="home-chapter home-hosting" aria-labelledby="hosting-title">
+                <PublicEntrance kind="copy">
+                    <h2 id="hosting-title">Choose how you host it.</h2>
+                    <p>
+                        Run SQLite or PostgreSQL with the same Docker image. Store media locally or
+                        in an S3-compatible bucket. Move between them as your setup changes.
+                    </p>
+                </PublicEntrance>
+                <div className="home-hosting-options">
+                    <div>
+                        <h3>One service to get started</h3>
+                        <p>
+                            Studio, the API, scheduler and publication worker run together. SQLite
+                            and local media need no separate database or queue service.
+                        </p>
+                        <Link href="/docs/installation/">Install with Docker Compose</Link>
+                    </div>
+                    <div>
+                        <h3>Use your existing infrastructure</h3>
+                        <p>
+                            Connect PostgreSQL and S3, or run coordinated Postdot instances with
+                            both. The same image includes the tools to transfer your data.
+                        </p>
+                        <Link href="/docs/postgresql/">PostgreSQL deployment</Link>
+                    </div>
+                </div>
+            </section>
             <section
                 id="questions"
                 className="home-chapter home-questions"
                 aria-labelledby="questions-title">
                 <PublicEntrance kind="copy" className="home-questions-intro">
-                    <h2 id="questions-title">About running Postdot.</h2>
+                    <h2 id="questions-title">Before you get started.</h2>
                     <nav className="home-questions-guides" aria-label="Get started with Postdot">
                         <Link href="/docs/installation/">
                             Installation guide

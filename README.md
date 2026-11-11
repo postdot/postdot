@@ -1,86 +1,50 @@
-# Postdot
+<p align="center">
+  <img src="apps/docs/public/icon.svg" width="80" height="80" alt="Postdot" />
+</p>
 
-Self-hosted social publishing for people and their agents.
+<h1 align="center">Postdot</h1>
 
-Write a post, adapt it for each destination, and schedule publication from one
-workspace. Use Studio in your browser, or work through the CLI and HTTP API.
+<p align="center">Self-hosted social publishing for you and your agents.</p>
 
-![Studio: writing a post with destination-specific previews](apps/docs/public/product/compose-light.webp)
+<p align="center">
+  <a href="https://postdot.app/docs/installation/">Get started</a> ·
+  <a href="https://postdot.app">Website</a> ·
+  <a href="https://postdot.app/docs/">Documentation</a> ·
+  <a href="https://postdot.app/docs/releases/">Release notes</a>
+</p>
 
-## What you can do
+![Postdot Studio: composing a publication with channel previews](apps/docs/public/product/compose-light.webp)
 
-- Prepare text, images and video, with separate content and schedules per channel.
-- Publish through connected accounts, track manual destinations, or deliver to
-  custom HTTP endpoints.
-- Organize work across projects with roles, a media library, a calendar and a queue.
-- Read collected performance metrics and export them as CSV. Provider coverage
-  varies; see [provider capabilities](https://postdot.app/docs/providers/provider-capabilities/).
+Write, adapt and schedule publications across your channels. Use Studio in your
+browser, connect your agent, or build publishing into your own workflows.
 
-Postdot runs its API, dashboard, scheduler and publication worker in one service,
-with SQLite and local media storage. S3-compatible media storage is optional.
+- **Publishing:** separate text, media and schedules for each destination, with
+  automated and manual channels in the same calendar.
+- **Organization:** projects, shared channels, a media library and a publication queue.
+- **Integrations:** [CLI](integrations/cli/), [API](https://postdot.app/docs/reference/),
+  [MCP](https://postdot.app/docs/mcp/), [agent skills](skills/) and [n8n](integrations/n8n/).
+- **Languages:** English, French, Spanish and German in Studio.
 
-**Alpha software, under active development.** The current container release, `0.1.0-alpha.7`, is available for Linux AMD64 and ARM64.
-Upgrade from `0.1.0-alpha.6` and restoration of its pre-update backup are validated on both platforms. Releases up to `0.1.0-alpha.3` were called Postbot; see [moving from the Postbot names](https://postdot.app/docs/installation/#move-from-the-postbot-names).
+## Self-hosting
 
-## Run it yourself
+Use SQLite or PostgreSQL with the same Docker image. Keep media locally or in
+S3-compatible storage, and [move between them](https://postdot.app/docs/transfer/)
+as your setup changes. The dashboard, API, scheduler and publication worker run
+in one service; [coordinated instances](https://postdot.app/docs/postgresql/) are
+available with PostgreSQL and S3.
 
-Start with the [Docker Compose installation guide](https://postdot.app/docs/installation/).
-It covers the versioned container image, optional source builds, generating secrets, creating the first account and
-protecting your data. Check the [provider requirements](https://postdot.app/docs/provider-configuration/)
-before connecting an account.
+Start with the [Docker Compose guide](https://postdot.app/docs/installation/)
+and check the [account requirements](https://postdot.app/docs/provider-configuration/)
+for the platforms you want to connect. Postdot is in alpha;
+[release notes](https://postdot.app/docs/releases/) cover changes and upgrades.
 
-## Agent skills
+## Development and support
 
-Install the skills for your agent:
+[Contributing](CONTRIBUTING.md) ·
+[Development setup](https://postdot.app/docs/contributing/) ·
+[Report a bug](https://github.com/postdot/postdot/issues) ·
+[Discussions](https://github.com/postdot/postdot/discussions) ·
+[Security](SECURITY.md)
 
-```sh
-npx skills add postdot/postdot --skill postdot-self-host --skill postdot --skill postdot-troubleshoot
-```
-
-The [skills](skills/) cover self-hosting, API-backed publication workflows and
-troubleshooting for `0.1.0-alpha.7`. Manual installation requires copying each
-complete skill directory, including its references, assets and scripts.
-The optional helpers use Python 3's standard library. Assistants can also connect to a running instance through its [MCP endpoint](https://postdot.app/docs/mcp/).
-
-## Develop locally
-
-Install [Bun](https://bun.sh) 1.4.4 or newer, then run:
-
-```sh
-bun install
-cp apps/api/.env.example apps/api/.env
-cp apps/web/.env.example apps/web/.env
-openssl rand -hex 32
-openssl rand -hex 32
-openssl rand -hex 32
-```
-
-Paste those three independent values into `BETTER_AUTH_SECRET`,
-`POSTDOT_MEDIA_PUBLIC_URL_SECRET` and `POSTDOT_PUBLISHER_ENCRYPTION_KEY`, respectively,
-in `apps/api/.env`. Keep that file private. Then start the application:
-
-```sh
-bun run dev
-```
-
-Open Studio at <http://localhost:5173> and create the first account to claim the
-instance. The API listens on port 3000 and exposes its interactive reference at
-<http://localhost:3000/openapi>.
-
-See the [development reference](https://postdot.app/docs/contributing/) for alternate ports, email,
-CLI usage and validation commands.
-
-## Documentation
-
-- [Installation and operation](https://postdot.app/docs/installation/)
-- [CLI publication workflows](https://postdot.app/docs/cli-reference/)
-- [Security policy](SECURITY.md)
-- [User API keys](https://postdot.app/docs/reference/authentication/)
-- [Backup and restoration](https://postdot.app/docs/operations/)
-- [Releases](https://postdot.app/docs/releases/)
-
-## License
-
-Copyright (c) 2026 Hakim Saoudi. Original code is licensed under
-[AGPL-3.0-only](LICENSE). Third-party code and assets keep their own licenses;
-see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+Licensed under [AGPL-3.0-only](LICENSE).
+See [third-party notices](THIRD_PARTY_NOTICES.md) for other code and assets.

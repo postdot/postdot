@@ -1,7 +1,6 @@
 import { Button } from '@postdot/ui/components/button'
 
 import { PublicDestinations } from './public-destinations'
-import { PublicDistribution } from './public-distribution'
 import { PublicFooter } from './public-footer'
 import { PublicHeader } from './public-header'
 import { PublicMaterial } from './public-material'
@@ -56,15 +55,14 @@ export function PublicHome() {
                                 </Action>
                             </div>
                             <p className="home-alpha">
-                                <strong>Alpha.</strong> In active development. Available from
-                                source.
+                                <strong>Alpha.</strong> Available as a Docker image for Linux AMD64
+                                and ARM64.
                             </p>
                         </div>
                         <PublicProduct />
                     </section>
                     <PublicDestinations />
                 </div>
-                <PublicDistribution />
                 <PublicStory />
             </main>
             <PublicFooter />
