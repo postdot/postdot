@@ -16,6 +16,7 @@ import {
 import {
     createWorkflowStore,
     createProviderMediaDeliveryStore,
+    createProviderMediaGroupDeliveryStore,
     type createPublisherCredentialStore,
     type createPublisherStore,
     type DatabaseHandle,
@@ -90,6 +91,10 @@ export function createPublicationWorker(options: PublicationWorkerOptions): Publ
             options.resolveCustomHttpMediaUrl !== undefined,
     })
     const publisherStore = options.publisherStore
+    const providerMediaGroupDeliveryStore = createProviderMediaGroupDeliveryStore(
+        options.database,
+        { now }
+    )
     const providerMediaDeliveryStore =
         options.providerMediaDeliveryStore ??
         createProviderMediaDeliveryStore(options.database, { now })
@@ -202,6 +207,7 @@ export function createPublicationWorker(options: PublicationWorkerOptions): Publ
                                         assertActive: context.assertActive,
                                         builtInProviderRegistry: options.builtInProviderRegistry,
                                         providerMediaDeliveryStore,
+                                        providerMediaGroupDeliveryStore,
                                         publisherStore,
                                         publisherCredentialStore: options.publisherCredentialStore,
                                         media: options.media,
@@ -298,6 +304,9 @@ async function performExternalEffect(input: {
     readonly signal: AbortSignal
     readonly assertActive: () => Promise<void>
     readonly builtInProviderRegistry: BuiltInProviderRegistry
+    readonly providerMediaGroupDeliveryStore: ReturnType<
+        typeof createProviderMediaGroupDeliveryStore
+    >
     readonly providerMediaDeliveryStore: ReturnType<typeof createProviderMediaDeliveryStore>
     readonly publisherStore: ReturnType<typeof createPublisherStore>
     readonly publisherCredentialStore: ReturnType<typeof createPublisherCredentialStore>
@@ -401,32 +410,14 @@ async function performExternalEffect(input: {
             input.resolveBuiltInMediaUrl === undefined
                 ? undefined
                 : (media, context) => input.resolveBuiltInMediaUrl!(media, context),
-        providerMediaDeliveryStore: {
-            reserve: async value => {
-                await input.assertActive()
-                return providerMediaDeliveryStore.reserve(value)
-            },
-            start: async value => {
-                await input.assertActive()
-                return providerMediaDeliveryStore.start(value)
-            },
-            recordRemoteMediaId: async value => {
-                await input.assertActive()
-                return providerMediaDeliveryStore.recordRemoteMediaId(value)
-            },
-            complete: async value => {
-                await input.assertActive()
-                return providerMediaDeliveryStore.complete(value)
-            },
-            fail: async value => {
-                await input.assertActive()
-                return providerMediaDeliveryStore.fail(value)
-            },
-            retry: async value => {
-                await input.assertActive()
-                return providerMediaDeliveryStore.retry(value)
-            },
-        },
+        providerMediaGroupDeliveryStore: fenceMediaDeliveries(
+            input.providerMediaGroupDeliveryStore,
+            input.assertActive
+        ),
+        providerMediaDeliveryStore: fenceMediaDeliveries(
+            providerMediaDeliveryStore,
+            input.assertActive
+        ),
     })
 }
 
@@ -536,3 +527,35 @@ function defaultWorkerErrorHandler(error: unknown): void {
 }
 
 export type { PublisherExecutionTarget }
+
+function fenceMediaDeliveries(
+    store: ReturnType<typeof createProviderMediaDeliveryStore>,
+    assertActive: () => Promise<void>
+) {
+    return {
+        reserve: async (value: Parameters<typeof store.reserve>[0]) => {
+            await assertActive()
+            return store.reserve(value)
+        },
+        start: async (value: Parameters<typeof store.start>[0]) => {
+            await assertActive()
+            return store.start(value)
+        },
+        recordRemoteMediaId: async (value: Parameters<typeof store.recordRemoteMediaId>[0]) => {
+            await assertActive()
+            return store.recordRemoteMediaId(value)
+        },
+        complete: async (value: Parameters<typeof store.complete>[0]) => {
+            await assertActive()
+            return store.complete(value)
+        },
+        fail: async (value: Parameters<typeof store.fail>[0]) => {
+            await assertActive()
+            return store.fail(value)
+        },
+        retry: async (value: Parameters<typeof store.retry>[0]) => {
+            await assertActive()
+            return store.retry(value)
+        },
+    }
+}

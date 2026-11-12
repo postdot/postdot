@@ -10,21 +10,31 @@ acceptance for every format, account entitlement or permission grant.
 
 | Destination | Publishing                                                | Saved performance / conversations                             |
 | ----------- | --------------------------------------------------------- | ------------------------------------------------------------- |
-| Bluesky     | Text, images or MP4                                       | Post observations and public conversation snapshots/replies   |
+| Bluesky     | Text, images, MP4 or a link card                          | Post observations and public conversation snapshots/replies   |
 | Mastodon    | Text, images or MP4; polls exclude media                  | Status observations and public conversation snapshots/replies |
 | DEV.to      | Markdown article with optional cover                      | Article observations; no conversation workflow                |
 | Discord     | Message with images or MP4                                | No native performance/conversation surface                    |
 | X           | Weighted text with images                                 | No native performance/conversation surface                    |
 | LinkedIn    | Member/organization text, images or MP4                   | No native performance/conversation surface                    |
 | Telegram    | Message, photo/video, album or anonymous text-answer poll | No native performance/conversation surface                    |
-| Facebook    | Page text, link or one photo                              | No native performance/conversation surface                    |
-| Instagram   | One JPEG with caption/accessibility text                  | No native performance/conversation surface                    |
+| Facebook    | Page text, link or up to ten photos                       | No native performance/conversation surface                    |
+| Instagram   | One JPEG or 2–10 JPEGs in a carousel                      | No native performance/conversation surface                    |
 | Manual      | Record your own delivery result                           | No native provider collector                                  |
 | Custom HTTP | Profile-defined request and response interpretation       | No native provider collector                                  |
 
 [First comments](/docs/first-comments/) are a separate automatic-delivery feature
 for native Bluesky and Mastodon publications. They do not add comment support to
 every destination or turn the stored conversation view into an account-wide inbox.
+
+Existing channels keep their active profiles until you load and activate the
+shipped template in the channel profile editor. Selected publication versions
+retain their historical profiles. Adapt a pending draft explicitly when it
+should use the new capabilities.
+
+Facebook's ten-photo limit is Postdot's application envelope, not a universal
+provider maximum. A link and photo attachments remain separate Facebook formats.
+See [Instagram](/docs/providers/instagram/#publishing-and-media-requirements) and
+[Bluesky link cards](/docs/providers/bluesky/#add-a-link-card) for format details.
 
 ## Read saved observations carefully
 

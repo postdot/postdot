@@ -1,6 +1,8 @@
 import type { ExternalEffectOutcome } from '@postdot/core'
 
 export const FACEBOOK_GRAPH_VERSION = 'v26.0'
+/** Postdot application envelope; the provider maximum is not encoded here. */
+export const FACEBOOK_MAX_PHOTOS = 10
 export const FACEBOOK_MAX_PHOTO_BYTES = 10_000_000
 export const FACEBOOK_PUBLISH_PERMISSIONS = [
     'pages_show_list',
@@ -55,6 +57,7 @@ export interface FacebookSendInput {
     readonly pageId: string
     readonly text: string
     readonly link?: string
+    readonly photoIds?: readonly string[]
     readonly photo?: FacebookPhoto
 }
 export type FacebookFetcher = (
@@ -286,6 +289,45 @@ export function createFacebookPublisher(
             return { ok: true, value: { page, grantedPermissions: permissions.value } }
         },
 
+        /** Uploads an unpublished photo; its identity is not a published post receipt. */
+        async uploadPhoto(input: {
+            readonly pageToken: string
+            readonly pageId: string
+            readonly photo: FacebookPhoto
+        }): Promise<FacebookResult<{ readonly mediaId: string }>> {
+            const photo = input.photo
+            if (
+                !validToken(input.pageToken) ||
+                !numericId(input.pageId) ||
+                !(photo.blob instanceof Blob) ||
+                !['image/jpeg', 'image/png'].includes(photo.blob.type) ||
+                photo.blob.size < 1 ||
+                photo.blob.size > FACEBOOK_MAX_PHOTO_BYTES ||
+                (photo.accessibilityText !== undefined &&
+                    typeof photo.accessibilityText !== 'string')
+            )
+                return failed('Facebook photo input is invalid', 'invalid_input')
+            const body = new FormData()
+            body.set(
+                'source',
+                photo.blob,
+                photo.blob.type === 'image/png' ? 'photo.png' : 'photo.jpg'
+            )
+            body.set('published', 'false')
+            if (photo.accessibilityText !== undefined)
+                body.set('alt_text_custom', photo.accessibilityText)
+            const result = await call(
+                input.pageToken,
+                `${input.pageId}/photos`,
+                new URLSearchParams(),
+                body
+            )
+            if (!result.ok) return result
+            const mediaId = record(result.value) ? result.value.id : null
+            if (!numericId(mediaId) || mediaId.includes(input.pageToken)) return unknownWrite()
+            return { ok: true, value: { mediaId } }
+        },
+
         async send(input: FacebookSendInput): Promise<FacebookPublishOutcome> {
             const link = input.link === '' ? undefined : input.link
             if (
@@ -293,8 +335,19 @@ export function createFacebookPublisher(
                 !numericId(input.pageId) ||
                 typeof input.text !== 'string' ||
                 (link !== undefined && !isFacebookLink(link)) ||
-                (input.photo !== undefined && link !== undefined) ||
-                (!input.text.trim() && link === undefined && input.photo === undefined)
+                ((input.photo !== undefined || input.photoIds !== undefined) &&
+                    link !== undefined) ||
+                (input.photoIds !== undefined &&
+                    (input.photo !== undefined ||
+                        !Array.isArray(input.photoIds) ||
+                        input.photoIds.length < 2 ||
+                        input.photoIds.length > FACEBOOK_MAX_PHOTOS ||
+                        input.photoIds.some(id => !numericId(id)) ||
+                        new Set(input.photoIds).size !== input.photoIds.length)) ||
+                (!input.text.trim() &&
+                    link === undefined &&
+                    input.photo === undefined &&
+                    input.photoIds === undefined)
             )
                 return failed('Facebook publication input is invalid', 'invalid_input').outcome
             let body: URLSearchParams | FormData
@@ -326,6 +379,11 @@ export function createFacebookPublisher(
             } else {
                 body = new URLSearchParams({ message: input.text, published: 'true' })
                 if (link !== undefined) body.set('link', link)
+                if (input.photoIds !== undefined)
+                    body.set(
+                        'attached_media',
+                        JSON.stringify(input.photoIds.map(media_fbid => ({ media_fbid })))
+                    )
             }
             const result = await call(
                 input.pageToken,

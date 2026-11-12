@@ -5,6 +5,7 @@ import { HeartIcon } from '@solar-icons/react/linear/heart'
 import { MenuDotsVerticalIcon } from '@solar-icons/react/linear/menu-dots-vertical'
 import { RepeatIcon } from '@solar-icons/react/linear/repeat'
 import { ShareIcon } from '@solar-icons/react/linear/share'
+import { Suspense } from 'react'
 
 import sampleSocialPortrait from '@/assets/sample-social-portrait.jpg'
 import { ChannelAvatar } from '@/components/identity-visuals'
@@ -29,6 +30,7 @@ interface PublicationDraftPreviewProps {
     readonly postContent: string
     readonly postTitle: string
     readonly poll?: unknown
+    readonly target?: Readonly<Record<string, unknown>>
     readonly targetContent?: string
 }
 
@@ -42,6 +44,7 @@ export function PublicationDraftPreview({
     postContent,
     postTitle,
     targetContent,
+    target,
     poll: pollValue,
 }: PublicationDraftPreviewProps) {
     useLanguage()
@@ -58,6 +61,7 @@ export function PublicationDraftPreview({
 
     const definition = providerRegistry.forExecution(execution)
     const professional = definition?.preview.layout === 'professional'
+    const ProviderMedia = definition?.preview.Media
     const Footer = definition?.preview.Footer
     const SampleEngagement = definition?.preview.SampleEngagement
     const Poll = definition?.preview.Poll
@@ -74,6 +78,50 @@ export function PublicationDraftPreview({
         definition?.preview.mosaic === 'spaced' && media.length >= 2 && media.length <= 4
     const tightMosaic = wideContent && media.length >= 2 && media.length <= 4
     const fittedMosaic = spacedMosaic || tightMosaic
+
+    const renderDefaultMedia = () =>
+        media.length > 0 ? (
+            <div
+                data-publication-preview-media="true"
+                className={`${preview.hasText || (preview.showTitle && preview.title !== '') ? 'mt-4' : ''} grid min-w-0 ${tightMosaic ? 'gap-0.5' : spacedMosaic ? 'gap-1' : 'gap-2'} ${tightMosaic ? 'aspect-[3/2]' : spacedMosaic && media.length < 4 ? 'aspect-[2/1]' : ''} ${(fittedMosaic && media.length === 3) || (tightMosaic && media.length === 4) ? 'grid-rows-2' : ''} ${media.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
+                {media.map((asset, index) => (
+                    <div
+                        key={`${asset.asset.id}-${index}`}
+                        className={cn(
+                            'min-h-0 min-w-0 overflow-hidden bg-surface-inset',
+                            fittedMosaic && media.length === 3 && index === 0 ? 'row-span-2' : '',
+                            spacedMosaic && media.length === 4 ? 'aspect-[3/2]' : '',
+                            professional ? 'rounded-sm' : 'rounded-md'
+                        )}>
+                        <MediaPreview
+                            playable
+                            alt={
+                                mediaSelections?.find(
+                                    selection => selection.assetId === asset.asset.id
+                                )?.accessibilityText ??
+                                asset.asset.defaultAccessibilityText ??
+                                ''
+                            }
+                            projectId={asset.asset.projectId}
+                            asset={asset}
+                            representation={readyRepresentation(asset)}
+                            className={cn(
+                                'flex w-full items-center justify-center text-xs font-medium uppercase text-muted-foreground',
+                                compactMedia
+                                    ? media.length === 1
+                                        ? 'h-auto max-h-44 object-contain'
+                                        : 'h-28 object-cover'
+                                    : fittedMosaic
+                                      ? 'h-full object-cover'
+                                      : media.length === 1
+                                        ? 'h-auto max-h-[420px] object-contain'
+                                        : 'aspect-[4/3] object-cover'
+                            )}
+                        />
+                    </div>
+                ))}
+            </div>
+        ) : null
 
     return (
         <section
@@ -178,50 +226,18 @@ export function PublicationDraftPreview({
                     ) : null}
 
                     {Poll ? <Poll poll={pollValue} /> : null}
-                    {media.length > 0 ? (
-                        <div
-                            data-publication-preview-media="true"
-                            className={`${preview.hasText || (preview.showTitle && preview.title !== '') ? 'mt-4' : ''} grid min-w-0 ${tightMosaic ? 'gap-0.5' : spacedMosaic ? 'gap-1' : 'gap-2'} ${tightMosaic ? 'aspect-[3/2]' : spacedMosaic && media.length < 4 ? 'aspect-[2/1]' : ''} ${(fittedMosaic && media.length === 3) || (tightMosaic && media.length === 4) ? 'grid-rows-2' : ''} ${media.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
-                            {media.map((asset, index) => (
-                                <div
-                                    key={asset.asset.id}
-                                    className={cn(
-                                        'min-h-0 min-w-0 overflow-hidden bg-surface-inset',
-                                        fittedMosaic && media.length === 3 && index === 0
-                                            ? 'row-span-2'
-                                            : '',
-                                        spacedMosaic && media.length === 4 ? 'aspect-[3/2]' : '',
-                                        professional ? 'rounded-sm' : 'rounded-md'
-                                    )}>
-                                    <MediaPreview
-                                        playable
-                                        alt={
-                                            mediaSelections?.find(
-                                                selection => selection.assetId === asset.asset.id
-                                            )?.accessibilityText ??
-                                            asset.asset.defaultAccessibilityText ??
-                                            ''
-                                        }
-                                        projectId={asset.asset.projectId}
-                                        asset={asset}
-                                        representation={readyRepresentation(asset)}
-                                        className={cn(
-                                            'flex w-full items-center justify-center text-xs font-medium uppercase text-muted-foreground',
-                                            compactMedia
-                                                ? media.length === 1
-                                                    ? 'h-auto max-h-44 object-contain'
-                                                    : 'h-28 object-cover'
-                                                : fittedMosaic
-                                                  ? 'h-full object-cover'
-                                                  : media.length === 1
-                                                    ? 'h-auto max-h-[420px] object-contain'
-                                                    : 'aspect-[4/3] object-cover'
-                                        )}
-                                    />
-                                </div>
-                            ))}
-                        </div>
-                    ) : null}
+                    {ProviderMedia ? (
+                        <Suspense fallback={renderDefaultMedia()}>
+                            <ProviderMedia
+                                media={media}
+                                mediaSelections={mediaSelections}
+                                target={target}
+                                renderFallback={renderDefaultMedia}
+                            />
+                        </Suspense>
+                    ) : (
+                        renderDefaultMedia()
+                    )}
 
                     {!preview.hasText && media.length === 0 ? (
                         <div

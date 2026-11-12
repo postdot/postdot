@@ -2622,5 +2622,9 @@
     "shortcut_calendar_nav": "Vorheriger oder nächster Zeitraum",
     "shortcut_calendar_views": "Ansicht wechseln: Monat, Woche, Tag, Agenda",
     "shortcut_media_views": "Ansicht wechseln: Raster, Kompakt, Liste",
-    "shortcut_media_viewer": "Vollbild, Zoom, Medien navigieren"
+    "shortcut_media_viewer": "Vollbild, Zoom, Medien navigieren",
+    "bluesky_link_card": "Linkkarte",
+    "bluesky_link_card_url": "Link-URL",
+    "bluesky_link_card_description": "Beschreibung",
+    "bluesky_link_card_help": "Titel und Beschreibung werden mit dieser Version gespeichert. Füge höchstens ein Bild (1 MB) als Vorschaubild hinzu; Videos sind mit einer Linkkarte nicht verfügbar."
 }

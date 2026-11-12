@@ -1,7 +1,13 @@
+import { lazy } from 'react'
+
 import * as m from '@/paraglide/messages.js'
 
 import type { ProviderDefinition } from '../contract'
 import { application } from './application'
+
+const InstagramMediaPreview = lazy(() =>
+    import('./media-preview').then(module => ({ default: module.InstagramMediaPreview }))
+)
 
 export const instagramProvider = {
     id: 'instagram',
@@ -24,5 +30,10 @@ export const instagramProvider = {
             id: connection.destination?.id ?? connection.externalAccountId,
         }),
     connectionHint: () => m.publisher_instagram_professional_account(),
-    preview: { layout: 'social', accountDriven: false, sampleIdentity: false },
+    preview: {
+        layout: 'social',
+        accountDriven: false,
+        sampleIdentity: false,
+        Media: InstagramMediaPreview,
+    },
 } as const satisfies ProviderDefinition

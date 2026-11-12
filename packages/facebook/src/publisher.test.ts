@@ -361,3 +361,50 @@ test('timeout configuration is bounded before creating a transport', () => {
     for (const timeoutMs of [0, -1, 0.5, Number.NaN, 300_001])
         expect(() => createFacebookPublisher({ timeoutMs })).toThrow()
 })
+
+test('uploads unpublished photos and publishes their ordered identities as one feed post', async () => {
+    const requests: { path: string; body: URLSearchParams | FormData }[] = []
+    const publisher = createFacebookPublisher({
+        fetcher: async (url, init) => {
+            requests.push({
+                path: new URL(String(url)).pathname,
+                body: init!.body as URLSearchParams | FormData,
+            })
+            return Response.json({
+                id: requests.length < 3 ? String(900 + requests.length) : '123456_42',
+            })
+        },
+    })
+    const base = { pageId: '123456', pageToken: 'synthetic-token' }
+    for (const accessibilityText of ['First image', 'Second image'])
+        expect(
+            (
+                await publisher.uploadPhoto({
+                    ...base,
+                    photo: { blob: new Blob(['image'], { type: 'image/jpeg' }), accessibilityText },
+                })
+            ).ok
+        ).toBe(true)
+    expect(requests[0]!.body.get('published')).toBe('false')
+    expect(requests[0]!.body.get('alt_text_custom')).toBe('First image')
+    expect(
+        await publisher.send({ ...base, text: 'Album caption', photoIds: ['901', '902'] })
+    ).toMatchObject({ type: 'published', externalId: '123456_42' })
+    expect(requests[2]!.path).toEndWith('/feed')
+    expect(JSON.parse(requests[2]!.body.get('attached_media') as string)).toEqual([
+        { media_fbid: '901' },
+        { media_fbid: '902' },
+    ])
+    expect(requests[2]!.body.get('published')).toBe('true')
+    expect(
+        (
+            await publisher.send({
+                ...base,
+                text: 'Caption',
+                link: 'https://example.com',
+                photoIds: ['901', '902'],
+            })
+        ).type
+    ).toBe('permanent_failure')
+    expect(requests).toHaveLength(3)
+})

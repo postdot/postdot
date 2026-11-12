@@ -493,3 +493,52 @@ test('rejects a Graph origin outside the two supported Meta hosts', () => {
             'Instagram Graph origin is invalid'
         )
 })
+
+test('creates ordered carousel children without captions, then a parent with the shared caption', async () => {
+    const requests: URLSearchParams[] = []
+    const publisher = createInstagramPublisher({
+        fetcher: async (_url, init) => {
+            requests.push(init!.body as URLSearchParams)
+            return Response.json({ id: String(17900000000000000n + BigInt(requests.length)) })
+        },
+    })
+    const base = { accountId: '17841400000000000', accessToken: 'synthetic-token' }
+    const first = await publisher.createContainer({
+        ...base,
+        imageUrl: 'https://media.example.com/one.jpg',
+        carouselItem: true,
+        accessibilityText: 'First image',
+    })
+    const second = await publisher.createContainer({
+        ...base,
+        imageUrl: 'https://media.example.com/two.jpg',
+        carouselItem: true,
+    })
+    expect(first.ok && second.ok).toBe(true)
+    if (!first.ok || !second.ok) throw new Error('Children were not created')
+    const parent = await publisher.createCarousel({
+        ...base,
+        children: [first.value.containerId, second.value.containerId],
+        caption: 'Ordered announcement',
+    })
+    expect(parent.ok).toBe(true)
+    expect(requests[0]!.get('is_carousel_item')).toBe('true')
+    expect(requests[0]!.get('alt_text')).toBe('First image')
+    expect(requests[0]!.has('caption')).toBe(false)
+    expect(requests[2]!.get('children')).toBe(
+        `${first.value.containerId},${second.value.containerId}`
+    )
+    expect(requests[2]!.get('media_type')).toBe('CAROUSEL')
+    expect(requests[2]!.get('caption')).toBe('Ordered announcement')
+    expect(requests[2]!.has('image_url')).toBe(false)
+    for (const children of [
+        [],
+        ['1'],
+        ['1', '1'],
+        ['1', 'not-an-id'],
+        Array.from({ length: 11 }, (_, i) => String(i + 1)),
+    ]) {
+        expect((await publisher.createCarousel({ ...base, children })).ok).toBe(false)
+    }
+    expect(requests).toHaveLength(3)
+})

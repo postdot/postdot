@@ -1,4 +1,8 @@
-import { facebookChannelProfile } from '@postdot/facebook'
+import {
+    facebookChannelProfile,
+    FACEBOOK_IMAGE_EXECUTION_REVISION,
+    FACEBOOK_EXECUTION_REVISION,
+} from '@postdot/facebook'
 
 import type { ProviderWorkerContext } from '../worker-context'
 import { facebookApplicationPolicy } from './application-policy'
@@ -10,6 +14,7 @@ export const facebookModule = {
     profile: facebookChannelProfile,
     application: facebookApplicationPolicy,
 } as const
-export const createFacebookAdapters = (_context: ProviderWorkerContext) => [
-    createFacebookProviderAdapter(),
-]
+export const createFacebookAdapters = (_context: ProviderWorkerContext) =>
+    ([FACEBOOK_IMAGE_EXECUTION_REVISION, FACEBOOK_EXECUTION_REVISION] as const).map(revision =>
+        createFacebookProviderAdapter({ revision })
+    )

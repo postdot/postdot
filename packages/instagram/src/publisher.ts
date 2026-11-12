@@ -9,6 +9,7 @@ export const INSTAGRAM_PUBLISH_PERMISSIONS = [
     'instagram_business_content_publish',
 ] as const
 /** Conservative application envelope below the documented 8 MB provider ceiling. */
+export const INSTAGRAM_MAX_IMAGES = 10
 export const INSTAGRAM_MAX_IMAGE_BYTES = 8_000_000
 export const INSTAGRAM_MAX_CAPTION_LENGTH = 2200
 export const INSTAGRAM_MAX_ACCESSIBILITY_TEXT_LENGTH = 1000
@@ -53,6 +54,7 @@ export type InstagramPublishOutcome =
     | InstagramFailure
 
 export interface InstagramCreateContainerInput {
+    readonly carouselItem?: boolean
     readonly accountId: string
     readonly accessToken: string
     /**
@@ -288,7 +290,13 @@ export function createInstagramPublisher(options: InstagramPublisherOptions = {}
                     ok: false,
                     outcome: permanent('invalid_input', 'Instagram publication input is invalid'),
                 }
+            if (input.carouselItem && input.caption !== undefined)
+                return {
+                    ok: false,
+                    outcome: permanent('invalid_input', 'Carousel items cannot carry a caption'),
+                }
             const body = new URLSearchParams({ image_url: input.imageUrl })
+            if (input.carouselItem) body.set('is_carousel_item', 'true')
             if (input.caption !== undefined && input.caption !== '')
                 body.set('caption', input.caption)
             if (input.accessibilityText !== undefined && input.accessibilityText !== '')
@@ -309,6 +317,54 @@ export function createInstagramPublisher(options: InstagramPublisherOptions = {}
                     outcome: ambiguous(
                         'unknown_result',
                         'The Instagram container identity is unknown; inspect it before retrying'
+                    ),
+                }
+            return { ok: true, value: { containerId } }
+        },
+
+        async createCarousel(input: {
+            readonly accountId: string
+            readonly accessToken: string
+            readonly children: readonly string[]
+            readonly caption?: string
+        }): Promise<InstagramResult<InstagramContainer>> {
+            if (
+                !numericId(input.accountId) ||
+                !validToken(input.accessToken) ||
+                !Array.isArray(input.children) ||
+                input.children.length < 2 ||
+                input.children.length > INSTAGRAM_MAX_IMAGES ||
+                input.children.some(id => !numericId(id)) ||
+                new Set(input.children).size !== input.children.length ||
+                (input.caption !== undefined &&
+                    (typeof input.caption !== 'string' ||
+                        codePointLength(input.caption) > INSTAGRAM_MAX_CAPTION_LENGTH))
+            )
+                return {
+                    ok: false,
+                    outcome: permanent('invalid_input', 'Instagram carousel input is invalid'),
+                }
+            const body = new URLSearchParams({
+                media_type: 'CAROUSEL',
+                children: input.children.join(','),
+            })
+            if (input.caption) body.set('caption', input.caption)
+            const result = await call({
+                token: input.accessToken,
+                method: 'POST',
+                path: `${input.accountId}/media`,
+                body,
+                writing: true,
+                signal: options.signal,
+            })
+            if (!result.ok) return result
+            const containerId = record(result.value) ? result.value.id : null
+            if (!numericId(containerId) || containerId.includes(input.accessToken))
+                return {
+                    ok: false,
+                    outcome: ambiguous(
+                        'unknown_result',
+                        'The Instagram carousel identity is unknown; inspect it before retrying'
                     ),
                 }
             return { ok: true, value: { containerId } }

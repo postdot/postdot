@@ -127,7 +127,10 @@ export type {
     SecretCipherContext,
     SecretCipherErrorCode,
 } from './encrypted-secret-crypto'
-export { createProviderMediaDeliveryStore } from './provider-media-delivery-store'
+export {
+    createProviderMediaDeliveryStore,
+    createProviderMediaGroupDeliveryStore,
+} from './provider-media-delivery-store'
 export { createPublisherStore } from './publisher-store'
 export {
     createPublisherCredentialCipher,

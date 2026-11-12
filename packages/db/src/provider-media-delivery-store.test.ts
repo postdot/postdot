@@ -9,7 +9,10 @@ import { createLocalMediaStore } from '@postdot/media'
 import { previewFixturePng } from './image-preview-fixture'
 import { createManualStore } from './manual-store'
 import { createMediaAssetStore } from './media-asset-store'
-import { createProviderMediaDeliveryStore } from './provider-media-delivery-store'
+import {
+    createProviderMediaDeliveryStore,
+    createProviderMediaGroupDeliveryStore,
+} from './provider-media-delivery-store'
 import {
     closeTestDatabase,
     openTestDatabase,
@@ -211,6 +214,30 @@ describe('provider media delivery store', () => {
                 publisherId: 'publisher-1',
                 providerId: 'media-provider',
             })
+            const groups = createProviderMediaGroupDeliveryStore(database, { now: () => now })
+            const groupInput = {
+                projectId: project.project.id,
+                executionMediaId: executionMedia[0]!.id,
+                publisherId: 'publisher-1',
+                providerId: 'media-provider',
+            }
+            const group = await groups.reserve(groupInput)
+            expect(group.id).not.toBe(delivery.id)
+            expect((await groups.reserve(groupInput)).id).toBe(group.id)
+            await groups.start({ projectId: group.projectId, deliveryId: group.id })
+            await groups.recordRemoteMediaId({
+                projectId: group.projectId,
+                deliveryId: group.id,
+                remoteMediaId: 'parent-container',
+            })
+            expect(
+                await groups.complete({
+                    projectId: group.projectId,
+                    deliveryId: group.id,
+                    remoteMediaId: 'parent-container',
+                })
+            ).toMatchObject({ state: 'uploaded', remoteMediaId: 'parent-container' })
+            expect((await deliveries.reserve(groupInput)).remoteMediaId).toBeNull()
             expect(delivery.state).toBe('pending')
             expect(
                 (await deliveries.start({ projectId: project.project.id, deliveryId: delivery.id }))

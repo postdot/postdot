@@ -1,6 +1,9 @@
 import { Agent, type BlobRef } from '@atproto/api'
 import {
     BLUESKY_EXECUTION_CONTRACT_REVISION,
+    type BLUESKY_VIDEO_EXECUTION_CONTRACT_REVISION,
+    BLUESKY_MAX_THUMBNAIL_BYTES,
+    readBlueskyExternal,
     type BLUESKY_IMAGE_EXECUTION_CONTRACT_REVISION,
     BLUESKY_VIDEO_SCOPES,
     createBlueskyVideoService,
@@ -37,6 +40,7 @@ export interface BlueskyProviderAdapterOptions {
     readonly revision?:
         | typeof BLUESKY_EXECUTION_CONTRACT_REVISION
         | typeof BLUESKY_IMAGE_EXECUTION_CONTRACT_REVISION
+        | typeof BLUESKY_VIDEO_EXECUTION_CONTRACT_REVISION
     readonly createVideoService?: typeof createBlueskyVideoService
     readonly oauth?: BlueskyOAuthConfiguration
     readonly resolveOAuth?: (
@@ -84,6 +88,24 @@ async function executeBlueskyPublication(input: {
         return permanentFailure('The Bluesky publication destination is unavailable')
     }
 
+    const external =
+        target.content.external === undefined
+            ? undefined
+            : readBlueskyExternal(target.content.external)
+    if (
+        external === null ||
+        (external !== undefined &&
+            (input.revision !== BLUESKY_EXECUTION_CONTRACT_REVISION ||
+                target.media.length > 1 ||
+                target.media.some(
+                    media =>
+                        media.family !== 'image' || media.byteSize > BLUESKY_MAX_THUMBNAIL_BYTES
+                )))
+    )
+        return permanentFailure(
+            'Bluesky link cards require valid metadata and at most one image thumbnail of 1 MB, without video'
+        )
+
     let restored: Awaited<ReturnType<typeof restoreBlueskySession>>
     try {
         restored = await restoreCredentialBlueskySession({
@@ -121,7 +143,7 @@ async function executeBlueskyPublication(input: {
     }
 
     if (target.media.some(item => item.family === 'video')) {
-        if (input.revision !== BLUESKY_EXECUTION_CONTRACT_REVISION) {
+        if (input.revision === 'post-v1') {
             return permanentFailure('The historical Bluesky execution supports images only')
         }
         // Requested scopes and credential metadata are not proof of an actual grant.
@@ -157,7 +179,10 @@ async function executeBlueskyPublication(input: {
                 pdsUrl: tokenInfo.aud,
                 fetcher: effectFetcher(execution.signal, undefined, execution.assertActive),
             }),
-            publisher: input.createPublisher({ agent }),
+            publisher: input.createPublisher({
+                agent,
+                annotateText: input.revision === BLUESKY_EXECUTION_CONTRACT_REVISION,
+            }),
         })
     }
 
@@ -170,6 +195,7 @@ async function executeBlueskyPublication(input: {
     if (mediaResult.kind !== 'ready') return mediaResult.outcome
 
     const publisherWithCheckpoints = input.createPublisher({
+        annotateText: input.revision === BLUESKY_EXECUTION_CONTRACT_REVISION,
         agent: new Agent({
             did: restored.session.did,
             fetchHandler: effectFetcher(execution.signal, async (path, init) => {
@@ -210,6 +236,7 @@ async function executeBlueskyPublication(input: {
 
     const outcome = await publisherWithCheckpoints.publish({
         text,
+        ...(external === undefined ? {} : { external }),
         media: mediaResult.media.map(media => ({
             contentType: media.target.contentType as 'image/jpeg' | 'image/png',
             size: media.target.byteSize,

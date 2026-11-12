@@ -6,7 +6,11 @@ import {
     ChannelProfileCompiler,
 } from '@postdot/core'
 
-import { facebookChannelProfile, facebookChannelProfileValidationAdapter } from './profile'
+import {
+    facebookChannelProfile,
+    facebookImageChannelProfile,
+    facebookChannelProfileValidationAdapter,
+} from './profile'
 import { FACEBOOK_MAX_PHOTO_BYTES } from './publisher'
 
 function compiledProfile() {
@@ -36,7 +40,7 @@ test('the Facebook profile accepts text, link or one photo without inventing a t
     expect(facebookChannelProfile.capabilities.mediaFields[0]).toMatchObject({
         families: ['image'],
         mimeTypes: ['image/jpeg', 'image/png'],
-        maxItems: 1,
+        maxItems: 10,
         maxBytesPerItem: FACEBOOK_MAX_PHOTO_BYTES,
     })
     // No unsupported native maximum is advertised as a platform fact.
@@ -55,7 +59,10 @@ test('structural and native Facebook content errors remain field-addressable', (
         { link: 'https://example.com', media: [{ assetId: 'photo' }] },
         { text: 42, media: [] },
         { text: 'Hello', link: 42, media: [] },
-        { text: 'Hello', media: [{ assetId: 'one' }, { assetId: 'two' }] },
+        {
+            text: 'Hello',
+            media: Array.from({ length: 11 }, (_, index) => ({ assetId: `photo-${index}` })),
+        },
         { text: 'Hello', media: [{ assetId: '' }] },
         { text: 'Hello', media: [], title: 'Unexpected headline' },
     ])
@@ -107,4 +114,18 @@ test('native rules do not reinterpret manual or unsupported execution revisions'
                 { media: [] }
             )
         ).toEqual([])
+})
+
+test('multi-photo profiles preserve the historical single-photo schema', () => {
+    const current = compiledProfile()
+    const media = Array.from({ length: 10 }, (_, index) => ({ assetId: `photo-${index}` }))
+    expect(current.validate({ media }).ok).toBe(true)
+    const old = new ChannelProfileCompiler().compile(facebookImageChannelProfile)
+    if (!old.ok) throw new Error('Historical Facebook profile did not compile')
+    expect(old.value.validate({ media }).ok).toBe(false)
+    expect(facebookImageChannelProfile.execution).toEqual({
+        kind: 'built_in',
+        contractId: 'facebook',
+        revision: 'page-post-v1',
+    })
 })

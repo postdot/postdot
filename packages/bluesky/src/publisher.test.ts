@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'bun:test'
 
 import type { BlobRef } from '@atproto/api'
+import { ChannelProfileCompiler, applySourceContentToTarget } from '@postdot/core'
 
+import { blueskyChannelProfile, blueskyVideoChannelProfile } from './channel-profile'
+import { blueskyChannelProfileValidationAdapter } from './external'
 import type { BlueskyPublisherAgent } from './publisher'
 import { createBlueskyPublisher } from './publisher'
 
@@ -179,4 +182,98 @@ it('publishes a processed video with its description and inspected aspect ratio,
         ).type
     ).toBe('permanent_failure')
     expect(fixture.posts).toHaveLength(1)
+})
+
+it('publishes retained website metadata and a thumbnail while annotating UTF-8 links', async () => {
+    const item = createAgent()
+    const external = {
+        uri: 'https://example.com/article',
+        title: 'Article title',
+        description: 'Article description',
+    }
+    const bytes = new Uint8Array([1, 2, 3])
+    const publisher = createBlueskyPublisher({ agent: item.agent })
+    expect(
+        (
+            await publisher.publish({
+                text: '👋 https://example.com/article',
+                external,
+                media: [
+                    {
+                        contentType: 'image/png',
+                        size: 3,
+                        accessibilityText: 'Article cover',
+                        stream: stream(bytes),
+                    },
+                ],
+            })
+        ).type
+    ).toBe('published')
+    expect(item.posts[0]).toMatchObject({
+        embed: {
+            $type: 'app.bsky.embed.external',
+            external: { ...external, thumb: { mimeType: 'image/png' } },
+        },
+        facets: [
+            {
+                index: { byteStart: 5, byteEnd: 32 },
+                features: [{ $type: 'app.bsky.richtext.facet#link', uri: external.uri }],
+            },
+        ],
+    })
+    expect(item.uploads).toHaveLength(1)
+    for (const uri of ['javascript:alert(1)', 'https://user:secret@example.com'])
+        expect(
+            (await publisher.publish({ text: 'Link', media: [], external: { ...external, uri } }))
+                .type
+        ).toBe('permanent_failure')
+    expect(
+        (
+            await publisher.publish({
+                text: 'Link',
+                external,
+                media: [{ contentType: 'image/png', size: 1_000_001, accessibilityText: 'Cover' }],
+            })
+        ).type
+    ).toBe('permanent_failure')
+    expect(item.posts).toHaveLength(1)
+})
+
+it('validates card metadata in the new profile and preserves it across source edits', () => {
+    const external = {
+        uri: 'https://example.com/article',
+        title: 'Chosen title',
+        description: 'Chosen description',
+    }
+    const content = { text: 'Initial copy', media: [], external }
+    const compiler = new ChannelProfileCompiler({
+        validationAdapters: [blueskyChannelProfileValidationAdapter],
+    })
+    const current = compiler.compile(blueskyChannelProfile)
+    const historical = compiler.compile(blueskyVideoChannelProfile)
+    if (!current.ok || !historical.ok) throw new Error('Bluesky profiles did not compile')
+    expect(current.value.validate(content).ok).toBe(true)
+    expect(historical.value.validate(content).ok).toBe(false)
+    expect(
+        current.value.validate({
+            ...content,
+            external: { ...external, uri: 'https://user:secret@example.com' },
+        }).ok
+    ).toBe(false)
+    expect(
+        current.value.validate({
+            ...content,
+            media: [
+                { assetId: 'one', accessibilityText: 'One' },
+                { assetId: 'two', accessibilityText: 'Two' },
+            ],
+        }).ok
+    ).toBe(false)
+    expect(
+        applySourceContentToTarget(
+            { body: { format: 'plain_text', text: 'Updated copy' }, media: [] },
+            blueskyChannelProfile,
+            content
+        )
+    ).toEqual({ ...content, text: 'Updated copy' })
 })

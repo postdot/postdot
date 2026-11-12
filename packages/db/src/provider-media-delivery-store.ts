@@ -94,9 +94,27 @@ const deliveryColumns = `
     updated_at as updatedAt
 `
 
+type DeliveryStoreOptions = { readonly now?: () => number; readonly createId?: () => string }
+
 export function createProviderMediaDeliveryStore(
     database: DatabaseHandle,
-    options: { readonly now?: () => number; readonly createId?: () => string } = {}
+    options: DeliveryStoreOptions = {}
+) {
+    return createDeliveryStore(database, options, 'provider_media_deliveries')
+}
+
+/** A parent container is anchored to the first media of an immutable execution revision. */
+export function createProviderMediaGroupDeliveryStore(
+    database: DatabaseHandle,
+    options: DeliveryStoreOptions = {}
+) {
+    return createDeliveryStore(database, options, 'provider_media_group_deliveries')
+}
+
+function createDeliveryStore(
+    database: DatabaseHandle,
+    options: DeliveryStoreOptions,
+    table: 'provider_media_deliveries' | 'provider_media_group_deliveries'
 ) {
     const sql = database.sql
     const now = options.now ?? Date.now
@@ -107,7 +125,7 @@ export function createProviderMediaDeliveryStore(
         [projectId: string, deliveryId: string]
     >(`
         select ${deliveryColumns}
-        from provider_media_deliveries
+        from ${table}
         where project_id = ?1
           and id = ?2
     `)
@@ -116,13 +134,13 @@ export function createProviderMediaDeliveryStore(
         [projectId: string, executionMediaId: string]
     >(`
         select ${deliveryColumns}
-        from provider_media_deliveries
+        from ${table}
         where project_id = ?1
           and execution_media_id = ?2
         order by created_at, id
     `)
     const insertStatement = sql.statement<void, [string, string, string, string, string, number]>(`
-        insert into provider_media_deliveries (
+        insert into ${table} (
             id,
             project_id,
             execution_media_id,
@@ -136,7 +154,7 @@ export function createProviderMediaDeliveryStore(
         on conflict(project_id, execution_media_id, publisher_id, provider_id) do nothing
     `)
     const startStatement = sql.statement<{ changes: number }, [number, string, string]>(`
-        update provider_media_deliveries
+        update ${table}
         set state = 'uploading',
             attempts = attempts + 1,
             last_attempt_at = ?1,
@@ -153,7 +171,7 @@ export function createProviderMediaDeliveryStore(
         { changes: number },
         [number, string, string | null, number | null, string, string]
     >(`
-        update provider_media_deliveries
+        update ${table}
         set state = 'uploaded',
             remote_media_id = ?2,
             remote_media_url = ?3,
@@ -170,7 +188,7 @@ export function createProviderMediaDeliveryStore(
         { changes: number },
         [number, string, string, string]
     >(`
-        update provider_media_deliveries
+        update ${table}
         set remote_media_id = ?2,
             updated_at = ?1
         where project_id = ?3
@@ -182,7 +200,7 @@ export function createProviderMediaDeliveryStore(
         { changes: number },
         [number, string, string, string, string, string]
     >(`
-        update provider_media_deliveries
+        update ${table}
         set state = ?2,
             completed_at = ?1,
             remote_media_id = case when ?2 = 'ambiguous' then remote_media_id else null end,
@@ -196,7 +214,7 @@ export function createProviderMediaDeliveryStore(
           and state in ('uploading', 'ambiguous')
     `)
     const retryStatement = sql.statement<{ changes: number }, [number, string, string]>(`
-        update provider_media_deliveries
+        update ${table}
         set state = 'pending',
             completed_at = null,
             remote_media_expires_at = null,
@@ -227,7 +245,7 @@ export function createProviderMediaDeliveryStore(
                 const delivery = await sql
                     .statement<ProviderMediaDeliveryRow, [string, string, string, string]>(`
                     select ${deliveryColumns}
-                    from provider_media_deliveries
+                    from ${table}
                     where project_id = ?1
                       and execution_media_id = ?2
                       and publisher_id = ?3

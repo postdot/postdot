@@ -1,6 +1,10 @@
 import { openapi } from '@elysiajs/openapi'
 import type { PostdotAuth } from '@postdot/auth'
-import type { BlueskyFetcher, BlueskyThreadReader } from '@postdot/bluesky'
+import {
+    blueskyChannelProfileValidationAdapter,
+    type BlueskyFetcher,
+    type BlueskyThreadReader,
+} from '@postdot/bluesky'
 import { ChannelProfileCompiler } from '@postdot/core'
 import { createResourceLifecycleStore } from '@postdot/db'
 import type { NotificationEmailStore } from '@postdot/db'
@@ -177,6 +181,7 @@ function createDomainApp({
             manualStoreOptions?.profileCompiler ??
             new ChannelProfileCompiler({
                 validationAdapters: [
+                    blueskyChannelProfileValidationAdapter,
                     xChannelProfileValidationAdapter,
                     telegramChannelProfileValidationAdapter,
                     facebookChannelProfileValidationAdapter,

@@ -9,8 +9,6 @@
 
 - [/] **[PUB-627]** Complete GitHub profile, application releases and clean-install acceptance `Priority: 🟠` `Complexity: L`
 
-- [ ] **[PUB-631]** Deepen existing platform capabilities after UX-630 `Priority: 🟠` `Complexity: L`
-
 - [ ] **[PUB-632]** Add thread authoring after PUB-631 `Priority: 🔵` `Complexity: L`
 
 ## Current direction

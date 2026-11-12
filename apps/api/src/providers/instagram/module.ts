@@ -1,4 +1,8 @@
-import { instagramChannelProfile } from '@postdot/instagram'
+import {
+    instagramChannelProfile,
+    INSTAGRAM_EXECUTION_REVISION,
+    INSTAGRAM_IMAGE_EXECUTION_REVISION,
+} from '@postdot/instagram'
 
 import type { ProviderWorkerContext } from '../worker-context'
 import { instagramApplicationPolicy } from './application-policy'
@@ -13,10 +17,12 @@ export const instagramModule = {
 export const createInstagramAdapters = ({
     publisher,
     fetcher: mastodonFetcher,
-}: ProviderWorkerContext) => [
-    createInstagramProviderAdapter({
-        fetcher: mastodonFetcher,
-        resolveOAuth: async applicationId =>
-            (await publisher.resolveInstagramApplication(applicationId))?.oauth,
-    }),
-]
+}: ProviderWorkerContext) =>
+    ([INSTAGRAM_IMAGE_EXECUTION_REVISION, INSTAGRAM_EXECUTION_REVISION] as const).map(revision =>
+        createInstagramProviderAdapter({
+            revision,
+            fetcher: mastodonFetcher,
+            resolveOAuth: async applicationId =>
+                (await publisher.resolveInstagramApplication(applicationId))?.oauth,
+        })
+    )

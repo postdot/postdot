@@ -2622,5 +2622,9 @@
     "shortcut_calendar_nav": "Période précédente ou suivante",
     "shortcut_calendar_views": "Changer de vue Mois, Semaine, Jour, Liste",
     "shortcut_media_views": "Changer d’affichage Grille, Compact, Liste",
-    "shortcut_media_viewer": "Plein écran, zoom, naviguer dans les médias"
+    "shortcut_media_viewer": "Plein écran, zoom, naviguer dans les médias",
+    "bluesky_link_card": "Carte de lien",
+    "bluesky_link_card_url": "URL du lien",
+    "bluesky_link_card_description": "Description du lien",
+    "bluesky_link_card_help": "Le titre et la description sont enregistrés avec cette version. Ajoutez au plus une image (1 Mo) comme vignette ; la vidéo est indisponible avec une carte de lien."
 }

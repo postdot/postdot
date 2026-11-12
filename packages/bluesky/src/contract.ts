@@ -3,7 +3,8 @@ import type { ExternalEffectOutcome } from '@postdot/core'
 
 export const BLUESKY_PROVIDER = 'bluesky' as const
 export const BLUESKY_IMAGE_EXECUTION_CONTRACT_REVISION = 'post-v1'
-export const BLUESKY_EXECUTION_CONTRACT_REVISION = 'post-v2'
+export const BLUESKY_VIDEO_EXECUTION_CONTRACT_REVISION = 'post-v2'
+export const BLUESKY_EXECUTION_CONTRACT_REVISION = 'post-v3'
 export const BLUESKY_MAX_VIDEO_BYTES = 100_000_000
 export const BLUESKY_MAX_VIDEO_DURATION_MS = 600_000
 export const BLUESKY_VIDEO_SCOPES = [
@@ -68,6 +69,11 @@ export type BlueskyPublishOutcome =
       })
 
 export interface BlueskyPostContent {
+    readonly external?: {
+        readonly uri: string
+        readonly title: string
+        readonly description: string
+    }
     readonly text: string
     readonly video?: {
         readonly blob: BlobRef

@@ -1,3 +1,5 @@
+import { lazy } from 'react'
+
 import paths from '@/assets/platform-preview-icons/paths.json'
 import * as m from '@/paraglide/messages.js'
 
@@ -5,8 +7,38 @@ import type { ProviderDefinition } from '../contract'
 import { safeSameOrigin } from '../safe-link'
 import { application } from './application'
 
+const BlueskyLinkMediaPreview = lazy(() =>
+    import('./link-preview').then(module => ({ default: module.BlueskyLinkMediaPreview }))
+)
+
 export const blueskyProvider = {
     id: 'bluesky',
+    fields: [
+        {
+            kind: 'provider:bluesky:external',
+            path: '/external',
+            label: locale => m.bluesky_link_card({}, { locale }),
+            supports: (profile: unknown) => {
+                if (!profile || typeof profile !== 'object' || !('execution' in profile))
+                    return false
+                const execution = profile.execution as Record<string, unknown> | null
+                return (
+                    execution?.kind === 'built_in' &&
+                    execution.contractId === 'bluesky' &&
+                    execution.revision === 'post-v3'
+                )
+            },
+            loadControl: () =>
+                import('./link-control').then(module => ({ default: module.BlueskyLinkControl })),
+            summarize: value =>
+                value &&
+                typeof value === 'object' &&
+                'uri' in value &&
+                typeof value.uri === 'string'
+                    ? value.uri
+                    : '',
+        },
+    ],
     name: 'Bluesky',
     suggestedName: 'Bluesky',
     profileLabel: () => m.channel_bluesky_profile(),
@@ -50,6 +82,7 @@ export const blueskyProvider = {
         }),
     preview: {
         layout: 'social',
+        Media: BlueskyLinkMediaPreview,
         accountDriven: true,
         sampleIdentity: true,
         mosaic: 'spaced',

@@ -1,8 +1,14 @@
 import type { ExternalEffectOutcome } from '@postdot/core'
-import type { PublisherCredentialRefreshContext, PublisherExecutionMedia } from '@postdot/db'
+import type {
+    ProviderMediaDelivery,
+    PublisherCredentialRefreshContext,
+    PublisherExecutionMedia,
+} from '@postdot/db'
 import {
     createInstagramPublisher,
     INSTAGRAM_EXECUTION_REVISION,
+    INSTAGRAM_IMAGE_EXECUTION_REVISION,
+    INSTAGRAM_MAX_IMAGES,
     INSTAGRAM_MAX_ACCESSIBILITY_TEXT_LENGTH,
     INSTAGRAM_MAX_CAPTION_LENGTH,
     INSTAGRAM_MAX_IMAGE_BYTES,
@@ -24,6 +30,7 @@ import { verifyPinnedMediaContent } from '../../modules/workflow/providers/media
 import type {
     BuiltInProviderAdapter,
     BuiltInProviderExecutionInput,
+    ProviderMediaDeliveryPort,
 } from '../../modules/workflow/providers/registry'
 
 type InstagramOAuth = ReturnType<typeof createInstagramOAuth>
@@ -64,6 +71,9 @@ const containerPreparationResumeMs = 60_000
 const containerPreparationBudgetMs = 5 * 60_000
 
 export interface InstagramProviderAdapterOptions {
+    readonly revision?:
+        | typeof INSTAGRAM_EXECUTION_REVISION
+        | typeof INSTAGRAM_IMAGE_EXECUTION_REVISION
     readonly fetcher?: InstagramFetcher
     /** The transport used for container and publication requests. */
     readonly createPublisher?: (graphOrigin?: string) => InstagramPublisher
@@ -79,10 +89,11 @@ export function createInstagramProviderAdapter(
     return {
         providerId,
         contractId: providerId,
-        revision: INSTAGRAM_EXECUTION_REVISION,
+        revision: options.revision ?? INSTAGRAM_EXECUTION_REVISION,
         execute: input =>
             executeInstagramPublication({
                 input,
+                revision: options.revision ?? INSTAGRAM_EXECUTION_REVISION,
                 createPublisher:
                     options.createPublisher ??
                     ((graphOrigin?: string) =>
@@ -101,6 +112,7 @@ export function createInstagramProviderAdapter(
 }
 
 async function executeInstagramPublication(input: {
+    readonly revision: string
     readonly input: BuiltInProviderExecutionInput
     readonly createPublisher: (graphOrigin?: string) => InstagramPublisher
     readonly resolveOAuth?: (
@@ -117,20 +129,26 @@ async function executeInstagramPublication(input: {
     if (
         target.profile.execution.kind !== 'built_in' ||
         target.profile.execution.contractId !== providerId ||
-        target.profile.execution.revision !== INSTAGRAM_EXECUTION_REVISION
+        target.profile.execution.revision !== input.revision
     )
         return permanentFailure('The Instagram execution contract is unavailable')
 
     const content = readInstagramContent(target.content)
     if (content === null) return permanentFailure('The Instagram execution content is invalid')
 
-    if (target.media.length !== 1 || target.mediaReferenceCount !== 1)
-        return permanentFailure('The Instagram execution requires exactly one image')
-    const pinned = target.media[0]
-    if (pinned === undefined) return permanentFailure('The Instagram execution requires an image')
-    const media = readPinnedInstagramMedia(pinned, content.assetId)
-    if (media === null)
-        return permanentFailure('The pinned Instagram media is invalid or unavailable')
+    const maxImages =
+        input.revision === INSTAGRAM_IMAGE_EXECUTION_REVISION ? 1 : INSTAGRAM_MAX_IMAGES
+    if (
+        target.media.length < 1 ||
+        target.media.length > maxImages ||
+        target.mediaReferenceCount !== target.media.length ||
+        content.assetIds.length !== target.media.length
+    )
+        return permanentFailure('The Instagram execution image count is invalid')
+    for (const [index, pinned] of target.media.entries()) {
+        if (readPinnedInstagramMedia(pinned, content.assetIds[index]!) === null)
+            return permanentFailure('The pinned Instagram media is invalid or unavailable')
+    }
 
     if (target.credentialState !== 'active')
         return permanentFailure('The Instagram credential is unavailable')
@@ -200,15 +218,13 @@ async function executeInstagramPublication(input: {
     }
     if (!token.ok) return token.outcome
 
-    return publishInstagramImage({
+    return publishInstagramImages({
         execution,
         publisher: input.createPublisher(token.graphOrigin),
         accessToken: token.accessToken,
         markReconnectRequired: token.markReconnectRequired,
         accountId: destination.id,
-        pinned,
         caption: content.caption,
-        accessibilityText: media.accessibilityText,
     })
 }
 
@@ -344,20 +360,30 @@ async function resolveInstagramAccessToken(input: {
  * before any status read or final publication, so an interrupted run never
  * recreates a container and a lost write acknowledgement is never replayed.
  */
-async function publishInstagramImage(input: {
+type InstagramImageRun = {
     readonly markReconnectRequired: () => Promise<void>
     readonly execution: BuiltInProviderExecutionInput
     readonly publisher: InstagramPublisher
     readonly accessToken: string
     readonly accountId: string
-    readonly pinned: PublisherExecutionMedia
     readonly caption?: string
-    readonly accessibilityText?: string
-}): Promise<ExternalEffectOutcome> {
-    const execution = input.execution
-    const target = execution.target
-    const store = execution.providerMediaDeliveryStore
+}
 
+async function prepareContainer(
+    input: InstagramImageRun & {
+        readonly pinned: PublisherExecutionMedia
+        readonly store: ProviderMediaDeliveryPort
+        readonly create: () => Promise<
+            | { readonly ok: true; readonly containerId: string }
+            | { readonly ok: false; readonly outcome: InstagramFailureOutcome }
+        >
+    }
+): Promise<
+    | { readonly ok: true; readonly delivery: ProviderMediaDelivery }
+    | { readonly ok: false; readonly outcome: ExternalEffectOutcome }
+> {
+    const { execution, store } = input
+    const target = execution.target
     let delivery = await store.reserve({
         projectId: target.projectId,
         executionMediaId: input.pinned.id,
@@ -366,47 +392,52 @@ async function publishInstagramImage(input: {
         at: execution.now,
     })
     if (delivery.state === 'ambiguous')
-        return ambiguousFailure(
-            delivery.errorMessage ?? 'The Instagram media delivery requires reconciliation'
-        )
+        return {
+            ok: false,
+            outcome: ambiguousFailure(
+                delivery.errorMessage ?? 'The Instagram media delivery requires reconciliation'
+            ),
+        }
     if (delivery.state === 'failed') {
         const retried = await store.retry({
             projectId: delivery.projectId,
             deliveryId: delivery.id,
             at: execution.now,
         })
-        if (!retried) return permanentFailure('The Instagram media delivery disappeared')
+        if (!retried)
+            return {
+                ok: false,
+                outcome: permanentFailure('The Instagram media delivery disappeared'),
+            }
         delivery = retried
     }
-
     if (delivery.remoteMediaId === null) {
         if (delivery.state === 'uploading')
-            // The container write may have reached the provider without an
-            // acknowledged identity. It is never recreated.
-            return ambiguousFailure(
-                'The interrupted Instagram container preparation requires reconciliation'
-            )
+            return {
+                ok: false,
+                outcome: ambiguousFailure(
+                    'The interrupted Instagram container preparation requires reconciliation'
+                ),
+            }
         const started = await store.start({
             projectId: delivery.projectId,
             deliveryId: delivery.id,
             at: execution.now,
         })
-        if (!started || started.state !== 'uploading')
-            return ambiguousFailure('The Instagram media delivery could not be claimed')
+        if (started?.state !== 'uploading')
+            return {
+                ok: false,
+                outcome: ambiguousFailure('The Instagram media delivery could not be claimed'),
+            }
         delivery = started
-
-        const created = await createInstagramContainer({
-            execution,
-            publisher: input.publisher,
-            accessToken: input.accessToken,
-            accountId: input.accountId,
-            pinned: input.pinned,
-            ...(input.caption === undefined ? {} : { caption: input.caption }),
-            ...(input.accessibilityText === undefined
-                ? {}
-                : { accessibilityText: input.accessibilityText }),
-        })
+        const created = await input.create()
         if (!created.ok) {
+            if (
+                ['authentication_required', 'permission_denied'].includes(
+                    (created.outcome as { code?: string }).code ?? ''
+                )
+            )
+                await input.markReconnectRequired()
             const failed = await store.fail({
                 projectId: delivery.projectId,
                 deliveryId: delivery.id,
@@ -416,11 +447,16 @@ async function publishInstagramImage(input: {
                 ambiguous: created.outcome.type === 'ambiguous',
                 at: execution.now,
             })
-            return failed === null
-                ? ambiguousFailure('The Instagram media delivery state could not be persisted')
-                : created.outcome
+            return {
+                ok: false,
+                outcome:
+                    failed === null
+                        ? ambiguousFailure(
+                              'The Instagram media delivery state could not be persisted'
+                          )
+                        : created.outcome,
+            }
         }
-
         const checkpoint = await store.recordRemoteMediaId({
             projectId: delivery.projectId,
             deliveryId: delivery.id,
@@ -428,33 +464,39 @@ async function publishInstagramImage(input: {
             at: execution.now,
         })
         if (checkpoint?.remoteMediaId !== created.containerId)
-            return ambiguousFailure('The Instagram container identity could not be persisted')
+            return {
+                ok: false,
+                outcome: ambiguousFailure(
+                    'The Instagram container identity could not be persisted'
+                ),
+            }
+        delivery = checkpoint
+    }
+    if (delivery.state === 'uploading') {
         const completed = await store.complete({
             projectId: delivery.projectId,
             deliveryId: delivery.id,
-            remoteMediaId: created.containerId,
+            remoteMediaId: delivery.remoteMediaId!,
             at: execution.now,
         })
         if (completed?.state !== 'uploaded')
-            return ambiguousFailure('The Instagram media delivery could not be completed')
-        delivery = completed
-    } else if (delivery.state === 'uploading') {
-        // The container identity was acknowledged before the completion checkpoint.
-        const completed = await store.complete({
-            projectId: delivery.projectId,
-            deliveryId: delivery.id,
-            remoteMediaId: delivery.remoteMediaId,
-            at: execution.now,
-        })
-        if (completed?.state !== 'uploaded')
-            return ambiguousFailure('The Instagram media delivery could not be completed')
+            return {
+                ok: false,
+                outcome: ambiguousFailure('The Instagram media delivery could not be completed'),
+            }
         delivery = completed
     }
+    return { ok: true, delivery }
+}
 
+async function containerReadiness(
+    input: InstagramImageRun,
+    delivery: ProviderMediaDelivery
+): Promise<ExternalEffectOutcome | null> {
+    const execution = input.execution
     const containerId = delivery.remoteMediaId
     if (containerId === null)
         return ambiguousFailure('The Instagram media delivery has no container identity')
-
     // The preparation budget is checked before the status read, never after it.
     // The provider documents one status query per minute for no more than five
     // minutes, so the query that would land in the sixth minute is never sent.
@@ -497,6 +539,78 @@ async function publishInstagramImage(input: {
             'The Instagram container reports a published state without a media receipt; reconciliation is required'
         )
 
+    return null
+}
+
+async function publishInstagramImages(input: InstagramImageRun): Promise<ExternalEffectOutcome> {
+    const execution = input.execution
+    const pinned = execution.target.media[0]!
+    const carousel = execution.target.media.length > 1
+    const store = carousel
+        ? execution.providerMediaGroupDeliveryStore
+        : execution.providerMediaDeliveryStore
+    if (!store) return permanentFailure('The Instagram carousel checkpoint store is unavailable')
+    const children: string[] = []
+    if (carousel) {
+        const group = await store.reserve({
+            projectId: execution.target.projectId,
+            executionMediaId: pinned.id,
+            publisherId: execution.target.publisherId,
+            providerId,
+            at: execution.now,
+        })
+        if (group.remoteMediaId === null && !['uploading', 'ambiguous'].includes(group.state)) {
+            const preparedChildren: ProviderMediaDelivery[] = []
+            for (const item of execution.target.media) {
+                const child = await prepareContainer({
+                    ...input,
+                    pinned: item,
+                    store: execution.providerMediaDeliveryStore,
+                    create: () =>
+                        createInstagramContainer({
+                            ...input,
+                            pinned: item,
+                            caption: undefined,
+                            accessibilityText: item.accessibilityText ?? undefined,
+                            carouselItem: true,
+                        }),
+                })
+                if (!child.ok) return child.outcome
+                preparedChildren.push(child.delivery)
+                children.push(child.delivery.remoteMediaId!)
+            }
+            // A definitely rejected parent creation proves its children were already ready.
+            // Reuse those checkpoints even when the provider's retry delay exceeds five minutes.
+            for (const child of group.state === 'failed' ? [] : preparedChildren) {
+                const readiness = await containerReadiness(input, child)
+                if (readiness !== null) return readiness
+            }
+        }
+    }
+    const prepared = await prepareContainer({
+        ...input,
+        pinned,
+        store,
+        create: async () => {
+            if (!carousel)
+                return createInstagramContainer({
+                    ...input,
+                    pinned,
+                    accessibilityText: pinned.accessibilityText ?? undefined,
+                })
+            const created = await input.publisher.createCarousel({
+                accountId: input.accountId,
+                accessToken: input.accessToken,
+                children,
+                caption: input.caption,
+            })
+            return created.ok ? { ok: true, containerId: created.value.containerId } : created
+        },
+    })
+    if (!prepared.ok) return prepared.outcome
+    const readiness = await containerReadiness(input, prepared.delivery)
+    if (readiness !== null) return readiness
+    const containerId = prepared.delivery.remoteMediaId!
     const published = await input.publisher.publishContainer({
         accountId: input.accountId,
         accessToken: input.accessToken,
@@ -523,6 +637,7 @@ async function createInstagramContainer(input: {
     readonly pinned: PublisherExecutionMedia
     readonly caption?: string
     readonly accessibilityText?: string
+    readonly carouselItem?: boolean
 }): Promise<
     | { readonly ok: true; readonly containerId: string }
     | { readonly ok: false; readonly outcome: InstagramFailureOutcome }
@@ -584,6 +699,7 @@ async function createInstagramContainer(input: {
         accountId: input.accountId,
         accessToken: input.accessToken,
         imageUrl,
+        carouselItem: input.carouselItem,
         ...(input.caption === undefined ? {} : { caption: input.caption }),
         ...(input.accessibilityText === undefined
             ? {}
@@ -595,7 +711,7 @@ async function createInstagramContainer(input: {
 
 interface InstagramContent {
     readonly caption?: string
-    readonly assetId: string
+    readonly assetIds: readonly string[]
 }
 
 function readInstagramContent(content: Readonly<Record<string, unknown>>): InstagramContent | null {
@@ -605,15 +721,17 @@ function readInstagramContent(content: Readonly<Record<string, unknown>>): Insta
         if (codePointLength(caption) > INSTAGRAM_MAX_CAPTION_LENGTH) return null
     }
     const media = content.media
-    if (!Array.isArray(media) || media.length !== 1) return null
-    const reference = media[0]
-    if (typeof reference !== 'object' || reference === null || Array.isArray(reference)) return null
-    const assetId = (reference as { readonly assetId?: unknown }).assetId
-    if (typeof assetId !== 'string' || assetId.trim().length === 0) return null
-    return {
-        ...(caption === undefined ? {} : { caption }),
-        assetId: assetId.trim(),
+    if (!Array.isArray(media) || media.length < 1 || media.length > INSTAGRAM_MAX_IMAGES)
+        return null
+    const assetIds: string[] = []
+    for (const reference of media) {
+        if (typeof reference !== 'object' || reference === null || Array.isArray(reference))
+            return null
+        const assetId = (reference as { readonly assetId?: unknown }).assetId
+        if (typeof assetId !== 'string' || assetId.trim().length === 0) return null
+        assetIds.push(assetId.trim())
     }
+    return { ...(caption === undefined ? {} : { caption }), assetIds }
 }
 
 interface PinnedInstagramMedia {

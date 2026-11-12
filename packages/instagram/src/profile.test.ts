@@ -9,6 +9,7 @@ import {
 import {
     INSTAGRAM_EXECUTION_REVISION,
     instagramChannelProfile,
+    instagramImageChannelProfile,
     instagramChannelProfileValidationAdapter,
 } from './profile'
 import {
@@ -46,11 +47,11 @@ test('the Instagram profile accepts one image with an optional caption and acces
     })
 })
 
-test('the Instagram capability describes one JPEG and a conservative byte envelope', () => {
+test('the Instagram capability describes ordered JPEGs and a conservative byte envelope', () => {
     expect(instagramChannelProfile.capabilities.mediaFields[0]).toMatchObject({
         families: ['image'],
         mimeTypes: ['image/jpeg'],
-        maxItems: 1,
+        maxItems: 10,
         maxBytesPerItem: INSTAGRAM_MAX_IMAGE_BYTES,
         accessibilityTextRequired: false,
         publicUrlRequired: true,
@@ -87,7 +88,10 @@ test('structural Instagram content errors remain field-addressable', () => {
     for (const content of [
         { media: [] },
         { caption: 'Announcement' },
-        { caption: 'Announcement', media: [{ assetId: 'one' }, { assetId: 'two' }] },
+        {
+            caption: 'Announcement',
+            media: Array.from({ length: 11 }, (_, index) => ({ assetId: `image-${index}` })),
+        },
         { caption: 42, media: [{ assetId: 'one' }] },
         { caption: 'Announcement', media: [{ assetId: '' }] },
         { caption: 'Announcement', media: [{ assetId: 'one', unexpected: true }] },
@@ -100,7 +104,7 @@ test('structural Instagram content errors remain field-addressable', () => {
     expect(
         profile.validate({
             caption: 'Announcement',
-            media: [{ assetId: 'one' }, { assetId: 'two' }],
+            media: Array.from({ length: 11 }, (_, index) => ({ assetId: `image-${index}` })),
         }).issues
     ).toContainEqual(expect.objectContaining({ path: '/media', code: 'schema.maxItems' }))
 })
@@ -191,4 +195,25 @@ test('native rules do not reinterpret manual or unsupported execution revisions'
                 { media: [{ assetId: 'photo', accessibilityText: '   ' }] }
             )
         ).toEqual([])
+})
+
+test('carousel profiles accept ten ordered images while historical image profiles still accept only one', () => {
+    const profile = compiledProfile()
+    for (let count = 1; count <= 10; count++)
+        expect(
+            profile.validate({
+                media: Array.from({ length: count }, (_, index) => ({ assetId: `image-${index}` })),
+            }).ok
+        ).toBe(true)
+    const historical = new ChannelProfileCompiler().compile(instagramImageChannelProfile)
+    expect(historical.ok).toBe(true)
+    if (!historical.ok) throw new Error('Historical Instagram profile did not compile')
+    expect(historical.value.validate({ media: [{ assetId: 'one' }, { assetId: 'two' }] }).ok).toBe(
+        false
+    )
+    expect(instagramImageChannelProfile.execution).toEqual({
+        kind: 'built_in',
+        contractId: 'instagram',
+        revision: 'image-v1',
+    })
 })

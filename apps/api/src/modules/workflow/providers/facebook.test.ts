@@ -355,3 +355,64 @@ test('sends a photo-only publication with its frozen accessibility text', async 
         'A descriptive alternative'
     )
 })
+
+test('reuses acknowledged Facebook photos after a rejected later upload', async () => {
+    let calls = 0
+    const item = fixture(true, async () => {
+        calls++
+        if (calls === 2) return Response.json({ error: { code: 4 } }, { status: 429 })
+        return Response.json({ id: calls === 4 ? '123456_42' : calls === 1 ? '901' : '902' })
+    })
+    const first = item.input.target.media[0]!
+    const target = {
+        ...item.input.target,
+        mediaReferenceCount: 2,
+        media: [
+            first,
+            { ...first, id: 'second-execution-media', position: 1, contentPath: '/media/1' },
+        ],
+        content: {
+            text: 'Two photos',
+            media: [{ assetId: first.assetId }, { assetId: first.assetId }],
+        },
+    }
+    const states = new Map<string, ProviderMediaDelivery>()
+    const get = (id: string) => states.get(id)!
+    const save = (id: string, change: Partial<ProviderMediaDelivery>) => {
+        const next = { ...get(id), ...change }
+        states.set(id, next)
+        return next
+    }
+    const ledger: ProviderMediaDeliveryPort = {
+        reserve: async value => {
+            const id = value.executionMediaId
+            if (!states.has(id)) states.set(id, { ...item.state, id, executionMediaId: id })
+            return get(id)
+        },
+        start: async value =>
+            save(value.deliveryId, {
+                state: 'uploading',
+                attempts: get(value.deliveryId).attempts + 1,
+            }),
+        retry: async value => save(value.deliveryId, { state: 'pending' }),
+        recordRemoteMediaId: async value =>
+            save(value.deliveryId, { remoteMediaId: value.remoteMediaId }),
+        complete: async value =>
+            save(value.deliveryId, { state: 'uploaded', remoteMediaId: value.remoteMediaId }),
+        fail: async value =>
+            save(value.deliveryId, { state: value.ambiguous ? 'ambiguous' : 'failed' }),
+    }
+    const input = { ...item.input, target, providerMediaDeliveryStore: ledger }
+    expect((await item.adapter.execute(input)).type).toBe('retryable_failure')
+    expect(item.requests).toHaveLength(2)
+    expect(await item.adapter.execute(input)).toMatchObject({
+        type: 'published',
+        externalId: '123456_42',
+    })
+    expect(item.requests).toHaveLength(4)
+    expect(JSON.parse((item.requests[3]!.body as URLSearchParams).get('attached_media')!)).toEqual([
+        { media_fbid: '901' },
+        { media_fbid: '902' },
+    ])
+    expect(get(first.id).attempts).toBe(1)
+})

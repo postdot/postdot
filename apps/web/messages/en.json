@@ -2622,5 +2622,9 @@
     "shortcut_calendar_nav": "Previous or next period",
     "shortcut_calendar_views": "Switch Month, Week, Day, Agenda view",
     "shortcut_media_views": "Switch Grid, Compact, List view",
-    "shortcut_media_viewer": "Fullscreen, zoom, navigate media"
+    "shortcut_media_viewer": "Fullscreen, zoom, navigate media",
+    "bluesky_link_card": "Link card",
+    "bluesky_link_card_url": "Link URL",
+    "bluesky_link_card_description": "Description",
+    "bluesky_link_card_help": "The title and description are saved with this version. Add at most one image (1 MB) as the thumbnail; video is unavailable with a link card."
 }

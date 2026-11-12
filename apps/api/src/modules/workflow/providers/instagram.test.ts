@@ -8,6 +8,7 @@ import {
     createManualStore,
     createMediaAssetStore,
     createProviderMediaDeliveryStore,
+    createProviderMediaGroupDeliveryStore,
     createPublisherCredentialStore,
     createPublisherCredentialCipher,
     createWorkflowStore,
@@ -84,6 +85,7 @@ async function decodableJpeg(width: number, height: number): Promise<Uint8Array>
 type Replies = (request: { url: URL; init: RequestInit | undefined }) => Response
 
 interface FixtureOptions {
+    readonly imageCount?: number
     readonly realCredentials?: boolean
     readonly replies?: Replies
     readonly scopes?: readonly string[]
@@ -190,7 +192,9 @@ async function fixture(options: FixtureOptions = {}): Promise<Fixture> {
             subjectId: 'subject-1',
             sourceContent: {
                 body: { text: 'A clear announcement', format: 'plain_text' },
-                media: [{ assetId: reservation.asset.id }],
+                media: Array.from({ length: options.imageCount ?? 1 }, () => ({
+                    assetId: reservation.asset.id,
+                })),
             },
             publications: [
                 {
@@ -243,7 +247,7 @@ async function fixture(options: FixtureOptions = {}): Promise<Fixture> {
                 .all()
         ).find(row => row.id === executionRow.assetId)
         if (asset === undefined) throw new Error('Media asset was not created')
-        const pinned: PublisherExecutionMedia = {
+        const pinnedMedia: PublisherExecutionMedia[] = executionMedia.map(executionRow => ({
             id: executionRow.id,
             projectId: executionRow.projectId,
             executionRevisionId: executionRow.executionRevisionId,
@@ -264,7 +268,8 @@ async function fixture(options: FixtureOptions = {}): Promise<Fixture> {
             durationMs: representation.durationMs,
             storeId: representation.storeId,
             objectKey: representation.objectKey,
-        }
+        }))
+        const pinned = pinnedMedia[0]!
         expect(pinned.contentType).toBe('image/jpeg')
         expect(pinned.width).toBe(120)
         expect(pinned.height).toBe(90)
@@ -285,11 +290,13 @@ async function fixture(options: FixtureOptions = {}): Promise<Fixture> {
             scheduledAt: now,
             executionRevisionId: pinned.executionRevisionId,
             profileVersionId: channel.profileVersionId,
-            mediaReferenceCount: 1,
+            mediaReferenceCount: pinnedMedia.length,
             profile: instagramChannelProfile,
             content: {
                 caption: 'A clear announcement',
-                media: [{ assetId: reservation.asset.id }],
+                media: Array.from({ length: options.imageCount ?? 1 }, () => ({
+                    assetId: reservation.asset.id,
+                })),
             },
             publisherId: 'publisher-instagram',
             channelId: channel.id,
@@ -308,7 +315,7 @@ async function fixture(options: FixtureOptions = {}): Promise<Fixture> {
             endpointUrl: null,
             authentication: null,
             attempt: 1,
-            media: [pinned],
+            media: pinnedMedia,
         }
 
         const contentStore = media
@@ -431,6 +438,9 @@ async function fixture(options: FixtureOptions = {}): Promise<Fixture> {
                 resolveMediaUrl: async () =>
                     options.mediaUrl === undefined ? signedImageUrl : options.mediaUrl,
                 providerMediaDeliveryStore: deliveries,
+                providerMediaGroupDeliveryStore: createProviderMediaGroupDeliveryStore(database, {
+                    now: () => now,
+                }),
             })
 
         return {
@@ -1132,3 +1142,96 @@ for (const expiresAt of [null, now + 60_000]) {
         }
     })
 }
+
+test('resumes an ordered Instagram carousel without recreating children or its parent', async () => {
+    let sequence = 0
+    let parentPending = true
+    const item = await fixture({
+        imageCount: 2,
+        replies: ({ url, init }) => {
+            if (init?.method === 'GET')
+                return Response.json({
+                    status_code:
+                        url.pathname.endsWith('17900000000000003') && parentPending
+                            ? 'IN_PROGRESS'
+                            : 'FINISHED',
+                })
+            if (url.pathname.endsWith('/media_publish')) return Response.json({ id: mediaId })
+            return Response.json({ id: String(17900000000000000n + BigInt(++sequence)) })
+        },
+    })
+    try {
+        expect((await item.execute()).type).toBe('deferred')
+        const creations = item.requests.filter(request => request.url.pathname.endsWith('/media'))
+        expect(creations).toHaveLength(3)
+        expect(body(creations[0]!).get('is_carousel_item')).toBe('true')
+        expect(body(creations[1]!).get('is_carousel_item')).toBe('true')
+        expect(body(creations[2]!).get('children')).toBe('17900000000000001,17900000000000002')
+        expect(body(creations[2]!).get('caption')).toBe('A clear announcement')
+        parentPending = false
+        expect(await item.execute({ now: now + 60_000 })).toMatchObject({
+            type: 'published',
+            externalId: mediaId,
+        })
+        expect(
+            item.requests.filter(request => request.url.pathname.endsWith('/media'))
+        ).toHaveLength(3)
+        const published = item.requests.filter(request =>
+            request.url.pathname.endsWith('/media_publish')
+        )
+        expect(published).toHaveLength(1)
+        expect(body(published[0]!).get('creation_id')).toBe('17900000000000003')
+    } finally {
+        await item.cleanup()
+    }
+})
+
+for (const lostCreation of [2, 3])
+    test(`never recreates an Instagram carousel after lost creation ${lostCreation}`, async () => {
+        let creations = 0
+        const item = await fixture({
+            imageCount: 2,
+            replies: ({ url, init }) => {
+                if (init?.method === 'GET') return Response.json({ status_code: 'FINISHED' })
+                if (url.pathname.endsWith('/media_publish'))
+                    throw new Error('Unexpected publication')
+                creations++
+                if (creations === lostCreation) throw new Error('Lost write acknowledgement')
+                return Response.json({ id: String(17900000000000000n + BigInt(creations)) })
+            },
+        })
+        try {
+            expect((await item.execute()).type).toBe('ambiguous')
+            expect((await item.execute()).type).toBe('ambiguous')
+            expect(creations).toBe(lostCreation)
+            expect(
+                item.requests.some(request => request.url.pathname.endsWith('/media_publish'))
+            ).toBe(false)
+        } finally {
+            await item.cleanup()
+        }
+    })
+
+test('reuses finished carousel children after a long parent-creation rate limit', async () => {
+    let creations = 0
+    const item = await fixture({
+        imageCount: 2,
+        replies: ({ url, init }) => {
+            if (init?.method === 'GET') return Response.json({ status_code: 'FINISHED' })
+            if (url.pathname.endsWith('/media_publish')) return Response.json({ id: mediaId })
+            creations++
+            if (creations === 3) return Response.json({ error: { code: 4 } }, { status: 429 })
+            return Response.json({ id: String(17900000000000000n + BigInt(creations)) })
+        },
+    })
+    try {
+        expect((await item.execute()).type).toBe('retryable_failure')
+        expect(await item.execute({ now: now + 600_000 })).toMatchObject({
+            type: 'published',
+            externalId: mediaId,
+        })
+        expect(creations).toBe(4)
+    } finally {
+        await item.cleanup()
+    }
+})

@@ -2622,5 +2622,9 @@
     "shortcut_calendar_nav": "Período anterior o siguiente",
     "shortcut_calendar_views": "Cambiar vista Mes, Semana, Día, Agenda",
     "shortcut_media_views": "Cambiar vista Cuadrícula, Compacta, Lista",
-    "shortcut_media_viewer": "Pantalla completa, zoom, navegar medios"
+    "shortcut_media_viewer": "Pantalla completa, zoom, navegar medios",
+    "bluesky_link_card": "Tarjeta de enlace",
+    "bluesky_link_card_url": "URL del enlace",
+    "bluesky_link_card_description": "Descripción",
+    "bluesky_link_card_help": "El título y la descripción se guardan con esta versión. Añade como máximo una imagen (1 MB) como miniatura; el vídeo no está disponible con una tarjeta de enlace."
 }

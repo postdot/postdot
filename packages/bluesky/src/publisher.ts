@@ -1,4 +1,4 @@
-import { type Agent, type AppBskyEmbedImages } from '@atproto/api'
+import { RichText, type Agent, type AppBskyEmbedImages } from '@atproto/api'
 
 import {
     BLUESKY_MAX_ALT_TEXT_LENGTH,
@@ -11,6 +11,7 @@ import {
     type BlueskyMediaUploadedHandler,
     type BlueskyPublishOutcome,
 } from './contract'
+import { BLUESKY_MAX_THUMBNAIL_BYTES, readBlueskyExternal } from './external'
 
 export type BlueskyPublisherAgent = Pick<Agent, 'did' | 'post' | 'uploadBlob'>
 
@@ -19,6 +20,7 @@ export interface BlueskyPublisher {
 }
 
 export function createBlueskyPublisher(options: {
+    readonly annotateText?: boolean
     readonly agent: BlueskyPublisherAgent
     readonly onMediaUploaded?: BlueskyMediaUploadedHandler
 }): BlueskyPublisher {
@@ -27,6 +29,8 @@ export function createBlueskyPublisher(options: {
             const validationError = validateInput(input)
             if (validationError !== null) return validationError
 
+            const external =
+                input.external === undefined ? undefined : readBlueskyExternal(input.external)!
             try {
                 const images: AppBskyEmbedImages.Image[] = []
 
@@ -54,29 +58,47 @@ export function createBlueskyPublisher(options: {
                     images.push({ image: blob, alt: media.accessibilityText })
                 }
 
+                const richText = new RichText({ text: input.text })
+                if (options.annotateText !== false) richText.detectFacetsWithoutResolution()
+                const facets = richText.facets?.filter(facet =>
+                    facet.features.every(
+                        feature => feature.$type !== 'app.bsky.richtext.facet#mention'
+                    )
+                )
                 const record: Parameters<Agent['post']>[0] = {
                     text: input.text,
+                    ...(facets?.length ? { facets } : {}),
                     createdAt: new Date().toISOString(),
-                    ...(input.video !== undefined
+                    ...(external !== undefined
                         ? {
                               embed: {
-                                  $type: 'app.bsky.embed.video' as const,
-                                  video: input.video.blob,
-                                  alt: input.video.accessibilityText,
-                                  aspectRatio: {
-                                      width: input.video.width,
-                                      height: input.video.height,
+                                  $type: 'app.bsky.embed.external' as const,
+                                  external: {
+                                      ...external,
+                                      ...(images[0] ? { thumb: images[0].image } : {}),
                                   },
                               },
                           }
-                        : images.length === 0
-                          ? {}
-                          : {
+                        : input.video !== undefined
+                          ? {
                                 embed: {
-                                    $type: 'app.bsky.embed.images' as const,
-                                    images,
+                                    $type: 'app.bsky.embed.video' as const,
+                                    video: input.video.blob,
+                                    alt: input.video.accessibilityText,
+                                    aspectRatio: {
+                                        width: input.video.width,
+                                        height: input.video.height,
+                                    },
                                 },
-                            }),
+                            }
+                          : images.length === 0
+                            ? {}
+                            : {
+                                  embed: {
+                                      $type: 'app.bsky.embed.images' as const,
+                                      images,
+                                  },
+                              }),
                 }
                 const posted = await options.agent.post(record)
                 const externalUrl = createBlueskyPostUrl(options.agent.did, posted.uri)
@@ -93,6 +115,21 @@ export function createBlueskyPublisher(options: {
 }
 
 function validateInput(input: BlueskyPostContent): BlueskyPublishOutcome | null {
+    if (
+        input.external !== undefined &&
+        (!readBlueskyExternal(input.external) ||
+            input.video !== undefined ||
+            input.media.length > 1 ||
+            input.media.some(
+                media =>
+                    media.size > BLUESKY_MAX_THUMBNAIL_BYTES ||
+                    (media.remoteBlob !== undefined &&
+                        media.remoteBlob.size > BLUESKY_MAX_THUMBNAIL_BYTES)
+            ))
+    )
+        return permanentFailure(
+            'Bluesky link cards require valid metadata and at most one image thumbnail of 1 MB, without video'
+        )
     if (input.text.trim().length === 0) {
         return permanentFailure('Bluesky post text must not be blank')
     }

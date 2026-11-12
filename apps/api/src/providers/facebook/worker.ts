@@ -4,6 +4,8 @@ import type { ExternalEffectOutcome } from '@postdot/core'
 import {
     createFacebookPublisher,
     FACEBOOK_EXECUTION_REVISION,
+    FACEBOOK_IMAGE_EXECUTION_REVISION,
+    FACEBOOK_MAX_PHOTOS,
     facebookChannelProfileValidationAdapter,
     FACEBOOK_MAX_PHOTO_BYTES,
     type FacebookPhoto,
@@ -22,15 +24,21 @@ import type {
 } from '../../modules/workflow/providers/registry'
 
 export function createFacebookProviderAdapter(
-    options: { readonly createPublisher?: () => ReturnType<typeof createFacebookPublisher> } = {}
+    options: {
+        readonly revision?:
+            | typeof FACEBOOK_EXECUTION_REVISION
+            | typeof FACEBOOK_IMAGE_EXECUTION_REVISION
+        readonly createPublisher?: () => ReturnType<typeof createFacebookPublisher>
+    } = {}
 ): BuiltInProviderAdapter {
     return {
         providerId: 'facebook',
         contractId: 'facebook',
-        revision: FACEBOOK_EXECUTION_REVISION,
+        revision: options.revision ?? FACEBOOK_EXECUTION_REVISION,
         execute: input =>
             execute(
                 input,
+                options.revision ?? FACEBOOK_EXECUTION_REVISION,
                 options.createPublisher ??
                     (() =>
                         createFacebookPublisher({
@@ -42,6 +50,7 @@ export function createFacebookProviderAdapter(
 
 async function execute(
     input: BuiltInProviderExecutionInput,
+    revision: string,
     createPublisher: () => ReturnType<typeof createFacebookPublisher>
 ): Promise<ExternalEffectOutcome> {
     const { target } = input
@@ -57,9 +66,10 @@ async function execute(
         (target.content.link !== undefined && typeof target.content.link !== 'string') ||
         target.profile.execution.kind !== 'built_in' ||
         target.profile.execution.contractId !== 'facebook' ||
-        target.profile.execution.revision !== FACEBOOK_EXECUTION_REVISION ||
+        target.profile.execution.revision !== revision ||
         !Array.isArray(target.content.media) ||
-        target.media.length > 1 ||
+        target.media.length >
+            (revision === FACEBOOK_IMAGE_EXECUTION_REVISION ? 1 : FACEBOOK_MAX_PHOTOS) ||
         target.mediaReferenceCount !== target.media.length ||
         target.content.media.length !== target.media.length ||
         facebookChannelProfileValidationAdapter.validate(target.profile, target.content).length > 0
@@ -70,6 +80,8 @@ async function execute(
         target.credentialId
     )
     if (!secrets) return permanentFailure('The Facebook credential is unavailable')
+    if (target.media.length > 1)
+        return publishPhotos(input, createPublisher(), secrets.accessToken, destination.id)
     let photoInput: FacebookPhoto | undefined
     let deliveryId: string | undefined
     const pinned = target.media[0]
@@ -206,4 +218,135 @@ async function failDelivery(
             : 'The Facebook media delivery did not complete',
         at: input.now,
     })
+}
+
+async function publishPhotos(
+    input: BuiltInProviderExecutionInput,
+    publisher: ReturnType<typeof createFacebookPublisher>,
+    pageToken: string,
+    pageId: string
+): Promise<ExternalEffectOutcome> {
+    const { target, providerMediaDeliveryStore: store } = input
+    if (!input.media) return permanentFailure('The Facebook media service is unavailable')
+    for (const [index, pinned] of target.media.entries()) {
+        const reference = (target.content.media as unknown[])[index]
+        if (
+            !reference ||
+            typeof reference !== 'object' ||
+            !('assetId' in reference) ||
+            reference.assetId !== pinned.assetId ||
+            pinned.family !== 'image' ||
+            !['image/png', 'image/jpeg'].includes(pinned.contentType) ||
+            pinned.byteSize <= 0 ||
+            pinned.byteSize > FACEBOOK_MAX_PHOTO_BYTES ||
+            !pinned.width ||
+            !pinned.height
+        )
+            return permanentFailure('The pinned Facebook media is invalid or unavailable')
+    }
+    const photoIds: string[] = []
+    for (const pinned of target.media) {
+        let delivery = await store.reserve({
+            projectId: target.projectId,
+            executionMediaId: pinned.id,
+            publisherId: target.publisherId,
+            providerId: 'facebook',
+            at: input.now,
+        })
+        if (
+            delivery.state === 'ambiguous' ||
+            (delivery.state === 'uploading' && delivery.remoteMediaId === null)
+        )
+            return ambiguousFailure(
+                'The Facebook photo upload requires reconciliation before retrying'
+            )
+        if (delivery.state === 'failed') {
+            const retried = await store.retry({
+                projectId: target.projectId,
+                deliveryId: delivery.id,
+                at: input.now,
+            })
+            if (!retried) return permanentFailure('The Facebook media delivery cannot be retried')
+            delivery = retried
+        }
+        if (delivery.remoteMediaId === null) {
+            let blob: Blob
+            try {
+                const opened = await openVerifiedPinnedMedia(input.media, target.projectId, pinned)
+                if (!opened)
+                    return permanentFailure('The pinned Facebook media changed or is unavailable')
+                blob = new Blob([await new Response(opened.stream).arrayBuffer()], {
+                    type: pinned.contentType,
+                })
+                const digest = createHash('sha256')
+                    .update(new Uint8Array(await blob.arrayBuffer()))
+                    .digest('hex')
+                if (blob.size !== pinned.byteSize || digest !== pinned.sha256)
+                    return permanentFailure('The pinned Facebook media changed while reading')
+            } catch {
+                return retryableFailure(
+                    'The pinned Facebook media could not be read; retry is safe'
+                )
+            }
+            const started = await store.start({
+                projectId: target.projectId,
+                deliveryId: delivery.id,
+                at: input.now,
+            })
+            if (started?.state !== 'uploading')
+                return ambiguousFailure('The Facebook media delivery could not be claimed')
+            const uploaded = await publisher.uploadPhoto({
+                pageToken,
+                pageId,
+                photo: { blob, accessibilityText: pinned.accessibilityText ?? undefined },
+            })
+            if (!uploaded.ok) {
+                await failDelivery(
+                    input,
+                    delivery.id,
+                    uploaded.outcome.type === 'ambiguous',
+                    uploaded.outcome.code
+                )
+                if (uploaded.outcome.code === 'authentication_required')
+                    await input.credentials.markPublisherCredentialReconnectRequired(
+                        target.projectId,
+                        target.credentialId
+                    )
+                return uploaded.outcome
+            }
+            const checkpoint = await store.recordRemoteMediaId({
+                projectId: target.projectId,
+                deliveryId: delivery.id,
+                remoteMediaId: uploaded.value.mediaId,
+                at: input.now,
+            })
+            if (checkpoint?.remoteMediaId !== uploaded.value.mediaId)
+                return ambiguousFailure('The Facebook photo identity could not be persisted')
+            delivery = checkpoint
+        }
+        if (delivery.state === 'uploading') {
+            const completed = await store.complete({
+                projectId: target.projectId,
+                deliveryId: delivery.id,
+                remoteMediaId: delivery.remoteMediaId!,
+                at: input.now,
+            })
+            if (completed?.state !== 'uploaded')
+                return ambiguousFailure('The Facebook media delivery could not be completed')
+            delivery = completed
+        }
+        photoIds.push(delivery.remoteMediaId!)
+    }
+    const outcome = await publisher.send({
+        pageToken,
+        pageId,
+        text: typeof target.content.text === 'string' ? target.content.text : '',
+        photoIds,
+    })
+    if (outcome.type !== 'published' && outcome.code === 'authentication_required')
+        await input.credentials.markPublisherCredentialReconnectRequired(
+            target.projectId,
+            target.credentialId
+        )
+    return outcome
 }

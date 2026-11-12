@@ -69,6 +69,7 @@ export interface BuiltInProviderExecutionInput {
         media: PublisherExecutionTarget['media'][number],
         context: { readonly projectId: string }
     ) => string | null | Promise<string | null>
+    readonly providerMediaGroupDeliveryStore?: ProviderMediaDeliveryPort
     readonly providerMediaDeliveryStore: ProviderMediaDeliveryPort
 }
 

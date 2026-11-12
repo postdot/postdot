@@ -1,12 +1,14 @@
-import type { ComponentType } from 'react'
+import type { ComponentType, ReactNode } from 'react'
 
 import type { api } from '@/lib/api'
 import type {
     ChannelListItem,
+    MediaReference,
     ProviderApplication,
     ProviderApplicationProvider,
     PublisherConnection,
 } from '@/lib/api'
+import type { MediaSelection } from '@/lib/target-media'
 import type { Locale } from '@/paraglide/runtime.js'
 
 import type { ProviderApplicationDefinition } from './application-contract'
@@ -44,6 +46,12 @@ export interface ProviderDefinition {
         readonly layout: 'professional' | 'article' | 'message' | 'social'
         readonly accountDriven: boolean
         readonly sampleIdentity: boolean
+        readonly Media?: ComponentType<{
+            readonly target?: Readonly<Record<string, unknown>>
+            readonly renderFallback: () => ReactNode
+            readonly media: readonly MediaReference[]
+            readonly mediaSelections?: readonly MediaSelection[]
+        }>
         readonly mosaic?: 'tight' | 'spaced'
         readonly handle?: string
         readonly Footer?: ComponentType

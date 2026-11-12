@@ -2,6 +2,7 @@ import type { ChannelProfileDefinition } from '@postdot/core'
 
 import {
     BLUESKY_EXECUTION_CONTRACT_REVISION,
+    BLUESKY_VIDEO_EXECUTION_CONTRACT_REVISION,
     BLUESKY_IMAGE_EXECUTION_CONTRACT_REVISION,
     BLUESKY_MAX_VIDEO_BYTES,
     BLUESKY_MAX_VIDEO_DURATION_MS,
@@ -82,7 +83,7 @@ export const blueskyImageChannelProfile: ChannelProfileDefinition = {
     },
 }
 
-export const blueskyChannelProfile: ChannelProfileDefinition = {
+export const blueskyVideoChannelProfile: ChannelProfileDefinition = {
     ...blueskyImageChannelProfile,
     version: 2,
     profileHash: 'sha256:postdot-bluesky-post-v2',
@@ -113,6 +114,39 @@ export const blueskyChannelProfile: ChannelProfileDefinition = {
     execution: {
         kind: 'built_in',
         contractId: BLUESKY_PROVIDER,
+        revision: BLUESKY_VIDEO_EXECUTION_CONTRACT_REVISION,
+    },
+}
+
+const imageSchema = blueskyVideoChannelProfile.contentSchema as Readonly<
+    Record<string, unknown>
+> & { readonly properties: Readonly<Record<string, unknown>> }
+export const blueskyChannelProfile: ChannelProfileDefinition = {
+    ...blueskyVideoChannelProfile,
+    version: 3,
+    profileHash: 'sha256:postdot-bluesky-post-v3',
+    schemaHash: 'sha256:postdot-bluesky-post-schema-v3',
+    contentSchema: {
+        ...blueskyVideoChannelProfile.contentSchema,
+        properties: {
+            ...imageSchema.properties,
+            external: {
+                type: 'object',
+                title: 'Link card',
+                additionalProperties: false,
+                properties: {
+                    uri: { type: 'string', maxLength: 2048, pattern: '^https?://' },
+                    title: { type: 'string', minLength: 1, maxLength: 3000 },
+                    description: { type: 'string', maxLength: 10000 },
+                },
+                required: ['uri', 'title', 'description'],
+            },
+        },
+    },
+    capabilities: { ...blueskyVideoChannelProfile.capabilities, revision: 'bluesky-post-v3' },
+    execution: {
+        kind: 'built_in',
+        contractId: 'bluesky',
         revision: BLUESKY_EXECUTION_CONTRACT_REVISION,
     },
 }

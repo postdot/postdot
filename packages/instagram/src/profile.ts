@@ -6,11 +6,12 @@ import {
     INSTAGRAM_MAX_IMAGE_BYTES,
 } from './publisher'
 
-export const INSTAGRAM_EXECUTION_REVISION = 'image-v1'
-export const INSTAGRAM_CAPABILITIES_REVISION = 'instagram-image-v1'
+export const INSTAGRAM_IMAGE_EXECUTION_REVISION = 'image-v1'
+export const INSTAGRAM_EXECUTION_REVISION = 'carousel-v2'
+export const INSTAGRAM_CAPABILITIES_REVISION = 'instagram-carousel-v2'
 
 /** One JPEG with an optional caption and optional accessibility text. */
-export const instagramChannelProfile: ChannelProfileDefinition = {
+export const instagramImageChannelProfile: ChannelProfileDefinition = {
     id: 'instagram',
     version: 1,
     profileHash: 'sha256:postdot-instagram-image-v1',
@@ -52,7 +53,7 @@ export const instagramChannelProfile: ChannelProfileDefinition = {
         },
     ],
     capabilities: {
-        revision: INSTAGRAM_CAPABILITIES_REVISION,
+        revision: 'instagram-image-v1',
         textFields: [
             {
                 bindingId: 'caption',
@@ -78,6 +79,41 @@ export const instagramChannelProfile: ChannelProfileDefinition = {
     execution: {
         kind: 'built_in',
         contractId: 'instagram',
+        revision: INSTAGRAM_IMAGE_EXECUTION_REVISION,
+    },
+}
+
+const imageSchema = instagramImageChannelProfile.contentSchema as Readonly<
+    Record<string, unknown>
+> & { readonly properties: Readonly<Record<string, Readonly<Record<string, unknown>>>> }
+
+/** Ordered JPEG carousels use one caption and the same image envelope. */
+export const instagramChannelProfile: ChannelProfileDefinition = {
+    ...instagramImageChannelProfile,
+    version: 2,
+    profileHash: 'sha256:postdot-instagram-carousel-v2',
+    schemaHash: 'sha256:postdot-instagram-carousel-schema-v2',
+    contentSchema: {
+        ...instagramImageChannelProfile.contentSchema,
+        properties: {
+            ...imageSchema.properties,
+            media: {
+                ...imageSchema.properties.media,
+                maxItems: 10,
+            },
+        },
+    },
+    capabilities: {
+        ...instagramImageChannelProfile.capabilities,
+        revision: INSTAGRAM_CAPABILITIES_REVISION,
+        mediaFields: instagramImageChannelProfile.capabilities.mediaFields.map(field => ({
+            ...field,
+            maxItems: 10,
+        })),
+    },
+    execution: {
+        kind: 'built_in',
+        contractId: 'instagram',
         revision: INSTAGRAM_EXECUTION_REVISION,
     },
 }
@@ -88,7 +124,9 @@ export const instagramChannelProfileValidationAdapter: ChannelProfileValidationA
         if (
             profile.execution.kind !== 'built_in' ||
             profile.execution.contractId !== 'instagram' ||
-            profile.execution.revision !== INSTAGRAM_EXECUTION_REVISION
+            ![INSTAGRAM_EXECUTION_REVISION, INSTAGRAM_IMAGE_EXECUTION_REVISION].includes(
+                profile.execution.revision
+            )
         )
             return []
         // Structural errors belong to the schema validator.

@@ -1,11 +1,12 @@
 import type { ChannelProfileDefinition, ChannelProfileValidationAdapter } from '@postdot/core'
 
-import { FACEBOOK_MAX_PHOTO_BYTES, isFacebookLink } from './publisher'
+import { FACEBOOK_MAX_PHOTOS, FACEBOOK_MAX_PHOTO_BYTES, isFacebookLink } from './publisher'
 
-export const FACEBOOK_EXECUTION_REVISION = 'page-post-v1'
+export const FACEBOOK_IMAGE_EXECUTION_REVISION = 'page-post-v1'
+export const FACEBOOK_EXECUTION_REVISION = 'page-post-v2'
 
 /** Native Page text, link or a single inspected photo. */
-export const facebookChannelProfile: ChannelProfileDefinition = {
+export const facebookImageChannelProfile: ChannelProfileDefinition = {
     id: 'facebook',
     version: 1,
     profileHash: 'sha256:postdot-facebook-page-post-v1',
@@ -58,6 +59,38 @@ export const facebookChannelProfile: ChannelProfileDefinition = {
         ],
         relations: [],
     },
+    execution: {
+        kind: 'built_in',
+        contractId: 'facebook',
+        revision: FACEBOOK_IMAGE_EXECUTION_REVISION,
+    },
+}
+
+const imageSchema = facebookImageChannelProfile.contentSchema as Readonly<
+    Record<string, unknown>
+> & { readonly properties: Readonly<Record<string, Readonly<Record<string, unknown>>>> }
+
+/** Ten photos is an application envelope, not a claim about the provider maximum. */
+export const facebookChannelProfile: ChannelProfileDefinition = {
+    ...facebookImageChannelProfile,
+    version: 2,
+    profileHash: 'sha256:postdot-facebook-page-post-v2',
+    schemaHash: 'sha256:postdot-facebook-page-post-schema-v2',
+    contentSchema: {
+        ...facebookImageChannelProfile.contentSchema,
+        properties: {
+            ...imageSchema.properties,
+            media: { ...imageSchema.properties.media, maxItems: FACEBOOK_MAX_PHOTOS },
+        },
+    },
+    capabilities: {
+        ...facebookImageChannelProfile.capabilities,
+        revision: 'facebook-page-post-v2',
+        mediaFields: facebookImageChannelProfile.capabilities.mediaFields.map(field => ({
+            ...field,
+            maxItems: FACEBOOK_MAX_PHOTOS,
+        })),
+    },
     execution: { kind: 'built_in', contractId: 'facebook', revision: FACEBOOK_EXECUTION_REVISION },
 }
 
@@ -67,7 +100,9 @@ export const facebookChannelProfileValidationAdapter: ChannelProfileValidationAd
         if (
             profile.execution.kind !== 'built_in' ||
             profile.execution.contractId !== 'facebook' ||
-            profile.execution.revision !== FACEBOOK_EXECUTION_REVISION
+            ![FACEBOOK_IMAGE_EXECUTION_REVISION, FACEBOOK_EXECUTION_REVISION].includes(
+                profile.execution.revision
+            )
         )
             return []
         // Structural errors belong to the schema validator.
@@ -97,7 +132,7 @@ export const facebookChannelProfileValidationAdapter: ChannelProfileValidationAd
             return issue(
                 '/link',
                 'facebook.link_photo_combination',
-                'Choose a link or a photo for this publication'
+                'Choose a link or photos for this publication'
             )
         if (content.media.length === 0 && link === undefined && !(content.text ?? '').trim())
             return issue(
