@@ -274,6 +274,18 @@ on the SQLite file. Back up the database with your PostgreSQL tooling (for examp
 as described below. To move an existing instance between SQLite and PostgreSQL,
 see [Move between SQLite and PostgreSQL](/docs/transfer/).
 
+## Resource use
+
+With SQLite and local media storage, Postdot needs no database server, cache, queue or
+object store. Started and left idle with no account configured, the `0.1.0-alpha.7` image
+held about 83 MiB of memory in three runs (83 to 84 MiB). After a small create, schedule
+and publish workflow, one reading was 102 MiB. These figures are working-set memory from
+`docker stats`, taken in November 2026 on one Linux host. Usage under load, with many
+channels or with large media was not measured.
+
+PostgreSQL and S3-compatible storage are optional. When you use them, they run beside
+Postdot and use their own resources.
+
 ## Backup and restoration
 
 Backup scheduling, off-host storage and retention belong to the administrator.
