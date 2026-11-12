@@ -26,7 +26,7 @@ export function PublicFooter() {
                         <Link href="/#automation">For agents</Link>
                         <Link href="/#questions">Questions</Link>
                         <Link href="/features">Publishing workflows</Link>
-                        <Link href="/compare">Compare Postdot</Link>
+                        <Link href="/alternatives">Alternatives</Link>
                         <Link href="/blog">Blog</Link>
                     </div>
                     <div>

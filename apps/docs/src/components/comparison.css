@@ -1,0 +1,218 @@
+.alternatives-index {
+    max-width: 1060px;
+    margin-inline: auto;
+}
+.alternatives-heading h1 {
+    max-width: 800px;
+    margin: 0;
+    font-size: clamp(34px, 5vw, 58px);
+    font-weight: 550;
+    line-height: 1.12;
+    letter-spacing: -0.035em;
+    text-wrap: balance;
+}
+.alternatives-heading > p {
+    max-width: 65ch;
+    margin: 24px 0 0;
+    font-size: 20px;
+    line-height: 1.65;
+    color: var(--home-muted);
+}
+.alternatives-catalog {
+    margin-top: 64px;
+}
+.alternatives-catalog article {
+    display: grid;
+    grid-template-columns: 1fr 1.6fr;
+    gap: 48px;
+    padding-block: 36px;
+    border-top: 1px solid var(--home-edge);
+}
+.alternative-name h2 {
+    margin: 0;
+    font-size: 30px;
+    font-weight: 550;
+    letter-spacing: -0.03em;
+    line-height: 1.25;
+}
+.alternative-name h2 a {
+    text-decoration: none;
+}
+.alternatives-catalog h3 {
+    margin: 0 0 14px;
+    font-size: 20px;
+    font-weight: 550;
+    line-height: 1.4;
+}
+.alternatives-catalog p {
+    margin: 0 0 20px;
+    color: var(--home-muted);
+    font-size: 17px;
+    line-height: 1.65;
+}
+.alternatives-method {
+    max-width: 70ch;
+    margin-top: 64px;
+    font-size: 18px;
+    line-height: 1.8;
+}
+.alternatives-method h2,
+.comparison-fit > h2,
+.comparison-capabilities > h2 {
+    margin: 0 0 28px;
+    font-size: 29px;
+    font-weight: 550;
+    line-height: 1.25;
+    letter-spacing: -0.025em;
+    text-wrap: balance;
+    scroll-margin-top: 110px;
+}
+.alternatives-method p {
+    margin-block: 0 24px;
+}
+.alternatives-method a {
+    color: var(--home-blue);
+    text-decoration: underline;
+    text-underline-offset: 4px;
+}
+.comparison-fit {
+    margin-top: 56px;
+}
+.comparison-fit-columns {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 48px;
+}
+.comparison-fit-columns > div {
+    border-top: 1px solid var(--home-edge);
+    padding-top: 24px;
+}
+.comparison-fit h3 {
+    margin: 0 0 18px;
+    font-size: 21px;
+    font-weight: 550;
+}
+.comparison-fit ul {
+    margin: 0;
+    padding-left: 20px;
+}
+.comparison-fit li {
+    padding-left: 4px;
+    margin-bottom: 14px;
+    font-size: 17px;
+    line-height: 1.7;
+}
+.comparison-capabilities {
+    margin-top: 64px;
+}
+.comparison-scroll {
+    max-width: 100%;
+    overflow-x: auto;
+    scrollbar-color: var(--home-muted) var(--home-bg);
+    scrollbar-width: thin;
+}
+.comparison-matrix {
+    width: 100%;
+    min-width: 730px;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 15px;
+    line-height: 1.55;
+}
+.comparison-caption {
+    text-align: left;
+    font-size: 14px;
+    color: var(--home-muted);
+    margin: 0 0 24px;
+}
+.comparison-scroll-hint {
+    display: none;
+}
+.comparison-matrix th,
+.comparison-matrix td {
+    width: 25%;
+    min-width: 175px;
+    padding: 20px;
+    text-align: left;
+    vertical-align: top;
+    border-bottom: 1px solid var(--home-edge);
+    overflow-wrap: anywhere;
+}
+.comparison-matrix th {
+    font-weight: 550;
+}
+.comparison-matrix thead th {
+    font-size: 19px;
+}
+.comparison-matrix th[scope='row'] {
+    position: sticky;
+    left: 0;
+    background: var(--home-bg);
+    z-index: 1;
+}
+.comparison-matrix .comparison-postdot {
+    background: var(--home-card);
+}
+.comparison-group th {
+    padding: 28px 20px 16px;
+    font-size: 17px;
+    border-bottom: 1px solid var(--home-ink);
+}
+.comparison-matrix p {
+    margin: 0 0 12px;
+}
+.comparison-source {
+    font-size: 13px;
+    color: var(--home-blue);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+.comparison-reading-note {
+    margin-top: 18px;
+    max-width: 75ch;
+    color: var(--home-muted);
+    font-size: 14px;
+    line-height: 1.6;
+}
+@media (max-width: 650px) {
+    .comparison-scroll-hint {
+        display: block;
+        margin: 0 0 20px;
+        color: var(--home-muted);
+        font-size: 14px;
+    }
+    .alternatives-catalog article,
+    .comparison-fit-columns {
+        grid-template-columns: 1fr;
+        gap: 24px;
+    }
+    .alternatives-heading > p {
+        font-size: 18px;
+    }
+    .alternative-name h2 {
+        font-size: 26px;
+    }
+    .comparison-matrix th[scope='row'] {
+        position: static;
+    }
+    .comparison-matrix th,
+    .comparison-matrix td {
+        padding: 16px;
+        min-width: 165px;
+    }
+    .alternatives-method {
+        font-size: 17px;
+    }
+}
+.comparison-jumps {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px 24px;
+    margin-top: 36px;
+    font-size: 14px;
+    color: var(--home-blue);
+}
+.comparison-jumps a {
+    text-decoration: underline;
+    text-underline-offset: 4px;
+}

@@ -1,0 +1,106 @@
+---
+title: Postdot vs Postiz
+description: Compare projects, shared channels, manual publishing, team access, languages, n8n and agent workflows across two open-source publishing tools.
+date: '2026-11-12'
+---
+
+## Projects and people
+
+A product launch and a community event may need separate posts, media and collaborators
+while publishing to the same company account. In Postdot, put those campaigns in
+separate projects and attach the same workspace-owned channel to both. The projects
+reuse its connection and content profile. The managing project controls the common
+channel configuration; each project keeps its own content and access.
+
+Shared cadence and occupied time slots help the projects plan around each other.
+People who cannot read another project's content see its occupied times without its
+post text or project name. You can collaborate on a destination without opening
+every campaign to everyone who uses it. The [shared-channel guide](/docs/shared-channels/)
+shows the workflow.
+
+Postiz organizes channels into [customer groups](https://docs.postiz.com/general/channels/customers),
+which filter the calendar and select a client's accounts together. A channel belongs
+to at most one customer group. That suits an agency organizing a roster of client
+accounts. Postdot's channel attachments suit several separately managed projects
+using one destination.
+
+Postdot also distinguishes workspace membership from project roles. Use workspace
+groups and invitations to organize people, then assign owner, editor or viewer access
+to projects. Postiz's [organization roles](https://docs.postiz.com/general/settings/team)
+are User, Admin and Super Admin. Both have team management; their access models work
+at different levels.
+
+## Manual publishing and review
+
+A publishing plan often includes work that a person will submit. Add a manual channel
+for a community post, a newsletter mention or a destination where you want to finish
+in the platform's editor. Prepare its text, media and timing in Postdot. When you
+publish it yourself, record the result in the same queue as automated publications.
+
+That is useful when one announcement needs an automated LinkedIn post and a manually
+submitted community version. The community submission remains part of the campaign
+instead of becoming a separate reminder. Read about [manual publishing](/features/manual-publishing/).
+
+Postiz has a useful alternative for external review: [public preview links](https://docs.postiz.com/general/approvals)
+let a client read a post and leave comments without a Postiz account. Its guide
+explains that this is a feedback workflow; a person then moves the draft to scheduled.
+Choose it when lightweight client sign-off matters. Postdot's workflow keeps draft
+review and scheduling in Studio, with publishing actions controlled by project access.
+
+## Automation and n8n
+
+Postdot gives you the CLI, HTTP API, MCP and installable skills. An agent can inspect
+projects and channels, prepare a source post and adapt its destination publications.
+You can review the saved drafts in Studio before scheduling them. The agent works
+with the same content you edit in the web app.
+
+The [Postdot n8n node](/docs/n8n/) supports a specific editorial handoff: discover a
+project and channel, create an unscheduled text draft, and read its saved publication.
+For example, turn a release event from another system into a draft waiting in Studio.
+The node is for self-hosted n8n; the HTTP API supports broader custom workflows.
+
+Postiz also has [CLI and MCP access](https://docs.postiz.com/mcp/introduction), and its
+[n8n community node](https://postiz.com/blog/use-postiz-with-n-8-n) supports scheduling.
+Agent access is common ground. Compare which operations you want to automate, how
+you grant access, and where the person reviewing the result will work.
+
+## Platforms, formats and languages
+
+Postdot's documented provider connections cover Bluesky, Mastodon, DEV.to, Discord,
+X, LinkedIn, Telegram, Facebook and Instagram. It also supports manual channels and
+custom HTTP publishers. A connection's [content profile](/docs/providers/provider-capabilities/)
+defines its formats: an Instagram publication uses one JPEG, while Facebook supports
+Page text, a link or a photo. Telegram supports several message and media forms.
+
+Postiz's [platform reference](https://docs.postiz.com/general/platforms/overview)
+covers a wider catalog, including YouTube, TikTok, Pinterest and Threads. If your
+campaign depends on those destinations or richer video formats, that is a substantive
+reason to choose Postiz.
+
+In Studio, Postdot users can choose English, French, Spanish or German. Postiz's
+[active language configuration](https://github.com/gitroomhq/postiz-app/blob/main/libraries/react-shared-libraries/src/translation/i18n.config.ts)
+also includes those languages and others. Both can serve multilingual teams.
+
+For reporting, Postiz documents [account-level and per-post analytics](https://docs.postiz.com/general/analytics)
+across several networks. Postdot keeps saved observations for Bluesky, Mastodon and
+DEV.to, with conversation snapshots for Bluesky and Mastodon. Choose based on the
+specific accounts and results you need to follow.
+
+## Cost and operation
+
+Both applications offer open-source self-hosting. Postiz also sells Cloud subscriptions;
+its [plan guide](https://docs.postiz.com/cloud/plans) describes the account allowances
+and team features. Postdot's application includes its project model, roles, languages
+and integrations together, with no paid feature edition.
+
+Postdot runs one application service with independent database and media choices:
+SQLite or PostgreSQL, and local files or S3-compatible storage. Postiz's self-hosted
+stack uses PostgreSQL, Redis and Temporal. The [idle-memory experiment](/blog/postdot-postiz-idle-memory/)
+examines that deployment difference in detail.
+
+## Try your publishing workflow
+
+[Install Postdot](/docs/installation/), create a workspace and projects, then attach a
+channel where you need it. Add a manual destination and prepare the next announcement
+in both forms. The [first-publication guide](/docs/first-publication/) takes you from
+an empty project to reviewed and scheduled content.

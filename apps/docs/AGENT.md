@@ -13,7 +13,7 @@ before developing, typechecking, or building. Proposals and dated execution
 evidence belong to Autonomos; verify them against current code before writing
 public instructions.
 
-Editorial MDX lives in `content/blog/`, `content/compare/` and `content/features/`.
+Editorial MDX lives in `content/blog/`, `content/alternatives/` and `content/features/`.
 See DOCUMENTATION.md for their metadata, public evidence and static export contracts.
 
 For local review of the actual static output, run `bun run build` then

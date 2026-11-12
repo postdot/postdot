@@ -19,6 +19,8 @@ import { Route as LlmsFullTxtRouteImport } from './routes/llms-full-txt'
 import { Route as LlmsTxtRouteImport } from './routes/llms-txt'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as SitemapXmlRouteImport } from './routes/sitemap-xml'
+import { Route as AlternativesIndexRouteImport } from './routes/alternatives/index'
+import { Route as AlternativesSlugRouteImport } from './routes/alternatives/$slug'
 import { Route as BlogIndexRouteImport } from './routes/blog/index'
 import { Route as BlogSlugRouteImport } from './routes/blog/$slug'
 import { Route as CompareIndexRouteImport } from './routes/compare/index'
@@ -79,6 +81,16 @@ const PrivacyRoute = PrivacyRouteImport.update({
 const SitemapXmlRoute = SitemapXmlRouteImport.update({
   id: '/sitemap-xml',
   path: '/sitemap-xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AlternativesIndexRoute = AlternativesIndexRouteImport.update({
+  id: '/alternatives/',
+  path: '/alternatives/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AlternativesSlugRoute = AlternativesSlugRouteImport.update({
+  id: '/alternatives/$slug',
+  path: '/alternatives/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
 const BlogIndexRoute = BlogIndexRouteImport.update({
@@ -148,10 +160,12 @@ export interface FileRoutesByFullPath {
   '/llms-txt': typeof LlmsTxtRoute
   '/privacy': typeof PrivacyRoute
   '/sitemap-xml': typeof SitemapXmlRoute
+  '/alternatives/$slug': typeof AlternativesSlugRoute
   '/blog/$slug': typeof BlogSlugRoute
   '/compare/$slug': typeof CompareSlugRoute
   '/docs/$': typeof DocsSplatRoute
   '/features/$slug': typeof FeaturesSlugRoute
+  '/alternatives/': typeof AlternativesIndexRoute
   '/blog/': typeof BlogIndexRoute
   '/compare/': typeof CompareIndexRoute
   '/docs/': typeof DocsIndexRoute
@@ -170,10 +184,12 @@ export interface FileRoutesByTo {
   '/llms-txt': typeof LlmsTxtRoute
   '/privacy': typeof PrivacyRoute
   '/sitemap-xml': typeof SitemapXmlRoute
+  '/alternatives/$slug': typeof AlternativesSlugRoute
   '/blog/$slug': typeof BlogSlugRoute
   '/compare/$slug': typeof CompareSlugRoute
   '/docs/$': typeof DocsSplatRoute
   '/features/$slug': typeof FeaturesSlugRoute
+  '/alternatives': typeof AlternativesIndexRoute
   '/blog': typeof BlogIndexRoute
   '/compare': typeof CompareIndexRoute
   '/docs': typeof DocsIndexRoute
@@ -194,10 +210,12 @@ export interface FileRoutesById {
   '/llms-txt': typeof LlmsTxtRoute
   '/privacy': typeof PrivacyRoute
   '/sitemap-xml': typeof SitemapXmlRoute
+  '/alternatives/$slug': typeof AlternativesSlugRoute
   '/blog/$slug': typeof BlogSlugRoute
   '/compare/$slug': typeof CompareSlugRoute
   '/docs/$': typeof DocsSplatRoute
   '/features/$slug': typeof FeaturesSlugRoute
+  '/alternatives/': typeof AlternativesIndexRoute
   '/blog/': typeof BlogIndexRoute
   '/compare/': typeof CompareIndexRoute
   '/docs/': typeof DocsIndexRoute
@@ -219,10 +237,12 @@ export interface FileRouteTypes {
     | '/llms-txt'
     | '/privacy'
     | '/sitemap-xml'
+    | '/alternatives/$slug'
     | '/blog/$slug'
     | '/compare/$slug'
     | '/docs/$'
     | '/features/$slug'
+    | '/alternatives/'
     | '/blog/'
     | '/compare/'
     | '/docs/'
@@ -241,10 +261,12 @@ export interface FileRouteTypes {
     | '/llms-txt'
     | '/privacy'
     | '/sitemap-xml'
+    | '/alternatives/$slug'
     | '/blog/$slug'
     | '/compare/$slug'
     | '/docs/$'
     | '/features/$slug'
+    | '/alternatives'
     | '/blog'
     | '/compare'
     | '/docs'
@@ -264,10 +286,12 @@ export interface FileRouteTypes {
     | '/llms-txt'
     | '/privacy'
     | '/sitemap-xml'
+    | '/alternatives/$slug'
     | '/blog/$slug'
     | '/compare/$slug'
     | '/docs/$'
     | '/features/$slug'
+    | '/alternatives/'
     | '/blog/'
     | '/compare/'
     | '/docs/'
@@ -288,9 +312,11 @@ export interface RootRouteChildren {
   LlmsTxtRoute: typeof LlmsTxtRoute
   PrivacyRoute: typeof PrivacyRoute
   SitemapXmlRoute: typeof SitemapXmlRoute
+  AlternativesSlugRoute: typeof AlternativesSlugRoute
   BlogSlugRoute: typeof BlogSlugRoute
   CompareSlugRoute: typeof CompareSlugRoute
   FeaturesSlugRoute: typeof FeaturesSlugRoute
+  AlternativesIndexRoute: typeof AlternativesIndexRoute
   BlogIndexRoute: typeof BlogIndexRoute
   CompareIndexRoute: typeof CompareIndexRoute
   FeaturesIndexRoute: typeof FeaturesIndexRoute
@@ -369,6 +395,20 @@ declare module '@tanstack/react-router' {
       path: '/sitemap-xml'
       fullPath: '/sitemap-xml'
       preLoaderRoute: typeof SitemapXmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/alternatives/': {
+      id: '/alternatives/'
+      path: '/alternatives'
+      fullPath: '/alternatives/'
+      preLoaderRoute: typeof AlternativesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/alternatives/$slug': {
+      id: '/alternatives/$slug'
+      path: '/alternatives/$slug'
+      fullPath: '/alternatives/$slug'
+      preLoaderRoute: typeof AlternativesSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/blog/': {
@@ -474,9 +514,11 @@ const rootRouteChildren: RootRouteChildren = {
   LlmsTxtRoute: LlmsTxtRoute,
   PrivacyRoute: PrivacyRoute,
   SitemapXmlRoute: SitemapXmlRoute,
+  AlternativesSlugRoute: AlternativesSlugRoute,
   BlogSlugRoute: BlogSlugRoute,
   CompareSlugRoute: CompareSlugRoute,
   FeaturesSlugRoute: FeaturesSlugRoute,
+  AlternativesIndexRoute: AlternativesIndexRoute,
   BlogIndexRoute: BlogIndexRoute,
   CompareIndexRoute: CompareIndexRoute,
   FeaturesIndexRoute: FeaturesIndexRoute,

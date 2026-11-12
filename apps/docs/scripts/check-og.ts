@@ -3,7 +3,7 @@ import { resolve } from 'node:path'
 const root = resolve(import.meta.dir, '../dist/client')
 const pages = ['index.html', 'docs.html']
 for await (const page of new Bun.Glob('docs/**/*.html').scan(root)) pages.push(page)
-for (const section of ['blog', 'compare', 'features']) {
+for (const section of ['blog', 'alternatives', 'features']) {
     pages.push(`${section}.html`)
     for await (const page of new Bun.Glob(`${section}/**/*.html`).scan(root)) pages.push(page)
 }

@@ -213,12 +213,12 @@ for (const slug of slugs) {
 }
 console.log(`OG images: home and ${slugs.length} documentation pages.`)
 
-for (const section of ['blog', 'compare', 'features']) {
+for (const section of ['blog', 'alternatives', 'features']) {
     await write(`${section}/image.png`, {
         title:
             section === 'blog'
                 ? 'The Postdot blog'
-                : section === 'compare'
+                : section === 'alternatives'
                   ? 'Compare Postdot'
                   : 'Publishing with Postdot',
         section:
@@ -238,7 +238,7 @@ for (const page of collectEditorialPages()) {
         section:
             page.section === 'blog'
                 ? 'Postdot blog'
-                : page.section === 'compare'
+                : page.section === 'alternatives'
                   ? 'Compare Postdot'
                   : 'Publishing with Postdot',
     })

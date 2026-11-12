@@ -10,7 +10,7 @@ import { Link } from './site-link'
 
 const links = [
     { href: '/features', label: 'Product' },
-    { href: '/compare', label: 'Compare' },
+    { href: '/alternatives', label: 'Alternatives' },
     { href: '/blog', label: 'Blog' },
     { href: '/docs/', label: 'Documentation' },
 ]

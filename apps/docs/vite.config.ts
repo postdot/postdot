@@ -47,7 +47,7 @@ export default defineConfig({
                 { path: '/', prerender: { enabled: true } },
                 { path: '/legal', prerender: { enabled: true } },
                 { path: '/privacy', prerender: { enabled: true } },
-                ...['blog', 'compare', 'features'].map(section => ({
+                ...['blog', 'alternatives', 'features'].map(section => ({
                     path: `/${section}`,
                     prerender: { enabled: true },
                 })),

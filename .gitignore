@@ -45,6 +45,7 @@ apps/docs/.source/
 apps/docs/.tanstack/
 apps/docs/.wrangler/
 apps/docs/public/og/
+apps/docs/public/_redirects
 apps/docs/build.log
 
 # Reproducible OpenAPI documentation artifacts

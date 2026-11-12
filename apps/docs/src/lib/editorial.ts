@@ -16,7 +16,7 @@ const blog = defineCollections({
 })
 const comparisons = defineCollections({
     type: 'doc',
-    dir: './content/compare',
+    dir: './content/alternatives',
     schema: editorialSchema,
     async: true,
     postprocess: { includeProcessedMarkdown: true },
@@ -31,7 +31,7 @@ const features = defineCollections({
 
 export const blogSource = loader({ baseUrl: '/blog', source: blog.toFumadocsSource() })
 export const comparisonSource = loader({
-    baseUrl: '/compare',
+    baseUrl: '/alternatives',
     source: comparisons.toFumadocsSource(),
 })
 export const featureSource = loader({ baseUrl: '/features', source: features.toFumadocsSource() })
@@ -44,9 +44,10 @@ export const editorialSections = [
         source: blogSource,
     },
     {
-        key: 'compare',
-        title: 'Compare Postdot',
-        description: 'Compare publishing tools by how you use them and what you need to run.',
+        key: 'alternatives',
+        title: 'Alternatives',
+        description:
+            'Compare social media publishing tools by their workflows, teams, integrations and ownership.',
         source: comparisonSource,
     },
     {

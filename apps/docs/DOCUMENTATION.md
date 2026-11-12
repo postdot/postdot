@@ -210,8 +210,8 @@ redesigned. See `DOCUMENTATION.md` for generation and validation boundaries.
 
 These public editorial surfaces share the site's header, footer and theme, with a
 reading layout separate from the Notebook documentation. Author Markdown/MDX under
-`content/blog/`, `content/compare/` or `content/features/`. Each collection uses flat,
-descriptive filenames: `content/compare/postiz.mdx` serves `/compare/postiz`.
+`content/blog/`, `content/alternatives/` or `content/features/`. Each collection uses flat,
+descriptive filenames: `content/alternatives/postiz.mdx` serves `/alternatives/postiz`.
 
 The collections use Fumadocs' async macro API in `src/lib/editorial.ts`; article
 bodies load on demand. Frontmatter supplies `title` and `description`. Blog posts
@@ -227,9 +227,17 @@ article layout emits BlogPosting data, with author and date, while the other pag
 use WebPage data. All three kinds expose breadcrumb structured data.
 
 The docs build checks editorial HTML, Markdown, LLM membership, sitemap entries,
-structured data and RSS through `scripts/check-editorial.ts`. New content is included
-without adding another route or a handwritten page registry. Unknown slugs retain
-the site's not-found behavior.
+structured data and RSS through `scripts/check-editorial.ts`. Blog and feature content
+is discovered from the collection files. Unknown slugs retain the site's not-found behavior.
+
+`/alternatives` is the comparison portal, separate from blog listings and RSS. Each
+detail page combines its MDX analysis with the shared capability matrix and fit summary
+in `src/lib/alternatives.ts`. Keep Postdot facts there once; add sourced values and
+edition columns for each competitor. Shared categories keep the pages comparable while
+the MDX explains the actual trade-offs. The same data is included in the page's processed
+Markdown and LLM exports. The editorial gate checks row coverage and those text exports.
+Unknown capabilities remain explicitly unconfirmed rather than invented absence claims.
+Build-generated redirects preserve `/compare` and `/compare/:slug` as 301 aliases.
 
 Measurement data and reproduction files live under a dated `public/research/`
 directory. Keep raw samples unchanged, include the measured configuration and image

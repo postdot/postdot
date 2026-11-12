@@ -21,6 +21,16 @@ async function run(command: string[], capture = false) {
 }
 
 await rm('dist', { recursive: true, force: true })
+await writeFile(
+    'public/_redirects',
+    [
+        '/compare /alternatives 301',
+        '/compare/ /alternatives 301',
+        '/compare/:slug /alternatives/:slug 301',
+        '/compare/:slug/ /alternatives/:slug 301',
+        '',
+    ].join('\n')
+)
 await run(['bun', 'run', 'sync:content'])
 await run(['bun', 'run', 'sync:umami'])
 await run(['bun', 'run', 'generate:og'])

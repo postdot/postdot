@@ -1,0 +1,105 @@
+---
+title: Postdot vs PostFast
+description: Compare Postdot with PostFast at postfa.st on projects, shared channels, permissions, approvals, platforms, n8n, agents and operating costs.
+date: '2026-11-12'
+---
+
+## Projects and people
+
+PostFast is a hosted publishing service. Postdot is an application you run yourself,
+with workspaces containing projects and reusable destinations. Those choices affect
+how you organize people and campaigns as much as who operates the server.
+
+In Postdot, create separate projects for a product, an event or a client. Each keeps
+its own posts, media and collaborators. Attach a workspace-owned channel to the
+projects that need to use it, so they share one connection and a coordinated schedule.
+Members can see occupied times on a shared destination while project permissions
+control access to the underlying content.
+
+PostFast's [workspace design](https://postfa.st/features/post-approvals) isolates
+accounts, calendars, drafts and members by client. It also lets you invite clients
+for review or send connection links for them to authorize their social accounts.
+That suits a service-led workflow in which each client's publishing lives in a
+separate environment.
+
+Postdot manages people through workspace membership, groups, invitations and project
+owner/editor/viewer roles. PostFast documents Admin, Editor and Client roles with
+per-user overrides. Invited reviewers occupy user slots in their PostFast workspace,
+which matters when you choose a plan for a client roster.
+
+## Manual publishing and review
+
+In Postdot, a publication can be due for a person to complete. Add a manual channel,
+prepare its copy and media, and schedule the work in the same calendar as automated
+posts. Publish through the destination's own interface and record the result.
+This keeps community submissions and other human-finished work with the campaign.
+
+PostFast's [approval workflow](https://postfa.st/features/post-approvals) is a strong
+reason to choose it for structured team sign-off. Only posts in the Approved state
+publish. Its permissions can hold a particular editor's work for review, including
+posts created through integrations.
+
+Postdot's draft-and-review workflow uses Studio and explicit scheduling, with project
+access controlling publishing actions. A team requiring an enforced approval gate
+should evaluate that requirement alongside its planning and access model.
+
+## Automation and n8n
+
+Both tools expose a REST API and MCP. Postdot also supplies a CLI and agent skills.
+You can ask an agent to prepare a publication, inspect it in Studio and schedule
+its destination versions when they are ready. The [automation guide](/docs/automation/)
+provides concrete examples for your own instance.
+
+Postdot's [n8n node](/docs/n8n/) focuses on draft preparation for self-hosted n8n:
+list projects and channels, create an unscheduled text draft, then read its saved
+publication state. That fits a workflow in which an event in your other tools
+starts an editorial review.
+
+PostFast's [verified n8n integration](https://postfa.st/api-integrations/n8n) runs on
+n8n Cloud and self-hosted n8n. Its node covers posting, account discovery, analytics
+and media-upload URLs. PostFast also offers hosted connectors for compatible AI
+clients. Choose it when those managed connections and the broader native node
+operations are what you need.
+
+## Platforms, formats and languages
+
+Postdot's provider connections cover Bluesky, Mastodon, DEV.to, Discord, X, LinkedIn,
+Telegram, Facebook and Instagram. Manual channels and custom HTTP publishers extend
+the kinds of destination you can keep in the plan. Studio supports English, French,
+Spanish and German.
+
+PostFast advertises [eleven connected networks](https://postfa.st/integration),
+including YouTube, TikTok, Pinterest, Threads and Google Business Profile. Those
+are useful differences for a video-heavy or local-business workflow. Postdot's
+[provider guide](/docs/providers/provider-capabilities/) details its current formats;
+its Instagram connection is a single-JPEG publication, rather than a replacement
+for a full Reel or Story workflow.
+
+For analytics and engagement, PostFast offers reporting and a Social Inbox.
+Postdot keeps saved provider observations for Bluesky, Mastodon and DEV.to, with
+conversation snapshots for Bluesky and Mastodon. Match those surfaces to the
+accounts you manage and the questions you need to answer.
+
+## Cost and operation
+
+PostFast bundles account, workspace, user and queue allowances into
+[subscription plans](https://postfa.st/pricing). At the review date, monthly billing
+lists Starter at €15 with four social accounts, one workspace and one user, and
+Creator at €29 with twelve accounts, four workspaces and five users per workspace.
+It prices plans rather than charging a separate fee for each seat.
+
+Postdot's application has no software seat or account tiers. You operate the
+instance and choose its infrastructure, backups and provider applications. Its
+project roles, shared destinations, four Studio languages and automation interfaces
+are included in the same AGPL-licensed application.
+
+Choose SQLite or PostgreSQL for data and local or S3-compatible storage for media.
+PostFast operates its managed service for you. The useful cost comparison includes
+both the subscription you would choose and the infrastructure you want to maintain.
+
+## Try your publishing workflow
+
+[Install Postdot](/docs/installation/), create the projects your team works on and
+attach a shared destination. Add a manual channel, prepare a draft through your agent
+or n8n, and review the campaign in Studio. The [first-publication guide](/docs/first-publication/)
+walks through that first complete plan.

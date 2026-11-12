@@ -2,6 +2,7 @@
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
+import { alternatives, comparisonDimensions, postdotComparison } from '../src/lib/alternatives'
 import { appRoot, collectEditorialPages } from './docs-paths'
 
 const root = join(appRoot, 'dist/client')
@@ -78,9 +79,37 @@ for (const page of collectEditorialPages()) {
             throw new Error(`Incomplete article metadata or RSS: ${page.url}`)
         }
     }
+    if (page.section === 'alternatives') {
+        const item = alternatives.find(item => item.slug === page.slug)
+        if (!item) throw new Error(`Missing comparison facts: ${page.slug}`)
+        for (const key of Object.keys(comparisonDimensions) as Array<
+            keyof typeof comparisonDimensions
+        >) {
+            if (item.values[key].length !== item.columns.length) {
+                throw new Error(`Comparison edition mismatch: ${page.slug}/${key}`)
+            }
+            if (!html.includes(`data-comparison-key="${key}"`))
+                throw new Error(`Missing comparison row: ${page.slug}/${key}`)
+            for (const cell of [postdotComparison[key], ...item.values[key]]) {
+                if (!markdown.includes(cell.text))
+                    throw new Error(`Missing comparison evidence in Markdown: ${page.slug}/${key}`)
+            }
+        }
+        if (feed.includes(`${canonical}</link>`))
+            throw new Error(`Comparison leaked into blog RSS: ${page.slug}`)
+    }
     count++
 }
-for (const section of ['blog', 'compare', 'features']) {
+if (sitemap.includes('/compare/') || sitemap.includes('/compare<'))
+    throw new Error('Old comparison URLs remain in sitemap')
+const blogIndex = await readFile(join(root, 'blog.html'), 'utf8')
+for (const item of alternatives) {
+    if (!index.includes(`/alternatives/${item.slug}.md`))
+        throw new Error(`Comparison absent from LLM index: ${item.slug}`)
+    if (blogIndex.includes(`href="/alternatives/${item.slug}"`))
+        throw new Error(`Comparison listed as blog article: ${item.slug}`)
+}
+for (const section of ['blog', 'alternatives', 'features']) {
     const html = await readFile(join(root, `${section}.html`), 'utf8')
     if (!html.includes(`/${section}/`)) throw new Error(`Empty editorial index: ${section}`)
 }

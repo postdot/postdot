@@ -25,7 +25,7 @@ function DocsRoot() {
             links={[
                 { text: 'Home', url: '/' },
                 { text: 'Blog', url: '/blog' },
-                { text: 'Compare', url: '/compare' },
+                { text: 'Alternatives', url: '/alternatives' },
             ]}>
             <Outlet />
         </DocsLayout>

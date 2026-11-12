@@ -606,3 +606,4 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 ## Closed 2026-11-12
 
 - [x] **[SITE-628]** Add the public blog, measured comparison and publishing feature pages `Priority: 🟠` `Complexity: L` `Completed: 2026-11-12`
+- [x] **[SITE-629]** Build a researched alternatives portal and reusable product comparisons `Priority: 🟠` `Complexity: L` `Completed: 2026-11-12`

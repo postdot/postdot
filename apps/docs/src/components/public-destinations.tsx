@@ -17,8 +17,8 @@ const providers = [
     { name: 'Mastodon', Icon: Mastodon },
     { name: 'X', Icon: X },
     { name: 'Telegram', Icon: Telegram },
-    { name: 'Facebook', Icon: Facebook, upcoming: true },
-    { name: 'Instagram', Icon: Instagram, upcoming: true },
+    { name: 'Facebook', Icon: Facebook },
+    { name: 'Instagram', Icon: Instagram },
     { name: 'YouTube', Icon: YouTube, upcoming: true },
 ]
 

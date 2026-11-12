@@ -40,7 +40,7 @@ export function markdownOutputPath(slug: string) {
 
 /** Editorial collections share flat, descriptive slugs outside the documentation tree. */
 export function collectEditorialPages() {
-    return (['blog', 'compare', 'features'] as const).flatMap(section =>
+    return (['blog', 'alternatives', 'features'] as const).flatMap(section =>
         collectDocsSlugs(path.join(appRoot, 'content', section)).map(slug => ({
             section,
             slug,

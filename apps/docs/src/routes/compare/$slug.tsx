@@ -1,17 +1,11 @@
-import { createFileRoute } from '@tanstack/react-router'
-
-import { EditorialArticle } from '@/components/editorial-page'
-import { comparisonSource } from '@/lib/editorial'
+import { createFileRoute, redirect } from '@tanstack/react-router'
 
 export const Route = createFileRoute('/compare/$slug')({
-    loader: async ({ params }) =>
-        (await import('@/lib/editorial-route')).loadEditorialPage('compare', params.slug),
-    head: ({ loaderData }) => loaderData?.head ?? {},
-    component: Page,
+    beforeLoad: ({ params }) => {
+        throw redirect({
+            to: '/alternatives/$slug',
+            params: { slug: params.slug },
+            statusCode: 301,
+        })
+    },
 })
-
-function Page() {
-    const { slug } = Route.useLoaderData()
-    const page = comparisonSource.getPage([slug])
-    return page ? <EditorialArticle page={page} section="compare" /> : null
-}

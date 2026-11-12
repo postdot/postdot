@@ -3,6 +3,7 @@ import { join } from 'node:path'
 
 import { llms } from 'fumadocs-core/source'
 
+import { comparisonMarkdown } from './alternatives'
 import { editorialSections, type EditorialPage } from './editorial'
 import { getPageMarkdownUrl } from './markdown'
 import { source } from './source'
@@ -61,5 +62,8 @@ export async function getFullLLMText() {
 }
 
 export async function getEditorialText(page: EditorialPage) {
-    return `# ${page.data.title}\n\n${page.data.description ?? ''}\n\nURL: ${page.url}\n\n${await page.data.getText('processed')}\n`
+    const comparison = page.url.startsWith('/alternatives/')
+        ? `${comparisonMarkdown(page.slugs[0]!)}\n\n`
+        : ''
+    return `# ${page.data.title}\n\n${page.data.description ?? ''}\n\nURL: ${page.url}\n\n${comparison}${await page.data.getText('processed')}\n`
 }

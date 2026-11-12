@@ -1,8 +1,10 @@
 import defaultMdxComponents from 'fumadocs-ui/mdx'
 import { type ComponentProps, type ReactNode, use } from 'react'
 
+import { getAlternative } from '@/lib/alternatives'
 import { type EditorialPage, type EditorialSection, getEditorialSection } from '@/lib/editorial'
 
+import { ComparisonMatrix, ComparisonOverview } from './comparison'
 import { PublicFooter } from './public-footer'
 import { PublicHeader } from './public-header'
 import { Link } from './site-link'
@@ -100,6 +102,7 @@ export function EditorialArticle({
     const { toc } = use(page.data.load())
     const Content = page.data.body
     const area = getEditorialSection(section)
+    const alternative = section === 'alternatives' ? getAlternative(page.slugs[0] ?? '') : undefined
     return (
         <EditorialShell>
             <article className="editorial-article">
@@ -122,6 +125,23 @@ export function EditorialArticle({
                         <a href={`${page.url}.md`}>Read as Markdown</a>
                     </div>
                 </header>
+                {alternative ? (
+                    <>
+                        <nav className="comparison-jumps" aria-label="Comparison sections">
+                            <a href="#workflow-fit">Which tool fits?</a>
+                            <a href="#capability-comparison">At a glance</a>
+                            {toc
+                                .filter(item => item.depth === 2)
+                                .map(item => (
+                                    <a key={item.url} href={item.url}>
+                                        {item.title}
+                                    </a>
+                                ))}
+                        </nav>
+                        <ComparisonOverview item={alternative} />
+                        <ComparisonMatrix item={alternative} />
+                    </>
+                ) : null}
                 <div className="editorial-layout">
                     <div className="editorial-prose">
                         <Content components={components} />

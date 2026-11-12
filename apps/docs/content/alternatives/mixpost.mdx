@@ -1,0 +1,103 @@
+---
+title: Postdot vs Mixpost
+description: Compare Postdot with Mixpost Lite and Pro on shared channels, teams, languages, platforms, automation and the features included in each edition.
+date: '2026-11-12'
+---
+
+## Projects and people
+
+Mixpost has two different self-hosted propositions. Lite is the free, MIT-licensed
+[public repository](https://github.com/inovector/mixpost). Pro is a commercial product
+with more providers, workspaces, collaboration and automation. Keeping the editions
+separate matters when you choose what your team will use.
+
+Postdot includes workspaces, projects, groups, invitations and project roles in the
+same application. A workspace can contain several projects, each with its own posts,
+media and collaborators. Workspace owners and administrators manage the organization;
+project owners, editors and viewers work within the access granted to their projects.
+
+A destination can serve more than one project. Attach the same channel to a product
+launch and an events project, reuse its connection, and coordinate the occupied times.
+The [shared-channel workflow](/docs/shared-channels/) keeps channel management separate
+from permission to publish through it. You can keep campaigns distinct while sharing
+a company account.
+
+Mixpost Pro's [workspace model](https://mixpost.app/features) separates brands and
+clients, with users, settings and roles per workspace. That is useful for teams that
+want each client in an isolated publishing environment.
+
+## Manual publishing and review
+
+Postdot gives destinations you publish to yourself the same place in the plan as
+connected accounts. A manual channel stores the prepared publication, media and date;
+you complete the submission in the destination and record the result in Postdot.
+You can plan a community announcement alongside a scheduled social post without
+maintaining another calendar.
+
+Mixpost Pro has strengths in formal review: its [collaboration features](https://mixpost.app/features)
+include approval workflows, review comments and an activity timeline. Pro also adds
+an engagement inbox and broader reporting. These are useful reasons to buy its
+commercial edition when review and engagement management drive your work.
+
+Postdot provides draft review in Studio and explicit scheduling with project-scoped
+publishing permissions. If you need Mixpost's approval chains or client-facing
+commercial features, compare those tasks directly with your team's process.
+
+## Automation and n8n
+
+Postdot includes CLI, HTTP API, MCP and agent skills. Your agent can prepare drafts
+that you review in Studio, and scripts can work with the same posts and publications.
+The [n8n community node](/docs/n8n/) lists projects and channels, creates unscheduled
+text drafts and reads publication state on self-hosted n8n.
+
+Mixpost's [agent guide](https://mixpost.app/agents) explicitly includes MCP, CLI and
+REST API in self-hosted Pro and Enterprise, and excludes agent access from Lite.
+Its [API reference](https://docs.mixpost.app/api/) also points to an n8n community node.
+The difference is what the edition includes, rather than whether Mixpost can work
+with agents at all.
+
+For a pipeline that turns release notes into drafts, Postdot lets the writing tools,
+workflow and editorial review stay separate. An external tool prepares the content;
+Postdot keeps the destination versions and their publication state.
+
+## Platforms, formats and languages
+
+Mixpost's [edition comparison](https://mixpost.app/pricing) lists Facebook Pages, X
+and Mastodon for Lite. Its paid editions expand the catalog to destinations such as
+Instagram, LinkedIn, YouTube, TikTok, Pinterest and Bluesky.
+
+Postdot includes connections for Bluesky, Mastodon, DEV.to, Discord, X, LinkedIn,
+Telegram, Facebook and Instagram. That gives a team needing LinkedIn, Bluesky and
+Discord a different free-software option from Mixpost Lite's three listed networks.
+Use the [provider capability guide](/docs/providers/provider-capabilities/) to match
+formats to the posts you plan. In particular, Postdot's Instagram connection accepts
+one JPEG; paid Mixpost supports additional social and video workflows.
+
+Postdot's Studio supports English, French, Spanish and German. Mixpost lists
+multilingual support in Pro and presents a [broader language selection](https://mixpost.app/features),
+including per-user preferences. A multilingual team should compare the required
+languages as well as the edition that supplies them.
+
+## Cost and operation
+
+Postdot distributes the application under AGPL-3.0-only, with its project access,
+provider connections and integration surfaces together. Mixpost Lite uses MIT.
+Mixpost's paid source and commercial terms are a separate offering from that public
+Lite codebase.
+
+The [self-hosted pricing page](https://mixpost.app/pricing) lists Pro at $299 and
+Enterprise at $1,199, before VAT, with one year of updates and continued use of the
+purchased version. Enterprise adds features for operating a subscription business.
+Mixpost also offers a separate [Cloud service](https://mixpost.app/cloud).
+
+Postdot lets you choose SQLite or PostgreSQL and local or S3-compatible media
+independently. Mixpost provides Docker, standalone PHP and Laravel installation
+paths. If you already operate Laravel applications, that integration may fit your
+infrastructure well.
+
+## Try your publishing workflow
+
+Start with the [Postdot installation guide](/docs/installation/). Create the projects
+you work on, invite collaborators and attach their channels. Try one connected
+publication and one [manual destination](/features/manual-publishing/), then connect
+your agent or n8n workflow when you want to prepare drafts from another tool.

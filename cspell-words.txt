@@ -76,6 +76,8 @@ postbot
 POSTBOT
 Postdot
 Postiz
+PostFast
+postfa
 postdotmeasure
 postizmeasure
 gitroomhq
