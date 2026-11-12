@@ -8,15 +8,16 @@ This inventory is a preparation record, not a certificate of distribution compli
 
 ## Explicitly retained material
 
-| Material                                | License / provenance                           | Existing notice                                                                       |
-| --------------------------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------- |
-| Adapted shadcn/ui toast code            | MIT                                            | `packages/ui/LICENSE.shadcn.md`                                                       |
-| Bluesky preview symbols                 | MIT                                            | `apps/web/src/assets/platform-preview-icons/LICENSE.bluesky.txt`                      |
-| Material preview symbols                | Apache-2.0                                     | `apps/web/src/assets/platform-preview-icons/LICENSE.material.txt`                     |
-| MP4Box.js                               | BSD-3-Clause                                   | `licenses/MP4Box.LICENSE`; copied into the runtime image                         |
-| FFmpeg poster executable                | LGPL-2.1-or-later in the current minimal build | Runtime `/app/licenses/FFmpeg.LICENSE`; source checksum and build flags in Dockerfile |
-| Recursive variable font                 | OFL-1.1                                        | `licenses/Recursive.LICENSE`; copied into the runtime image                      |
-| DiceBear Lorelei and Shapes definitions | CC0-1.0                                        | License/creator/source metadata inside the installed JSON definitions                 |
+| Material                                | License / provenance                                    | Existing notice                                                                                                    |
+| --------------------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Adapted shadcn/ui toast code            | MIT                                                     | `packages/ui/LICENSE.shadcn.md`                                                                                    |
+| Bluesky preview symbols                 | MIT                                                     | `apps/web/src/assets/platform-preview-icons/LICENSE.bluesky.txt`                                                   |
+| Material preview symbols                | Apache-2.0                                              | `apps/web/src/assets/platform-preview-icons/LICENSE.material.txt`                                                  |
+| MP4Box.js                               | BSD-3-Clause                                            | `licenses/MP4Box.LICENSE`; copied into the runtime image                                                           |
+| FFmpeg poster executable                | LGPL-2.1-or-later in the current minimal build          | Runtime `/app/licenses/FFmpeg.LICENSE`; source checksum and build flags in Dockerfile                              |
+| Recursive variable font                 | OFL-1.1                                                 | `licenses/Recursive.LICENSE`; copied into the runtime image                                                        |
+| DiceBear Lorelei and Shapes definitions | CC0-1.0                                                 | License/creator/source metadata inside the installed JSON definitions                                              |
+| Postiz Compose measurement snapshot     | Upstream AGPL, modified image pin and JWT configuration | `apps/docs/public/research/idle-memory-2026-11-12/postiz/LICENSE`; also included in the downloadable source bundle |
 
 DiceBear's aggregate styles package includes other licenses. Postdot imports only
 Lorelei and Shapes; do not treat the entire catalog as CC0. The installed package

@@ -32,3 +32,4 @@ if (/Error in render|\[prerender\][^\n]*\b(error|failed)\b/i.test(output)) {
 await run(['bun', 'run', 'check:links'])
 await run(['bun', 'run', 'check:llms'])
 await run(['bun', 'run', 'check:og'])
+await run(['bun', 'scripts/check-editorial.ts'])

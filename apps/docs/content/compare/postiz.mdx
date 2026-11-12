@@ -1,0 +1,79 @@
+---
+title: Postdot vs Postiz
+description: Compare self-hosting, storage, manual publishing and agent workflows. Choose Postdot for a publishing tool you can run in one container.
+date: '2026-11-12'
+---
+
+Postdot and Postiz let you schedule social posts on infrastructure you control.
+Choose Postdot when you want a small deployment, a calendar that includes manual
+channels, and a publishing workflow you can use from Studio, scripts and agents.
+
+Postiz also offers a [hosted service](https://postiz.com/) and supports destinations
+such as Instagram, TikTok and YouTube. If those automated destinations drive your
+workflow, its [platform documentation](https://docs.postiz.com/general/platforms/overview)
+is a useful starting point. Postdot's [provider guide](/docs/provider-configuration/)
+explains the connections you can configure on your own instance.
+
+## What you need to run
+
+Postdot runs its web app, API, scheduler and publication worker in one container.
+Use SQLite for a self-contained database, or connect it to PostgreSQL. Choose local
+files or S3-compatible storage for media independently of the database.
+
+Postiz's [documented self-hosting setup](https://docs.postiz.com/self-host/installation/system-requirements)
+uses PostgreSQL, Redis and Temporal. Its official Compose file includes those
+services and Temporal's supporting components.
+
+| Choice                      | Postdot                                               | Postiz                                                                             |
+| --------------------------- | ----------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| Self-contained installation | One application container with SQLite and local media | Application, PostgreSQL, Redis and Temporal services in the official Compose setup |
+| Application database        | SQLite or PostgreSQL                                  | PostgreSQL                                                                         |
+| Media storage               | Local files or S3-compatible storage                  | Local files or Cloudflare R2, per its storage guide                                |
+| Agent access                | CLI, HTTP API, MCP and installable skills             | CLI, API and MCP, described in its agent documentation                             |
+
+Postiz documents its [storage options](https://docs.postiz.com/self-host/configuration/uploads)
+and [agent interfaces](https://docs.postiz.com/mcp/introduction). Both products
+can work with agents; the useful question is how the tool fits your publishing
+workflow and the infrastructure you want to maintain.
+
+## The memory difference
+
+In our November 12, 2026 idle measurements, Postdot used **83 MiB** with SQLite and
+local media. Postiz's official Compose deployment used **2,303 MiB**; its application
+container accounted for **1,303 MiB**. We tested three fresh installations of each,
+using Postdot 0.1.0-alpha.7 and Postiz v2.25.3.
+
+Read the [idle-memory article](/blog/postdot-postiz-idle-memory/) for the component
+breakdown, method and downloadable data. That experiment compares the starting
+footprint of the two deployments.
+
+## Keep manual destinations in the same calendar
+
+An API connection should not determine whether a destination belongs in your
+publishing plan. In Postdot, create a manual channel for a community, newsletter
+or account where you want to publish yourself. Prepare its content and schedule
+it alongside automated publications. When it is due, open it, publish the prepared
+content and mark the publication complete.
+
+That keeps the text, media, date and completion state with the rest of the campaign.
+You can plan a LinkedIn announcement and a manually submitted community post from
+the same workspace. See [manual publishing](/features/manual-publishing/) for the
+workflow.
+
+## Work from Studio or your agent
+
+Use Studio to write and adapt a publication for each destination, or let an agent
+prepare a draft through the CLI, HTTP API or MCP. You can review the result in the
+web app and schedule it from either interface. Automated and manual publications
+remain part of the same plan.
+
+The [agent workflow](/features/agent-workflows/) shows how draft preparation,
+review and scheduling fit together. You choose the tools that prepare your copy;
+Postdot stores the publication and runs its delivery.
+
+## Start a Postdot installation
+
+Follow the [Docker Compose guide](/docs/installation/) and create your first
+project and channel. A manual channel lets you try the planning workflow before
+configuring a provider connection. Your database and media storage choices can
+change later through the [transfer tools](/docs/transfer/).

@@ -13,6 +13,9 @@ before developing, typechecking, or building. Proposals and dated execution
 evidence belong to Autonomos; verify them against current code before writing
 public instructions.
 
+Editorial MDX lives in `content/blog/`, `content/compare/` and `content/features/`.
+See DOCUMENTATION.md for their metadata, public evidence and static export contracts.
+
 For local review of the actual static output, run `bun run build` then
 `bun run preview` in this workspace. It runs `wrangler dev` on 127.0.0.1:5174 with
 the production asset rules (trailing-slash redirects, `404.html`). It is a
@@ -44,7 +47,7 @@ Fumadocs OpenAPI pages, duplicate banner/region landmarks in Fumadocs layouts. D
 not patch them with DOM scripts; fix upstream or replace the component.
 Deploys run from `main` in CI. `www.postdot.app` is redirected by a Cloudflare
 redirect rule on the zone (with a proxied placeholder DNS record), not by code;
-manage zone settings with the `cf` CLI (`cf cli search "<task>"`). Deploys run from `main` in CI; do not deploy from a
+manage zone settings with the `cf` CLI (`cf cli search "<task>"`). Do not deploy from a
 stale checkout.
 
 Read [PUBLIC-STYLE.md](PUBLIC-STYLE.md) for landing-page, section-heading, and capability-illustration rules, and [DOCUMENTATION.md](DOCUMENTATION.md) for Fumadocs folder structure, URL groups, and generated OpenAPI reference boundaries.

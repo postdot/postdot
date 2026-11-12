@@ -13,15 +13,23 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as R404RouteImport } from './routes/404'
 import { Route as ApiSearchRouteImport } from './routes/api-search'
 import { Route as DocsRouteImport } from './routes/docs'
+import { Route as FeedRssRouteImport } from './routes/feed-rss'
 import { Route as LegalRouteImport } from './routes/legal'
 import { Route as LlmsFullTxtRouteImport } from './routes/llms-full-txt'
 import { Route as LlmsTxtRouteImport } from './routes/llms-txt'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as SitemapXmlRouteImport } from './routes/sitemap-xml'
+import { Route as BlogIndexRouteImport } from './routes/blog/index'
+import { Route as BlogSlugRouteImport } from './routes/blog/$slug'
+import { Route as CompareIndexRouteImport } from './routes/compare/index'
+import { Route as CompareSlugRouteImport } from './routes/compare/$slug'
 import { Route as DocsIndexRouteImport } from './routes/docs/index'
 import { Route as DocsSplatRouteImport } from './routes/docs/$'
+import { Route as FeaturesIndexRouteImport } from './routes/features/index'
+import { Route as FeaturesSlugRouteImport } from './routes/features/$slug'
 import { Route as LlmsPageDocsIndexRouteImport } from './routes/llms-page/docs/index'
 import { Route as LlmsPageDocsSplatRouteImport } from './routes/llms-page/docs/$'
+import { Route as LlmsPageEditorialSplatRouteImport } from './routes/llms-page/editorial/$'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -41,6 +49,11 @@ const ApiSearchRoute = ApiSearchRouteImport.update({
 const DocsRoute = DocsRouteImport.update({
   id: '/docs',
   path: '/docs',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FeedRssRoute = FeedRssRouteImport.update({
+  id: '/feed-rss',
+  path: '/feed-rss',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LegalRoute = LegalRouteImport.update({
@@ -68,6 +81,26 @@ const SitemapXmlRoute = SitemapXmlRouteImport.update({
   path: '/sitemap-xml',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BlogIndexRoute = BlogIndexRouteImport.update({
+  id: '/blog/',
+  path: '/blog/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BlogSlugRoute = BlogSlugRouteImport.update({
+  id: '/blog/$slug',
+  path: '/blog/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CompareIndexRoute = CompareIndexRouteImport.update({
+  id: '/compare/',
+  path: '/compare/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CompareSlugRoute = CompareSlugRouteImport.update({
+  id: '/compare/$slug',
+  path: '/compare/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DocsIndexRoute = DocsIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -77,6 +110,16 @@ const DocsSplatRoute = DocsSplatRouteImport.update({
   id: '/$',
   path: '/$',
   getParentRoute: () => DocsRoute,
+} as any)
+const FeaturesIndexRoute = FeaturesIndexRouteImport.update({
+  id: '/features/',
+  path: '/features/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FeaturesSlugRoute = FeaturesSlugRouteImport.update({
+  id: '/features/$slug',
+  path: '/features/$slug',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const LlmsPageDocsIndexRoute = LlmsPageDocsIndexRouteImport.update({
   id: '/llms-page/docs/',
@@ -88,34 +131,55 @@ const LlmsPageDocsSplatRoute = LlmsPageDocsSplatRouteImport.update({
   path: '/llms-page/docs/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LlmsPageEditorialSplatRoute = LlmsPageEditorialSplatRouteImport.update({
+  id: '/llms-page/editorial/$',
+  path: '/llms-page/editorial/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/404': typeof R404Route
   '/api-search': typeof ApiSearchRoute
   '/docs': typeof DocsRouteWithChildren
+  '/feed-rss': typeof FeedRssRoute
   '/legal': typeof LegalRoute
   '/llms-full-txt': typeof LlmsFullTxtRoute
   '/llms-txt': typeof LlmsTxtRoute
   '/privacy': typeof PrivacyRoute
   '/sitemap-xml': typeof SitemapXmlRoute
+  '/blog/$slug': typeof BlogSlugRoute
+  '/compare/$slug': typeof CompareSlugRoute
   '/docs/$': typeof DocsSplatRoute
+  '/features/$slug': typeof FeaturesSlugRoute
+  '/blog/': typeof BlogIndexRoute
+  '/compare/': typeof CompareIndexRoute
   '/docs/': typeof DocsIndexRoute
+  '/features/': typeof FeaturesIndexRoute
   '/llms-page/docs/$': typeof LlmsPageDocsSplatRoute
+  '/llms-page/editorial/$': typeof LlmsPageEditorialSplatRoute
   '/llms-page/docs/': typeof LlmsPageDocsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/404': typeof R404Route
   '/api-search': typeof ApiSearchRoute
+  '/feed-rss': typeof FeedRssRoute
   '/legal': typeof LegalRoute
   '/llms-full-txt': typeof LlmsFullTxtRoute
   '/llms-txt': typeof LlmsTxtRoute
   '/privacy': typeof PrivacyRoute
   '/sitemap-xml': typeof SitemapXmlRoute
+  '/blog/$slug': typeof BlogSlugRoute
+  '/compare/$slug': typeof CompareSlugRoute
   '/docs/$': typeof DocsSplatRoute
+  '/features/$slug': typeof FeaturesSlugRoute
+  '/blog': typeof BlogIndexRoute
+  '/compare': typeof CompareIndexRoute
   '/docs': typeof DocsIndexRoute
+  '/features': typeof FeaturesIndexRoute
   '/llms-page/docs/$': typeof LlmsPageDocsSplatRoute
+  '/llms-page/editorial/$': typeof LlmsPageEditorialSplatRoute
   '/llms-page/docs': typeof LlmsPageDocsIndexRoute
 }
 export interface FileRoutesById {
@@ -124,14 +188,22 @@ export interface FileRoutesById {
   '/404': typeof R404Route
   '/api-search': typeof ApiSearchRoute
   '/docs': typeof DocsRouteWithChildren
+  '/feed-rss': typeof FeedRssRoute
   '/legal': typeof LegalRoute
   '/llms-full-txt': typeof LlmsFullTxtRoute
   '/llms-txt': typeof LlmsTxtRoute
   '/privacy': typeof PrivacyRoute
   '/sitemap-xml': typeof SitemapXmlRoute
+  '/blog/$slug': typeof BlogSlugRoute
+  '/compare/$slug': typeof CompareSlugRoute
   '/docs/$': typeof DocsSplatRoute
+  '/features/$slug': typeof FeaturesSlugRoute
+  '/blog/': typeof BlogIndexRoute
+  '/compare/': typeof CompareIndexRoute
   '/docs/': typeof DocsIndexRoute
+  '/features/': typeof FeaturesIndexRoute
   '/llms-page/docs/$': typeof LlmsPageDocsSplatRoute
+  '/llms-page/editorial/$': typeof LlmsPageEditorialSplatRoute
   '/llms-page/docs/': typeof LlmsPageDocsIndexRoute
 }
 export interface FileRouteTypes {
@@ -141,28 +213,44 @@ export interface FileRouteTypes {
     | '/404'
     | '/api-search'
     | '/docs'
+    | '/feed-rss'
     | '/legal'
     | '/llms-full-txt'
     | '/llms-txt'
     | '/privacy'
     | '/sitemap-xml'
+    | '/blog/$slug'
+    | '/compare/$slug'
     | '/docs/$'
+    | '/features/$slug'
+    | '/blog/'
+    | '/compare/'
     | '/docs/'
+    | '/features/'
     | '/llms-page/docs/$'
+    | '/llms-page/editorial/$'
     | '/llms-page/docs/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/404'
     | '/api-search'
+    | '/feed-rss'
     | '/legal'
     | '/llms-full-txt'
     | '/llms-txt'
     | '/privacy'
     | '/sitemap-xml'
+    | '/blog/$slug'
+    | '/compare/$slug'
     | '/docs/$'
+    | '/features/$slug'
+    | '/blog'
+    | '/compare'
     | '/docs'
+    | '/features'
     | '/llms-page/docs/$'
+    | '/llms-page/editorial/$'
     | '/llms-page/docs'
   id:
     | '__root__'
@@ -170,14 +258,22 @@ export interface FileRouteTypes {
     | '/404'
     | '/api-search'
     | '/docs'
+    | '/feed-rss'
     | '/legal'
     | '/llms-full-txt'
     | '/llms-txt'
     | '/privacy'
     | '/sitemap-xml'
+    | '/blog/$slug'
+    | '/compare/$slug'
     | '/docs/$'
+    | '/features/$slug'
+    | '/blog/'
+    | '/compare/'
     | '/docs/'
+    | '/features/'
     | '/llms-page/docs/$'
+    | '/llms-page/editorial/$'
     | '/llms-page/docs/'
   fileRoutesById: FileRoutesById
 }
@@ -186,12 +282,20 @@ export interface RootRouteChildren {
   R404Route: typeof R404Route
   ApiSearchRoute: typeof ApiSearchRoute
   DocsRoute: typeof DocsRouteWithChildren
+  FeedRssRoute: typeof FeedRssRoute
   LegalRoute: typeof LegalRoute
   LlmsFullTxtRoute: typeof LlmsFullTxtRoute
   LlmsTxtRoute: typeof LlmsTxtRoute
   PrivacyRoute: typeof PrivacyRoute
   SitemapXmlRoute: typeof SitemapXmlRoute
+  BlogSlugRoute: typeof BlogSlugRoute
+  CompareSlugRoute: typeof CompareSlugRoute
+  FeaturesSlugRoute: typeof FeaturesSlugRoute
+  BlogIndexRoute: typeof BlogIndexRoute
+  CompareIndexRoute: typeof CompareIndexRoute
+  FeaturesIndexRoute: typeof FeaturesIndexRoute
   LlmsPageDocsSplatRoute: typeof LlmsPageDocsSplatRoute
+  LlmsPageEditorialSplatRoute: typeof LlmsPageEditorialSplatRoute
   LlmsPageDocsIndexRoute: typeof LlmsPageDocsIndexRoute
 }
 
@@ -223,6 +327,13 @@ declare module '@tanstack/react-router' {
       path: '/docs'
       fullPath: '/docs'
       preLoaderRoute: typeof DocsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/feed-rss': {
+      id: '/feed-rss'
+      path: '/feed-rss'
+      fullPath: '/feed-rss'
+      preLoaderRoute: typeof FeedRssRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/legal': {
@@ -260,6 +371,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SitemapXmlRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/blog/': {
+      id: '/blog/'
+      path: '/blog'
+      fullPath: '/blog/'
+      preLoaderRoute: typeof BlogIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/blog/$slug': {
+      id: '/blog/$slug'
+      path: '/blog/$slug'
+      fullPath: '/blog/$slug'
+      preLoaderRoute: typeof BlogSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/compare/': {
+      id: '/compare/'
+      path: '/compare'
+      fullPath: '/compare/'
+      preLoaderRoute: typeof CompareIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/compare/$slug': {
+      id: '/compare/$slug'
+      path: '/compare/$slug'
+      fullPath: '/compare/$slug'
+      preLoaderRoute: typeof CompareSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/docs/': {
       id: '/docs/'
       path: '/'
@@ -274,6 +413,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DocsSplatRouteImport
       parentRoute: typeof DocsRoute
     }
+    '/features/': {
+      id: '/features/'
+      path: '/features'
+      fullPath: '/features/'
+      preLoaderRoute: typeof FeaturesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/features/$slug': {
+      id: '/features/$slug'
+      path: '/features/$slug'
+      fullPath: '/features/$slug'
+      preLoaderRoute: typeof FeaturesSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/llms-page/docs/': {
       id: '/llms-page/docs/'
       path: '/llms-page/docs'
@@ -286,6 +439,13 @@ declare module '@tanstack/react-router' {
       path: '/llms-page/docs/$'
       fullPath: '/llms-page/docs/$'
       preLoaderRoute: typeof LlmsPageDocsSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/llms-page/editorial/$': {
+      id: '/llms-page/editorial/$'
+      path: '/llms-page/editorial/$'
+      fullPath: '/llms-page/editorial/$'
+      preLoaderRoute: typeof LlmsPageEditorialSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -308,12 +468,20 @@ const rootRouteChildren: RootRouteChildren = {
   R404Route: R404Route,
   ApiSearchRoute: ApiSearchRoute,
   DocsRoute: DocsRouteWithChildren,
+  FeedRssRoute: FeedRssRoute,
   LegalRoute: LegalRoute,
   LlmsFullTxtRoute: LlmsFullTxtRoute,
   LlmsTxtRoute: LlmsTxtRoute,
   PrivacyRoute: PrivacyRoute,
   SitemapXmlRoute: SitemapXmlRoute,
+  BlogSlugRoute: BlogSlugRoute,
+  CompareSlugRoute: CompareSlugRoute,
+  FeaturesSlugRoute: FeaturesSlugRoute,
+  BlogIndexRoute: BlogIndexRoute,
+  CompareIndexRoute: CompareIndexRoute,
+  FeaturesIndexRoute: FeaturesIndexRoute,
   LlmsPageDocsSplatRoute: LlmsPageDocsSplatRoute,
+  LlmsPageEditorialSplatRoute: LlmsPageEditorialSplatRoute,
   LlmsPageDocsIndexRoute: LlmsPageDocsIndexRoute,
 }
 export const routeTree = rootRouteImport

@@ -602,3 +602,7 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] **[DOCS-624]** Improve root and integration README entry points `Priority: 🟠` `Complexity: M` `Completed: 2026-11-11`
 - [x] **[SITE-625]** Align homepage and documentation entry paths `Priority: 🟠` `Complexity: M` `Completed: 2026-11-11`
 - [x] **[HTTP-623]** Fix HEAD requests and prevent instance indexing (GitHub #25, #26) `Priority: 🟠` `Complexity: S` `Completed: 2026-11-11`
+
+## Closed 2026-11-12
+
+- [x] **[SITE-628]** Add the public blog, measured comparison and publishing feature pages `Priority: 🟠` `Complexity: L` `Completed: 2026-11-12`

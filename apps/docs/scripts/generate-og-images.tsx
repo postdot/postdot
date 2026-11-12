@@ -12,7 +12,7 @@ import { PostdotLogo } from '@postdot/ui/components/postdot-logo'
 import { Resvg } from '@resvg/resvg-js'
 import satori from 'satori'
 
-import { appRoot, collectDocsSlugs } from './docs-paths'
+import { appRoot, collectDocsSlugs, collectEditorialPages } from './docs-paths'
 
 /** Network logos from the same Iconify set the pages use, read from the local package. */
 const logo = (name: string) => {
@@ -212,3 +212,34 @@ for (const slug of slugs) {
     })
 }
 console.log(`OG images: home and ${slugs.length} documentation pages.`)
+
+for (const section of ['blog', 'compare', 'features']) {
+    await write(`${section}/image.png`, {
+        title:
+            section === 'blog'
+                ? 'The Postdot blog'
+                : section === 'compare'
+                  ? 'Compare Postdot'
+                  : 'Publishing with Postdot',
+        section:
+            section === 'blog'
+                ? 'Measurements and publishing workflows'
+                : 'Self-hosted social publishing',
+    })
+}
+for (const page of collectEditorialPages()) {
+    const text = await readFile(page.file, 'utf8')
+    const block = /^---\n([\s\S]*?)\n---/.exec(text)?.[1]
+    if (!block) throw new Error(`Missing editorial metadata: ${page.file}`)
+    const data = Bun.YAML.parse(block) as { title: string; description: string }
+    await write(`${page.section}/${page.slug}/image.png`, {
+        title: data.title,
+        description: data.description,
+        section:
+            page.section === 'blog'
+                ? 'Postdot blog'
+                : page.section === 'compare'
+                  ? 'Compare Postdot'
+                  : 'Publishing with Postdot',
+    })
+}

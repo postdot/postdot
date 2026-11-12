@@ -9,8 +9,9 @@ import { PublicWordmark } from './public-wordmark'
 import { Link } from './site-link'
 
 const links = [
-    { href: '/#product', label: 'Studio' },
-    { href: '/#automation', label: 'For agents' },
+    { href: '/features', label: 'Product' },
+    { href: '/compare', label: 'Compare' },
+    { href: '/blog', label: 'Blog' },
     { href: '/docs/', label: 'Documentation' },
 ]
 

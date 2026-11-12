@@ -1,0 +1,60 @@
+---
+title: Social publishing for your agents and scripts
+description: Prepare social posts through Postdot's CLI, HTTP API or MCP, review drafts in Studio and schedule destination-specific publications.
+---
+
+Your agent can help prepare a release announcement, adapt it for several destinations
+and save the drafts in Postdot. Open Studio to review the result, change a caption or
+schedule the publications. The agent and the web app work with the same stored posts.
+
+Postdot exposes a CLI, HTTP API, MCP endpoint and installable skills. You can choose
+the interface that fits your existing tools and keep your publishing plan on your
+own server.
+
+## From a release note to a reviewed draft
+
+Give your agent the source material, destinations and intended timing. Ask it to
+prepare a draft in Postdot. It can inspect the available projects and channels,
+create the source post and adapt the content for each publication.
+
+You review those drafts in Studio before scheduling them. A draft can contain
+separate text, media and timing for each destination, so the agent can prepare a
+LinkedIn announcement and a shorter community version without flattening them
+into identical posts.
+
+The [automation guide](/docs/automation/#create-a-draft-for-review) includes the
+commands and API calls for creating a draft for review. It also distinguishes
+saving a draft from scheduling a publication.
+
+## Connect the tools you already use
+
+Use the [CLI](/docs/cli-reference/) from a terminal or an agent that can run commands. Use the
+[HTTP API](/docs/reference/) from your own application or automation scripts. The
+[MCP guide](/docs/mcp/) explains how to connect a compatible client to your instance.
+
+Postdot's [agent skills](https://github.com/postdot/postdot/tree/main/skills)
+provide instructions for discovery, drafting and scheduling. Your agent supplies
+the content preparation; Postdot keeps the posts, schedules and delivery state.
+
+An API key controls what the integration can do within the access granted to it.
+Use the [authentication guide](/docs/reference/authentication/) to configure access
+for the job you want the agent or script to perform.
+
+## Include the work you publish by hand
+
+An agent can prepare a publication for a manual channel as part of the same campaign.
+You finish the submission in the destination's own interface and mark it complete
+in Postdot. The calendar keeps that work alongside the publications sent through
+provider connections.
+
+See [manual publishing](/features/manual-publishing/) for a workflow that combines
+automated posts and destinations where a person carries out the final step.
+
+## Run publishing on your own infrastructure
+
+Postdot's web app, API, scheduler and publication worker share one container. Choose
+SQLite or PostgreSQL for application data, and local or S3-compatible storage for
+media. Configure the instance once, then use it from Studio and your integrations.
+
+Start with the [installation guide](/docs/installation/) or go straight to the
+[automation guide](/docs/automation/) if your instance is already running.

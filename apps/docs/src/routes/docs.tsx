@@ -22,7 +22,11 @@ function DocsRoot() {
                     </span>
                 ),
             }}
-            links={[{ text: 'Home', url: '/' }]}>
+            links={[
+                { text: 'Home', url: '/' },
+                { text: 'Blog', url: '/blog' },
+                { text: 'Compare', url: '/compare' },
+            ]}>
             <Outlet />
         </DocsLayout>
     )

@@ -1,5 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 
+import { editorialSections } from '@/lib/editorial'
 import { siteUrl } from '@/lib/social-metadata'
 import { source } from '@/lib/source'
 
@@ -12,6 +13,10 @@ export const Route = createFileRoute('/sitemap-xml')({
                     '/',
                     '/legal',
                     '/privacy',
+                    ...editorialSections.flatMap(section => [
+                        `/${section.key}`,
+                        ...section.source.getPages().map(page => page.url),
+                    ]),
                     ...source.getPages().map(page => page.url),
                 ]
                 const urls = paths.map(path => `<url><loc>${siteUrl}${path}</loc></url>`).join('')

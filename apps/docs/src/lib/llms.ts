@@ -3,6 +3,7 @@ import { join } from 'node:path'
 
 import { llms } from 'fumadocs-core/source'
 
+import { editorialSections, type EditorialPage } from './editorial'
 import { getPageMarkdownUrl } from './markdown'
 import { source } from './source'
 
@@ -31,7 +32,34 @@ export const docsLlms = llms(source, { renderPage: getLLMText })
 
 export function getLLMIndex() {
     const links = new Map(source.getPages().map(page => [page.url, getPageMarkdownUrl(page)]))
-    return docsLlms.index().replace(/\]\(([^)]+)\)/g, (match, url: string) => {
+    const docsIndex = docsLlms.index().replace(/\]\(([^)]+)\)/g, (match, url: string) => {
         return links.has(url) ? `](${links.get(url)})` : match
     })
+    return (
+        docsIndex +
+        editorialSections
+            .map(
+                section =>
+                    `\n\n## ${section.title}\n` +
+                    section.source
+                        .getPages()
+                        .map(
+                            page =>
+                                `- [${page.data.title}](${page.url}.md): ${page.data.description ?? ''}`
+                        )
+                        .join('\n')
+            )
+            .join('')
+    )
+}
+
+export async function getFullLLMText() {
+    const editorial = await Promise.all(
+        editorialSections.flatMap(section => section.source.getPages().map(getEditorialText))
+    )
+    return [await docsLlms.full(), ...editorial].join('\n\n')
+}
+
+export async function getEditorialText(page: EditorialPage) {
+    return `# ${page.data.title}\n\n${page.data.description ?? ''}\n\nURL: ${page.url}\n\n${await page.data.getText('processed')}\n`
 }

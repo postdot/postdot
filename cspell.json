@@ -23,7 +23,8 @@
         "storybook-static/**",
         "test-results/**",
         "**/.cspellcache*",
-        "cspell-words.txt"
+        "cspell-words.txt",
+        "apps/docs/public/research/idle-memory-2026-11-12/postiz/**"
     ],
     "dictionaryDefinitions": [
         {

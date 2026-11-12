@@ -37,3 +37,15 @@ export function markdownOutputPath(slug: string) {
     const segments = slug ? slug.split('/').map(encodeURIComponent) : []
     return `/llms.mdx/docs/${[...segments, 'content.md'].join('/')}`
 }
+
+/** Editorial collections share flat, descriptive slugs outside the documentation tree. */
+export function collectEditorialPages() {
+    return (['blog', 'compare', 'features'] as const).flatMap(section =>
+        collectDocsSlugs(path.join(appRoot, 'content', section)).map(slug => ({
+            section,
+            slug,
+            url: `/${section}/${slug}`,
+            file: path.join(appRoot, 'content', section, `${slug}.mdx`),
+        }))
+    )
+}

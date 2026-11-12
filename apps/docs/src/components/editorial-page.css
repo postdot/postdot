@@ -1,0 +1,215 @@
+.editorial-site main {
+    padding: 72px 28px 112px;
+}
+.editorial-index,
+.editorial-article {
+    width: min(100%, 1060px);
+    margin-inline: auto;
+}
+.editorial-index h1,
+.editorial-heading h1 {
+    max-width: 850px;
+    margin: 0;
+    font-size: clamp(34px, 5vw, 58px);
+    font-weight: 550;
+    line-height: 1.12;
+    letter-spacing: -0.035em;
+    text-wrap: balance;
+}
+.editorial-intro {
+    max-width: 68ch;
+    margin: 22px 0 0;
+    font-size: 20px;
+    line-height: 1.6;
+    color: var(--home-muted);
+    text-wrap: pretty;
+}
+.editorial-list {
+    max-width: 800px;
+    margin-top: 64px;
+}
+.editorial-list article {
+    padding-block: 32px;
+    border-top: 1px solid var(--home-edge);
+}
+.editorial-list time,
+.editorial-meta {
+    color: var(--home-muted);
+    font-size: 14px;
+}
+.editorial-list h2 {
+    margin: 12px 0;
+    font-size: clamp(24px, 3vw, 32px);
+    font-weight: 550;
+    line-height: 1.25;
+    letter-spacing: -0.025em;
+    text-wrap: balance;
+}
+.editorial-list p {
+    max-width: 65ch;
+    margin: 0 0 20px;
+    color: var(--home-muted);
+    font-size: 17px;
+}
+.editorial-list h2 a {
+    text-decoration: none;
+}
+.editorial-read,
+.editorial-prose a,
+.editorial-meta a {
+    color: var(--home-blue);
+    text-decoration: underline;
+    text-underline-offset: 4px;
+}
+.editorial-heading nav {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    margin-bottom: 28px;
+    color: var(--home-muted);
+    font-size: 14px;
+}
+.editorial-heading nav a:hover {
+    color: var(--home-blue);
+}
+.editorial-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px 24px;
+    margin-top: 24px;
+}
+.editorial-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 730px) minmax(180px, 1fr);
+    gap: 64px;
+    margin-top: 64px;
+    align-items: start;
+}
+.editorial-prose {
+    min-width: 0;
+    max-width: 70ch;
+    font-size: 18px;
+    line-height: 1.8;
+    overflow-wrap: anywhere;
+}
+.editorial-prose > :first-child {
+    margin-top: 0;
+}
+.editorial-prose p,
+.editorial-prose ul,
+.editorial-prose ol {
+    margin-block: 0 24px;
+}
+.editorial-prose h2 {
+    margin: 52px 0 18px;
+    font-size: 29px;
+    font-weight: 550;
+    line-height: 1.25;
+    letter-spacing: -0.025em;
+    scroll-margin-top: 110px;
+    text-wrap: balance;
+}
+.editorial-prose h2 a {
+    color: inherit;
+    text-decoration: none;
+}
+.editorial-prose strong {
+    font-weight: 620;
+}
+.editorial-prose img {
+    display: block;
+    width: 100%;
+    height: auto;
+    margin-block: 36px;
+    border-radius: 3px;
+    background: white;
+}
+.editorial-prose ul,
+.editorial-prose ol {
+    padding-left: 24px;
+}
+.editorial-prose code {
+    background: var(--home-edge);
+    border-radius: 3px;
+    padding: 2px 5px;
+    font-size: 0.85em;
+}
+.editorial-table {
+    max-width: 100%;
+    overflow-x: auto;
+    margin-block: 32px;
+    scrollbar-color: var(--home-muted) var(--home-bg);
+    scrollbar-width: thin;
+    overflow-wrap: normal;
+}
+.editorial-table table {
+    width: 100%;
+    min-width: 600px;
+    border-collapse: collapse;
+    font-size: 15px;
+    line-height: 1.55;
+    font-variant-numeric: tabular-nums;
+}
+.editorial-table th,
+.editorial-table td {
+    padding: 16px 14px;
+    border-bottom: 1px solid var(--home-edge);
+    vertical-align: top;
+    min-width: 100px;
+}
+.editorial-table th:first-child,
+.editorial-table td:first-child {
+    padding-left: 0;
+    min-width: 180px;
+}
+.editorial-table th {
+    font-weight: 600;
+}
+.editorial-toc {
+    position: sticky;
+    top: 120px;
+    font-size: 14px;
+    line-height: 1.5;
+}
+.editorial-toc > p {
+    margin: 0 0 16px;
+    font-weight: 600;
+}
+.editorial-toc nav {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-bottom: 32px;
+    color: var(--home-muted);
+}
+.editorial-toc nav a:hover {
+    color: var(--home-blue);
+}
+@media (max-width: 900px) {
+    .editorial-layout {
+        grid-template-columns: minmax(0, 730px);
+        gap: 0;
+    }
+    .editorial-toc {
+        display: none;
+    }
+}
+@media (max-width: 600px) {
+    .editorial-site main {
+        padding: 48px 20px 72px;
+    }
+    .editorial-intro {
+        font-size: 18px;
+    }
+    .editorial-prose {
+        font-size: 17px;
+        line-height: 1.75;
+    }
+    .editorial-prose h2 {
+        font-size: 25px;
+    }
+    .editorial-layout,
+    .editorial-list {
+        margin-top: 40px;
+    }
+}

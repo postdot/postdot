@@ -18,11 +18,13 @@ export function seo({
     description,
     image,
     path,
+    type = 'website',
 }: {
     title: string
     description: string
     image: string
     path: string
+    type?: 'website' | 'article'
 }) {
     const imageUrl = `${siteUrl}${image}`
     const alt = path === '/' ? title : `${title} | ${siteName}`
@@ -34,7 +36,7 @@ export function seo({
             { property: 'og:title', content: title },
             ...(description ? [{ property: 'og:description', content: description }] : []),
             { property: 'og:site_name', content: siteName },
-            { property: 'og:type', content: 'website' },
+            { property: 'og:type', content: type },
             { property: 'og:url', content: `${siteUrl}${path}` },
             { property: 'og:image', content: imageUrl },
             { property: 'og:image:width', content: '1200' },

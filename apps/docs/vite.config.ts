@@ -7,7 +7,7 @@ import { fumadocsMdx } from 'fumadocs-mdx/vite'
 import Icons from 'unplugin-icons/vite'
 import { defineConfig } from 'vite'
 
-import { collectDocsSlugs, markdownOutputPath } from './scripts/docs-paths'
+import { collectDocsSlugs, collectEditorialPages, markdownOutputPath } from './scripts/docs-paths'
 
 const slugs = collectDocsSlugs()
 
@@ -47,6 +47,18 @@ export default defineConfig({
                 { path: '/', prerender: { enabled: true } },
                 { path: '/legal', prerender: { enabled: true } },
                 { path: '/privacy', prerender: { enabled: true } },
+                ...['blog', 'compare', 'features'].map(section => ({
+                    path: `/${section}`,
+                    prerender: { enabled: true },
+                })),
+                ...collectEditorialPages().flatMap(page => [
+                    { path: page.url, prerender: { enabled: true } },
+                    {
+                        path: `/llms-page/editorial/${page.section}/${page.slug}`,
+                        prerender: { enabled: true, outputPath: `${page.url}.md` },
+                    },
+                ]),
+                { path: '/feed-rss', prerender: { enabled: true, outputPath: '/blog/rss.xml' } },
                 { path: '/404', prerender: { enabled: true, outputPath: '/404.html' } },
                 { path: '/llms-txt', prerender: { enabled: true, outputPath: '/llms.txt' } },
                 {
