@@ -56,7 +56,7 @@ function RootDocument({ children }: { children: ReactNode }) {
                 applicationCategory: 'BusinessApplication',
                 operatingSystem: 'All',
                 url: siteUrl,
-                license: 'https://github.com/saoudi-h/postdot/blob/main/LICENSE',
+                license: 'https://github.com/postdot/postdot/blob/main/LICENSE',
                 offers: {
                     '@type': 'Offer',
                     price: '0',

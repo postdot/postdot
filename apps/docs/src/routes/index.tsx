@@ -8,8 +8,9 @@ export const Route = createFileRoute('/')({
     head: () =>
         withMaterial(
             seo({
-                title: 'Postdot',
-                description: 'Social publishing. For you and your agents.',
+                title: 'Postdot: self-hosted social media scheduler',
+                description:
+                    'Write, adapt and schedule posts per channel in one open-source, self-hosted app. One Docker image, SQLite or PostgreSQL, and a CLI, API and MCP for agents.',
                 image: '/og/home.png',
                 path: '/',
             })

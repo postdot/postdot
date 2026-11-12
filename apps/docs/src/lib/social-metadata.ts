@@ -25,7 +25,7 @@ export function seo({
     path: string
 }) {
     const imageUrl = `${siteUrl}${image}`
-    const alt = `${title} | ${siteName}`
+    const alt = path === '/' ? title : `${title} | ${siteName}`
     return {
         links: [{ rel: 'canonical', href: `${siteUrl}${path}` }],
         meta: [
