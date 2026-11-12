@@ -64,7 +64,7 @@ export function PublicationDraftPreview({
     const article = definition?.preview.layout === 'article'
     const message = definition?.preview.layout === 'message'
     const wideContent = definition?.preview.mosaic === 'tight'
-    const social = !article && !message
+    const social = definition !== undefined && !article && !message
     const accountDriven = definition?.preview.accountDriven ?? false
     const sampleIdentity = definition?.preview.sampleIdentity === true && identityMode === 'sample'
     const authorName = sampleIdentity ? m.publication_preview_sample_author() : channel.name
@@ -83,7 +83,8 @@ export function PublicationDraftPreview({
             <article
                 data-preview-platform={platform}
                 className={cn(
-                    'min-w-0 overflow-hidden bg-surface-raised font-[Arial,sans-serif] shadow-surface',
+                    'min-w-0 overflow-hidden bg-surface-raised shadow-surface',
+                    definition ? 'font-[Arial,sans-serif]' : undefined,
                     professional
                         ? 'rounded-lg border border-[#e8e8e8] bg-white text-[#1f2328]'
                         : message
@@ -246,6 +247,7 @@ export function PublicationDraftPreview({
                 {social ? (
                     <div
                         aria-hidden="true"
+                        data-publication-preview-social-actions
                         className={cn(
                             'flex items-center justify-between text-muted-foreground [&_svg]:size-4',
                             definition?.preview.footerClassName ??

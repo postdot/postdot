@@ -214,25 +214,25 @@ function PublicationEditorRoute() {
             {access.status === 'technical-error' ? (
                 <AccessTechnicalErrorNotice onRetry={retryAccessVerification} />
             ) : null}
-            {canAct ? (
-                <div className="flex justify-end pb-3">
-                    <AddPostDestination
-                        projectId={projectId}
-                        postId={currentEditor.post.id}
-                        channels={activeChannels}
-                        onAdded={async publicationId => {
-                            await router.invalidate()
-                            await router.navigate({
-                                to: '/dashboard/projects/$projectId/publications/$publicationId',
-                                params: { projectId, publicationId },
-                            })
-                        }}
-                    />
-                </div>
-            ) : null}
             <PublicationEditor
                 key={currentEditor.draft.id}
                 projectId={projectId}
+                destinationAction={
+                    canAct ? (
+                        <AddPostDestination
+                            projectId={projectId}
+                            postId={currentEditor.post.id}
+                            channels={activeChannels}
+                            onAdded={async publicationId => {
+                                await router.invalidate()
+                                await router.navigate({
+                                    to: '/dashboard/projects/$projectId/publications/$publicationId',
+                                    params: { projectId, publicationId },
+                                })
+                            }}
+                        />
+                    ) : undefined
+                }
                 configuredEditor={!(import.meta.env.DEV && editorEngine === 'legacy')}
                 initialEditor={currentEditor}
                 initialPublicationTags={publicationTags}

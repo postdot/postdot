@@ -23,6 +23,12 @@ test('exports all filtered stored results and handles cancellation or incomplete
     const { project } = await (
         await page.request.post('/api/projects', { data: { name: 'CSV report', timeZone: 'UTC' } })
     ).json()
+    await page.goto(`/dashboard/projects/${project.id}/performance`)
+    await expect(
+        page.getByRole('status').filter({ hasText: 'No statistics to show' })
+    ).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Export CSV', exact: true })).toHaveCount(0)
+    await expect(page.getByText('This project has no tags yet.', { exact: true })).toHaveCount(0)
     const base = `/api/projects/${project.id}`
     const { channel } = await (
         await page.request.post(`${base}/channels`, {

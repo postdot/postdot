@@ -1185,7 +1185,7 @@ export function NewPublicationPage({
                                             onChange={event =>
                                                 onPostTitleChange(event.target.value)
                                             }
-                                            placeholder={m.publication_article_title()}
+                                            placeholder={m.publication_new_post_title()}
                                         />
                                         {textFields?.headline &&
                                         textFields.headline.field.maxLength !== null &&

@@ -844,7 +844,9 @@ test('opens the shared post from queue and keeps every destination reachable', a
     const card = cards.filter({ hasText: 'First channel' })
     await card.getByRole('link', { name: 'View post', exact: true }).click()
     await expect(page).toHaveURL(new RegExp(`/posts/${first.post.id}$`))
-    await expect(page.getByRole('heading', { name: 'Post', exact: true })).toBeVisible()
+    await expect(
+        page.getByRole('heading', { level: 1, name: 'Initial common source', exact: true })
+    ).toBeVisible()
     await expect(page.getByRole('link', { name: 'Queue', exact: true })).toHaveAttribute(
         'aria-current',
         'page'
@@ -873,7 +875,9 @@ test('opens the shared post from queue and keeps every destination reachable', a
     await destinations.locator(`a[href$="/publications/${pair.second}"]`).first().click()
     await expect(page).toHaveURL(pair.pageUrl(pair.second))
     await page.goBack()
-    await expect(page.getByRole('heading', { name: 'Post', exact: true })).toBeVisible()
+    await expect(
+        page.getByRole('heading', { level: 1, name: 'Initial common source', exact: true })
+    ).toBeVisible()
     await page.getByRole('link', { name: 'Back to queue', exact: true }).click()
     await expect(page).toHaveURL(new RegExp(`/projects/${pair.id}/queue$`))
 })

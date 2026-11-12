@@ -17,6 +17,7 @@ import { useProjectDashboard } from '@/lib/dashboard-context'
 import { useLanguage } from '@/lib/i18n'
 import { loadPostPublications } from '@/lib/post-publications'
 import { projectQueryKeys, subscribeProjectAccessRevocation } from '@/lib/project-realtime'
+import { publicationIdentityLabel } from '@/lib/publication-identity'
 import * as m from '@/paraglide/messages.js'
 
 export const Route = createFileRoute('/dashboard/projects/$projectId/posts/$postId')({
@@ -81,7 +82,22 @@ function PostRoute() {
     return (
         <main className="min-w-0 px-4 py-6 sm:px-6 lg:px-8">
             <DashboardPageHeader
-                title={m.post_title()}
+                title={
+                    query.data && !suspended && !query.isError
+                        ? publicationIdentityLabel({
+                              postTitle: query.data.post.title,
+                              sourceExcerpt: (
+                                  query.data.post.sourceContent.headline ||
+                                  query.data.post.sourceContent.body?.text ||
+                                  ''
+                              )
+                                  .replace(/\s+/g, ' ')
+                                  .trim()
+                                  .slice(0, 96),
+                              mediaCount: query.data.post.sourceContent.media.length,
+                          })
+                        : m.post_title()
+                }
                 back={
                     <Link
                         className={buttonVariants({ size: 'sm', variant: 'ghost' })}

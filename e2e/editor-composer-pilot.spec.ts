@@ -143,7 +143,9 @@ test('recovers composition text, target formatting and media through the existin
     expect(created.post.sourceContent.media).toHaveLength(1)
     expect(created.publications).toHaveLength(3)
     await expect(page).toHaveURL(new RegExp(`/dashboard/projects/${id}/posts/${created.post.id}$`))
-    await expect(page.getByRole('heading', { name: 'Post', exact: true })).toBeVisible()
+    await expect(
+        page.getByRole('heading', { level: 1, name: 'Shared 👋 draft😀', exact: true })
+    ).toBeVisible()
     const destinations = page.getByRole('region', { name: 'Destinations', exact: true })
     await expect(destinations.locator('a[data-publication-edit-link]')).toHaveCount(3)
     for (const publication of created.publications) {

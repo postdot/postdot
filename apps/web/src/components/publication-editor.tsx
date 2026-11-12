@@ -10,7 +10,7 @@ import { AltArrowDownIcon } from '@solar-icons/react/linear/alt-arrow-down'
 import { AltArrowLeftIcon } from '@solar-icons/react/linear/alt-arrow-left'
 import { useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from '@tanstack/react-router'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 
 import { CopyPublicationLink } from '@/components/copy-publication-link'
 import { type MediaSelection } from '@/components/media-attachment-picker'
@@ -95,6 +95,7 @@ type SourceContent = PublicationEditorState['post']['sourceContent']
 type Profile = PublicationEditorState['profile']['profile']
 
 interface PublicationEditorProps {
+    readonly destinationAction?: ReactNode
     readonly configuredEditor?: boolean
     readonly channels?: readonly Channel[]
     readonly publisherConnections?: readonly PublisherConnection[]
@@ -150,6 +151,7 @@ type SaveState = PublicationEditorSaveState
 const recoveryVersion = 3 as const
 
 export function PublicationEditor({
+    destinationAction,
     configuredEditor = true,
     channels = [],
     publisherConnections,
@@ -1588,22 +1590,6 @@ export function PublicationEditor({
                         ) : null}
                     </div>
                 ) : null}
-                {!readOnly && editor.movement?.canMove ? (
-                    <div className="mb-3 flex flex-wrap items-center gap-3">
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            disabled={cancellationBlocked}
-                            onClick={() => setMoveOpen(true)}>
-                            {m.publication_move_action()}
-                        </Button>
-                        {hasLocalChanges ? (
-                            <span className="text-xs text-muted-foreground">
-                                {m.publication_move_save_first()}
-                            </span>
-                        ) : null}
-                    </div>
-                ) : null}
                 {moveOpen ? (
                     <PublicationMoveDialog
                         editor={editor}
@@ -1645,6 +1631,66 @@ export function PublicationEditor({
                     retryDisabled={retryBlocked}
                     timeZone={timeZone}
                 />
+
+                {availableTags.length > 0 ||
+                publicationEditable ||
+                destinationAction !== undefined ||
+                (!readOnly && editor.movement?.canMove) ? (
+                    <div
+                        data-publication-tools
+                        className="mb-5 flex min-w-0 flex-wrap items-center gap-3">
+                        {availableTags.length > 0 || publicationEditable ? (
+                            <div className="flex flex-wrap items-center gap-3">
+                                <PublicationTagPicker
+                                    ariaLabel={m.taxonomy_select_tags()}
+                                    archivedLabel={m.common_archived()}
+                                    disabled={
+                                        !publicationEditable ||
+                                        accessWritesBlocked ||
+                                        isRebasing ||
+                                        editorMutationPending ||
+                                        tagSavePending
+                                    }
+                                    emptyLabel={m.taxonomy_no_tags()}
+                                    label={m.taxonomy_tags()}
+                                    onChange={value => void handlePublicationTagIdsChange(value)}
+                                    onCreateTag={
+                                        publicationEditable ? onCreateProjectTag : undefined
+                                    }
+                                    selectedTagIds={publicationTagIds}
+                                    selectedLabel={count => m.taxonomy_selected_tags({ count })}
+                                    tags={availableTags}
+                                />
+                                {tagError ? (
+                                    <p className="text-xs text-state-failed" role="alert">
+                                        {tagError}
+                                    </p>
+                                ) : null}
+                            </div>
+                        ) : null}
+
+                        <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
+                            {!readOnly && editor.movement?.canMove ? (
+                                <div className="flex flex-wrap items-center gap-3">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        disabled={cancellationBlocked}
+                                        onClick={() => setMoveOpen(true)}>
+                                        {m.publication_move_action()}
+                                    </Button>
+                                    {hasLocalChanges ? (
+                                        <span className="text-xs text-muted-foreground">
+                                            {m.publication_move_save_first()}
+                                        </span>
+                                    ) : null}
+                                </div>
+                            ) : null}
+
+                            {destinationAction}
+                        </div>
+                    </div>
+                ) : null}
 
                 {onCancel !== undefined ? (
                     <PublicationCancellationDialog
@@ -1720,34 +1766,6 @@ export function PublicationEditor({
                         timeZone={timeZone}
                         onAccessRefused={onAccessRefused}
                     />
-                ) : null}
-
-                {availableTags.length > 0 || publicationEditable ? (
-                    <div className="mt-4 flex flex-wrap items-center gap-3">
-                        <PublicationTagPicker
-                            ariaLabel={m.taxonomy_select_tags()}
-                            archivedLabel={m.common_archived()}
-                            disabled={
-                                !publicationEditable ||
-                                accessWritesBlocked ||
-                                isRebasing ||
-                                editorMutationPending ||
-                                tagSavePending
-                            }
-                            emptyLabel={m.taxonomy_no_tags()}
-                            label={m.taxonomy_tags()}
-                            onChange={value => void handlePublicationTagIdsChange(value)}
-                            onCreateTag={publicationEditable ? onCreateProjectTag : undefined}
-                            selectedTagIds={publicationTagIds}
-                            selectedLabel={count => m.taxonomy_selected_tags({ count })}
-                            tags={availableTags}
-                        />
-                        {tagError ? (
-                            <p className="text-xs text-state-failed" role="alert">
-                                {tagError}
-                            </p>
-                        ) : null}
-                    </div>
                 ) : null}
 
                 <PublicationComposer

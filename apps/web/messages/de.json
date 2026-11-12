@@ -1521,7 +1521,7 @@
     "editor_promotion_review_detail": "Beheben Sie die Profil-Validierungsprobleme, bevor Sie diesen Entwurf auf das ausgewählte Ziel anwenden.",
     "editor_promotion_active_profile_mismatch": "Das aktive Kanalprofil wurde nach dem Speichern dieses Entwurfs geändert. Der Entwurf verwendet noch das vorherige Profil, daher kann die normale Hochstufung ihn nicht anwenden. Der gespeicherte Inhalt und das ausgewählte Ziel bleiben unverändert.",
     "editor_resolve_issues": "Beheben Sie die Validierungsprobleme, bevor Sie diesen Entwurf hochstufen.",
-    "editor_draft_differs": "Ausstehende Änderungen",
+    "editor_draft_differs": "Der Entwurf unterscheidet sich von der zu veröffentlichenden Version",
     "editor_draft_matches": "Synchronisiert",
     "editor_deliver_at": "Bereitstellen um",
     "editor_clear_draft": "Entwurf verwerfen",

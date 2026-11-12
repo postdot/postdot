@@ -295,7 +295,9 @@ test('keeps narrow new-publication flow and queue usable with long channel names
     expect(createResponse.status(), await createResponse.text()).toBe(201)
     const created = await createResponse.json()
     await expect(page).toHaveURL(new RegExp(`/posts/${created.post.id}$`))
-    await expect(page.getByRole('heading', { name: 'Post', exact: true })).toBeVisible()
+    await expect(
+        page.getByRole('heading', { level: 1, name: sharedContent, exact: true })
+    ).toBeVisible()
     const destinations = page.getByRole('region', { name: 'Destinations', exact: true })
     await expect(destinations.locator('a[data-publication-edit-link]')).toHaveCount(2)
     expect(

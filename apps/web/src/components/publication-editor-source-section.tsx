@@ -8,6 +8,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@postdot/ui/components/select'
+import { AltArrowDownIcon } from '@solar-icons/react/linear/alt-arrow-down'
 import { PenIcon } from '@solar-icons/react/linear/pen'
 import { lazy, Suspense, useState } from 'react'
 
@@ -152,9 +153,13 @@ export function PublicationEditorSourceSection({
                         onAssetsChange={onAssetsChange}
                         disabled={mediaDisabled}
                     />
-                    <details className="w-fit max-w-full rounded-lg bg-surface-inset/45 px-3 py-2 open:w-full">
-                        <summary className="cursor-pointer text-sm font-medium text-foreground">
+                    <details className="group w-fit max-w-full rounded-md bg-surface-inset/45 px-3 py-2 open:w-full">
+                        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-medium text-foreground [&::-webkit-details-marker]:hidden">
                             {m.editor_content_options()}
+                            <AltArrowDownIcon
+                                aria-hidden="true"
+                                className="size-4 shrink-0 text-muted-foreground group-open:rotate-180"
+                            />
                         </summary>
                         <div className="mt-4 grid min-w-0 gap-4">
                             <p className="text-xs text-muted-foreground">

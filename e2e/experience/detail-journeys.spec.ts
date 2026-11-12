@@ -162,8 +162,21 @@ for (const [locale, copy, theme] of [
                 await expect(
                     page.getByRole('region', { name: copy.post_destinations, exact: true })
                 ).toContainText('Community')
-            else await expect(page.locator('[data-publication-lifecycle]')).toBeVisible()
+            else {
+                await expect(page.locator('[data-publication-lifecycle]')).toBeVisible()
+                await expect(
+                    page
+                        .locator('main [data-publication-tools]')
+                        .getByRole('button', { name: copy.add_destination_title, exact: true })
+                ).toBeVisible()
+                await expect(page.locator('[data-publication-preview-social-actions]')).toHaveCount(
+                    0
+                )
+            }
             if (label === 'post') {
+                await expect(page.getByRole('heading', { level: 1 })).toHaveText(
+                    'Shared source for the editorial destinations'
+                )
                 await expect(page.locator('[data-page-column="management"]')).toBeVisible()
                 await expect(
                     page.getByRole('link', { name: copy.nav_back_to_queue, exact: true })

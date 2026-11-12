@@ -1,7 +1,9 @@
 import type { PublicationSummary } from '@/lib/api'
 import * as m from '@/paraglide/messages.js'
 
-export function publicationIdentityLabel(publication: PublicationSummary) {
+export function publicationIdentityLabel(
+    publication: Pick<PublicationSummary, 'postTitle' | 'sourceExcerpt' | 'mediaCount'>
+) {
     const title = publication.postTitle?.trim()
     if (title) return title
     const excerpt = publication.sourceExcerpt?.trim()

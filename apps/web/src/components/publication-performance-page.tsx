@@ -383,33 +383,37 @@ export function PublicationPerformancePage({
                     </Link>
                 }
                 action={
-                    <div className="flex items-center gap-2">
-                        {exportState === 'pending' ? (
+                    publicationsQuery.isSuccess &&
+                    publications.length === 0 &&
+                    !publicationsQuery.hasNextPage ? undefined : (
+                        <div className="flex items-center gap-2">
+                            {exportState === 'pending' ? (
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => {
+                                        exportAbort.current?.abort()
+                                        setExportState('idle')
+                                    }}>
+                                    {m.performance_export_cancel()}
+                                </Button>
+                            ) : null}
                             <Button
-                                variant="ghost"
+                                variant="outline"
                                 size="sm"
-                                onClick={() => {
-                                    exportAbort.current?.abort()
-                                    setExportState('idle')
-                                }}>
-                                {m.performance_export_cancel()}
+                                aria-busy={exportState === 'pending'}
+                                disabled={
+                                    exportState === 'pending' ||
+                                    publicationsQuery.isPending ||
+                                    publicationsQuery.isError
+                                }
+                                onClick={() => void exportCsv()}>
+                                {exportState === 'pending'
+                                    ? m.performance_export_pending()
+                                    : m.performance_export_csv()}
                             </Button>
-                        ) : null}
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            aria-busy={exportState === 'pending'}
-                            disabled={
-                                exportState === 'pending' ||
-                                publicationsQuery.isPending ||
-                                publicationsQuery.isError
-                            }
-                            onClick={() => void exportCsv()}>
-                            {exportState === 'pending'
-                                ? m.performance_export_pending()
-                                : m.performance_export_csv()}
-                        </Button>
-                    </div>
+                        </div>
+                    )
                 }
                 title={m.performance_title()}
             />
@@ -439,10 +443,6 @@ export function PublicationPerformancePage({
                         selectedTagIds={selectedTagIds}
                         tags={catalogTags}
                     />
-                ) : tagCatalogQuery.isSuccess ? (
-                    <p className="text-xs text-muted-foreground">
-                        {m.performance_tag_filter_no_tags()}
-                    </p>
                 ) : null}
             </div>
             {selectedTagIds.length > 0 ? (

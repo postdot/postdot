@@ -19,7 +19,7 @@ export function DashboardPageHeader({
     const hasBack = back !== undefined || centered
     const titleBlock = (
         <>
-            <h1 className="font-heading text-3xl font-semibold leading-[1.02] xl:text-4xl">
+            <h1 className="break-words text-balance font-heading text-3xl font-semibold leading-[1.02] xl:text-4xl">
                 {title}
             </h1>
             {description ? (
@@ -33,7 +33,7 @@ export function DashboardPageHeader({
 
     if (hasBack) {
         return (
-            <header className="grid min-w-0 grid-cols-1 gap-3 pb-6 lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:items-start">
+            <header className="grid min-w-0 grid-cols-1 gap-3 pb-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)_minmax(0,1fr)] lg:items-start">
                 <div className="flex min-w-0 w-full items-center justify-between lg:contents">
                     <div className="min-w-0 lg:col-start-1 lg:row-start-1">{back}</div>
                     <div className="shrink-0 lg:col-start-3 lg:row-start-1 lg:justify-self-end">

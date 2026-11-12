@@ -1521,7 +1521,7 @@
     "editor_promotion_review_detail": "Resuelve los problemas de validación del perfil antes de aplicar este borrador al destino seleccionado.",
     "editor_promotion_active_profile_mismatch": "El perfil activo del canal cambió después de guardar este borrador. El borrador aún utiliza el perfil anterior, por lo que la promoción normal no puede aplicarlo. El contenido guardado y el destino seleccionado no han cambiado.",
     "editor_resolve_issues": "Resuelve los problemas de validación antes de promover este borrador.",
-    "editor_draft_differs": "Cambios pendientes",
+    "editor_draft_differs": "El borrador difiere de la versión que se publicará",
     "editor_draft_matches": "Sincronizado",
     "editor_deliver_at": "Entregar el",
     "editor_clear_draft": "Borrar borrador",
