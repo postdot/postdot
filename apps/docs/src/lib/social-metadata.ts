@@ -30,9 +30,9 @@ export function seo({
         links: [{ rel: 'canonical', href: `${siteUrl}${path}` }],
         meta: [
             { title: path === '/' ? title : `${title} | ${siteName}` },
-            { name: 'description', content: description },
+            ...(description ? [{ name: 'description', content: description }] : []),
             { property: 'og:title', content: title },
-            { property: 'og:description', content: description },
+            ...(description ? [{ property: 'og:description', content: description }] : []),
             { property: 'og:site_name', content: siteName },
             { property: 'og:type', content: 'website' },
             { property: 'og:url', content: `${siteUrl}${path}` },
@@ -42,7 +42,7 @@ export function seo({
             { property: 'og:image:alt', content: alt },
             { name: 'twitter:card', content: 'summary_large_image' },
             { name: 'twitter:title', content: title },
-            { name: 'twitter:description', content: description },
+            ...(description ? [{ name: 'twitter:description', content: description }] : []),
             { name: 'twitter:image', content: imageUrl },
         ],
     }

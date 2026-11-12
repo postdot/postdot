@@ -18,7 +18,12 @@ export async function loadDocsPage(slugs: string[]) {
     const preloaded = hasOperations ? await preloadOpenAPIPage({ data: slugs }) : undefined
     const head = seo({
         title: page.data.title,
-        description: page.data.description ?? '',
+        // Generated API pages have no authored description: say what the operation is.
+        description:
+            page.data.description ||
+            (page.data._openapi?.method
+                ? `${page.data.title}. Postdot HTTP API reference, ${page.data._openapi.method} operation.`
+                : ''),
         image: getOGImageUrl(page.slugs),
         path: page.url,
     })
