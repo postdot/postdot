@@ -5,6 +5,7 @@
         "installation",
         "reverse-proxy",
         "studio-hosting",
+        "cloudflare-studio",
         "kubernetes",
         "docker-swarm",
         "provider-configuration",

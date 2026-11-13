@@ -1,0 +1,173 @@
+---
+title: Studio on Cloudflare
+description: Serve Studio assets with a small streaming Worker proxy while keeping the Postdot backend on your own server.
+---
+
+{/* cspell:ignore envsubst */}
+
+The repository includes an optional Cloudflare Workers Static Assets recipe in
+`scripts/studio-cloudflare/`. It serves the existing Studio SPA and forwards
+`/api`, `/api/*`, `/oauth` and `/oauth/*` to your backend. Postdot's API, scheduler,
+worker, database and media storage continue running on your server.
+
+The local acceptance journey uses Cloudflare's workerd runtime, the production
+Studio/API builds and the supplied Nginx ingress. It covers sessions, private
+media, uploads, SSE reconnection, revocation and scheduled publication to a local
+receiver. A deployed Cloudflare account, domain, plan and origin network still
+need the checks below. This recipe does not establish hosted production acceptance.
+
+## Prepare the backend and origin ingress
+
+Use two hostnames:
+
+- `postdot.example.com`: the public Studio and API origin on Cloudflare.
+- `origin.example.com`: a dedicated HTTPS ingress on your Postdot server, with a
+  valid certificate and the secret check below. It must not route back to the Worker.
+
+Keep the raw API port private. The repository's Compose file already binds it to
+loopback. Start with [separate Studio hosting](/docs/studio-hosting/) and set:
+
+```dotenv
+POSTDOT_WEB_ENABLED=false
+BETTER_AUTH_URL=https://postdot.example.com
+POSTDOT_WEB_ORIGIN=https://postdot.example.com
+POSTDOT_TRUSTED_PROXIES=127.0.0.1/32
+```
+
+That proxy address assumes host Nginx connects to the loopback API port. A container
+gateway may be the actual socket peer; use the
+[trusted proxy verification procedure](/docs/reverse-proxy/#trusted-proxy-addresses)
+for your network. Do not trust Cloudflare's entire address range as a substitute
+for authenticating your own Worker.
+
+Generate a separate ingress secret in a private operator directory. It is a
+64-character lowercase hexadecimal value, not a Postdot API key or user session:
+
+```sh
+umask 077
+openssl rand -hex 32 > ingress-secret.txt
+```
+
+Transfer that file securely to the origin server. Keep it outside version control,
+access logs and Studio assets. Export its value as `POSTDOT_INGRESS_SECRET` only in
+the private shell used to render the Nginx snippet:
+
+```sh
+umask 077
+export POSTDOT_INGRESS_SECRET="$(cat /private/operator/ingress-secret.txt)"
+export POSTDOT_API_UPSTREAM=127.0.0.1:3000
+export POSTDOT_PUBLIC_HOST=postdot.example.com
+: "${POSTDOT_INGRESS_SECRET:?Set the private ingress secret}"
+envsubst '${POSTDOT_INGRESS_SECRET} ${POSTDOT_API_UPSTREAM} ${POSTDOT_PUBLIC_HOST}' \
+  < scripts/studio-cloudflare/ingress.nginx.conf.template \
+  > /private/operator/postdot-ingress.conf
+unset POSTDOT_INGRESS_SECRET
+```
+
+Include that rendered file inside a dedicated Nginx HTTPS server block for
+`origin.example.com`, alongside its certificate settings. Do not add other proxy
+locations to that server. Validate with `nginx -t` before reloading. Its secret
+check must reject requests before they reach Postdot. An unauthenticated request
+to `https://origin.example.com/api/auth/get-session` should return `403`.
+
+The Worker overwrites both the ingress secret and its client-address header.
+Nginx checks the secret, converts that address to `X-Forwarded-For`, removes the
+private transport headers and streams to the API. Postdot then verifies its
+immediate trusted peer. Knowing the ingress secret grants access to the proxy
+boundary; Postdot still requires the normal session or scoped API key.
+
+## Build and configure the Worker
+
+Use the same source revision as the backend and the repository's pinned Bun:
+
+```sh
+bun install --frozen-lockfile
+bun run build:studio:cloudflare
+```
+
+The output is `scripts/studio-cloudflare/dist`, including distribution notices,
+robots exclusion and static response headers. It contains no API or server secrets.
+
+Edit `scripts/studio-cloudflare/wrangler.jsonc` for your own deployment. Choose a
+Worker name, replace `POSTDOT_API_ORIGIN` and `POSTDOT_PUBLIC_ORIGIN`, and add your
+[custom domain](https://developers.cloudflare.com/workers/configuration/routing/custom-domains/):
+
+```json
+"routes": [{ "pattern": "postdot.example.com", "custom_domain": true }]
+```
+
+Keep `workers_dev` and `preview_urls` disabled, and preserve the API/OAuth
+`run_worker_first` patterns. They prevent browser navigation to an API path from
+receiving the SPA shell. Existing files use static assets directly. For missing
+paths, the Worker serves `index.html` only to GET/HEAD page navigation requests without a
+filename extension. Missing JavaScript requests return `404`.
+
+The compatibility date is pinned to the runtime shipped with Wrangler 4.152.0.
+The explicit `enable_request_signal` flag propagates client disconnects to the
+upstream fetch. Review and repeat qualification when upgrading that runtime. To
+regenerate the configuration's module-scoped TypeScript bindings, run
+`bun run types:studio:cloudflare`.
+
+Check packaging before deployment:
+
+```sh
+bun x wrangler deploy --config scripts/studio-cloudflare/wrangler.jsonc --dry-run
+```
+
+Authenticate using your own Cloudflare account and its deployment permissions.
+Once the Worker exists, store the same private ingress secret using Wrangler's
+secret input, never as a public variable:
+
+```sh
+bun x wrangler secret put POSTDOT_INGRESS_SECRET \
+  --config scripts/studio-cloudflare/wrangler.jsonc \
+  < /private/operator/ingress-secret.txt
+```
+
+To create or update your chosen deployment, use
+`bun x wrangler deploy --config scripts/studio-cloudflare/wrangler.jsonc`.
+Until the secret is installed, API forwarding fails with `503`; static files can
+still load. A secret update deploys a new Worker version. Coordinate secret
+rotation with Nginx; mismatched values return `403` rather than bypassing the gate.
+
+## Verify the deployed path
+
+Keep both public URL settings on the Studio domain and register that domain's
+provider callback URLs. Check a fresh login and its `session.ipAddress`, rejected
+authentication origins, logout and revoked-session refusal. Cloudflare must
+provide the real `CF-Connecting-IP`; disable transforms that remove visitor IPs
+or replace IPv6 addresses with pseudo IPv4. Same-zone Worker chains can alter IP
+headers, so qualify those chains separately.
+
+Upload and retrieve private media, including an unauthenticated refusal. Verify
+the largest upload you intend to support: the effective ceiling is the smallest
+of Cloudflare's zone limit, Nginx's `client_max_body_size` and Postdot's configured
+media limit. The example Nginx snippet permits `100m`; Cloudflare's own limits may
+be lower. The proxy streams bodies rather than buffering whole files.
+
+Confirm a project update arrives over SSE, reconnect after interrupting a stream,
+and revoke its session while it is open. Keep origin proxy buffering and API
+caching disabled; exclude API/OAuth paths from custom cache rules. The Worker
+preserves API status, cookies and redirects, disables subrequest caching and adds
+`Cache-Control: no-store` to API responses. Its stream has no application deadline;
+network failures, origin idle timeouts and Cloudflare runtime updates can still
+close it. Client reconnection remains necessary.
+
+Preserve old hashed Studio assets during an update, keep API/Studio revisions
+paired and rehearse rollback of both. Backend probes, OpenAPI, MCP and metrics
+remain outside this recipe's public route set. Retain operator access through
+your existing private path. Authentication quotas remain local to each API process;
+Cloudflare plan quotas and request costs are additional operating constraints.
+
+The repository's local qualification command requires Linux, Docker and the
+`nginx:alpine` image, plus already built API and Cloudflare assets:
+
+```sh
+POSTDOT_E2E_PRODUCTION_WEB=true POSTDOT_E2E_SEPARATE_STUDIO=true POSTDOT_E2E_TLS_PROXY=true POSTDOT_E2E_CLOUDFLARE_STUDIO=true bun x playwright test e2e/separate-studio.spec.ts
+```
+
+See Cloudflare's [static routing](https://developers.cloudflare.com/workers/static-assets/routing/single-page-application/),
+[request/redirect behavior](https://developers.cloudflare.com/workers/runtime-apis/request/),
+[visitor IP semantics](https://developers.cloudflare.com/fundamentals/reference/http-headers/#cf-connecting-ip)
+and [platform limits](https://developers.cloudflare.com/workers/platform/limits/)
+when reviewing your deployed configuration.

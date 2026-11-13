@@ -18,6 +18,29 @@ test('runs a separately served Studio against a production API without assets th
     expect(ready.status).toBe('ready')
     expect(ready.checks.scheduler).toBe('started')
 
+    if (process.env.POSTDOT_E2E_CLOUDFLARE_STUDIO === 'true') {
+        const ingress = `http://127.0.0.1:${process.env.POSTDOT_E2E_CLOUDFLARE_INGRESS_PORT}`
+        expect((await request.get(`${ingress}/api/auth/get-session`)).status()).toBe(403)
+        expect(
+            (
+                await request.get(`${ingress}/api/auth/get-session`, {
+                    headers: {
+                        'x-postdot-ingress': 'forged',
+                        'x-postdot-client-address': '192.0.2.12',
+                    },
+                })
+            ).status()
+        ).toBe(403)
+        for (const path of ['/api/missing-route', '/oauth/missing-route']) {
+            const missing = await request.get(path, { headers: { 'sec-fetch-mode': 'navigate' } })
+            expect(missing.status()).toBe(404)
+            expect(missing.headers()['content-type'] ?? '').not.toContain('text/html')
+            expect(missing.headers()['cache-control']).toBe('no-store')
+        }
+        expect((await request.get('/assets/missing-file.js')).status()).toBe(404)
+        expect((await request.get('/')).headers()['x-robots-tag']).toBe('noindex, nofollow')
+    }
+
     await page.goto('/')
     const origin = new URL(page.url()).origin
     expect(origin.startsWith('https://')).toBe(true)

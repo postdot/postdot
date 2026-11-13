@@ -1,0 +1,21 @@
+{
+    "$schema": "../../node_modules/wrangler/config-schema.json",
+    "name": "postdot-studio",
+    "main": "worker.ts",
+    // Latest date supported by the repository's pinned Wrangler/workerd runtime.
+    "compatibility_date": "2026-10-26",
+    "compatibility_flags": ["enable_request_signal"],
+    "workers_dev": false,
+    "preview_urls": false,
+    "assets": {
+        "directory": "./dist",
+        "binding": "ASSETS",
+        "not_found_handling": "none",
+        "run_worker_first": ["/api", "/api/*", "/oauth", "/oauth/*"],
+    },
+    "vars": {
+        "POSTDOT_API_ORIGIN": "https://origin.example.com",
+        "POSTDOT_PUBLIC_ORIGIN": "https://postdot.example.com",
+    },
+    "secrets": { "required": ["POSTDOT_INGRESS_SECRET"] },
+}

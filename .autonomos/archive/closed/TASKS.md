@@ -618,3 +618,4 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] **[DEPLOY-635]** Define multi-client security and separate optional Studio serving from the API runtime `Priority: 🔵` `Complexity: L` `Completed: 2026-11-13`
 - [x] **[AUTH-636]** Qualify native human-session transport and lifecycle against Postdot authorization boundaries `Priority: 🔵` `Complexity: L` `Completed: 2026-11-13`
 - [x] **[AUTH-637]** Resolve trusted proxy client IPs and qualify per-client authentication rate limits `Priority: 🟠` `Complexity: L` `Completed: 2026-11-13`
+- [x] **[DEPLOY-638]** Qualify a Cloudflare static Studio and protected streaming API proxy recipe `Priority: 🔵` `Complexity: L` `Completed: 2026-11-13`

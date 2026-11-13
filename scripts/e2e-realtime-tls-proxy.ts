@@ -10,7 +10,11 @@ import {
     type OutgoingHttpHeaders,
     type ServerResponse,
 } from 'node:http'
-import { createServer as createHttpsServer, type Server as HttpsServer } from 'node:https'
+import {
+    createServer as createHttpsServer,
+    request as requestHttps,
+    type Server as HttpsServer,
+} from 'node:https'
 import { join } from 'node:path'
 import type { Duplex } from 'node:stream'
 
@@ -51,6 +55,7 @@ export function createRealtimeTlsProxy(options: RealtimeTlsProxyOptions): Realti
     assertPort(options.port)
     const target = parseTargetOrigin(options.targetOrigin, options.port)
     const targetPort = Number(target.port)
+    const requestTarget = target.protocol === 'https:' ? requestHttps : requestHttp
     const clientSockets = new Set<Duplex>()
     const upstreamSockets = new Set<Duplex>()
     const upstreamRequests = new Set<ClientRequest>()
@@ -159,9 +164,11 @@ export function createRealtimeTlsProxy(options: RealtimeTlsProxyOptions): Realti
             return
         }
 
-        const upstreamRequest = requestHttp(
+        const upstreamRequest = requestTarget(
             {
                 agent: false,
+                // Target validation confines this to isolated loopback fixtures.
+                ...(target.protocol === 'https:' ? { rejectUnauthorized: false } : {}),
                 headers: proxyHeaders(request, false),
                 hostname: target.hostname,
                 method: request.method,
@@ -244,8 +251,9 @@ export function createRealtimeTlsProxy(options: RealtimeTlsProxyOptions): Realti
 
         let upstreamSocket: Duplex | undefined
         let upgraded = false
-        const upstreamRequest = requestHttp({
+        const upstreamRequest = requestTarget({
             agent: false,
+            ...(target.protocol === 'https:' ? { rejectUnauthorized: false } : {}),
             headers: proxyHeaders(request, true),
             hostname: target.hostname,
             method: request.method,
@@ -352,8 +360,8 @@ function parseTargetOrigin(value: string, listenerPort: number): URL {
         throw new Error('POSTDOT_E2E_TLS_PROXY_TARGET must be a valid origin')
     }
 
-    if (target.protocol !== 'http:') {
-        throw new Error('POSTDOT_E2E_TLS_PROXY_TARGET must use http')
+    if (target.protocol !== 'http:' && target.protocol !== 'https:') {
+        throw new Error('POSTDOT_E2E_TLS_PROXY_TARGET must use http or https')
     }
     if (target.hostname !== '127.0.0.1') {
         throw new Error('POSTDOT_E2E_TLS_PROXY_TARGET must target 127.0.0.1')

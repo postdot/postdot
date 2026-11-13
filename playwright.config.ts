@@ -10,10 +10,13 @@ const productionWeb = process.env.POSTDOT_E2E_PRODUCTION_WEB === 'true'
 const separateStudio = process.env.POSTDOT_E2E_SEPARATE_STUDIO === 'true'
 const nativeSession = process.env.POSTDOT_E2E_NATIVE_SESSION === 'true'
 const authIp = process.env.POSTDOT_E2E_AUTH_IP === 'true'
+const cloudflareStudio = process.env.POSTDOT_E2E_CLOUDFLARE_STUDIO === 'true'
 const useMailpit = process.env.POSTDOT_E2E_MAILPIT === 'true'
 const tlsProxy = process.env.POSTDOT_E2E_TLS_PROXY === 'true'
 const realtimeAcceptance = process.env.POSTDOT_E2E_REALTIME_ACCEPTANCE === 'true'
 const experienceAudit = process.env.POSTDOT_EXPERIENCE_AUDIT === 'true'
+if (cloudflareStudio && (!separateStudio || nativeSession || authIp))
+    throw new Error('Cloudflare Studio acceptance requires its own isolated production Studio mode')
 if (authIp && (!separateStudio || nativeSession))
     throw new Error('Authentication IP acceptance requires its own isolated production API mode')
 if (nativeSession && !separateStudio)
@@ -37,6 +40,16 @@ const tlsProxyPort = tlsProxy
       ])
     : undefined
 if (tlsProxyPort !== undefined) process.env.POSTDOT_E2E_TLS_PROXY_PORT = String(tlsProxyPort)
+const cloudflareIngressPort = cloudflareStudio
+    ? await allocateTestPort('POSTDOT_E2E_CLOUDFLARE_INGRESS_PORT', [
+          apiPort,
+          webPort,
+          receiverPort!,
+          tlsProxyPort!,
+      ])
+    : undefined
+if (cloudflareIngressPort !== undefined)
+    process.env.POSTDOT_E2E_CLOUDFLARE_INGRESS_PORT = String(cloudflareIngressPort)
 const browserOrigin = tlsProxyPort === undefined ? webOrigin : `https://127.0.0.1:${tlsProxyPort}`
 
 async function allocateTestPort(variable: string, reserved: readonly number[]): Promise<number> {
@@ -85,7 +98,7 @@ const apiEnvironment = {
     POSTDOT_MEDIA_STORE_ID: 'e2e-local',
     POSTDOT_WEB_ENABLED: separateStudio ? 'false' : 'true',
     POSTDOT_E2E_SEPARATE_STUDIO: String(separateStudio),
-    POSTDOT_TRUSTED_PROXIES: authIp ? '127.0.0.1/32,::1/128' : '',
+    POSTDOT_TRUSTED_PROXIES: authIp || cloudflareStudio ? '127.0.0.1/32,::1/128' : '',
     ...(separateStudio
         ? { POSTDOT_WEB_ASSETS_DIR: join(dataDirectory, 'absent-studio-assets') }
         : {}),
@@ -185,14 +198,27 @@ export default defineConfig({
             env: apiEnvironment,
         },
         {
-            command: productionWeb
-                ? `bun run --cwd apps/web --bun vite preview --configLoader native --host 127.0.0.1 --port ${webPort} --strictPort`
-                : `bun run --cwd apps/web dev -- --host 127.0.0.1 --port ${webPort}`,
-            url: webOrigin,
+            command: cloudflareStudio
+                ? 'bun ./scripts/e2e-cloudflare-studio.ts'
+                : productionWeb
+                  ? `bun run --cwd apps/web --bun vite preview --configLoader native --host 127.0.0.1 --port ${webPort} --strictPort`
+                  : `bun run --cwd apps/web dev -- --host 127.0.0.1 --port ${webPort}`,
+            url: cloudflareStudio ? webOrigin.replace('http:', 'https:') : webOrigin,
+            ignoreHTTPSErrors: cloudflareStudio,
             timeout: 120_000,
             reuseExistingServer: false,
             gracefulShutdown: { signal: 'SIGTERM', timeout: 10_000 },
             env: {
+                ...(cloudflareStudio
+                    ? {
+                          ...apiEnvironment,
+                          POSTDOT_E2E_CLOUDFLARE_STUDIO: 'true',
+                          POSTDOT_E2E_API_PORT: String(apiPort),
+                          POSTDOT_E2E_WEB_PORT: String(webPort),
+                          POSTDOT_E2E_TLS_PROXY_PORT: String(tlsProxyPort),
+                          POSTDOT_E2E_CLOUDFLARE_INGRESS_PORT: String(cloudflareIngressPort),
+                      }
+                    : {}),
                 POSTDOT_API_ORIGIN: apiOrigin,
                 NODE_ENV: 'test',
             },
@@ -212,7 +238,9 @@ export default defineConfig({
                           POSTDOT_E2E_REALTIME_ACCEPTANCE: 'true',
                           POSTDOT_E2E_TLS_PROXY: 'true',
                           POSTDOT_E2E_TLS_PROXY_PORT: String(tlsProxyPort),
-                          POSTDOT_E2E_TLS_PROXY_TARGET: webOrigin,
+                          POSTDOT_E2E_TLS_PROXY_TARGET: cloudflareStudio
+                              ? webOrigin.replace('http:', 'https:')
+                              : webOrigin,
                       },
                   },
               ]),

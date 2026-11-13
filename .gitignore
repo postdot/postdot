@@ -44,6 +44,8 @@ apps/docs/dist/
 apps/docs/.source/
 apps/docs/.tanstack/
 apps/docs/.wrangler/
+scripts/studio-cloudflare/.wrangler/
+scripts/studio-cloudflare/.dev.vars*
 apps/docs/public/og/
 apps/docs/public/_redirects
 apps/docs/build.log
