@@ -8,9 +8,13 @@ import * as m from '@/paraglide/messages.js'
 export function QueryErrorState({
     className,
     onRetry,
+    title,
+    description,
 }: {
     readonly className?: string
     readonly onRetry: () => void
+    readonly title?: string
+    readonly description?: string
 }) {
     return (
         <EmptyState
@@ -21,10 +25,10 @@ export function QueryErrorState({
                 </Button>
             }
             className={className}
-            description={m.common_error_description()}
+            description={description ?? m.common_error_description()}
             icon={<InfoCircleIcon aria-hidden="true" className="size-5 text-state-failed" />}
             layout="compact"
-            title={m.common_error_title()}
+            title={title ?? m.common_error_title()}
         />
     )
 }

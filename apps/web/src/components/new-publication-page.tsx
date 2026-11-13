@@ -192,6 +192,7 @@ export function NewPublicationPage({
         'idle' | 'saving' | 'saved' | 'error' | 'conflict' | 'account' | 'session'
     >('idle')
     const [autosaveError, setAutosaveError] = useState<string | null>(null)
+    const [autosaveRetryPending, setAutosaveRetryPending] = useState(false)
     const [scheduleDetailsOpen, setScheduleDetailsOpen] = useState(() =>
         publicationTargets.some(
             target =>
@@ -397,6 +398,7 @@ export function NewPublicationPage({
     async function discardServerDraft() {
         if (!access.canWrite()) return false
         if (serverDraftRef.current === null) return true
+        const accessEpoch = access.captureEpoch()
 
         try {
             await api.deletePublicationComposerDraft(
@@ -405,12 +407,15 @@ export function NewPublicationPage({
                 serverDraftRef.current.id,
                 userId
             )
+            if (!access.isCurrent(accessEpoch)) return false
             serverDraftRef.current = null
             setServerDraft(null)
             setAutosaveState('idle')
             setAutosaveError(null)
             return true
         } catch (caughtError) {
+            if (!access.isCurrent(accessEpoch)) return false
+            access.reportRefusal(caughtError)
             setAutosaveError(formatApiError(caughtError))
             if (pauseForSessionError(caughtError)) return false
             if (caughtError instanceof ApiError && caughtError.code === 'write_conflict') {
@@ -435,6 +440,73 @@ export function NewPublicationPage({
             publicationTargets: publicationTargets.map(target => ({ ...target })),
             sourceMedia: sourceMedia.map(selection => ({ ...selection })),
         }
+    }
+
+    function enqueueAutosave(content: PublicationComposerDraftContent | null) {
+        autosaveQueue.current = autosaveQueue.current
+            .catch(() => undefined)
+            .then(async () => {
+                if (
+                    !access.canWrite() ||
+                    !serverDraftReady ||
+                    recoveryPromptOpen.current ||
+                    autosaveConflict.current ||
+                    authoringPaused.current
+                )
+                    return
+                const accessEpoch = access.captureEpoch()
+                setAutosaveState('saving')
+                setAutosaveError(null)
+                if (content === null) {
+                    if (serverDraftRef.current === null) setAutosaveState('idle')
+                    else await discardServerDraft()
+                    return
+                }
+                try {
+                    const response = await api.savePublicationComposerDraft(
+                        project.id,
+                        serverDraftRef.current?.revision ?? 0,
+                        content,
+                        serverDraftRef.current?.id,
+                        userId
+                    )
+                    if (!access.isCurrent(accessEpoch)) return
+                    serverDraftRef.current = response.draft
+                    setServerDraft(response.draft)
+                    setAutosaveState('saved')
+                } catch (caughtError) {
+                    if (!access.isCurrent(accessEpoch)) return
+                    access.reportRefusal(caughtError)
+                    setAutosaveError(formatApiError(caughtError))
+                    if (pauseForSessionError(caughtError)) return
+                    if (caughtError instanceof ApiError && caughtError.code === 'write_conflict') {
+                        autosaveConflict.current = true
+                        setAutosaveState('conflict')
+                    } else setAutosaveState('error')
+                }
+            })
+        return autosaveQueue.current
+    }
+
+    function retryAutosave() {
+        if (
+            autosaveState !== 'error' ||
+            autosaveRetryPending ||
+            pending ||
+            !access.canWrite() ||
+            !serverDraftReady ||
+            recoveryPromptOpen.current ||
+            autosaveConflict.current ||
+            authoringPaused.current
+        )
+            return
+        if (autosaveTimer.current !== undefined) clearTimeout(autosaveTimer.current)
+        autosaveTimer.current = undefined
+        setAutosaveRetryPending(true)
+        void enqueueAutosave(hasCurrentComposerContent ? composerDraftContent() : null).finally(
+            () => setAutosaveRetryPending(false)
+        )
+        setAutosaveState('saving')
     }
 
     async function reviewConflict() {
@@ -530,9 +602,7 @@ export function NewPublicationPage({
             ? m.publication_new_autosave_saving()
             : autosaveState === 'saved'
               ? m.publication_new_autosave_saved()
-              : autosaveState === 'error'
-                ? m.publication_new_autosave_unavailable()
-                : null
+              : null
 
     useEffect(() => {
         let cancelled = false
@@ -606,51 +676,15 @@ export function NewPublicationPage({
 
         if (!hasCurrentComposerContent) {
             if (serverDraftRef.current === null) return
-            autosaveQueue.current = autosaveQueue.current
-                .catch(() => undefined)
-                .then(async () => {
-                    if (!access.canWrite() || autosaveConflict.current) return
-                    await discardServerDraft()
-                })
+            enqueueAutosave(null)
             return
         }
 
         if (autosaveTimer.current !== undefined) clearTimeout(autosaveTimer.current)
         const content = composerDraftContent()
         autosaveTimer.current = setTimeout(() => {
-            autosaveQueue.current = autosaveQueue.current
-                .catch(() => undefined)
-                .then(async () => {
-                    if (!access.canWrite() || autosaveConflict.current) return
-                    const accessEpoch = access.captureEpoch()
-                    setAutosaveState('saving')
-                    setAutosaveError(null)
-                    try {
-                        const response = await api.savePublicationComposerDraft(
-                            project.id,
-                            serverDraftRef.current?.revision ?? 0,
-                            content,
-                            serverDraftRef.current?.id,
-                            userId
-                        )
-                        if (!access.isCurrent(accessEpoch)) return
-                        serverDraftRef.current = response.draft
-                        setServerDraft(response.draft)
-                        setAutosaveState('saved')
-                    } catch (caughtError) {
-                        if (!access.isCurrent(accessEpoch)) return
-                        access.reportRefusal(caughtError)
-                        setAutosaveError(formatApiError(caughtError))
-                        if (pauseForSessionError(caughtError)) return
-                        if (
-                            caughtError instanceof ApiError &&
-                            caughtError.code === 'write_conflict'
-                        ) {
-                            autosaveConflict.current = true
-                            setAutosaveState('conflict')
-                        } else setAutosaveState('error')
-                    }
-                })
+            autosaveTimer.current = undefined
+            enqueueAutosave(content)
         }, 900)
 
         return () => {
@@ -1023,6 +1057,8 @@ export function NewPublicationPage({
                         ) : null}
                         {serverDraftLoadFailed ? (
                             <QueryErrorState
+                                title={m.publication_new_draft_read_failed()}
+                                description={m.publication_new_draft_read_retry()}
                                 onRetry={() => setServerDraftLoadAttempt(attempt => attempt + 1)}
                             />
                         ) : null}
@@ -1103,6 +1139,8 @@ export function NewPublicationPage({
                 serverDraftLoadFailed ? (
                     <QueryErrorState
                         className="mb-6"
+                        title={m.publication_new_draft_read_failed()}
+                        description={m.publication_new_draft_read_retry()}
                         onRetry={() => setServerDraftLoadAttempt(attempt => attempt + 1)}
                     />
                 ) : (
@@ -1426,6 +1464,46 @@ export function NewPublicationPage({
                         }
                         footer={
                             <div className="flex w-full flex-wrap items-center justify-between gap-3">
+                                {(autosaveState === 'error' ||
+                                    (autosaveState === 'saving' && autosaveRetryPending)) &&
+                                recovery === null ? (
+                                    <div
+                                        role="alert"
+                                        data-composer-autosave-error="true"
+                                        className="w-full rounded-md bg-state-failed/10 p-3 text-sm text-state-failed">
+                                        <div className="flex flex-wrap items-center justify-between gap-3">
+                                            <p className="min-w-0 flex-1">
+                                                {m.publication_new_autosave_unavailable()}
+                                            </p>
+                                            <Button
+                                                type="button"
+                                                size="sm"
+                                                variant="outline"
+                                                disabled={pending || autosaveRetryPending}
+                                                focusableWhenDisabled
+                                                aria-describedby={
+                                                    autosaveRetryPending
+                                                        ? 'new-publication-autosave-status'
+                                                        : undefined
+                                                }
+                                                title={
+                                                    autosaveRetryPending
+                                                        ? m.publication_new_autosave_saving()
+                                                        : pending
+                                                          ? m.common_loading()
+                                                          : undefined
+                                                }
+                                                onClick={retryAutosave}>
+                                                {m.common_retry()}
+                                            </Button>
+                                        </div>
+                                        {autosaveError ? (
+                                            <p className="mt-1 break-words text-xs">
+                                                {autosaveError}
+                                            </p>
+                                        ) : null}
+                                    </div>
+                                ) : null}
                                 {mediaPreparationPending ? (
                                     <p
                                         id="new-publication-media-preparation"
@@ -1435,9 +1513,9 @@ export function NewPublicationPage({
                                     </p>
                                 ) : null}
                                 <span
+                                    id="new-publication-autosave-status"
                                     aria-live="polite"
-                                    className="min-h-4 text-xs text-muted-foreground"
-                                    title={autosaveError ?? undefined}>
+                                    className="min-h-4 text-xs text-muted-foreground">
                                     {autosaveStatus}
                                 </span>
                                 {selectedPublicationCount > 0 ? (
