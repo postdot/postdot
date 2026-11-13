@@ -48,3 +48,13 @@ for the platforms you want to connect. Postdot is in alpha;
 
 Licensed under [AGPL-3.0-only](LICENSE).
 See [third-party notices](THIRD_PARTY_NOTICES.md) for other code and assets.
+
+## Other projects
+
+Related open-source projects by [Hakim Saoudi](https://github.com/saoudi-h):
+
+- [Solar Icons](https://solar-icons.dev/?utm_source=github&utm_medium=readme&utm_campaign=postdot): an icon catalogue in six styles, with packages for major frameworks
+- [RateLock](https://ratelock-docs.vercel.app/?utm_source=github&utm_medium=readme&utm_campaign=postdot): rate limiting for Node.js, Bun and other runtimes
+- [tw-screens](https://github.com/saoudi-h/tw-screens): responsive breakpoint hooks inspired by Tailwind CSS
+- [Autonomos](https://github.com/saoudi-h/autonomos): a protocol that gives AI coding agents structured project context
+- [Tala Tools](https://github.com/saoudi-h/tala-tools): shared lint, format, TypeScript and build configurations
