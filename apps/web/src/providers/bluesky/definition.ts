@@ -54,6 +54,18 @@ export const blueskyProvider = {
         share: paths.bluesky_share,
     },
     analytics: {
+        listHistory: async (reader, projectId, publicationId, metricName, cursor) => {
+            const read = reader.listBlueskyProviderAnalytics
+            if (!read) throw new Error('Provider analytics history reader is unavailable')
+            return read(projectId, {
+                subjectType: 'content',
+                postdotEntityType: 'publication',
+                postdotEntityId: publicationId,
+                metricName,
+                cursor,
+                limit: 100,
+            })
+        },
         legacyProfileIdentity: true,
         metrics: [
             { key: 'likeCount', label: () => m.performance_likes() },

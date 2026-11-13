@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'bun:test'
 
 import { createAuth } from '@postdot/auth'
-import { createAccessStore, createManualStore, createWorkspaceActorStore } from '@postdot/db'
+import {
+    createAccessStore,
+    createManualStore,
+    createWorkspaceActorStore,
+    createProviderAnalyticsStore,
+} from '@postdot/db'
 import { closeTestDatabase, openTestDatabase, workspaceOf } from '@postdot/db/testing'
 import { devtoChannelProfile } from '@postdot/devto'
 
@@ -468,4 +473,87 @@ describe('provider analytics routes', () => {
             await closeTestDatabase(database)
         }
     })
+})
+
+it('reads paginated publication history for each native provider without collecting and masks foreign projects', async () => {
+    const database = (await openTestDatabase()).database
+    const auth = createAuth(database, { baseURL, secret, allowAdditionalSignups: true })
+    const app = createApp({
+        database,
+        auth,
+        publisher: createPublisherRuntime(database, {
+            apiOrigin: baseURL,
+            webOrigin: 'http://localhost:5173',
+            publisherEncryptionKey: new Uint8Array(32).fill(4),
+            publisherEncryptionKeyId: 'test-v1',
+        }),
+    })
+    try {
+        const cookie = await signUp(app, 'history-owner@postdot.local')
+        const made = await request(app, '/api/projects', cookie, {
+            method: 'POST',
+            body: JSON.stringify({ name: 'History access' }),
+        })
+        expect(made.status).toBe(201)
+        const { project } = (await made.json()) as { project: { id: string } }
+        const actor = (await database.sql
+            .statement<{ subjectId: string }, [string]>(
+                "select subject_id as subjectId from actors where project_id = ? and kind = 'human' limit 1"
+            )
+            .get(project.id))!
+        const store = createProviderAnalyticsStore(database)
+        const foreign = await signUp(app, 'history-outsider@postdot.local')
+        for (const provider of ['bluesky', 'devto', 'mastodon']) {
+            await store.recordObservations({
+                projectId: project.id,
+                subjectId: actor.subjectId,
+                observations: [1, 2, 3].map(index => ({
+                    projectId: project.id,
+                    provider,
+                    subjectType: 'content' as const,
+                    providerSubjectId: 'published-post',
+                    providerSubjectLabel: null,
+                    providerContentRevisionId: null,
+                    postdotEntityType: 'publication' as const,
+                    postdotEntityId: 'publication-history',
+                    metricName: 'historyCount',
+                    value: index,
+                    unit: 'count',
+                    aggregation: 'cumulative_snapshot',
+                    reportingPeriodStart: null,
+                    reportingPeriodEnd: null,
+                    observedAt: null,
+                    fetchedAt: now + index,
+                    availability: 'measured' as const,
+                    freshness: 'unknown' as const,
+                    provenance: 'test',
+                })),
+            })
+            const path = `/api/projects/${project.id}/analytics/provider/${provider}?postdotEntityType=publication&postdotEntityId=publication-history&metricName=historyCount&limit=2`
+            const first = await request(app, path, cookie)
+            expect(first.status).toBe(200)
+            const body = (await first.json()) as {
+                observations: { value: number }[]
+                nextCursor: string
+                hasMore: boolean
+            }
+            expect(body.observations.map(item => item.value)).toEqual([3, 2])
+            expect(body.hasMore).toBe(true)
+            const second = await request(
+                app,
+                path + '&cursor=' + encodeURIComponent(body.nextCursor),
+                cookie
+            )
+            expect(second.status).toBe(200)
+            expect(await second.json()).toMatchObject({
+                observations: [{ value: 1 }],
+                hasMore: false,
+                nextCursor: null,
+            })
+            expect((await request(app, path, foreign)).status).toBe(404)
+            expect((await request(app, path + '&cursor=invalid', cookie)).status).toBe(400)
+        }
+    } finally {
+        await closeTestDatabase(database)
+    }
 })

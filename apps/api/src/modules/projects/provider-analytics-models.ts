@@ -59,6 +59,9 @@ export const providerAnalyticsObservationSchema = Type.Unsafe<ProviderAnalyticsO
 )
 
 export const providerAnalyticsQuery = Type.Object({
+    metricName: Type.Optional(Type.String({ minLength: 1, maxLength: 255 })),
+    postdotEntityType: Type.Optional(providerAnalyticsEntityTypeSchema),
+    cursor: Type.Optional(Type.String({ minLength: 1, maxLength: 2048 })),
     subjectType: Type.Optional(providerAnalyticsSubjectTypeSchema),
     providerSubjectId: Type.Optional(Type.String({ minLength: 1 })),
     postdotEntityId: Type.Optional(Type.String({ minLength: 1 })),
@@ -81,5 +84,6 @@ export const providerAnalyticsObservationPageSchema = Type.Unsafe<ProviderAnalyt
         observations: Type.Array(providerAnalyticsObservationSchema),
         limit: Type.Integer({ minimum: 1, maximum: 500 }),
         hasMore: Type.Boolean(),
+        nextCursor: Type.Optional(Type.Union([Type.String(), Type.Null()])),
     })
 )

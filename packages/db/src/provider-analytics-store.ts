@@ -1,3 +1,5 @@
+import { Buffer } from 'node:buffer'
+
 import {
     DomainInvariantError,
     providerAnalyticsAvailabilityStates,
@@ -39,6 +41,9 @@ export interface RecordProviderAnalyticsObservationsResult {
 }
 
 export interface ListProviderAnalyticsObservationsInput {
+    readonly metricName?: string | null
+    readonly postdotEntityType?: ProviderAnalyticsPostdotEntityType | null
+    readonly cursor?: string | null
     readonly projectId: string
     readonly subjectId: string
     readonly provider: string
@@ -55,6 +60,7 @@ export interface ProviderAnalyticsObservationPage {
     readonly observations: readonly ProviderAnalyticsObservation[]
     readonly limit: number
     readonly hasMore: boolean
+    readonly nextCursor?: string | null
 }
 
 export interface ListKnownProviderContentInput {
@@ -241,6 +247,10 @@ export function createProviderAnalyticsStore(
             providerSubjectId: string | null,
             postdotEntityId: string | null,
             limit: number,
+            metricName: string | null,
+            entityType: string | null,
+            beforeAt: number | null,
+            beforeId: string | null,
         ]
     >(
         String.raw`
@@ -270,6 +280,9 @@ export function createProviderAnalyticsStore(
           and (cast(?3 as text) is null or subject_type = ?3)
           and (cast(?4 as text) is null or provider_subject_id = ?4)
           and (cast(?5 as text) is null or postdot_entity_id = ?5)
+          and (cast(?7 as text) is null or metric_name = ?7)
+          and (cast(?8 as text) is null or postdot_entity_type = ?8)
+          and (cast(?9 as bigint) is null or fetched_at < ?9 or (fetched_at = ?9 and id < ?10))
         order by fetched_at desc, id desc
         limit ?6
     `
@@ -465,13 +478,20 @@ export function createProviderAnalyticsStore(
                     'postdotEntityId'
                 )
                 const limit = normalizeLimit(input.limit)
+                const cursor = decodeObservationCursor(input.cursor)
+                const metricName = normalizeOptionalText(input.metricName, 'metricName')
+                const entityType = normalizeOptionalEntityType(input.postdotEntityType)
                 const rows = await listObservationsStatement.all(
                     projectId,
                     provider,
                     subjectType,
                     providerSubjectId,
                     postdotEntityId,
-                    limit + 1
+                    limit + 1,
+                    metricName,
+                    entityType,
+                    cursor?.[0] ?? null,
+                    cursor?.[1] ?? null
                 )
 
                 return {
@@ -481,6 +501,8 @@ export function createProviderAnalyticsStore(
                     observations: rows.slice(0, limit).map(toObservation),
                     limit,
                     hasMore: rows.length > limit,
+                    nextCursor:
+                        rows.length > limit ? encodeObservationCursor(rows[limit - 1]!) : null,
                 }
             }, 'deferred')
         },
@@ -762,5 +784,31 @@ function toObservation(row: ObservationRow): ProviderAnalyticsObservation {
         availability: row.availability,
         freshness: row.freshness,
         provenance: row.provenance,
+    }
+}
+
+function encodeObservationCursor(row: Pick<ObservationRow, 'fetchedAt' | 'id'>): string {
+    return Buffer.from(JSON.stringify([row.fetchedAt, row.id])).toString('base64url')
+}
+function decodeObservationCursor(
+    value: string | null | undefined
+): readonly [number, string] | null {
+    if (value == null) return null
+    try {
+        if (!value || value.length > 2048 || !/^[A-Za-z0-9_-]+$/.test(value))
+            throw new Error('Invalid cursor')
+        const parsed: unknown = JSON.parse(Buffer.from(value, 'base64url').toString())
+        if (
+            !Array.isArray(parsed) ||
+            parsed.length !== 2 ||
+            !Number.isSafeInteger(parsed[0]) ||
+            parsed[0] < 0 ||
+            typeof parsed[1] !== 'string' ||
+            !parsed[1].trim()
+        )
+            throw new Error('Invalid cursor')
+        return [parsed[0], parsed[1]]
+    } catch {
+        throw new DomainInvariantError('invalid_input', 'Invalid provider analytics cursor')
     }
 }

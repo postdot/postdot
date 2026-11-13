@@ -4,7 +4,7 @@ import { ChartSquareIcon } from '@solar-icons/react/linear/chart-square'
 import { RefreshIcon } from '@solar-icons/react/linear/refresh'
 import { useInfiniteQuery, useMutation, useQueries, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from '@tanstack/react-router'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 
 import { DashboardPageHeader } from '@/components/dashboard-page-header'
 import { DeliveryAnalyticsDashboard } from '@/components/delivery-analytics-dashboard'
@@ -30,6 +30,12 @@ import { readPerformanceCsv } from '@/lib/publication-performance-export'
 import type { DeliveryAnalyticsPeriod } from '@/lib/publication-performance-search'
 import * as m from '@/paraglide/messages.js'
 import { providerRegistry } from '@/providers/registry'
+
+const PublicationEngagementHistory = lazy(() =>
+    import('./publication-engagement-history').then(module => ({
+        default: module.PublicationEngagementHistory,
+    }))
+)
 
 type AnalyticsProvider = string
 type MetricKey = string
@@ -93,6 +99,7 @@ export function PublicationPerformancePage({
     const { channels, project, projectRole } = useProjectDashboard()
     const queryClient = useQueryClient()
     const navigate = useNavigate({ from: '/dashboard/projects/$projectId/performance' })
+    const [historyPublicationId, setHistoryPublicationId] = useState<string | null>(null)
     const [refreshErrors, setRefreshErrors] = useState<Record<string, true>>({})
     const canRefresh = projectRole === 'owner' || projectRole === 'editor'
     const [tagIds, setTagIds] = useState<string[]>(() =>
@@ -340,6 +347,20 @@ export function PublicationPerformancePage({
                                           })
                                     : availabilityMessage(unavailable.availability)}
                     </p>
+                    {provider !== null ? (
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            aria-expanded={historyPublicationId === publication.id}
+                            aria-controls={`engagement-history-${publication.id}`}
+                            onClick={() =>
+                                setHistoryPublicationId(current =>
+                                    current === publication.id ? null : publication.id
+                                )
+                            }>
+                            {m.engagement_history()}
+                        </Button>
+                    ) : null}
                     {canRefresh && provider !== null ? (
                         <Button
                             aria-label={`${m.performance_refresh()}: ${publication.channelName}`}
@@ -366,6 +387,21 @@ export function PublicationPerformancePage({
                         </Button>
                     ) : null}
                 </div>
+                {provider !== null && historyPublicationId === publication.id ? (
+                    <div
+                        id={`engagement-history-${publication.id}`}
+                        className="min-w-0 lg:col-span-3">
+                        <Suspense fallback={<p role="status">{m.common_loading()}</p>}>
+                            <PublicationEngagementHistory
+                                key={`${provider}:${publication.id}`}
+                                projectId={project.id}
+                                publicationId={publication.id}
+                                provider={provider}
+                                timeZone={project.timeZone}
+                            />
+                        </Suspense>
+                    </div>
+                ) : null}
             </article>
         )
     }

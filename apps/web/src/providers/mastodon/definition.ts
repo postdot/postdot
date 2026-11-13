@@ -58,6 +58,18 @@ export const mastodonProvider = {
         share: paths.mastodon_share,
     },
     analytics: {
+        listHistory: async (reader, projectId, publicationId, metricName, cursor) => {
+            const read = reader.listMastodonProviderAnalytics
+            if (!read) throw new Error('Provider analytics history reader is unavailable')
+            return read(projectId, {
+                subjectType: 'content',
+                postdotEntityType: 'publication',
+                postdotEntityId: publicationId,
+                metricName,
+                cursor,
+                limit: 100,
+            })
+        },
         legacyProfileIdentity: false,
         metrics: [
             { key: 'favourites_count', label: () => m.performance_favourites() },

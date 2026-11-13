@@ -96,6 +96,30 @@ The API accepts `GET /api/projects/{projectId}/analytics?days=30`. `days` is a
 server-anchored rolling window of 1–366 days; it cannot be combined with explicit
 `from` or `to` timestamps. Existing timestamp queries remain supported.
 
+## Follow a publication's engagement history
+
+In **Saved engagement**, open **History** beside a publication and choose a
+measure. The chart and table show saved snapshots for that destination. Use
+**Older snapshots** and **Newer snapshots** to move through pages of up to 100
+observations. The chart describes the displayed page, not the publication's
+complete lifetime unless every saved observation fits on that page.
+
+A missing value remains a gap. Zero is a measured value, and a decrease remains
+negative. The displayed change compares the two newest adjacent snapshots on the
+page only when their content identity, unit, aggregation and reporting window
+match. A changed content revision or measurement format disables the continuous
+chart; the table still exposes the saved values and their basis.
+
+Dates identify when Postdot saved each snapshot. A provider observation time is
+shown separately when available. Freshness describes the state when saved, not a
+new check of the platform. **Reload saved data** rereads Postdot's stored history;
+the publication's **Refresh** action explicitly collects provider observations.
+
+For API history reads, add `metricName`, `postdotEntityType=publication` and
+`postdotEntityId` to the provider's saved-observation endpoint. When `hasMore` is
+true, pass the returned `nextCursor` as `cursor` to read the next older page.
+These reads use the existing project access boundary and never call a provider.
+
 ## Read saved observations carefully
 
 Performance uses available saved provider observations with their collection time.

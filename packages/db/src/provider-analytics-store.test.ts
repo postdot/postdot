@@ -299,3 +299,71 @@ describe('provider analytics store', () => {
         }
     })
 })
+
+it('paginates a publication metric deterministically through tied timestamps without including other metrics, entities or projects', async () => {
+    const database = (await openTestDatabase()).database
+    try {
+        const manual = createManualStore(database, { now: () => now })
+        const { project } = await manual.createProject({
+            workspaceId: await seedTestWorkspace(database),
+            name: 'History',
+            subjectId: 'owner',
+            displayName: 'Owner',
+        })
+        let sequence = 0
+        const store = createProviderAnalyticsStore(database, {
+            createId: () => `history-${String(++sequence).padStart(4, '0')}`,
+        })
+        const sample = (providerSubjectId: string, fetchedAt: number, extra = {}) => ({
+            ...observation(project.id, fetchedAt),
+            subjectType: 'content' as const,
+            providerSubjectId,
+            postdotEntityType: 'publication' as const,
+            postdotEntityId: 'publication-history',
+            metricName: 'likeCount',
+            ...extra,
+        })
+        await store.recordObservations({
+            projectId: project.id,
+            subjectId: 'owner',
+            observations: [
+                sample('one', now),
+                sample('two', now),
+                sample('three', now - 1),
+                sample('four', now - 2),
+                sample('other-metric', now, { metricName: 'replyCount' }),
+                sample('other-entity', now, { postdotEntityType: 'channel' as const }),
+                sample('other-publication', now, { postdotEntityId: 'other' }),
+            ],
+        })
+        const input = {
+            projectId: project.id,
+            subjectId: 'owner',
+            provider: 'bluesky',
+            postdotEntityType: 'publication' as const,
+            postdotEntityId: 'publication-history',
+            metricName: 'likeCount',
+            limit: 2,
+        }
+        const first = (await store.listObservations(input))!
+        expect(first.observations.map(item => item.providerSubjectId)).toEqual(['two', 'one'])
+        expect(first.hasMore).toBe(true)
+        expect(first.nextCursor).toBeString()
+        const second = (await store.listObservations({ ...input, cursor: first.nextCursor }))!
+        expect(second.observations.map(item => item.providerSubjectId)).toEqual(['three', 'four'])
+        expect(second.hasMore).toBe(false)
+        expect(second.nextCursor).toBeNull()
+        expect(
+            await store.listObservations({
+                ...input,
+                subjectId: 'foreign-user',
+                cursor: first.nextCursor,
+            })
+        ).toBeNull()
+        await expect(store.listObservations({ ...input, cursor: 'invalid' })).rejects.toThrow(
+            'Invalid provider analytics cursor'
+        )
+    } finally {
+        await closeTestDatabase(database)
+    }
+})

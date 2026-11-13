@@ -10,6 +10,18 @@ export const devtoProvider = {
     authoring: { preserveEmptyHeadline: true },
     editor: 'article',
     analytics: {
+        listHistory: async (reader, projectId, publicationId, metricName, cursor) => {
+            const read = reader.listDevtoProviderAnalytics
+            if (!read) throw new Error('Provider analytics history reader is unavailable')
+            return read(projectId, {
+                subjectType: 'content',
+                postdotEntityType: 'publication',
+                postdotEntityId: publicationId,
+                metricName,
+                cursor,
+                limit: 100,
+            })
+        },
         legacyProfileIdentity: true,
         metrics: [
             { key: 'page_views', label: () => m.performance_views() },

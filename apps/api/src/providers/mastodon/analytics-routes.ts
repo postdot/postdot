@@ -70,6 +70,9 @@ export function registerMastodonAnalyticsRoutes<const Routes extends Record<stri
                     providerSubjectId: query.providerSubjectId,
                     postdotEntityId: query.postdotEntityId,
                     limit: query.limit,
+                    metricName: query.metricName,
+                    postdotEntityType: query.postdotEntityType,
+                    cursor: query.cursor,
                 })
                 return result === null
                     ? status(404, { error: { code: 'not_found', message: 'Project not found' } })

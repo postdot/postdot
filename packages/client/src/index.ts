@@ -267,11 +267,26 @@ export type WebApiRequests = {
     getProjectAnalytics: Readonly<RequestQuery<ProjectRoute['analytics']['get']>>
     listBlueskyProviderAnalytics: Pick<
         RequestQuery<ProjectRoute['analytics']['provider']['bluesky']['get']>,
-        'limit' | 'providerSubjectId' | 'postdotEntityId'
+        | 'limit'
+        | 'providerSubjectId'
+        | 'postdotEntityId'
+        | 'subjectType'
+        | 'postdotEntityType'
+        | 'metricName'
+        | 'cursor'
+    >
+    listMastodonProviderAnalytics: Readonly<
+        RequestQuery<ProjectRoute['analytics']['provider']['mastodon']['get']>
     >
     listDevtoProviderAnalytics: Pick<
         RequestQuery<ProjectRoute['analytics']['provider']['devto']['get']>,
-        'limit' | 'providerSubjectId' | 'postdotEntityId'
+        | 'limit'
+        | 'providerSubjectId'
+        | 'postdotEntityId'
+        | 'subjectType'
+        | 'postdotEntityType'
+        | 'metricName'
+        | 'cursor'
     >
     listNotifications: Pick<
         RequestQuery<ProjectRoute['notifications']['get']>,

@@ -74,6 +74,13 @@ export interface ProviderDefinition {
         }>
     }
     readonly analytics?: {
+        readonly listHistory: (
+            reader: Partial<typeof api>,
+            projectId: string,
+            publicationId: string,
+            metricName: string,
+            cursor?: string
+        ) => Promise<ProviderAnalyticsPage>
         readonly metrics: readonly { readonly key: string; readonly label: () => string }[]
         readonly legacyProfileIdentity?: boolean
         readonly listLatest: (

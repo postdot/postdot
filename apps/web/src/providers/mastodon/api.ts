@@ -1,5 +1,17 @@
+import type { WebApiRequests } from '@postdot/client'
+
 import { client, unwrap } from '@/lib/api-transport'
 export const mastodonApi = {
+    async listMastodonProviderAnalytics(
+        projectId: string,
+        options: WebApiRequests['listMastodonProviderAnalytics'] = {}
+    ) {
+        return unwrap(
+            await client.api
+                .projects({ projectId })
+                .analytics.provider.mastodon.get({ query: options })
+        )
+    },
     async listLatestMastodonProviderAnalytics(
         projectId: string,
         publicationIds: readonly string[]
