@@ -610,8 +610,8 @@
 }
 .home-footer-nav {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 96px;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 72px;
 }
 .home-footer-nav > div {
     display: flex;

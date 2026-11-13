@@ -35,6 +35,15 @@ export function PublicFooter() {
                         <Link href="/docs/automation/">API and CLI</Link>
                         <Link href="/docs/operations/">Operations</Link>
                     </div>
+                    <div>
+                        <h2>Other projects</h2>
+                        <Link href="https://solar-icons.dev/?utm_source=postdot.app&utm_medium=footer">
+                            Solar Icons
+                        </Link>
+                        <Link href="https://ratelock-docs.vercel.app/?utm_source=postdot.app&utm_medium=footer">
+                            RateLock
+                        </Link>
+                    </div>
                     <div className="home-footer-social">
                         <h2>Find Postdot</h2>
                         <a
