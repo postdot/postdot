@@ -3,6 +3,7 @@ import { providerApi } from '@/providers/api'
 import { client, unwrap, ApiError, errorFrom } from './api-transport'
 import type { ProfileDefinitionIssue } from './api-transport'
 import { withCadenceConfirmation } from './cadence-confirmation'
+import { readReleaseIdentity } from './release-identity'
 export { ApiError } from './api-transport'
 export type { ProfileDefinitionIssue } from './api-transport'
 import {
@@ -263,7 +264,9 @@ export const api = {
     },
 
     async getReleaseInfo() {
-        return unwrap(await client.api.version.get())
+        return readReleaseIdentity(
+            unwrap(await client.api.version.get({ fetch: { cache: 'no-store' } }))
+        )
     },
 
     async getInstanceAccess() {

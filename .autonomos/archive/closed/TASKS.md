@@ -620,3 +620,4 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] **[AUTH-637]** Resolve trusted proxy client IPs and qualify per-client authentication rate limits `Priority: 🟠` `Complexity: L` `Completed: 2026-11-13`
 - [x] **[DEPLOY-638]** Qualify a Cloudflare static Studio and protected streaming API proxy recipe `Priority: 🔵` `Complexity: L` `Completed: 2026-11-13`
 - [x] **[DEPLOY-639]** Package release-matched Studio archives from immutable images and attach them through authorized releases `Priority: 🔵` `Complexity: L` `Completed: 2026-11-13`
+- [x] **[UX-640]** Compare loaded Studio and API build identities in installation diagnostics `Priority: 🔵` `Complexity: L` `Completed: 2026-11-13`

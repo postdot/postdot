@@ -174,10 +174,20 @@ With a current source build, run:
 docker compose run --rm --no-deps postdot --version --json
 ```
 
-Studio also displays the version and source commit under installation settings;
-`GET /api/version` returns the same fields. These values come from the packaged
-image. A build without release metadata reports `null` for unknown fields. The
-CLI can read them without opening the database or starting a server.
+Installation settings display the loaded Studio's build alongside the API's
+version and source commit. The Studio identity belongs to its loaded JavaScript;
+an old tab keeps that identity after a deployment. **Check API** reads the backend
+again without reloading your tab. The API's fields also come from `GET /api/version`
+and the packaged image. The CLI can read them without opening the database or
+starting a server.
+
+A different recorded version or commit produces an informational warning. Open a
+new tab; if the difference remains, deploy matching Studio/API releases. Missing
+metadata, including legacy or unversioned builds, makes the comparison unavailable
+unless a known field already differs. Matching identities do not negotiate API
+compatibility or establish application trust. See the
+[source-build settings](/docs/studio-hosting/#build-from-source) when preparing
+separate assets.
 
 `/health` checks availability, and the OpenAPI schema version describes the API;
 neither identifies the running release. The image labels

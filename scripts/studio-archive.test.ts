@@ -125,3 +125,29 @@ test('refuses mutable images, unsafe versions, wrong source identity and symlink
         await rm(directory, { recursive: true, force: true })
     }
 })
+
+test('rejects Studio stamps from a different build instead of labeling them with the API identity', async () => {
+    const { directory, source } = await fixture()
+    try {
+        for (const stamp of [
+            { version: '0.1.0', revision: options.revision },
+            { version: options.version, revision: 'c'.repeat(40) },
+            { version: null, revision: null },
+        ]) {
+            await writeFile(join(source, 'public/studio-build.json'), JSON.stringify(stamp))
+            await expect(
+                assembleStudioArchive(source, { ...options, outputDirectory: directory })
+            ).rejects.toThrow('Studio build identity')
+        }
+        await writeFile(
+            join(source, 'public/studio-build.json'),
+            JSON.stringify({ version: options.version, revision: options.revision })
+        )
+        expect(
+            (await assembleStudioArchive(source, { ...options, outputDirectory: directory }))
+                .archive
+        ).toEndWith(`postdot-studio-${options.version}.tar.gz`)
+    } finally {
+        await rm(directory, { recursive: true, force: true })
+    }
+})

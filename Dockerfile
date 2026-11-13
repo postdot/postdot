@@ -47,7 +47,9 @@ RUN HUSKY=0 bun install --frozen-lockfile
 
 COPY . .
 
-RUN bunx --no-install turbo run build --filter=@postdot/api --filter=@postdot/web
+ARG POSTDOT_VERSION=
+ARG POSTDOT_REVISION=
+RUN POSTDOT_VERSION="$POSTDOT_VERSION" POSTDOT_REVISION="$POSTDOT_REVISION" bunx --no-install turbo run build --filter=@postdot/api --filter=@postdot/web
 RUN mkdir -p /out/migrations /out/public
 RUN cp apps/api/dist/index.js /out/postdot.js
 RUN cp -R packages/db/migrations/. /out/migrations/

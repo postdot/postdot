@@ -220,6 +220,8 @@ export default defineConfig({
                       }
                     : {}),
                 POSTDOT_API_ORIGIN: apiOrigin,
+                POSTDOT_VERSION: '',
+                POSTDOT_REVISION: '',
                 NODE_ENV: 'test',
             },
         },

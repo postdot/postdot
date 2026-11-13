@@ -5,6 +5,8 @@
 **/coverage
 **/dist
 **/node_modules
+**/.wrangler
+**/.dev.vars*
 
 .env
 .env.*

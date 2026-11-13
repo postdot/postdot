@@ -66,6 +66,22 @@ async function validatePayloadLayout(directory: string): Promise<void> {
         throw new Error('Studio release requires its distribution notices directory')
 }
 
+async function verifyEmbeddedStudioIdentity(
+    directory: string,
+    expected: { version: string; revision: string }
+) {
+    let stamp: { version?: unknown; revision?: unknown }
+    try {
+        stamp = JSON.parse(await readFile(join(directory, 'public/studio-build.json'), 'utf8'))
+    } catch (error) {
+        // Archives from older releases had no embedded Studio identity.
+        if ((error as NodeJS.ErrnoException).code === 'ENOENT') return
+        throw error
+    }
+    if (!stamp || stamp.version !== expected.version || stamp.revision !== expected.revision)
+        throw new Error('The Studio build identity does not match the API release')
+}
+
 /** Package a stopped image's extracted payload, never a fresh independent web build. */
 export async function assembleStudioArchive(source: string, options: StudioArchiveOptions) {
     validateStudioArchiveOptions(options)
@@ -75,6 +91,7 @@ export async function assembleStudioArchive(source: string, options: StudioArchi
     await validatePayloadLayout(source)
     // Reject symlinks/special files before copying an image's distributable tree.
     await payloadFiles(source)
+    await verifyEmbeddedStudioIdentity(source, options)
     const outputDirectory = resolve(options.outputDirectory)
     await mkdir(outputDirectory, { recursive: true })
     const temporary = await mkdtemp(join(outputDirectory, '.studio-archive-'))
@@ -152,6 +169,7 @@ export async function verifyStudioReleaseDirectory(directory: string) {
     const identity = JSON.parse(await readFile(join(directory, 'release.json'), 'utf8'))
     if (identity.version !== metadata.version || identity.revision !== metadata.revision)
         throw new Error('Studio and API release identity do not match')
+    await verifyEmbeddedStudioIdentity(directory, metadata)
     const declared = Object.keys(metadata.files).sort()
     if (JSON.stringify(paths.sort()) !== JSON.stringify(declared))
         throw new Error('Studio release file inventory does not match its manifest')

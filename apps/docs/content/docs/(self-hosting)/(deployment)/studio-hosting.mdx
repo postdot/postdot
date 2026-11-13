@@ -149,6 +149,18 @@ bun install --frozen-lockfile
 bun run --cwd apps/web build
 ```
 
+Source builds record the public `POSTDOT_VERSION` and `POSTDOT_REVISION` build
+variables in their JavaScript and `studio-build.json`. Supply the version and full
+40-character commit of the Studio source you are actually building if you want
+installation diagnostics to compare it with the API. Both unset means an
+unversioned build; a missing field keeps the comparison incomplete. Invalid
+nonempty values fail the build. Do not apply a backend's labels to unrelated Studio
+files or expect runtime environment changes to relabel an already built Studio.
+
+The release image passes those build variables automatically. Its archive retains
+the same identity. Diagnostics use the identity embedded in the loaded JavaScript,
+so replacing `studio-build.json` alone cannot update an open tab's reported build.
+
 Publish the generated files as
 one release directory; preserve old hashed assets for already open tabs during
 updates. Keep third-party notices and licenses with redistributed files.

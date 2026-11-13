@@ -66,6 +66,7 @@ const allowedUnchangedByLocale = new Map<string, ReadonlySet<string>>([
             'nav_installation',
             'nav_instance',
             'release_version',
+            'release_api', // Protocol acronym, identical in every supported locale.
             'lifecycle_count_posts',
             'lifecycle_count_publications',
             'release_revision',
@@ -142,6 +143,7 @@ const allowedUnchangedByLocale = new Map<string, ReadonlySet<string>>([
             'queue_filter_aria',
             'queue_manual',
             'release_revision',
+            'release_api',
         ]),
     ],
     [
@@ -208,6 +210,7 @@ const allowedUnchangedByLocale = new Map<string, ReadonlySet<string>>([
             'publication_preview_sample_author',
             'queue_filter_aria',
             'release_revision',
+            'release_api',
             'release_version',
             'request_body_format',
             'smtp_port',

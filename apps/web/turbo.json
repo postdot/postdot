@@ -1,0 +1,8 @@
+{
+    "extends": ["//"],
+    "tasks": {
+        "build": {
+            "env": ["POSTDOT_VERSION", "POSTDOT_REVISION"]
+        }
+    }
+}

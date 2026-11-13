@@ -7,13 +7,14 @@ import { getLocale, getTextDirection, setLocale, type Locale } from '@/paraglide
 interface LanguageContextValue {
     readonly locale: Locale
     readonly setLocale: (locale: Locale) => Promise<void>
+    readonly catalogVersion: number
 }
 
 const LanguageContext = createContext<LanguageContextValue | null>(null)
 
 export function LanguageProvider({ children }: { readonly children: ReactNode }) {
     const [locale, setCurrentLocale] = useState<Locale>(() => getLocale())
-    const [, setLoadedVersion] = useState(0)
+    const [catalogVersion, setLoadedVersion] = useState(0)
 
     useEffect(() => {
         document.documentElement.lang = locale
@@ -34,8 +35,8 @@ export function LanguageProvider({ children }: { readonly children: ReactNode })
     }, [])
 
     const value = useMemo<LanguageContextValue>(
-        () => ({ locale, setLocale: changeLocale }),
-        [changeLocale, locale]
+        () => ({ locale, setLocale: changeLocale, catalogVersion }),
+        [catalogVersion, changeLocale, locale]
     )
 
     return <LanguageContext.Provider value={value}>{children}</LanguageContext.Provider>

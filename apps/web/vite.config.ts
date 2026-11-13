@@ -8,6 +8,7 @@ import react from '@vitejs/plugin-react'
 import { defineConfig, loadEnv, type Plugin } from 'vite'
 
 import { splitLocales } from '../../scripts/i18n-split-locales'
+import { readStudioBuildIdentity, type ReleaseIdentity } from './src/lib/release-identity'
 
 function splitLocalesPlugin(): Plugin {
     return {
@@ -26,8 +27,10 @@ export default defineConfig(({ mode }) => {
     const environment = loadEnv(mode, process.cwd(), '')
     const apiOrigin = parseApiOrigin(environment.POSTDOT_API_ORIGIN)
     const allowedHost = parseAllowedHost(environment.POSTDOT_VITE_ALLOWED_HOST)
+    const studioRelease = readStudioBuildIdentity(environment)
 
     return {
+        define: { __POSTDOT_STUDIO_RELEASE__: JSON.stringify(studioRelease) },
         // Browser tests use development routes but repeatedly reload a fixed catalog.
         // Bundle its re-exports once, including shared locale state to avoid duplicates.
         ...(process.env.NODE_ENV === 'test'
@@ -46,6 +49,7 @@ export default defineConfig(({ mode }) => {
             manifest: true,
         },
         plugins: [
+            studioBuildMetadata(studioRelease),
             tanstackRouter({
                 target: 'react',
                 autoCodeSplitting: true,
@@ -76,6 +80,19 @@ export default defineConfig(({ mode }) => {
         },
     }
 })
+
+function studioBuildMetadata(identity: ReleaseIdentity): Plugin {
+    return {
+        name: 'postdot-studio-build-identity',
+        generateBundle() {
+            this.emitFile({
+                type: 'asset',
+                fileName: 'studio-build.json',
+                source: JSON.stringify(identity),
+            })
+        },
+    }
+}
 
 function parseApiOrigin(value: string | undefined): string {
     const rawValue = value ?? 'http://localhost:3000'
