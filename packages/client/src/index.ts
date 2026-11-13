@@ -58,6 +58,9 @@ export interface PostdotClientOptions {
     readonly token?: string
     readonly fetcher?: PostdotFetcher
     readonly parseDate?: boolean
+    /** Native cookie transports can omit the platform's ambient cookie jar. */
+    readonly credentials?: RequestInit['credentials']
+    readonly redirect?: RequestInit['redirect']
 }
 
 export function createPostdotClient(
@@ -70,7 +73,8 @@ export function createPostdotClient(
 
     return treaty<PostdotApp>(baseURL, {
         fetch: {
-            credentials: 'same-origin',
+            credentials: options.credentials ?? 'same-origin',
+            ...(options.redirect === undefined ? {} : { redirect: options.redirect }),
         },
         fetcher: options.fetcher as typeof fetch | undefined,
         parseDate: options.parseDate,

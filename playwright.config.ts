@@ -8,10 +8,13 @@ import { createE2ERuntimeResources } from './scripts/e2e-runtime'
 const rootDirectory = process.cwd()
 const productionWeb = process.env.POSTDOT_E2E_PRODUCTION_WEB === 'true'
 const separateStudio = process.env.POSTDOT_E2E_SEPARATE_STUDIO === 'true'
+const nativeSession = process.env.POSTDOT_E2E_NATIVE_SESSION === 'true'
 const useMailpit = process.env.POSTDOT_E2E_MAILPIT === 'true'
 const tlsProxy = process.env.POSTDOT_E2E_TLS_PROXY === 'true'
 const realtimeAcceptance = process.env.POSTDOT_E2E_REALTIME_ACCEPTANCE === 'true'
 const experienceAudit = process.env.POSTDOT_EXPERIENCE_AUDIT === 'true'
+if (nativeSession && !separateStudio)
+    throw new Error('Native session acceptance requires the isolated production API mode')
 if (separateStudio && (!productionWeb || !tlsProxy))
     throw new Error('Separate Studio acceptance requires production web assets and the TLS proxy')
 if (tlsProxy && !realtimeAcceptance && !separateStudio)
@@ -111,9 +114,11 @@ const apiEnvironment = {
 
 export default defineConfig({
     testDir: './e2e',
-    ...(separateStudio ? { testMatch: '**/separate-studio.spec.ts' } : {}),
+    ...(separateStudio
+        ? { testMatch: nativeSession ? '**/native-session.spec.ts' : '**/separate-studio.spec.ts' }
+        : {}),
     testIgnore: [
-        ...(separateStudio ? [] : ['**/separate-studio.spec.ts']),
+        ...(separateStudio ? [] : ['**/separate-studio.spec.ts', '**/native-session.spec.ts']),
         ...(useMailpit ? [] : ['**/access-219-password-reset.spec.ts']),
         ...(realtimeAcceptance ? [] : ['**/realtime-automatic-acceptance.spec.ts']),
         ...(experienceAudit ? [] : ['**/experience/**']),

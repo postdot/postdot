@@ -96,6 +96,56 @@ or a Discord bot token connects a publishing destination; it does not authentica
 a script to the Postdot API. See [provider connections](/docs/providers/) for those
 workflows.
 
+## Native HTTP sessions
+
+A native HTTP client can send the existing signed human-session cookie explicitly.
+Authenticate with email and password at the selected installation's HTTPS origin,
+then use the session cookie returned in `Set-Cookie` for protected requests. The
+JSON login token is not a signed cookie or a Postdot API key; sending it as an
+Authorization Bearer token does not authenticate domain API requests.
+
+Use platform-secure cookie storage scoped to server origin and account. Keep the
+host, path, Secure and expiry rules, and apply updated `Set-Cookie` values from
+authentication responses. Use a cookie manager that handles separate header
+fields and expiry dates. Avoid mixing this explicit cookie with a platform's
+ambient cookie jar. JavaScript in a browser follows the existing same-origin
+cookie workflow; this does not enable cross-origin browser access.
+
+Within the repository, the typed client accepts explicit transport settings:
+
+```ts
+import { createPostdotClient } from '@postdot/client'
+
+function clientForNativeSession(serverOrigin: string, sessionCookie: string) {
+    return createPostdotClient(serverOrigin, {
+        cookie: sessionCookie,
+        credentials: 'omit',
+        redirect: 'error',
+    })
+}
+```
+
+Pass the signed cookie header from your platform's cookie manager. Validate the
+HTTPS server origin before creating the client, and keep authenticated requests
+on that origin. Use the same rule for private images and authenticated SSE
+connections. Where a mutation requires `Origin`, send the configured canonical
+origin; this header does not replace the session credential.
+
+Read `/api/auth/get-session` when resuming authenticated work and process its
+cookie updates. A live session can renew according to server policy; an expired
+or revoked session requires a new login. A successful domain request alone does
+not confirm that the client's cookie expiry has changed. Server logout, password
+change and current project access still govern native requests.
+
+Cancel uploads, requests and streams before switching account/server, and scope
+cached content to both. For offline logout, clear local access and report that
+server revocation remains unconfirmed. Preserve retryable technical failures
+separately from confirmed authentication loss.
+
+The HTTP contract has automated protocol coverage. A mobile SDK, secure-storage
+adapter, app-return links and on-device media/streaming lifecycle still need their
+own qualification; Postdot does not yet distribute a mobile application.
+
 ## Read authentication in the reference
 
 The generated reference names the authentication schemes `bearerAuth` and
