@@ -20,6 +20,28 @@ function createFetcher(responses: readonly Response[]) {
     return { calls, fetcher }
 }
 
+it('publishes a thread continuation as a reply to the exact preceding message', async () => {
+    const fixture = createFetcher([jsonResponse({ data: { id: '200' } })])
+    const publisher = createXPublisher({ fetcher: fixture.fetcher })
+    expect(
+        await publisher.publishTweet({ accessToken: 'token', text: 'Second', replyToId: '100' })
+    ).toMatchObject({ type: 'published', externalId: '200' })
+    expect(JSON.parse(String(fixture.calls[0]!.init!.body))).toEqual({
+        text: 'Second',
+        reply: { in_reply_to_tweet_id: '100' },
+    })
+    expect(
+        (
+            await publisher.publishTweet({
+                accessToken: 'token',
+                text: 'Third',
+                replyToId: 'wrong-parent',
+            })
+        ).type
+    ).toBe('permanent_failure')
+    expect(fixture.calls).toHaveLength(1)
+})
+
 describe('X publisher', () => {
     describe('getMe', () => {
         it('retrieves the authenticated user profile', async () => {

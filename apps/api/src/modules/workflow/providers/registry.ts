@@ -1,4 +1,5 @@
 import type { ChannelExecutionContract, ExternalEffectOutcome } from '@postdot/core'
+import type { PublicationThreadPort } from '@postdot/db'
 import type {
     CompleteProviderMediaDeliveryInput,
     FailProviderMediaDeliveryInput,
@@ -14,6 +15,8 @@ import type {
     RetryProviderMediaDeliveryInput,
     StartProviderMediaDeliveryInput,
 } from '@postdot/db'
+
+import type { ThreadMessageContext } from './thread'
 
 export type BuiltInExecutionContract = Extract<
     ChannelExecutionContract,
@@ -59,6 +62,8 @@ export interface ProviderMediaDeliveryPort {
 }
 
 export interface BuiltInProviderExecutionInput {
+    readonly threadStore?: PublicationThreadPort
+    readonly threadMessage?: ThreadMessageContext
     readonly signal?: AbortSignal
     readonly assertActive?: () => Promise<void>
     readonly target: PublisherExecutionTarget

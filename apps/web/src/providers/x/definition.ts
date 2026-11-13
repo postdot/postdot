@@ -7,12 +7,14 @@ import {
 import * as m from '@/paraglide/messages.js'
 
 import type { ProviderDefinition } from '../contract'
+import { threadField } from '../thread-field'
 import { application } from './application'
 import Glyph from './preview-glyph'
 import { XWeightedTextCount } from './text-count'
 
 export const xProvider = {
     id: 'x',
+    fields: [threadField('x', 'post-v2')],
     name: 'X',
     suggestedName: 'X.com',
     profileLabel: () => m.channel_x_profile(),

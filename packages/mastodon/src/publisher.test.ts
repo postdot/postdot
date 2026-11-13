@@ -20,6 +20,49 @@ function createFetcher(responses: readonly Response[]) {
     return { calls, fetcher }
 }
 
+it('keeps thread replies on the owned account with the chosen visibility and a distinct idempotency key', async () => {
+    const fixture = createFetcher([
+        jsonResponse({
+            id: '200',
+            url: 'https://mastodon.example/@owner/200',
+            in_reply_to_id: '100',
+            account: { id: '42' },
+            visibility: 'private',
+        }),
+    ])
+    const publisher = createMastodonPublisher({
+        baseUrl: 'https://mastodon.example',
+        fetcher: fixture.fetcher,
+    })
+    expect(
+        await publisher.publishStatus({
+            accessToken: 'token',
+            text: 'Second',
+            mediaIds: [],
+            visibility: 'private',
+            threadReply: { parentId: '100', accountId: '42' },
+            idempotencyKey: 'execution:1',
+        })
+    ).toMatchObject({ type: 'published', externalId: '200' })
+    const form = new URLSearchParams(String(fixture.calls[0]!.init!.body))
+    expect(form.get('in_reply_to_id')).toBe('100')
+    expect(form.get('visibility')).toBe('private')
+    expect(new Headers(fixture.calls[0]!.init!.headers).get('idempotency-key')).toBe('execution:1')
+    expect(
+        (
+            await publisher.publishStatus({
+                accessToken: 'token',
+                text: 'Direct',
+                mediaIds: [],
+                visibility: 'direct',
+                threadReply: { parentId: '100', accountId: '42' },
+                idempotencyKey: 'execution:2',
+            })
+        ).type
+    ).toBe('permanent_failure')
+    expect(fixture.calls).toHaveLength(1)
+})
+
 describe('Mastodon instance origins', () => {
     it('accepts HTTPS origins and loopback HTTP during local development', () => {
         expect(normalizeMastodonInstanceOrigin('https://mastodon.example/')).toBe(

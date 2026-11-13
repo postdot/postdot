@@ -1542,3 +1542,77 @@ it('executes a native Mastodon poll after checking advertised limits, with no up
     }
     expect(requests).toHaveLength(0)
 })
+
+it('passes durable thread ancestry to each native writer without reusing the root idempotency key', async () => {
+    const context = {
+        position: 2,
+        root: { externalId: '100', externalCid: 'root-cid' },
+        parent: { externalId: '200', externalCid: 'parent-cid' },
+    }
+    const unused = async (): Promise<never> => {
+        throw new Error('Unexpected provider call')
+    }
+    const sent: unknown[] = []
+    const x = createXProviderAdapter({
+        publisher: {
+            getMe: unused,
+            uploadMedia: unused,
+            publishTweet: async input => {
+                sent.push(input)
+                return { type: 'published', externalId: '300' }
+            },
+        },
+    })
+    await x.execute({
+        ...createExecutionFixture(adapterCases.find(provider => provider.providerId === 'x')!)
+            .input,
+        threadMessage: context,
+    })
+    expect(sent.pop()).toMatchObject({ replyToId: '200' })
+    const mastodon = createMastodonProviderAdapter({
+        createPublisher: () => ({
+            getPollLimits: unused,
+            getVideoLimits: unused,
+            registerApplication: unused,
+            verifyCredentials: unused,
+            uploadMedia: unused,
+            getMedia: unused,
+            publishStatus: async input => {
+                sent.push(input)
+                return { type: 'published', externalId: '300' }
+            },
+        }),
+    })
+    const mastodonInput = createExecutionFixture(
+        adapterCases.find(provider => provider.providerId === 'mastodon')!
+    ).input
+    await mastodon.execute({ ...mastodonInput, threadMessage: context })
+    expect(sent.pop()).toMatchObject({
+        threadReply: { parentId: '200', accountId: mastodonInput.target.externalAccountId },
+        visibility: 'public',
+        idempotencyKey: 'publication-conformance:execution-revision-1:2',
+    })
+    const bluesky = createBlueskyProviderAdapter({
+        oauth: blueskyOAuth,
+        restoreSession: async () => ({
+            client: undefined as never,
+            session: { did: blueskyDid } as never,
+            getSession: () => undefined as never,
+            getSerializedSession: () => blueskySession,
+        }),
+        createPublisher: () => ({
+            publish: async input => {
+                sent.push(input)
+                return { type: 'published', externalId: '300' }
+            },
+        }),
+    })
+    await bluesky.execute({
+        ...createExecutionFixture(adapterCases.find(provider => provider.providerId === 'bluesky')!)
+            .input,
+        threadMessage: context,
+    })
+    expect(sent.pop()).toMatchObject({
+        reply: { root: { uri: '100', cid: 'root-cid' }, parent: { uri: '200', cid: 'parent-cid' } },
+    })
+})

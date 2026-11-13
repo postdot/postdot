@@ -219,10 +219,21 @@ async function executeMastodonPublication(input: {
         outcome = await publisher.publishStatus({
             accessToken,
             text,
+            ...(execution.threadMessage
+                ? {
+                      threadReply: {
+                          parentId: execution.threadMessage.parent.externalId,
+                          accountId: target.externalAccountId,
+                      },
+                  }
+                : {}),
             ...(poll === undefined ? {} : { poll }),
             mediaIds: mediaResult.mediaIds,
             ...readMastodonStatusOptions(target.content),
-            idempotencyKey: `${target.publicationId}:${target.executionRevisionId}`,
+            ...(execution.threadMessage
+                ? { visibility: readMastodonStatusOptions(target.content).visibility ?? 'public' }
+                : {}),
+            idempotencyKey: `${target.publicationId}:${target.executionRevisionId}${execution.threadMessage ? `:${execution.threadMessage.position}` : ''}`,
         })
     } catch {
         return ambiguousFailure('The Mastodon status publication outcome is unknown')

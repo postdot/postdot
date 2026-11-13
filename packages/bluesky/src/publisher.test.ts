@@ -17,6 +17,54 @@ function stream(value: Uint8Array): ReadableStream<Uint8Array> {
     })
 }
 
+it('retains strong receipts and both ancestry references for authored threads', async () => {
+    // cspell:disable-next-line
+    const cid = 'bafyreiecx6dujwoeqpdzl27w67z4h46hyklk3an4i4cvvmioaqb2qbyo5u'
+    const did = 'did:plc:owner'
+    const root = { uri: `at://${did}/app.bsky.feed.post/root`, cid }
+    const parent = { uri: `at://${did}/app.bsky.feed.post/second`, cid }
+    const posts: unknown[] = []
+    const publisher = createBlueskyPublisher({
+        includeCid: true,
+        agent: {
+            did,
+            uploadBlob: async () => {
+                throw new Error('Unexpected upload')
+            },
+            post: async record => {
+                posts.push(record)
+                return { uri: `at://${did}/app.bsky.feed.post/third`, cid }
+            },
+        } as BlueskyPublisherAgent,
+    })
+    expect(
+        await publisher.publish({
+            text: 'Third https://example.com',
+            media: [],
+            reply: { root, parent },
+        })
+    ).toMatchObject({ type: 'published', externalCid: cid })
+    expect(posts[0]).toMatchObject({
+        reply: { root, parent },
+        facets: [
+            { features: [{ $type: 'app.bsky.richtext.facet#link', uri: 'https://example.com' }] },
+        ],
+    })
+    expect(
+        (
+            await publisher.publish({
+                text: 'Wrong author',
+                media: [],
+                reply: {
+                    root,
+                    parent: { ...parent, uri: 'at://did:plc:other/app.bsky.feed.post/second' },
+                },
+            })
+        ).type
+    ).toBe('permanent_failure')
+    expect(posts).toHaveLength(1)
+})
+
 function createAgent() {
     const uploads: Uint8Array[] = []
     const posts: unknown[] = []

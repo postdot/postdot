@@ -56,6 +56,7 @@ export type BlueskyAmbiguousFailureCode =
 export type BlueskyPublishOutcome =
     | (Extract<ExternalEffectOutcome, { readonly type: 'published' }> & {
           readonly externalId: string
+          readonly externalCid?: string
           readonly externalUrl?: string
       })
     | (Extract<ExternalEffectOutcome, { readonly type: 'retryable_failure' }> & {
@@ -69,6 +70,10 @@ export type BlueskyPublishOutcome =
       })
 
 export interface BlueskyPostContent {
+    readonly reply?: {
+        readonly root: { readonly uri: string; readonly cid: string }
+        readonly parent: { readonly uri: string; readonly cid: string }
+    }
     readonly external?: {
         readonly uri: string
         readonly title: string

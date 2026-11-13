@@ -1484,6 +1484,8 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                     publicationId: params.publicationId,
                     subjectId: user.id,
                     resolution: body.resolution,
+                    threadMessagePosition: body.threadMessagePosition,
+                    externalCid: body.externalCid,
                     externalId: body.externalId,
                     externalUrl: body.externalUrl,
                     errorMessage: body.errorMessage,

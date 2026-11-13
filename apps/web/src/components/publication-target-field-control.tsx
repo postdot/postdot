@@ -245,6 +245,8 @@ export function TargetFieldControl({
                     <BooleanField value={value} disabled={disabled} onChange={onChange} />
                 ) : field.kind === 'enum' ? (
                     <EnumField
+                        fieldId={fieldId}
+                        errorId={errorId}
                         field={field}
                         value={value}
                         disabled={disabled}
@@ -296,11 +298,15 @@ function BooleanField({
 }
 
 function EnumField({
+    fieldId,
+    errorId,
     field,
     value,
     disabled,
     onChange,
 }: {
+    readonly fieldId: string
+    readonly errorId?: string
     readonly field: TargetEditorField
     readonly value: unknown
     readonly disabled: boolean
@@ -315,7 +321,11 @@ function EnumField({
             onValueChange={next =>
                 onChange(decodeTargetEnumValue(next ?? unsetTargetFieldValue, field.enumValues))
             }>
-            <SelectTrigger disabled={disabled}>
+            <SelectTrigger
+                id={fieldId}
+                disabled={disabled}
+                aria-invalid={Boolean(errorId) || undefined}
+                aria-describedby={errorId}>
                 <SelectValue />
             </SelectTrigger>
             <SelectContent align="start">

@@ -320,6 +320,19 @@ export function createPublicationPromotionStore(
             )
             const draftRow = await options.loadWorkingDraft(input.projectId, input.publicationId)
             if (actorRow === null || publicationRow === null || draftRow === null) return null
+            if (
+                await sql
+                    .statement<{ position: number }, [string, string]>(`
+                select m.position from publication_thread_messages m
+                join publication_execution_revisions e on e.project_id = m.project_id and e.id = m.execution_revision_id
+                where e.project_id = ? and e.publication_id = ? and m.state in ('confirmed','sending','ambiguous') limit 1
+            `)
+                    .get(input.projectId, input.publicationId)
+            )
+                throw new DomainInvariantError(
+                    'invalid_transition',
+                    'A started thread keeps its original version; retry or review the remaining messages'
+                )
             if (input.expectedRevision !== draftRow.revision) {
                 throw new DomainInvariantError(
                     'write_conflict',

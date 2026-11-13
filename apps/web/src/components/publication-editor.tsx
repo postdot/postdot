@@ -47,6 +47,7 @@ import { PublicationProfileAdoption } from '@/components/publication-profile-ado
 import { PublicationRecoveryComparison } from '@/components/publication-recovery-comparison'
 import { PublicationTagPicker } from '@/components/publication-tag-picker'
 import { PublicationChannelRail } from '@/components/publication-target-list'
+import { PublicationThreadProgress } from '@/components/publication-thread-progress'
 import {
     ApiError,
     api,
@@ -310,7 +311,12 @@ export function PublicationEditor({
         formatJson(editor.draft.content) !== formatJson(editor.selectedTarget.content)
     const hasLocalChanges = dirty || scheduleDirty
     const isRebasing = saveState === 'rebasing'
-    const publicationEditable = !readOnly && canEditPublication(editor.publication.state)
+    const threadStarted =
+        editor.threadMessages?.some(message =>
+            ['confirmed', 'sending', 'ambiguous'].includes(message.state)
+        ) ?? false
+    const publicationEditable =
+        !readOnly && canEditPublication(editor.publication.state) && !threadStarted
     const manualPublicationBlocked =
         accessWritesBlocked ||
         editorMutationPending ||
@@ -345,14 +351,16 @@ export function PublicationEditor({
         promotionRecoveryRequired ||
         retryPending ||
         onRetry === undefined ||
-        !publicationEditable ||
+        readOnly ||
+        !canEditPublication(editor.publication.state) ||
         editor.publication.state !== 'failed' ||
         editor.publication.deliveryMode !== 'automatic' ||
-        hasLocalChanges ||
-        sourceConflict ||
-        draftRequiresReview ||
-        saveState !== 'saved' ||
-        draftDiffersFromTarget
+        (!threadStarted &&
+            (hasLocalChanges ||
+                sourceConflict ||
+                draftRequiresReview ||
+                saveState !== 'saved' ||
+                draftDiffersFromTarget))
 
     // A prepared first comment follows the native execution and the automatic
     // delivery of this publication, never a channel name.
@@ -1235,7 +1243,11 @@ export function PublicationEditor({
                 input
             )
             if (accessEpochAtStart !== accessEpochRef.current) return
-            setEditor(current => ({ ...current, publication: response.publication }))
+            if (input.threadMessagePosition !== undefined) {
+                const refreshed = await api.getPublicationEditor(projectId, editor.publication.id)
+                if (accessEpochAtStart !== accessEpochRef.current) return
+                setEditor(refreshed.editor)
+            } else setEditor(current => ({ ...current, publication: response.publication }))
             invalidatePublicationQueries()
         } catch (caughtError) {
             if (accessEpochAtStart !== accessEpochRef.current) return
@@ -1703,6 +1715,7 @@ export function PublicationEditor({
                 ) : null}
 
                 {!promotionRecoveryRequired && !passiveStatus ? editorStatus : null}
+                <PublicationThreadProgress messages={editor.threadMessages} />
 
                 {editor.publication.deliveryMode === 'automatic' &&
                 ['scheduled', 'ready'].includes(editor.publication.state) ? (
@@ -1738,6 +1751,19 @@ export function PublicationEditor({
 
                 <PublicationOutcomePanel
                     publication={editor.publication}
+                    threadMessage={(() => {
+                        const uncertain = editor.threadMessages?.find(
+                            message => message.state === 'sending' || message.state === 'ambiguous'
+                        )
+                        return uncertain
+                            ? {
+                                  position: uncertain.position,
+                                  needsCid:
+                                      editor.profile.profile.execution.kind === 'built_in' &&
+                                      editor.profile.profile.execution.contractId === 'bluesky',
+                              }
+                            : undefined
+                    })()}
                     onResolve={reconcilePublication}
                 />
 

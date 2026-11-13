@@ -60,7 +60,9 @@ class FakeExecutorStore implements WorkflowExecutorStore {
         if (input.outcome.type === 'published') return 'published'
         if (input.outcome.type === 'ambiguous') return 'ambiguous'
         if (
-            (input.outcome.type === 'retryable_failure' || input.outcome.type === 'deferred') &&
+            (input.outcome.type === 'retryable_failure' ||
+                input.outcome.type === 'deferred' ||
+                (input.outcome.type === 'checkpointed_failure' && input.outcome.retryable)) &&
             input.retryAt !== null
         ) {
             return 'retry_scheduled'
@@ -450,3 +452,31 @@ describe('active external effects', () => {
         expect(f.timers.size).toBe(0)
     })
 })
+
+for (const retryable of [true, false])
+    test(`checkpointed partial effects ${retryable ? 'schedule a continuation' : 'require an operator retry'}`, async () => {
+        const store = new FakeExecutorStore()
+        const outcome: ExternalEffectOutcome = {
+            type: 'checkpointed_failure',
+            effectOccurred: true,
+            retryable,
+            confirmedMessageCount: 2,
+            errorMessage: 'Third message rejected',
+        }
+        const result = await processNextWorkflowEvent({
+            store,
+            actorId: 'system-one',
+            leaseDuration: 60000,
+            createClaimToken: () => 'claim-one',
+            now: () => time,
+            retryPolicy: createExponentialRetryPolicy({
+                maxAttempts: 3,
+                initialDelay: 1000,
+                maximumDelay: 1000,
+            }),
+            performExternalEffect: () => outcome,
+        })
+        expect(result.outcome).toBe(retryable ? 'retry_scheduled' : 'failed')
+        expect(store.completedInput?.retryAt).toBe(retryable ? time + 1000 : null)
+        expect(store.completedInput?.outcome).toEqual(outcome)
+    })

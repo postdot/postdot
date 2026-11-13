@@ -10,11 +10,11 @@ acceptance for every format, account entitlement or permission grant.
 
 | Destination | Publishing                                                | Saved performance / conversations                             |
 | ----------- | --------------------------------------------------------- | ------------------------------------------------------------- |
-| Bluesky     | Text, images, MP4 or a link card                          | Post observations and public conversation snapshots/replies   |
-| Mastodon    | Text, images or MP4; polls exclude media                  | Status observations and public conversation snapshots/replies |
+| Bluesky     | Text, images, MP4, link card or thread                    | Post observations and public conversation snapshots/replies   |
+| Mastodon    | Text, images, MP4, poll or thread                         | Status observations and public conversation snapshots/replies |
 | DEV.to      | Markdown article with optional cover                      | Article observations; no conversation workflow                |
 | Discord     | Message with images or MP4                                | No native performance/conversation surface                    |
-| X           | Weighted text with images                                 | No native performance/conversation surface                    |
+| X           | Weighted text, images or thread                           | No native performance/conversation surface                    |
 | LinkedIn    | Member/organization text, images or MP4                   | No native performance/conversation surface                    |
 | Telegram    | Message, photo/video, album or anonymous text-answer poll | No native performance/conversation surface                    |
 | Facebook    | Page text, link or up to ten photos                       | No native performance/conversation surface                    |
@@ -35,6 +35,43 @@ Facebook's ten-photo limit is Postdot's application envelope, not a universal
 provider maximum. A link and photo attachments remain separate Facebook formats.
 See [Instagram](/docs/providers/instagram/#publishing-and-media-requirements) and
 [Bluesky link cards](/docs/providers/bluesky/#add-a-link-card) for format details.
+
+## Write a thread
+
+X, Bluesky and Mastodon support destination-specific threads of up to 25 messages
+in Postdot. Open a publication and choose **Add a reply** below the editor. Write
+and reorder the replies, then select or schedule the version as usual. Each
+message has its own destination text limit. The shared source remains the first
+message; each destination owns its continuations.
+
+Attachments, polls and link cards belong to the first message. Replies contain
+text. Mastodon keeps the thread’s visibility, language and content warning;
+choose public, unlisted or followers-only visibility rather than direct messages.
+Existing channels need the shipped thread-capable template and an explicitly
+adapted draft before these controls appear.
+
+Automatic delivery sends each reply after its predecessor. A confirmed message
+is retained if a later message fails. Studio shows the confirmed message count;
+the started thread keeps its original version. **Retry** continues from the saved
+receipts. Postdot marks the publication published only after every message is
+confirmed and retains the first message as its external identity. Performance
+observations therefore describe that first message, not an aggregate of the thread.
+
+If an outcome is uncertain, inspect the named message on the platform. Confirm
+that it was sent, supplying its identifier, or confirm that it was not sent.
+Bluesky also requires the sent message’s CID, the record version used to attach
+subsequent replies. Then retry the publication. Postdot never automatically
+resends an uncertain message.
+
+For API authoring, add continuations to the destination’s `targetContent`:
+
+```json
+{
+    "text": "The first message",
+    "media": [],
+    "thread": [{ "text": "The second message" }, { "text": "The third message" }]
+}
+```
 
 ## Read saved observations carefully
 

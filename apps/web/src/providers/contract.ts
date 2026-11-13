@@ -112,6 +112,7 @@ export interface ProviderFieldProps {
     readonly error?: string
 }
 export interface ProviderFieldDefinition {
+    readonly inlineFields?: readonly string[]
     readonly kind: `provider:${string}`
     readonly path: string
     readonly label: (locale?: Locale) => string

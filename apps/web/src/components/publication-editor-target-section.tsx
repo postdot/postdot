@@ -3,11 +3,13 @@ import { Badge } from '@postdot/ui/components/badge'
 import { AltArrowDownIcon } from '@solar-icons/react/linear/alt-arrow-down'
 
 import { PublicationTargetEditor } from '@/components/publication-target-editor'
+import { TargetFieldControl } from '@/components/publication-target-field-control'
 import type { PublicationEditorState } from '@/lib/api'
 import { useLanguage } from '@/lib/i18n'
-import { getTargetEditorFields } from '@/lib/target-editor'
+import { getTargetEditorFields, readTargetField, updateTargetField } from '@/lib/target-editor'
 import { validationField } from '@/lib/target-validation'
 import * as m from '@/paraglide/messages.js'
+import { providerField } from '@/providers/registry'
 
 type Profile = PublicationEditorState['profile']['profile']
 type ReviewState = PublicationEditorState['draft']['reviewState']
@@ -53,11 +55,56 @@ export function PublicationEditorTargetSection({
 }: PublicationEditorTargetSectionProps) {
     const { locale } = useLanguage()
     const fields = getTargetEditorFields(profile, locale, target)
+    const threadField = fields.find(
+        field => field.path === '/thread' && field.kind.startsWith('provider:')
+    )
+    const inlinePaths =
+        threadField && target && Array.isArray(target.thread) && target.thread.length
+            ? (providerField(threadField.kind)?.inlineFields ?? [])
+            : []
+    const inlineFields = fields.filter(field => inlinePaths.includes(field.path))
     const hasUnmappedIssues = validationIssues.some(
         issue => validationField(fields, issue) === undefined
     )
     return (
-        <section className="min-w-0">
+        <section className="min-w-0 space-y-5">
+            {threadField && target ? (
+                <TargetFieldControl
+                    field={threadField}
+                    fieldId={`thread-${publicationId}`}
+                    value={readTargetField(target, threadField.path)}
+                    disabled={disabled || readOnly}
+                    onChange={value =>
+                        onTargetChange(updateTargetField(target, threadField.path, value))
+                    }
+                    error={
+                        validationIssues
+                            .filter(issue => validationField(fields, issue) === threadField)
+                            .map(issueMessage)
+                            .join(' ') || undefined
+                    }
+                />
+            ) : null}
+            {target
+                ? inlineFields.map(field => (
+                      <TargetFieldControl
+                          key={field.path}
+                          field={field}
+                          fieldId={`thread-option-${publicationId}-${field.bindingId}`}
+                          value={readTargetField(target, field.path)}
+                          disabled={disabled || readOnly}
+                          onChange={value =>
+                              onTargetChange(updateTargetField(target, field.path, value))
+                          }
+                          error={
+                              validationIssues
+                                  .filter(issue => validationField(fields, issue) === field)
+                                  .map(issueMessage)
+                                  .join(' ') || undefined
+                          }
+                      />
+                  ))
+                : null}
             <details
                 data-publication-customization="true"
                 className="group rounded-md bg-surface-inset/35 px-3 shadow-surface"
@@ -85,6 +132,7 @@ export function PublicationEditorTargetSection({
                 </summary>
                 <div className="pb-4 pt-1">
                     <PublicationTargetEditor
+                        omitPaths={threadField ? [threadField.path, ...inlinePaths] : undefined}
                         validationIssues={validationIssues}
                         projectId={projectId}
                         mediaScopeId={`publication:${publicationId}`}

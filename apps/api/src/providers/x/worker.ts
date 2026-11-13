@@ -198,6 +198,7 @@ async function executeXPublication(input: {
         outcome = await publisher.publishTweet({
             accessToken,
             text,
+            replyToId: execution.threadMessage?.parent.externalId,
             mediaIds: mediaResult.mediaIds,
         })
     } catch {

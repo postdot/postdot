@@ -74,6 +74,7 @@ import { createAuthRoutes } from './plugins/auth'
 import { createErrorHandler } from './plugins/error-handler'
 import { createHttpPolicy } from './plugins/http-policy'
 import { createPostdotLogger, createRequestLogger } from './plugins/logger'
+import { validateThreadReceipt } from './providers/registry'
 import { recoveryBlocksRequest, type RecoveryService } from './recovery'
 
 export interface PostdotAppOptions {
@@ -176,6 +177,7 @@ function createDomainApp({
     })
     const accessStore = access ?? createAccessStore(database)
     const manualStore = createManualStore(database, {
+        validateThreadReceipt,
         ...manualStoreOptions,
         profileCompiler:
             manualStoreOptions?.profileCompiler ??

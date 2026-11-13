@@ -9,6 +9,14 @@ export type ExternalEffectOutcome =
           readonly externalUrl?: string
       }
     | {
+          /** Earlier messages are public; durable receipts fence a safe continuation. */
+          readonly type: 'checkpointed_failure'
+          readonly effectOccurred: true
+          readonly retryable: boolean
+          readonly confirmedMessageCount: number
+          readonly errorMessage: string
+      }
+    | {
           readonly type: 'deferred'
           readonly effectOccurred: false
           readonly errorMessage: string
@@ -307,7 +315,8 @@ export async function processNextExternalEffect<Work extends ExternalEffectWork>
                   completedAt + requirePositiveSafeInteger(outcome.resumeAfterMs, 'resumeAfterMs'),
                   'resumeAt'
               )
-            : outcome.type === 'retryable_failure'
+            : outcome.type === 'retryable_failure' ||
+                (outcome.type === 'checkpointed_failure' && outcome.retryable)
               ? options.retryPolicy.nextRunAt({ attempts: work.attempts, failedAt: completedAt })
               : null
 

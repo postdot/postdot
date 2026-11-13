@@ -20,6 +20,7 @@ import * as m from '@/paraglide/messages.js'
 import { providerField } from '@/providers/registry'
 
 interface PublicationTargetEditorProps {
+    readonly omitPaths?: readonly string[]
     readonly previewOnly?: boolean
     readonly validationIssues?: readonly Record<string, unknown>[]
     readonly projectId?: string
@@ -36,6 +37,7 @@ interface PublicationTargetEditorProps {
 }
 
 export function PublicationTargetEditor({
+    omitPaths,
     validationIssues = [],
     previewOnly = false,
     projectId,
@@ -52,8 +54,11 @@ export function PublicationTargetEditor({
 }: PublicationTargetEditorProps) {
     const { locale } = useLanguage()
     const fields = useMemo(
-        () => getTargetEditorFields(profile, locale, target),
-        [profile, locale, target]
+        () =>
+            getTargetEditorFields(profile, locale, target).filter(
+                field => !omitPaths?.includes(field.path)
+            ),
+        [profile, locale, target, omitPaths]
     )
     const [advancedOpen, setAdvancedOpen] = useState(target === null)
 

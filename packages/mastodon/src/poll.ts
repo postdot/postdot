@@ -1,3 +1,4 @@
+import { threadValidationIssues } from '@postdot/core'
 import type { ChannelProfileValidationAdapter } from '@postdot/core'
 
 export const MASTODON_POLL_LIMITS = {
@@ -64,17 +65,36 @@ export function mastodonPollError(
 export const mastodonChannelProfileValidationAdapter: ChannelProfileValidationAdapter = {
     contractId: 'mastodon',
     validate(profile, content) {
+        const threads =
+            profile.execution.kind === 'built_in' && profile.execution.revision === 'status-v4'
+                ? threadValidationIssues(content, text => text.length <= 500)
+                : []
+        if (
+            threads.length === 0 &&
+            Array.isArray(content.thread) &&
+            content.thread.length &&
+            !['public', 'unlisted', 'private'].includes(String(content.visibility))
+        )
+            threads.push({
+                path: '/visibility',
+                code: 'mastodon.thread_visibility',
+                message: 'Choose public, unlisted or followers-only visibility for the thread',
+                severity: 'error',
+                source: 'capability',
+            })
         if (
             profile.execution.kind !== 'built_in' ||
             profile.execution.contractId !== 'mastodon' ||
-            profile.execution.revision !== 'status-v3' ||
+            !['status-v3', 'status-v4'].includes(profile.execution.revision) ||
             content.poll === undefined
         )
-            return []
+            return threads
         const poll = readMastodonPoll(content.poll)
         const message = poll === null ? 'Enter a valid Mastodon poll' : mastodonPollError(poll)
-        if (!message && (!Array.isArray(content.media) || content.media.length === 0)) return []
+        if (!message && (!Array.isArray(content.media) || content.media.length === 0))
+            return threads
         return [
+            ...threads,
             {
                 path: '/poll',
                 severity: 'error',

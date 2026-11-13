@@ -358,7 +358,10 @@ export function createXPublisher(options: XPublisherOptions = {}): XPublisher {
         },
 
         async publishTweet(input: XTweetInput): Promise<XPublishOutcome> {
+            if (input.replyToId !== undefined && !/^\d+$/.test(input.replyToId))
+                return permanentFailure('invalid_input', 'The X reply parent identifier is invalid')
             const body: Record<string, unknown> = {
+                ...(input.replyToId ? { reply: { in_reply_to_tweet_id: input.replyToId } } : {}),
                 text: input.text,
             }
             if (input.mediaIds && input.mediaIds.length > 0) {
@@ -384,7 +387,7 @@ export function createXPublisher(options: XPublisherOptions = {}): XPublisher {
             }
 
             const externalId = readString(result.body.data.id)
-            if (externalId === null) {
+            if (externalId === null || !/^\d+$/.test(externalId)) {
                 return ambiguousFailure('missing_post_id', 'X returned an invalid tweet identifier')
             }
 

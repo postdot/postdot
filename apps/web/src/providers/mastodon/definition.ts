@@ -5,6 +5,7 @@ import * as m from '@/paraglide/messages.js'
 
 import type { ProviderDefinition } from '../contract'
 import { safeSameOrigin } from '../safe-link'
+import { threadField } from '../thread-field'
 import { mastodonPollDuration } from './poll-format'
 import { MastodonPollPreview } from './poll-preview'
 
@@ -15,6 +16,7 @@ export const mastodonProvider = {
     profileLabel: () => m.channel_mastodon_profile(),
     editor: 'plain',
     fields: [
+        threadField('mastodon', 'status-v4'),
         {
             kind: 'provider:mastodon:poll',
             path: '/poll',
@@ -31,7 +33,7 @@ export const mastodonProvider = {
                     'contractId' in execution &&
                     execution.contractId === 'mastodon' &&
                     'revision' in execution &&
-                    execution.revision === 'status-v3'
+                    ['status-v3', 'status-v4'].includes(String(execution.revision))
                 )
             },
             loadControl: () =>

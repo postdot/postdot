@@ -940,7 +940,9 @@ export function createWorkflowStore(
                 const errorMessage = requireNonBlank(input.outcome.errorMessage, 'errorMessage')
                 let retryAt =
                     (input.outcome.type === 'retryable_failure' ||
-                        input.outcome.type === 'deferred') &&
+                        input.outcome.type === 'deferred' ||
+                        (input.outcome.type === 'checkpointed_failure' &&
+                            input.outcome.retryable)) &&
                     input.retryAt != null
                         ? requireTimestamp(input.retryAt, 'retryAt')
                         : null
@@ -999,7 +1001,10 @@ export function createWorkflowStore(
                         fromState: 'publishing',
                         toState: 'ready',
                         outcome: input.outcome.type,
-                        effectOccurred: false,
+                        effectOccurred: input.outcome.type === 'checkpointed_failure',
+                        ...(input.outcome.type === 'checkpointed_failure'
+                            ? { confirmedMessageCount: input.outcome.confirmedMessageCount }
+                            : {}),
                         errorMessage,
                         completedAt,
                         effectStartedAt: job.effectStartedAt,
@@ -1033,6 +1038,9 @@ export function createWorkflowStore(
                             ? automaticExecutionAuditActions.ambiguous
                             : automaticExecutionAuditActions.failed
                     auditDetails = {
+                        ...(input.outcome.type === 'checkpointed_failure'
+                            ? { confirmedMessageCount: input.outcome.confirmedMessageCount }
+                            : {}),
                         fromState: 'publishing',
                         toState: publicationState,
                         outcome: input.outcome.type,

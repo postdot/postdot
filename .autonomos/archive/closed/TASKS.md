@@ -609,3 +609,7 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] **[SITE-629]** Build a researched alternatives portal and reusable product comparisons `Priority: 🟠` `Complexity: L` `Completed: 2026-11-12`
 - [x] **[UX-630]** Finish publication detail hierarchy, generic previews and performance empty states `Priority: 🟠` `Complexity: M` `Completed: 2026-11-12`
 - [x] **[PUB-631]** Deepen existing platform capabilities after UX-630: add Instagram carousels, Facebook multi-photo posts and Bluesky link cards `Priority: 🟠` `Complexity: L` `Completed: 2026-11-12`
+
+## Closed 2026-11-13
+
+- [x] **[PUB-632]** Add thread authoring after PUB-631 `Priority: 🔵` `Complexity: L` `Completed: 2026-11-13`

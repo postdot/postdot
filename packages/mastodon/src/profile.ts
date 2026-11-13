@@ -1,3 +1,4 @@
+import { withThreadAuthoring } from '@postdot/core'
 import type { ChannelProfileDefinition } from '@postdot/core'
 
 import {
@@ -190,3 +191,9 @@ export function readMastodonStatusOptions(content: Readonly<Record<string, unkno
             : {}),
     }
 }
+
+export const mastodonThreadChannelProfile = withThreadAuthoring(
+    mastodonChannelProfile,
+    'status-v4',
+    500
+)

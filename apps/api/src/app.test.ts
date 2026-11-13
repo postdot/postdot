@@ -4744,11 +4744,11 @@ describe('Postdot API', () => {
                 }
                 draft: unknown
             }
-            expect(stateBody.active.version).toBe(2)
+            expect(stateBody.active.version).toBe(3)
             expect(stateBody.draft).toBeNull()
             expect(stateBody.active.profile).toMatchObject({
                 id: 'x',
-                execution: { contractId: 'x', revision: 'post-v1' },
+                execution: { contractId: 'x', revision: 'post-v2' },
             })
         } finally {
             await closeTestDatabase(database)

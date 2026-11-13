@@ -180,6 +180,9 @@ async function executeBlueskyPublication(input: {
                 fetcher: effectFetcher(execution.signal, undefined, execution.assertActive),
             }),
             publisher: input.createPublisher({
+                includeCid:
+                    target.profile.execution.kind === 'built_in' &&
+                    target.profile.execution.revision === 'post-v4',
                 agent,
                 annotateText: input.revision === BLUESKY_EXECUTION_CONTRACT_REVISION,
             }),
@@ -195,6 +198,9 @@ async function executeBlueskyPublication(input: {
     if (mediaResult.kind !== 'ready') return mediaResult.outcome
 
     const publisherWithCheckpoints = input.createPublisher({
+        includeCid:
+            target.profile.execution.kind === 'built_in' &&
+            target.profile.execution.revision === 'post-v4',
         annotateText: input.revision === BLUESKY_EXECUTION_CONTRACT_REVISION,
         agent: new Agent({
             did: restored.session.did,
@@ -236,6 +242,20 @@ async function executeBlueskyPublication(input: {
 
     const outcome = await publisherWithCheckpoints.publish({
         text,
+        ...(execution.threadMessage
+            ? {
+                  reply: {
+                      root: {
+                          uri: execution.threadMessage.root.externalId,
+                          cid: execution.threadMessage.root.externalCid!,
+                      },
+                      parent: {
+                          uri: execution.threadMessage.parent.externalId,
+                          cid: execution.threadMessage.parent.externalCid!,
+                      },
+                  },
+              }
+            : {}),
         ...(external === undefined ? {} : { external }),
         media: mediaResult.media.map(media => ({
             contentType: media.target.contentType as 'image/jpeg' | 'image/png',

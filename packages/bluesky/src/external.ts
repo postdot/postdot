@@ -1,3 +1,4 @@
+import { threadValidationIssues } from '@postdot/core'
 import type { ChannelProfileValidationAdapter } from '@postdot/core'
 
 import type { BlueskyPostContent } from './contract'
@@ -30,14 +31,28 @@ export function readBlueskyExternal(value: unknown): BlueskyPostContent['externa
 export const blueskyChannelProfileValidationAdapter: ChannelProfileValidationAdapter = {
     contractId: 'bluesky',
     validate(profile, content) {
+        const threads =
+            profile.execution.kind === 'built_in' && profile.execution.revision === 'post-v4'
+                ? threadValidationIssues(
+                      content,
+                      text =>
+                          text.length <= 3000 &&
+                          [
+                              ...new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(
+                                  text
+                              ),
+                          ].length <= 300
+                  )
+                : []
         if (
             profile.execution.kind !== 'built_in' ||
             profile.execution.contractId !== 'bluesky' ||
-            profile.execution.revision !== 'post-v3' ||
+            !['post-v3', 'post-v4'].includes(profile.execution.revision) ||
             content.external === undefined
         )
-            return []
+            return threads
         const issue = (path: string, message: string) => [
+            ...threads,
             {
                 path,
                 severity: 'error' as const,
@@ -53,6 +68,6 @@ export const blueskyChannelProfileValidationAdapter: ChannelProfileValidationAda
             )
         if (Array.isArray(content.media) && content.media.length > 1)
             return issue('/media', 'A link card accepts at most one thumbnail image')
-        return []
+        return threads
     },
 }

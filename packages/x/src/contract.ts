@@ -113,6 +113,7 @@ export interface XMediaInput {
 }
 
 export interface XTweetInput {
+    readonly replyToId?: string
     readonly accessToken: string
     readonly text: string
     readonly mediaIds?: readonly string[]

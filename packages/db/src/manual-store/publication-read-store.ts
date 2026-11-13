@@ -13,6 +13,7 @@ import type {
     PublicationWorkingDraft,
 } from '../manual-store'
 import { readPublicationMovement } from '../publication-move-state'
+import { createPublicationThreadStore } from '../publication-thread-store'
 import { jsonEachTextFromSql, jsonGroupArrayTextSql, scalarMaxSql } from '../sql/dialect'
 import {
     toPost,
@@ -941,6 +942,9 @@ export function createPublicationReadStore(
                     }
 
                     return {
+                        threadMessages: await createPublicationThreadStore(
+                            database
+                        ).listPublication(normalizedProjectId, normalizedPublicationId),
                         publication: toPublication(publicationRow),
                         post: toPost(postRow),
                         channel: toChannel(channelRow),

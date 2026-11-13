@@ -1,4 +1,9 @@
-import { RichText, type Agent, type AppBskyEmbedImages } from '@atproto/api'
+import {
+    ComAtprotoRepoStrongRef,
+    RichText,
+    type Agent,
+    type AppBskyEmbedImages,
+} from '@atproto/api'
 
 import {
     BLUESKY_MAX_ALT_TEXT_LENGTH,
@@ -20,12 +25,24 @@ export interface BlueskyPublisher {
 }
 
 export function createBlueskyPublisher(options: {
+    readonly includeCid?: boolean
     readonly annotateText?: boolean
     readonly agent: BlueskyPublisherAgent
     readonly onMediaUploaded?: BlueskyMediaUploadedHandler
 }): BlueskyPublisher {
     return {
         async publish(input) {
+            if (
+                input.reply &&
+                (!ComAtprotoRepoStrongRef.validateMain(input.reply.root).success ||
+                    !ComAtprotoRepoStrongRef.validateMain(input.reply.parent).success ||
+                    ![input.reply.root.uri, input.reply.parent.uri].every(uri =>
+                        uri.startsWith(`at://${options.agent.did}/app.bsky.feed.post/`)
+                    ))
+            )
+                return permanentFailure(
+                    'Thread replies require valid references to posts by this account'
+                )
             const validationError = validateInput(input)
             if (validationError !== null) return validationError
 
@@ -67,6 +84,7 @@ export function createBlueskyPublisher(options: {
                 )
                 const record: Parameters<Agent['post']>[0] = {
                     text: input.text,
+                    ...(input.reply ? { reply: input.reply } : {}),
                     ...(facets?.length ? { facets } : {}),
                     createdAt: new Date().toISOString(),
                     ...(external !== undefined
@@ -101,10 +119,23 @@ export function createBlueskyPublisher(options: {
                               }),
                 }
                 const posted = await options.agent.post(record)
+                if (
+                    options.includeCid &&
+                    !isBlueskyThreadReceipt(
+                        { externalId: posted.uri, externalCid: posted.cid },
+                        options.agent.did
+                    )
+                )
+                    return {
+                        type: 'ambiguous',
+                        code: 'unexpected_response',
+                        errorMessage: 'Bluesky returned an incomplete thread receipt',
+                    }
                 const externalUrl = createBlueskyPostUrl(options.agent.did, posted.uri)
                 return {
                     type: 'published',
                     externalId: posted.uri,
+                    ...(options.includeCid && posted.cid ? { externalCid: posted.cid } : {}),
                     ...(externalUrl === null ? {} : { externalUrl }),
                 }
             } catch (error) {
@@ -258,4 +289,16 @@ function permanentFailure(
         code: 'invalid_input',
         errorMessage,
     }
+}
+
+export function isBlueskyThreadReceipt(
+    receipt: { readonly externalId: string; readonly externalCid?: string },
+    did: string | undefined
+): boolean {
+    return (
+        !!did &&
+        receipt.externalId.startsWith(`at://${did}/app.bsky.feed.post/`) &&
+        ComAtprotoRepoStrongRef.validateMain({ uri: receipt.externalId, cid: receipt.externalCid })
+            .success
+    )
 }

@@ -1,3 +1,4 @@
+import { threadValidationIssues } from '@postdot/core'
 import type {
     ChannelProfileDefinition,
     ChannelProfileValidationAdapter,
@@ -104,5 +105,10 @@ function validateXContent(content: Readonly<Record<string, unknown>>): readonly 
 export const xChannelProfileValidationAdapter: ChannelProfileValidationAdapter = {
     contractId: 'x',
     prepareProfile: prepareXProfile,
-    validate: (_profile, content) => validateXContent(content),
+    validate: (profile, content) => [
+        ...validateXContent(content),
+        ...(profile.execution.kind === 'built_in' && profile.execution.revision === 'post-v2'
+            ? threadValidationIssues(content, text => parseXPostText(text).valid && !!text.trim())
+            : []),
+    ],
 }

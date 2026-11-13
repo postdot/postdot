@@ -113,6 +113,7 @@ export interface MastodonMediaInput {
 }
 
 export interface MastodonStatusInput {
+    readonly threadReply?: { readonly parentId: string; readonly accountId: string }
     readonly accessToken: string
     readonly text: string
     readonly mediaIds: readonly string[]

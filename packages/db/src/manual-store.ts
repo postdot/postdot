@@ -51,6 +51,10 @@ import { publicationColumns } from './manual-store/sql-fragments'
 import type { MediaAssetStore } from './media-asset-store'
 import { createPublicationDestinationStore } from './publication-destination-store'
 import type { PublicationMovement } from './publication-move-state'
+import type {
+    PublicationThreadMessage,
+    ThreadReceiptValidationInput,
+} from './publication-thread-store'
 import { createWorkspaceChannelStore } from './workspace-channel-store'
 
 export type {
@@ -90,6 +94,7 @@ export type {
 } from './manual-store/publication-draft-lifecycle-store'
 
 export interface ManualStoreOptions {
+    readonly validateThreadReceipt?: (input: ThreadReceiptValidationInput) => boolean
     readonly now?: () => number
     readonly createId?: () => string
     readonly media?: Pick<MediaAssetStore, 'getAsset'>
@@ -245,6 +250,8 @@ export interface PublishManualPublicationInput {
 }
 
 export interface ReconcileAmbiguousPublicationInput {
+    readonly threadMessagePosition?: number
+    readonly externalCid?: string
     readonly projectId: string
     readonly publicationId: string
     readonly subjectId: string
@@ -331,6 +338,7 @@ export interface PublicationSummary extends Publication {
 }
 
 export interface PublicationEditorState {
+    readonly threadMessages?: readonly PublicationThreadMessage[]
     readonly movement?: PublicationMovement
     readonly publication: Publication
     readonly post: Post
@@ -949,6 +957,7 @@ export function createManualStore(database: DatabaseHandle, options: ManualStore
     })
 
     const publicationOutcomeStore = createPublicationOutcomeStore(database, {
+        validateThreadReceipt: options.validateThreadReceipt,
         now,
         createId,
         loadActor: async (projectId, subjectId) =>

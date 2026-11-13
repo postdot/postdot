@@ -9,6 +9,8 @@ import { useLanguage } from '@/lib/i18n'
 import * as m from '@/paraglide/messages.js'
 
 export interface PublicationOutcomeResolutionInput {
+    readonly threadMessagePosition?: number
+    readonly externalCid?: string
     readonly resolution: 'published' | 'failed'
     readonly externalId?: string
     readonly externalUrl?: string
@@ -16,14 +18,20 @@ export interface PublicationOutcomeResolutionInput {
 }
 
 interface PublicationOutcomePanelProps {
+    readonly threadMessage?: { readonly position: number; readonly needsCid: boolean }
     readonly publication: Publication
     readonly onResolve: (input: PublicationOutcomeResolutionInput) => Promise<void>
 }
 
-export function PublicationOutcomePanel({ publication, onResolve }: PublicationOutcomePanelProps) {
+export function PublicationOutcomePanel({
+    publication,
+    onResolve,
+    threadMessage,
+}: PublicationOutcomePanelProps) {
     useLanguage()
     const [externalId, setExternalId] = useState('')
     const [externalUrl, setExternalUrl] = useState('')
+    const [externalCid, setExternalCid] = useState('')
     const [pending, setPending] = useState(false)
     const [error, setError] = useState<string | null>(null)
 
@@ -42,6 +50,12 @@ export function PublicationOutcomePanel({ publication, onResolve }: PublicationO
             }
             await onResolve({
                 resolution,
+                ...(threadMessage
+                    ? {
+                          threadMessagePosition: threadMessage.position,
+                          externalCid: externalCid.trim() || undefined,
+                      }
+                    : {}),
                 ...(resolution === 'published'
                     ? {
                           externalId: trimmedExternalId,
@@ -62,7 +76,11 @@ export function PublicationOutcomePanel({ publication, onResolve }: PublicationO
         <Alert className="mt-5 border-state-attention/40 bg-state-attention/10">
             <AlertTitle>{m.publication_outcome_title()}</AlertTitle>
             <AlertDescription>
-                <p>{m.publication_outcome_ambiguous_description()}</p>
+                <p>
+                    {threadMessage
+                        ? m.thread_review_help({ number: threadMessage.position + 1 })
+                        : m.publication_outcome_ambiguous_description()}
+                </p>
                 {publication.errorMessage ? (
                     <p className="mt-2 text-xs text-muted-foreground">{publication.errorMessage}</p>
                 ) : null}
@@ -93,11 +111,24 @@ export function PublicationOutcomePanel({ publication, onResolve }: PublicationO
                         disabled={pending}
                     />
                 </Field>
+                {threadMessage?.needsCid ? (
+                    <Field className="max-w-xl gap-1.5">
+                        <FieldLabel htmlFor="thread-outcome-cid">{m.thread_cid()}</FieldLabel>
+                        <Input
+                            id="thread-outcome-cid"
+                            value={externalCid}
+                            onChange={event => setExternalCid(event.target.value)}
+                            disabled={pending}
+                        />
+                    </Field>
+                ) : null}
                 <div className="flex flex-wrap gap-2">
                     <Button disabled={pending} onClick={() => void resolve('published')}>
                         {pending
                             ? m.publication_outcome_saving()
-                            : m.publication_outcome_mark_published()}
+                            : threadMessage
+                              ? m.thread_confirm_sent()
+                              : m.publication_outcome_mark_published()}
                     </Button>
                     <Button
                         variant="destructive"
@@ -105,7 +136,9 @@ export function PublicationOutcomePanel({ publication, onResolve }: PublicationO
                         onClick={() => void resolve('failed')}>
                         {pending
                             ? m.publication_outcome_saving()
-                            : m.publication_outcome_mark_failed()}
+                            : threadMessage
+                              ? m.thread_confirm_not_sent()
+                              : m.publication_outcome_mark_failed()}
                     </Button>
                 </div>
                 {error ? <p className="text-sm text-destructive">{error}</p> : null}

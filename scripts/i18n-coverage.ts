@@ -28,6 +28,8 @@ const allowedUnchangedByLocale = new Map<string, ReadonlySet<string>>([
     [
         'fr',
         new Set([
+            'thread_count',
+            'thread_message',
             'access_project_access_direct',
             'access_project_access_via_group',
             'api_keys_expiration',
@@ -98,6 +100,7 @@ const allowedUnchangedByLocale = new Map<string, ReadonlySet<string>>([
     [
         'es',
         new Set([
+            'thread_count',
             'access_project_role_editor',
             'add_destination_manual',
             'api_blockers',
@@ -143,6 +146,8 @@ const allowedUnchangedByLocale = new Map<string, ReadonlySet<string>>([
     [
         'de',
         new Set([
+            'thread_count',
+            'thread_title',
             'access_invite_email_placeholder',
             'access_project_invite_email_placeholder',
             'access_project_role_editor',

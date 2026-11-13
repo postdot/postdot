@@ -5,6 +5,7 @@ import * as m from '@/paraglide/messages.js'
 
 import type { ProviderDefinition } from '../contract'
 import { safeSameOrigin } from '../safe-link'
+import { threadField } from '../thread-field'
 import { application } from './application'
 
 const BlueskyLinkMediaPreview = lazy(() =>
@@ -14,6 +15,7 @@ const BlueskyLinkMediaPreview = lazy(() =>
 export const blueskyProvider = {
     id: 'bluesky',
     fields: [
+        threadField('bluesky', 'post-v4'),
         {
             kind: 'provider:bluesky:external',
             path: '/external',
@@ -25,7 +27,7 @@ export const blueskyProvider = {
                 return (
                     execution?.kind === 'built_in' &&
                     execution.contractId === 'bluesky' &&
-                    execution.revision === 'post-v3'
+                    ['post-v3', 'post-v4'].includes(String(execution.revision))
                 )
             },
             loadControl: () =>

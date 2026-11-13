@@ -1,3 +1,4 @@
+import { withThreadAuthoring } from '@postdot/core'
 import type { ChannelProfileDefinition } from '@postdot/core'
 
 import {
@@ -91,3 +92,9 @@ export function readXTextContent(content: Readonly<Record<string, unknown>>): st
     const text = content.text
     return typeof text === 'string' && text.trim().length > 0 ? text : null
 }
+
+export const xThreadChannelProfile = withThreadAuthoring(
+    xChannelProfile,
+    'post-v2',
+    X_MAX_RAW_POST_TEXT_LENGTH
+)

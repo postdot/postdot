@@ -532,6 +532,23 @@ export const publicationEditorStateSchema = Type.Unsafe<PublicationEditorState>(
         channel: channelSchema,
         profile: channelProfileVersionSchema,
         draft: publicationWorkingDraftSchema,
+        threadMessages: Type.Optional(
+            Type.Array(
+                Type.Object({
+                    executionRevisionId: Type.String(),
+                    position: Type.Integer({ minimum: 0 }),
+                    state: Type.Union(
+                        ['pending', 'sending', 'confirmed', 'failed', 'ambiguous'].map(state =>
+                            Type.Literal(state)
+                        )
+                    ),
+                    externalId: Type.Union([Type.String(), Type.Null()]),
+                    externalUrl: Type.Union([Type.String(), Type.Null()]),
+                    externalCid: Type.Union([Type.String(), Type.Null()]),
+                    errorMessage: Type.Union([Type.String(), Type.Null()]),
+                })
+            )
+        ),
         movement: Type.Optional(
             Type.Object({
                 canMove: Type.Boolean(),
@@ -923,6 +940,8 @@ export const publishPublicationBody = Type.Object({
 })
 
 export const reconcilePublicationBody = Type.Object({
+    threadMessagePosition: Type.Optional(Type.Integer({ minimum: 0, maximum: 24 })),
+    externalCid: Type.Optional(Type.String({ minLength: 1, maxLength: 256 })),
     resolution: Type.Union([Type.Literal('published'), Type.Literal('failed')]),
     externalId: Type.Optional(Type.String({ minLength: 1 })),
     externalUrl: Type.Optional(Type.String({ minLength: 1 })),

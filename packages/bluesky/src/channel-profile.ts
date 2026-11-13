@@ -1,3 +1,4 @@
+import { withThreadAuthoring } from '@postdot/core'
 import type { ChannelProfileDefinition } from '@postdot/core'
 
 import {
@@ -155,3 +156,9 @@ export function readBlueskyTextContent(content: Readonly<Record<string, unknown>
     const text = content.text
     return typeof text === 'string' && text.trim().length > 0 ? text : null
 }
+
+export const blueskyThreadChannelProfile = withThreadAuthoring(
+    blueskyChannelProfile,
+    'post-v4',
+    BLUESKY_MAX_TEXT_LENGTH
+)

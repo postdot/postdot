@@ -13,6 +13,7 @@ import {
     type CustomHttpMediaDescriptor,
     type CustomHttpTransport,
 } from '@postdot/custom-http'
+import { createPublicationThreadStore } from '@postdot/db'
 import {
     createWorkflowStore,
     createProviderMediaDeliveryStore,
@@ -24,7 +25,7 @@ import {
     type PublisherExecutionTarget,
 } from '@postdot/db'
 
-import { permanentFailure, retryableFailure } from './outcomes'
+import { ambiguousFailure, permanentFailure, retryableFailure } from './outcomes'
 import { cancelMediaStream, verifyPinnedMediaContent } from './providers/media-integrity'
 import type { BuiltInProviderRegistry } from './providers/registry'
 import { workflowRecoveryDelay } from './recovery'
@@ -90,6 +91,7 @@ export function createPublicationWorker(options: PublicationWorkerOptions): Publ
             options.resolveBuiltInMediaUrl !== undefined ||
             options.resolveCustomHttpMediaUrl !== undefined,
     })
+    const threadStore = createPublicationThreadStore(options.database)
     const publisherStore = options.publisherStore
     const providerMediaGroupDeliveryStore = createProviderMediaGroupDeliveryStore(
         options.database,
@@ -208,6 +210,7 @@ export function createPublicationWorker(options: PublicationWorkerOptions): Publ
                                         builtInProviderRegistry: options.builtInProviderRegistry,
                                         providerMediaDeliveryStore,
                                         providerMediaGroupDeliveryStore,
+                                        threadStore,
                                         publisherStore,
                                         publisherCredentialStore: options.publisherCredentialStore,
                                         media: options.media,
@@ -301,6 +304,7 @@ export function createPublicationWorker(options: PublicationWorkerOptions): Publ
 
 async function performExternalEffect(input: {
     readonly job: Job
+    readonly threadStore: ReturnType<typeof createPublicationThreadStore>
     readonly signal: AbortSignal
     readonly assertActive: () => Promise<void>
     readonly builtInProviderRegistry: BuiltInProviderRegistry
@@ -331,6 +335,17 @@ async function performExternalEffect(input: {
     if (target === null) {
         return permanentFailure('The publisher execution context is unavailable')
     }
+
+    if (
+        await input.threadStore.hasPriorEffects(
+            target.projectId,
+            target.publicationId,
+            target.executionRevisionId
+        )
+    )
+        return ambiguousFailure(
+            'An earlier thread execution has public or uncertain messages; review it before publishing again'
+        )
 
     if (target.kind === CUSTOM_HTTP_PUBLISHER_KIND) {
         if (target.providerId !== CUSTOM_HTTP_PUBLISHER_KIND) {
@@ -410,6 +425,22 @@ async function performExternalEffect(input: {
             input.resolveBuiltInMediaUrl === undefined
                 ? undefined
                 : (media, context) => input.resolveBuiltInMediaUrl!(media, context),
+        threadStore: {
+            hasPriorEffects: (...args) => input.threadStore.hasPriorEffects(...args),
+            listPublication: (...args) => input.threadStore.listPublication(...args),
+            reserve: async value => {
+                await input.assertActive()
+                return input.threadStore.reserve(value)
+            },
+            start: async value => {
+                await input.assertActive()
+                return input.threadStore.start(value)
+            },
+            settle: async value => {
+                await input.assertActive()
+                return input.threadStore.settle(value)
+            },
+        },
         providerMediaGroupDeliveryStore: fenceMediaDeliveries(
             input.providerMediaGroupDeliveryStore,
             input.assertActive

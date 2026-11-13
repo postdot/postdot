@@ -60,6 +60,16 @@ export function PublicationDraftPreview({
     })
 
     const definition = providerRegistry.forExecution(execution)
+    const thread =
+        target &&
+        definition?.fields?.some(field => field.path === '/thread' && field.supports({ execution }))
+            ? Array.isArray(target.thread)
+                ? target.thread.filter(
+                      (item): item is { text: string } =>
+                          !!item && typeof item === 'object' && typeof item.text === 'string'
+                  )
+                : []
+            : []
     const professional = definition?.preview.layout === 'professional'
     const ProviderMedia = definition?.preview.Media
     const Footer = definition?.preview.Footer
@@ -239,6 +249,23 @@ export function PublicationDraftPreview({
                         renderDefaultMedia()
                     )}
 
+                    {thread.length ? (
+                        <ol
+                            data-thread-preview
+                            className="mt-4 space-y-4 border-t border-border pt-4"
+                            aria-label={m.thread_title()}>
+                            {thread.map((message, index) => (
+                                <li key={index} className="min-w-0 space-y-1">
+                                    <p className="text-xs text-muted-foreground">
+                                        {m.thread_message({ number: index + 2 })}
+                                    </p>
+                                    <p className="whitespace-pre-wrap break-words text-sm leading-6">
+                                        {message.text}
+                                    </p>
+                                </li>
+                            ))}
+                        </ol>
+                    ) : null}
                     {!preview.hasText && media.length === 0 ? (
                         <div
                             data-publication-preview-empty="true"

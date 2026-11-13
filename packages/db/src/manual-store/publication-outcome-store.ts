@@ -13,8 +13,12 @@ import type {
     ReconcileAmbiguousPublicationInput,
     ReconcileAmbiguousPublicationResult,
 } from '../manual-store'
+import {
+    createPublicationThreadStore,
+    type ThreadReceiptValidationInput,
+} from '../publication-thread-store'
 import { jsonExtractTextSql } from '../sql/dialect'
-import { parseJsonObject } from './content-codec'
+import { parseJsonObject, parseProfile } from './content-codec'
 import { toActor, toPublication } from './mappers'
 import type { ActorRow, DuePublicationRow, PublicationRow } from './rows'
 import { publicationColumns } from './sql-fragments'
@@ -31,6 +35,7 @@ interface AuditEventInsert {
 }
 
 export interface PublicationOutcomeStoreOptions {
+    readonly validateThreadReceipt?: (input: ThreadReceiptValidationInput) => boolean
     readonly now: () => number
     readonly createId: () => string
     readonly loadActor: (projectId: string, subjectId: string) => Promise<ActorRow | null>
@@ -262,11 +267,80 @@ export function createPublicationOutcomeStore(
             if (actorRow === null || row === null) return { kind: 'not_found' }
             if (row.state !== 'ambiguous') return { kind: 'not_ambiguous' }
 
+            const messages = await createPublicationThreadStore(database).listPublication(
+                input.projectId,
+                input.publicationId
+            )
+            const uncertain = messages.find(
+                message => message.state === 'sending' || message.state === 'ambiguous'
+            )
+            if (uncertain && input.threadMessagePosition !== uncertain.position)
+                throw new DomainInvariantError(
+                    'invalid_transition',
+                    'Review the uncertain thread message before continuing'
+                )
+            if (
+                input.threadMessagePosition !== undefined &&
+                (!uncertain || uncertain.position !== input.threadMessagePosition)
+            )
+                throw new DomainInvariantError(
+                    'invalid_transition',
+                    'This thread message is no longer awaiting review'
+                )
+            if (uncertain) {
+                const execution = await sql
+                    .statement<
+                        { profileJson: string; destinationJson: string | null },
+                        [string, string]
+                    >(`select p.profile_json as profileJson, e.destination_snapshot_json as destinationJson
+                    from publication_execution_revisions e join project_channel_profile_contexts p on p.project_id = e.project_id and p.id = e.profile_version_id
+                    where e.project_id = ? and e.id = ?`)
+                    .get(input.projectId, uncertain.executionRevisionId)
+                if (
+                    input.resolution === 'published' &&
+                    (!execution ||
+                        !options.validateThreadReceipt?.({
+                            profile: parseProfile(execution.profileJson),
+                            destination: execution.destinationJson
+                                ? JSON.parse(execution.destinationJson)
+                                : null,
+                            receipt: {
+                                externalId: requireNonBlank(input.externalId ?? '', 'externalId'),
+                                externalCid: input.externalCid,
+                                externalUrl: input.externalUrl,
+                            },
+                        }))
+                )
+                    throw new DomainInvariantError(
+                        'invalid_input',
+                        'Enter a valid provider message identifier and, for Bluesky, its CID'
+                    )
+                const changed = await sql
+                    .statement(`update publication_thread_messages set state = ?, external_id = ?, external_url = ?, external_cid = ?, error_message = ?
+                    where project_id = ? and execution_revision_id = ? and position = ? and state in ('sending','ambiguous')`)
+                    .run(
+                        input.resolution === 'published' ? 'confirmed' : 'failed',
+                        input.resolution === 'published' ? input.externalId!.trim() : null,
+                        input.resolution === 'published' ? (input.externalUrl ?? null) : null,
+                        input.resolution === 'published' ? (input.externalCid ?? null) : null,
+                        input.resolution === 'published'
+                            ? null
+                            : 'Operator confirmed this message was not sent',
+                        input.projectId,
+                        uncertain.executionRevisionId,
+                        uncertain.position
+                    )
+                if (changed.changes !== 1)
+                    throw new DomainInvariantError(
+                        'claim_mismatch',
+                        'The thread review changed concurrently'
+                    )
+            }
             const timestamp = requireTimestamp(options.now(), 'now')
             const publication = toPublication(row)
             const actor = toActor(actorRow)
             const reconciled =
-                input.resolution === 'published'
+                input.resolution === 'published' && !uncertain
                     ? transitionPublication({
                           publication,
                           to: 'published',
@@ -283,7 +357,9 @@ export function createPublicationOutcomeStore(
                           to: 'failed',
                           actor,
                           now: timestamp,
-                          errorMessage: requireNonBlank(input.errorMessage ?? '', 'errorMessage'),
+                          errorMessage: uncertain
+                              ? 'Thread message reviewed; retry to continue from the saved receipts'
+                              : requireNonBlank(input.errorMessage ?? '', 'errorMessage'),
                       })
 
             const result =
@@ -333,6 +409,14 @@ export function createPublicationOutcomeStore(
                     errorMessage: reconciled.errorMessage,
                     deliveryMode: reconciled.deliveryMode,
                     provider,
+                    ...(uncertain
+                        ? {
+                              threadMessagePosition: uncertain.position,
+                              threadMessageResolution: input.resolution,
+                              threadExternalId: input.externalId,
+                              threadExternalCid: input.externalCid,
+                          }
+                        : {}),
                 }),
                 createdAt: timestamp,
             })

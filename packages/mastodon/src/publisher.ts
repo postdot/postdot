@@ -494,8 +494,20 @@ export function createMastodonPublisher(options: MastodonPublisherOptions): Mast
                     'invalid_input',
                     'A valid poll must not contain media attachments'
                 )
+            const reply = input.reply ?? input.threadReply
+            if (
+                input.threadReply &&
+                (!input.text.trim() ||
+                    input.text.length > 500 ||
+                    !/^\d+$/.test(input.threadReply.parentId) ||
+                    !/^\d+$/.test(input.threadReply.accountId) ||
+                    input.mediaIds.length > 0 ||
+                    input.poll !== undefined ||
+                    !['public', 'unlisted', 'private'].includes(input.visibility ?? ''))
+            )
+                return permanentFailure('invalid_input', 'Invalid Mastodon thread reply')
             const body = new URLSearchParams({ status: input.text })
-            if (input.reply) body.set('in_reply_to_id', input.reply.parentId)
+            if (reply) body.set('in_reply_to_id', reply.parentId)
             for (const mediaId of input.mediaIds) body.append('media_ids[]', mediaId)
             if (input.poll !== undefined) {
                 for (const option of input.poll.options) body.append('poll[options][]', option)
@@ -527,10 +539,10 @@ export function createMastodonPublisher(options: MastodonPublisherOptions): Mast
                 return ambiguousFailure('missing_post_id', 'Mastodon returned no status')
             }
             if (
-                input.reply &&
-                (result.body.in_reply_to_id !== input.reply.parentId ||
+                reply &&
+                (result.body.in_reply_to_id !== reply.parentId ||
                     !isRecord(result.body.account) ||
-                    result.body.account.id !== input.reply.accountId ||
+                    result.body.account.id !== reply.accountId ||
                     result.body.visibility !== input.visibility)
             )
                 return ambiguousFailure(

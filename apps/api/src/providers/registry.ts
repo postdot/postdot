@@ -1,3 +1,5 @@
+import type { ThreadReceiptValidationInput } from '@postdot/db'
+
 import { blueskyModule, createBlueskyAdapters } from './bluesky/module'
 import { createBlueskyRuntime, type BlueskyRuntimeOptions } from './bluesky/runtime'
 import { devtoModule, createDevtoAdapters } from './devto/module'
@@ -70,3 +72,14 @@ export const providerWorkerFactories = [
     createInstagramAdapters,
     createDevtoAdapters,
 ] as const
+
+export function validateThreadReceipt(input: ThreadReceiptValidationInput): boolean {
+    const execution = input.profile.execution
+    if (execution.kind !== 'built_in') return false
+    const provider = serverProviders.find(provider => provider.id === execution.contractId)
+    return (
+        !!provider &&
+        'thread' in provider &&
+        provider.thread.validateReceipt(input.receipt, input.destination?.externalAccountId)
+    )
+}

@@ -431,3 +431,5 @@ export { isResourceReadOnlyTriggerError, isUniqueConstraintError } from './sql/d
 export * from './transfer'
 
 export { isPostgresTransactionConflict } from './sql/postgres-adapter'
+
+export * from './publication-thread-store'
