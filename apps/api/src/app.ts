@@ -71,6 +71,7 @@ import type { ProjectRealtimeHub, UserRealtimeHub } from './modules/projects/rea
 import { createBlueskyMetadataRoutes } from './modules/publishers/metadata-routes'
 import type { PublisherRuntime } from './modules/publishers/runtime'
 import { createAuthRoutes } from './plugins/auth'
+import { createClientIpPolicy } from './plugins/client-ip'
 import { createErrorHandler } from './plugins/error-handler'
 import { createHttpPolicy } from './plugins/http-policy'
 import { createPostdotLogger, createRequestLogger } from './plugins/logger'
@@ -78,6 +79,7 @@ import { validateThreadReceipt } from './providers/registry'
 import { recoveryBlocksRequest, type RecoveryService } from './recovery'
 
 export interface PostdotAppOptions {
+    readonly trustedProxies?: readonly string[]
     readonly auth: PostdotAuth
     readonly database: DatabaseHandle
     readonly publisher: PublisherRuntime
@@ -126,6 +128,7 @@ export interface PostdotAppOptions {
 }
 
 function createDomainApp({
+    trustedProxies,
     auth,
     database,
     publisher,
@@ -213,6 +216,7 @@ function createDomainApp({
     const eventJournal = createEventJournalStore(database)
 
     const app = new Elysia({ name: 'postdot-api' })
+        .use(createClientIpPolicy(trustedProxies))
         .use(createHttpPolicy(async (request): Promise<Response> => app.handle(request)))
         .request(({ request }) => {
             if (recovery?.held() && recoveryBlocksRequest(request))
@@ -368,6 +372,7 @@ function createDomainApp({
 export type PostdotApp = ReturnType<typeof createDomainApp>
 
 export function createApp({
+    trustedProxies,
     auth,
     database,
     publisher,
@@ -406,6 +411,7 @@ export function createApp({
     devtoFetcher,
 }: PostdotAppOptions) {
     const app = createDomainApp({
+        trustedProxies,
         auth,
         database,
         publisher,

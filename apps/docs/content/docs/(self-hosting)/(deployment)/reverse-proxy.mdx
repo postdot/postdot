@@ -37,6 +37,9 @@ A reverse proxy in front of Postdot must satisfy four operational requirements:
 
 ## Caddy
 
+Configure [trusted proxy addresses](#trusted-proxy-addresses) in addition to the
+ingress settings below to obtain per-client authentication limits.
+
 Caddy handles automatic TLS certificate issuance and renewal via Let's Encrypt
 or ZeroSSL with zero manual certificate renewal cron jobs. Caddy also streams
 SSE responses without buffering by default.
@@ -192,6 +195,51 @@ POSTDOT_HTTP_PORT=127.0.0.1:3000
 BETTER_AUTH_URL=https://postdot.example.com
 POSTDOT_WEB_ORIGIN=https://postdot.example.com
 ```
+
+## Trusted proxy addresses
+
+Postdot uses the connected socket peer for authentication limits and new session
+IP metadata. By default it ignores forwarded IP claims, including those from
+loopback. Set `POSTDOT_TRUSTED_PROXIES` to the IP addresses or CIDR ranges controlled
+by your ingress. For a proxy connecting directly over host loopback:
+
+```dotenv
+POSTDOT_TRUSTED_PROXIES=127.0.0.1/32,::1/128
+```
+
+A container or ingress network may connect from a gateway address instead. Choose
+the actual peer or a narrow proxy-only network; do not copy the loopback example
+for a different topology. Keep direct backend access restricted to the intended
+ingress. Shared provider networks do not identify your own proxy service by
+themselves.
+
+The proxy must overwrite `X-Forwarded-For` with the real client address or append
+its actual connecting peer to the right of the existing chain. Postdot starts at
+the verified socket peer, skips approved proxy hops from the right, and selects
+the first other address. Values to its left cannot override that identity.
+`X-Real-IP`, `CF-Connecting-IP` and a caller-supplied `x-postdot-client-ip` do not
+replace this procedure. IP trust does not change public callback URLs or origin
+validation.
+
+Empty configuration trusts no proxy. Invalid entries, empty items, wildcards and
+`/0` ranges prevent startup. The list accepts at most 64 IP/CIDR entries. Malformed
+addresses encountered before a client is established, chains over 32 hops and
+headers over 4,096 characters return HTTP `400`. A missing header or all-proxy
+chain uses the connected peer; requests without socket information retain a
+shared authentication quota.
+
+Restart after changing deployment configuration. With proxy trust disabled, a
+new login's `/api/auth/get-session` response records the immediate peer. After
+configuring trust, use another fresh login and verify `session.ipAddress` identifies
+the intended client. Existing sessions retain their creation-time IP metadata.
+IPv6 session/quota identities follow Better Auth's default /64 grouping.
+
+In production, the installed authentication limiter permits three sign-in
+requests per ten seconds per normalized IP and endpoint. Successful attempts also
+consume quota;
+`429` responses include `X-Retry-After`. Recovery endpoints have their own limits.
+Counters live in each API process and reset on restart. Multiple API replicas do
+not share these counters; qualify shared ingress limits separately when needed.
 
 Restart the Postdot service after editing `.env`:
 

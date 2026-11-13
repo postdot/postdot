@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url'
 import { parsePrivateDestinationRules, type PrivateDestinationRule } from '@postdot/custom-http'
 import type { LevelWithSilent } from 'pino'
 
+import { parseTrustedProxies } from './client-ip'
 import {
     createEnvironment,
     env,
@@ -97,6 +98,7 @@ const environmentDefinitions = {
     X_CLIENT_SECRET: env.optionalString({ minLength: 1 }),
     POSTDOT_WEB_ORIGIN: env.url({ defaultValue: 'http://localhost:5173' }),
     POSTDOT_OUTBOUND_PRIVATE_DESTINATIONS: env.optionalString(),
+    POSTDOT_TRUSTED_PROXIES: env.optionalString(),
     POSTDOT_METRICS_ENABLED: env.boolean({ defaultValue: false }),
     POSTDOT_MCP_ENABLED: env.boolean({ defaultValue: true }),
     POSTDOT_METRICS_TOKEN: env.optionalString(),
@@ -224,6 +226,7 @@ export interface PostdotConfig {
     }
     readonly network: {
         readonly privateDestinations: readonly PrivateDestinationRule[]
+        readonly trustedProxies: readonly string[]
     }
     readonly metrics?: {
         readonly bearerToken: string
@@ -434,6 +437,7 @@ export function createPostdotConfig(source: EnvironmentSource = Bun.env): Postdo
         },
         network: {
             privateDestinations: outboundPrivateDestinations,
+            trustedProxies: parseTrustedProxies(environment.POSTDOT_TRUSTED_PROXIES),
         },
         web: {
             enabled: environment.POSTDOT_WEB_ENABLED,

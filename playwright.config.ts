@@ -9,10 +9,13 @@ const rootDirectory = process.cwd()
 const productionWeb = process.env.POSTDOT_E2E_PRODUCTION_WEB === 'true'
 const separateStudio = process.env.POSTDOT_E2E_SEPARATE_STUDIO === 'true'
 const nativeSession = process.env.POSTDOT_E2E_NATIVE_SESSION === 'true'
+const authIp = process.env.POSTDOT_E2E_AUTH_IP === 'true'
 const useMailpit = process.env.POSTDOT_E2E_MAILPIT === 'true'
 const tlsProxy = process.env.POSTDOT_E2E_TLS_PROXY === 'true'
 const realtimeAcceptance = process.env.POSTDOT_E2E_REALTIME_ACCEPTANCE === 'true'
 const experienceAudit = process.env.POSTDOT_EXPERIENCE_AUDIT === 'true'
+if (authIp && (!separateStudio || nativeSession))
+    throw new Error('Authentication IP acceptance requires its own isolated production API mode')
 if (nativeSession && !separateStudio)
     throw new Error('Native session acceptance requires the isolated production API mode')
 if (separateStudio && (!productionWeb || !tlsProxy))
@@ -82,6 +85,7 @@ const apiEnvironment = {
     POSTDOT_MEDIA_STORE_ID: 'e2e-local',
     POSTDOT_WEB_ENABLED: separateStudio ? 'false' : 'true',
     POSTDOT_E2E_SEPARATE_STUDIO: String(separateStudio),
+    POSTDOT_TRUSTED_PROXIES: authIp ? '127.0.0.1/32,::1/128' : '',
     ...(separateStudio
         ? { POSTDOT_WEB_ASSETS_DIR: join(dataDirectory, 'absent-studio-assets') }
         : {}),
@@ -115,10 +119,22 @@ const apiEnvironment = {
 export default defineConfig({
     testDir: './e2e',
     ...(separateStudio
-        ? { testMatch: nativeSession ? '**/native-session.spec.ts' : '**/separate-studio.spec.ts' }
+        ? {
+              testMatch: authIp
+                  ? '**/auth-client-ip.spec.ts'
+                  : nativeSession
+                    ? '**/native-session.spec.ts'
+                    : '**/separate-studio.spec.ts',
+          }
         : {}),
     testIgnore: [
-        ...(separateStudio ? [] : ['**/separate-studio.spec.ts', '**/native-session.spec.ts']),
+        ...(separateStudio
+            ? []
+            : [
+                  '**/separate-studio.spec.ts',
+                  '**/native-session.spec.ts',
+                  '**/auth-client-ip.spec.ts',
+              ]),
         ...(useMailpit ? [] : ['**/access-219-password-reset.spec.ts']),
         ...(realtimeAcceptance ? [] : ['**/realtime-automatic-acceptance.spec.ts']),
         ...(experienceAudit ? [] : ['**/experience/**']),

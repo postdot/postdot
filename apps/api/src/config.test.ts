@@ -77,6 +77,7 @@ describe('Postdot configuration', () => {
             publishers: {},
             network: {
                 privateDestinations: [],
+                trustedProxies: [],
             },
             mcp: { enabled: true },
             web: {
@@ -126,6 +127,21 @@ describe('Postdot configuration', () => {
         expect(() => createPostdotConfig({ ...base, POSTDOT_WEB_ENABLED: 'disabled' })).toThrow(
             'POSTDOT_WEB_ENABLED'
         )
+    })
+
+    it('validates trusted proxy configuration independently of public origins', () => {
+        const base = {
+            BETTER_AUTH_SECRET: secret,
+            POSTDOT_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
+            POSTDOT_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
+        }
+        const config = createPostdotConfig({ ...base, POSTDOT_TRUSTED_PROXIES: '127.0.0.1/32,::1' })
+        expect(config.network.trustedProxies).toEqual(['127.0.0.1/32', '::1'])
+        expect(config.auth.baseURL).toBe('http://localhost:3000')
+        for (const value of ['*', '0.0.0.0/0', 'proxy.example.test', '127.0.0.1,'])
+            expect(() => createPostdotConfig({ ...base, POSTDOT_TRUSTED_PROXIES: value })).toThrow(
+                'POSTDOT_TRUSTED_PROXIES'
+            )
     })
 
     it('selects PostgreSQL when a database URL is configured', () => {

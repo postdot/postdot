@@ -127,11 +127,11 @@ headers, and bypass caching for every API/OAuth response. Retain signed-media
 expiry checks. Forward SSE bodies as streams, allow upload bodies up to your
 configured media limit, and stop upstream streams when clients disconnect.
 
-Better Auth retains its authentication rate limits. If startup/request logs report
-that it cannot determine a client IP, requests share a per-path rate-limit bucket.
-Forwarding headers alone does not establish a trusted client address. Qualify
-per-client ingress limits and the trusted proxy chain for your deployment; this
-mode does not introduce an application setting for that trust policy.
+Configure [trusted proxy addresses](/docs/reverse-proxy/#trusted-proxy-addresses)
+with `POSTDOT_TRUSTED_PROXIES`. Postdot verifies the connected peer before using
+the forwarded chain for authentication quotas and session IP tracking. Forwarding
+headers alone does not establish that trust. Quotas remain local to each API
+process; qualify shared ingress limits separately for multiple replicas.
 
 ### Nginx routing example
 

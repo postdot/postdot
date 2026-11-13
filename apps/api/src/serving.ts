@@ -7,21 +7,32 @@
  * `app.server` is always undefined, so the handle cannot be reached from the
  * route module by reading the instance.
  *
- * This module is the single explicit bridge for that one capability. It exists
- * because the runtime ends a connection that stays idle, and a long-lived
- * streaming response is idle between writes. Nothing else may use it: relaxing
- * a timeout is a decision about one response, not a server-wide default.
+ * This module bridges request-specific runtime capabilities: SSE timeout control
+ * and the socket peer used by the authentication IP boundary. Neither capability
+ * may be inferred from caller-controlled HTTP headers.
  */
 
 export interface ServingHandle {
     timeout(request: Request, seconds: number): void
+    requestIP?(request: Request): { readonly address: string } | null
 }
 
 let servingHandle: ServingHandle | undefined
+const inheritedPeers = new WeakMap<Request, string | null>()
 
 /** Publishes the handle of the running server. Called once, after `listen`. */
 export function registerServingHandle(handle: ServingHandle | undefined): void {
     servingHandle = handle
+}
+
+export function requestPeerAddress(request: Request): string | null {
+    return servingHandle?.requestIP?.(request)?.address ?? inheritedPeers.get(request) ?? null
+}
+
+/** Carry socket metadata only across an internal dispatch, never across HTTP headers. */
+export function inheritRequestPeerAddress(source: Request, target: Request): Request {
+    inheritedPeers.set(target, requestPeerAddress(source))
+    return target
 }
 
 /**

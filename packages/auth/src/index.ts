@@ -13,6 +13,9 @@ import { postdotSqlAdapter } from './sql-adapter'
 export type { PostdotAuthInvitationOptions, PostdotOrganizationInvitationEmail } from './plugins'
 export { postdotUserApiKeyConfigId } from './plugins'
 
+/** Written only by Postdot's socket/proxy boundary; never trust it from the wire. */
+export const postdotClientIpHeader = 'x-postdot-client-ip'
+
 export const postdotPasswordPolicy = {
     minimumLength: 8,
     maximumLength: 128,
@@ -383,6 +386,7 @@ export function createAuth(
 
     return betterAuth({
         ...betterAuthOptions,
+        advanced: { ipAddress: { ipAddressHeaders: [postdotClientIpHeader] } },
         database: postdotSqlAdapter(database),
         hooks: {
             before: async context => {

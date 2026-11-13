@@ -438,6 +438,7 @@ async function startServerWithRuntimeLock(
         await emailRuntime?.stop()
     }
     const baseApp = createApp({
+        trustedProxies: config.network.trustedProxies,
         publicationReplies,
         publicationFirstComments,
         mastodonCommentsReader: createMastodonThreadReader({ fetcher: mastodonFetcher }),
