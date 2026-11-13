@@ -44,3 +44,15 @@ export function parsePerformanceTagSelection(value: unknown): string[] | undefin
 export function performanceTagSelectionKey(tagIds: readonly string[]): string {
     return normalizePerformanceTagSelection(tagIds).join('\u0000')
 }
+
+export const deliveryAnalyticsPeriods = [7, 30, 90] as const
+export type DeliveryAnalyticsPeriod = (typeof deliveryAnalyticsPeriods)[number]
+export function parseDeliveryAnalyticsPeriod(value: unknown): DeliveryAnalyticsPeriod {
+    const period = typeof value === 'string' ? Number(value) : value
+    return deliveryAnalyticsPeriods.find(days => days === period) ?? 30
+}
+export function parseDeliveryAnalyticsChannel(value: unknown): string | undefined {
+    return typeof value === 'string' && value.trim() && value.length <= 255
+        ? value.trim()
+        : undefined
+}

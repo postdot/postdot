@@ -195,6 +195,7 @@ const coverageSchema = Type.Object({
 })
 
 export const analyticsQuery = Type.Object({
+    days: Type.Optional(Type.Integer({ minimum: 1, maximum: 366 })),
     from: Type.Optional(Type.Integer({ minimum: 0 })),
     to: Type.Optional(Type.Integer({ minimum: 0 })),
     channelId: Type.Optional(Type.String({ minLength: 1 })),

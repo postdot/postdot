@@ -63,6 +63,9 @@ test('exports all filtered stored results and handles cancellation or incomplete
             externalUrl: `https://social.example/@owner/${publication.id}`,
             tagIds: [tag.id],
         })
+    // Leave the unfiltered live report before installing assertions for the filtered report.
+    // Publication events may still invalidate the old page after the fixture writes finish.
+    await page.goto('/dashboard?projectId=none')
     let mode: 'normal' | 'held' | 'partial' = 'normal'
     let releasePage = () => {}
     let heldPage = Promise.resolve()

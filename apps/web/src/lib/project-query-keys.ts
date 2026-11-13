@@ -18,6 +18,7 @@ export const projectQueryKeys = {
         [...projectQueryKeys.data(projectId), 'project-tags', 'catalog'] as const,
     publicationApprovals: (projectId: string) =>
         ['project', projectId, 'publication-approval-requests'] as const,
+    deliveryAnalytics: (projectId: string) => ['project', projectId, 'delivery-analytics'] as const,
     providerAnalytics: (projectId: string, provider: string) =>
         ['project', projectId, 'provider-analytics', provider] as const,
     publicationEditor: (projectId: string, publicationId: string) =>

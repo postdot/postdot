@@ -32,6 +32,7 @@ export function registerAnalyticsRoutes<const Routes extends Record<string, unkn
             const result = await analytics.getProjectAnalytics({
                 projectId: params.projectId,
                 subjectId: user.id,
+                days: query.days,
                 from: query.from,
                 to: query.to,
                 channelId: query.channelId,

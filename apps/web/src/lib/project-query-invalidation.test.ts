@@ -72,3 +72,19 @@ test('channel mutations invalidate their navigation data and publication project
         client.clear()
     }
 })
+
+test('delivery reports and comparisons become stale with publication events without fetching dormant reports', async () => {
+    const client = new QueryClient()
+    const local = [...projectQueryKeys.deliveryAnalytics('one'), 30]
+    const comparison = [...projectQueryKeys.deliveryAnalytics('one'), 'comparison', 30]
+    const foreign = [...projectQueryKeys.deliveryAnalytics('two'), 30]
+    try {
+        for (const key of [local, comparison, foreign]) client.setQueryData(key, 'snapshot')
+        await refreshPublicationResources(client, 'one')
+        expect(client.getQueryState(local)?.isInvalidated).toBe(true)
+        expect(client.getQueryState(comparison)?.isInvalidated).toBe(true)
+        expect(client.getQueryState(foreign)?.isInvalidated).toBe(false)
+    } finally {
+        client.clear()
+    }
+})

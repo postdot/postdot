@@ -7,6 +7,7 @@ import { Link, useNavigate } from '@tanstack/react-router'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { DashboardPageHeader } from '@/components/dashboard-page-header'
+import { DeliveryAnalyticsDashboard } from '@/components/delivery-analytics-dashboard'
 import { EmptyState } from '@/components/empty-state'
 import { PerformanceTagFilter } from '@/components/performance-tag-filter'
 import { QueryErrorState } from '@/components/query-error-state'
@@ -26,6 +27,7 @@ import {
     performanceTagSelectionKey,
 } from '@/lib/publication-performance'
 import { readPerformanceCsv } from '@/lib/publication-performance-export'
+import type { DeliveryAnalyticsPeriod } from '@/lib/publication-performance-search'
 import * as m from '@/paraglide/messages.js'
 import { providerRegistry } from '@/providers/registry'
 
@@ -80,8 +82,12 @@ function listLatestProviderAnalytics(
 
 export function PublicationPerformancePage({
     initialTagIds = [],
+    deliveryDays = 30,
+    deliveryChannel,
 }: {
     readonly initialTagIds?: readonly string[]
+    readonly deliveryDays?: DeliveryAnalyticsPeriod
+    readonly deliveryChannel?: string
 }) {
     const { locale } = useLanguage()
     const { channels, project, projectRole } = useProjectDashboard()
@@ -382,41 +388,44 @@ export function PublicationPerformancePage({
                         <span className="hidden lg:inline">{m.nav_back_to_overview()}</span>
                     </Link>
                 }
-                action={
-                    publicationsQuery.isSuccess &&
-                    publications.length === 0 &&
-                    !publicationsQuery.hasNextPage ? undefined : (
-                        <div className="flex items-center gap-2">
-                            {exportState === 'pending' ? (
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => {
-                                        exportAbort.current?.abort()
-                                        setExportState('idle')
-                                    }}>
-                                    {m.performance_export_cancel()}
-                                </Button>
-                            ) : null}
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                aria-busy={exportState === 'pending'}
-                                disabled={
-                                    exportState === 'pending' ||
-                                    publicationsQuery.isPending ||
-                                    publicationsQuery.isError
-                                }
-                                onClick={() => void exportCsv()}>
-                                {exportState === 'pending'
-                                    ? m.performance_export_pending()
-                                    : m.performance_export_csv()}
-                            </Button>
-                        </div>
-                    )
-                }
                 title={m.performance_title()}
             />
+            <DeliveryAnalyticsDashboard days={deliveryDays} channelId={deliveryChannel} />
+            <div className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-6">
+                <h2 className="text-lg font-semibold">{m.delivery_engagement_title()}</h2>
+                {publicationsQuery.isSuccess &&
+                publications.length === 0 &&
+                !publicationsQuery.hasNextPage ? undefined : (
+                    <div className="flex items-center gap-2">
+                        {exportState === 'pending' ? (
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                    exportAbort.current?.abort()
+                                    setExportState('idle')
+                                }}>
+                                {m.performance_export_cancel()}
+                            </Button>
+                        ) : null}
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            aria-busy={exportState === 'pending'}
+                            disabled={
+                                exportState === 'pending' ||
+                                publicationsQuery.isPending ||
+                                publicationsQuery.isError
+                            }
+                            onClick={() => void exportCsv()}>
+                            {exportState === 'pending'
+                                ? m.performance_export_pending()
+                                : m.performance_export_csv()}
+                        </Button>
+                    </div>
+                )}
+            </div>
+            <p className="mt-2 text-xs text-muted-foreground">{m.delivery_engagement_scope()}</p>
             {exportState === 'failed' ? (
                 <p role="alert" className="mt-2 text-sm text-state-failed">
                     {m.performance_export_failed()}

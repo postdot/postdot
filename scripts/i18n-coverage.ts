@@ -28,6 +28,7 @@ const allowedUnchangedByLocale = new Map<string, ReadonlySet<string>>([
     [
         'fr',
         new Set([
+            'delivery_destination',
             'thread_count',
             'thread_message',
             'access_project_access_direct',

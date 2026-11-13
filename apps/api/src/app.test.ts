@@ -1859,6 +1859,24 @@ describe('Postdot API', () => {
                     },
                 },
             })
+            const relative = await jsonRequest(
+                app,
+                `/api/projects/${created.project.id}/analytics?days=7`,
+                cookie
+            )
+            expect(relative.status).toBe(200)
+            const relativeBody = (await relative.json()) as {
+                observedAt: number
+                range: { from: number; to: number }
+            }
+            expect(relativeBody.range.to).toBe(relativeBody.observedAt)
+            expect(relativeBody.range.to - relativeBody.range.from).toBe(7 * 86400000)
+            const conflicting = await jsonRequest(
+                app,
+                `/api/projects/${created.project.id}/analytics?days=7&from=${eventAt}`,
+                cookie
+            )
+            expect(conflicting.status).toBe(400)
         } finally {
             await closeTestDatabase(database)
         }

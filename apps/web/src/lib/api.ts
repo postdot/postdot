@@ -7,6 +7,7 @@ export { ApiError } from './api-transport'
 export type { ProfileDefinitionIssue } from './api-transport'
 import {
     createAccessInvitationClient,
+    createPostdotClient,
     type EmailSettings,
     type EmailSettingsInput,
     type WebApiRequests,
@@ -44,6 +45,8 @@ import {
 } from '@/lib/publication-recovery'
 
 const accessInvitationClient = createAccessInvitationClient(window.location.origin)
+// Civil bucket keys are JSON strings; Eden's automatic Date conversion changes their identity.
+const deliveryAnalyticsClient = createPostdotClient(window.location.origin, { parseDate: false })
 
 export interface Session {
     readonly user: {
@@ -112,7 +115,17 @@ function parsePublicationComposerDraft(
     return { ...draft, content }
 }
 
+export type ProjectAnalytics = Awaited<ReturnType<typeof api.getProjectAnalytics>>
+
 export const api = {
+    async getProjectAnalytics(
+        projectId: string,
+        query: WebApiRequests['getProjectAnalytics'] = {}
+    ) {
+        return unwrap(
+            await deliveryAnalyticsClient.api.projects({ projectId }).analytics.get({ query })
+        )
+    },
     ...providerApi,
     async getRecoveryStatus() {
         return unwrap(await client.api.recovery.status.get())

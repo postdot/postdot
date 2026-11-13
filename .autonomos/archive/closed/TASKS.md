@@ -613,3 +613,4 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 ## Closed 2026-11-13
 
 - [x] **[PUB-632]** Add thread authoring after PUB-631 `Priority: 🔵` `Complexity: L` `Completed: 2026-11-13`
+- [x] **[ANALYTICS-633]** Enrich Performance with saved delivery analytics, period comparison and daily activity `Priority: 🔵` `Complexity: L` `Completed: 2026-11-13`

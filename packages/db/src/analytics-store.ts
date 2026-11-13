@@ -65,6 +65,7 @@ const attemptActionBits = new Map<string, number>([
 ])
 
 export interface AnalyticsRangeInput {
+    readonly days?: number
     readonly from?: number | null
     readonly to?: number | null
 }
@@ -664,6 +665,18 @@ function normalizeRange(
     input: AnalyticsRangeInput,
     observedAt: number
 ): { readonly from: number; readonly to: number } {
+    if (
+        input.days !== undefined &&
+        (!Number.isSafeInteger(input.days) ||
+            input.days < 1 ||
+            input.days > 366 ||
+            input.from != null ||
+            input.to != null)
+    )
+        throw new DomainInvariantError(
+            'invalid_time',
+            'analytics days must be between 1 and 366 and cannot be combined with from or to'
+        )
     const hasFrom = input.from !== undefined && input.from !== null
     const hasTo = input.to !== undefined && input.to !== null
     const to = hasTo ? requireTimestamp(input.to as number, 'analytics to') : observedAt
@@ -675,7 +688,13 @@ function normalizeRange(
     }
     const from = hasFrom
         ? requireTimestamp(input.from as number, 'analytics from')
-        : Math.max(0, to - defaultRangeDurationMs)
+        : Math.max(
+              0,
+              to -
+                  (input.days === undefined
+                      ? defaultRangeDurationMs
+                      : input.days * 24 * 60 * 60 * 1_000)
+          )
     if (to < from) {
         throw new DomainInvariantError(
             'invalid_time',

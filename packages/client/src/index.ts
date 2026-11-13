@@ -264,6 +264,7 @@ export type WebApiRequests = {
     listCategories: Pick<RequestQuery<PostdotClient['api']['categories']['get']>, 'includeArchived'>
     listProjectTags: Pick<RequestQuery<ProjectRoute['tags']['get']>, 'includeArchived'>
     listPublicationTags: Pick<RequestQuery<PublicationRoute['tags']['get']>, 'includeArchived'>
+    getProjectAnalytics: Readonly<RequestQuery<ProjectRoute['analytics']['get']>>
     listBlueskyProviderAnalytics: Pick<
         RequestQuery<ProjectRoute['analytics']['provider']['bluesky']['get']>,
         'limit' | 'providerSubjectId' | 'postdotEntityId'

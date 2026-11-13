@@ -73,6 +73,29 @@ For API authoring, add continuations to the destination’s `targetContent`:
 }
 ```
 
+## Read delivery history
+
+Open **Performance** to see recorded publications, failures, uncertain outcomes
+and scheduled retries. Choose the last 7, 30 or 90 days and, optionally, one
+destination. The comparison uses the immediately preceding period of the same
+length. Daily activity uses the project's timezone; the first and last days can
+be partial.
+
+Delivery history includes manual publications. A publication can have a failure
+or an uncertain outcome before it is eventually published, so those categories
+overlap. They describe recorded history rather than the queue's current state.
+If events cannot be interpreted, the page warns that totals may be incomplete
+and omits the comparison.
+
+**Saved engagement** keeps provider measures below the delivery report. Its tag
+filter and CSV export have their own scope. Loading or reloading either report
+reads saved Postdot data. Only an explicit provider refresh collects new measures
+from a platform.
+
+The API accepts `GET /api/projects/{projectId}/analytics?days=30`. `days` is a
+server-anchored rolling window of 1–366 days; it cannot be combined with explicit
+`from` or `to` timestamps. Existing timestamp queries remain supported.
+
 ## Read saved observations carefully
 
 Performance uses available saved provider observations with their collection time.

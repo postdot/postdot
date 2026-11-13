@@ -1125,3 +1125,27 @@ describe('analytics store', () => {
         }
     })
 })
+
+it('anchors relative day windows to the server clock and refuses conflicting or unbounded windows', async () => {
+    const fixture = await createFixture()
+    try {
+        const at = Date.UTC(2026, 10, 13, 12)
+        const analytics = createAnalyticsStore(fixture.database, { now: () => at })
+        const input = { projectId: fixture.project.project.id, subjectId: 'user-1' }
+        const report = await analytics.getProjectAnalytics({ ...input, days: 7 })
+        expect(report!.range).toEqual({ from: at - 7 * dayMs, to: at })
+        expect(report!.observedAt).toBe(at)
+        for (const invalid of [
+            { days: 0 },
+            { days: 367 },
+            { days: 1.5 },
+            { days: 7, from: at - dayMs },
+            { days: 7, to: at },
+        ])
+            await expect(analytics.getProjectAnalytics({ ...input, ...invalid })).rejects.toThrow(
+                'analytics days'
+            )
+    } finally {
+        await closeTestDatabase(fixture.database)
+    }
+})

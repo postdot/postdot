@@ -16,6 +16,7 @@ export function projectRefreshKeys(projectId: string, scope: string) {
         projectQueryKeys.publications(projectId),
         projectQueryKeys.duePublications(projectId),
         projectQueryKeys.publicationQueues(projectId),
+        projectQueryKeys.deliveryAnalytics(projectId),
         projectQueryKeys.calendarPublications(projectId),
         projectQueryKeys.publicationApprovals(projectId),
         projectQueryKeys.publicationDestinations(projectId),
@@ -32,6 +33,7 @@ export function projectRefreshKeys(projectId: string, scope: string) {
     return [
         projectQueryKeys.data(projectId),
         projectQueryKeys.publicationQueues(projectId),
+        projectQueryKeys.deliveryAnalytics(projectId),
         projectQueryKeys.calendarPublications(projectId),
         projectQueryKeys.publicationApprovals(projectId),
         projectQueryKeys.publicationDestinations(projectId),
