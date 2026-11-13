@@ -25,9 +25,9 @@ A reverse proxy in front of Postdot must satisfy four operational requirements:
    your `.env` file to match the public canonical HTTPS origin (for example,
    `https://postdot.example.com`). Better Auth and session cookie validation rely on
    exact origin matching.
-2. **Forwarded headers**: Forward `Host`, `X-Forwarded-Proto`, `X-Forwarded-For`, and
-   `X-Forwarded-Host`. These ensure cookies receive the `Secure` flag and OAuth
-   redirects target the correct public domain.
+2. **Forwarded headers**: Set `Host`, `X-Forwarded-Proto`, `X-Forwarded-For`, and
+   `X-Forwarded-Host` at the trusted proxy. Overwrite untrusted client values.
+   The configured public URLs determine secure cookies and OAuth callback identity.
 3. **Response streaming (Server-Sent Events)**: Postdot uses SSE streams for real-time
    project events and progress notifications (`GET /api/projects/:projectId/events`).
    Proxy response buffering must be disabled so events reach the browser immediately.
@@ -235,10 +235,14 @@ Both should return HTTP `200 OK` with JSON bodies (`{"status":"ok",...}`).
 Test that proxy buffering does not block event stream flushing:
 
 ```sh
-curl -N -H "Accept: text/event-stream" https://postdot.example.com/ready
+curl -N --cookie session.cookies -H "Accept: text/event-stream" \
+  https://postdot.example.com/api/projects/PROJECT_ID/events
 ```
 
-The connection should establish immediately without hanging on proxy buffers.
+Use a private cookie jar from a signed-in human session and replace `PROJECT_ID`
+with an accessible project. See [session provisioning](/docs/studio-hosting/#provision-an-api-key-without-studio)
+for the cookie-jar procedure. Events should arrive as work changes; idle streams
+send heartbeats. `/ready` is a JSON readiness probe and does not exercise streaming.
 
 ### 4. Test media upload capacity
 

@@ -4,7 +4,7 @@
 - Scope: Dashboard framework and application shape
 - Provenance: V1 client-surface review
 - Related specs: [SPEC-001](../specs/SPEC-001-v1-scope.md), [SPEC-003](../specs/SPEC-003-product-foundation.md)
-- Superseded by: none
+- Partially superseded by: [ADR-098](ADR-098-optional-studio-and-client-authentication.md) (optional external static hosting; the React SPA decision remains active)
 
 ## Context
 

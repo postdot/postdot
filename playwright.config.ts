@@ -7,17 +7,21 @@ import { createE2ERuntimeResources } from './scripts/e2e-runtime'
 
 const rootDirectory = process.cwd()
 const productionWeb = process.env.POSTDOT_E2E_PRODUCTION_WEB === 'true'
+const separateStudio = process.env.POSTDOT_E2E_SEPARATE_STUDIO === 'true'
 const useMailpit = process.env.POSTDOT_E2E_MAILPIT === 'true'
 const tlsProxy = process.env.POSTDOT_E2E_TLS_PROXY === 'true'
 const realtimeAcceptance = process.env.POSTDOT_E2E_REALTIME_ACCEPTANCE === 'true'
 const experienceAudit = process.env.POSTDOT_EXPERIENCE_AUDIT === 'true'
-if (tlsProxy && !realtimeAcceptance)
+if (separateStudio && (!productionWeb || !tlsProxy))
+    throw new Error('Separate Studio acceptance requires production web assets and the TLS proxy')
+if (tlsProxy && !realtimeAcceptance && !separateStudio)
     throw new Error('The TLS proxy requires isolated realtime acceptance')
 const runtime = await createE2ERuntimeResources()
 const { apiOrigin, apiPort, dataDirectory, mediaDirectory, webOrigin, webPort } = runtime
-const receiverPort = realtimeAcceptance
-    ? await allocateTestPort('POSTDOT_E2E_RECEIVER_PORT', [apiPort, webPort])
-    : undefined
+const receiverPort =
+    realtimeAcceptance || separateStudio
+        ? await allocateTestPort('POSTDOT_E2E_RECEIVER_PORT', [apiPort, webPort])
+        : undefined
 if (receiverPort !== undefined) process.env.POSTDOT_E2E_RECEIVER_PORT = String(receiverPort)
 const tlsProxyPort = tlsProxy
     ? await allocateTestPort('POSTDOT_E2E_TLS_PROXY_PORT', [
@@ -65,7 +69,7 @@ if (runtime.mailpit !== undefined) {
 }
 
 const apiEnvironment = {
-    NODE_ENV: 'test',
+    NODE_ENV: separateStudio ? 'production' : 'test',
     PORT: String(apiPort),
     DB_FILE_NAME: runtime.databaseFile,
     POSTDOT_E2E_DATA_DIRECTORY: dataDirectory,
@@ -73,6 +77,11 @@ const apiEnvironment = {
     POSTDOT_MEDIA_STORE: 'local',
     POSTDOT_MEDIA_DIRECTORY: mediaDirectory,
     POSTDOT_MEDIA_STORE_ID: 'e2e-local',
+    POSTDOT_WEB_ENABLED: separateStudio ? 'false' : 'true',
+    POSTDOT_E2E_SEPARATE_STUDIO: String(separateStudio),
+    ...(separateStudio
+        ? { POSTDOT_WEB_ASSETS_DIR: join(dataDirectory, 'absent-studio-assets') }
+        : {}),
     BETTER_AUTH_URL: tlsProxy ? browserOrigin : apiOrigin,
     BETTER_AUTH_SECRET: 'postdot-e2e-auth-secret-which-is-long-enough',
     POSTDOT_MEDIA_PUBLIC_URL_SECRET: 'postdot-e2e-media-secret-which-is-long-enough',
@@ -102,7 +111,9 @@ const apiEnvironment = {
 
 export default defineConfig({
     testDir: './e2e',
+    ...(separateStudio ? { testMatch: '**/separate-studio.spec.ts' } : {}),
     testIgnore: [
+        ...(separateStudio ? [] : ['**/separate-studio.spec.ts']),
         ...(useMailpit ? [] : ['**/access-219-password-reset.spec.ts']),
         ...(realtimeAcceptance ? [] : ['**/realtime-automatic-acceptance.spec.ts']),
         ...(experienceAudit ? [] : ['**/experience/**']),
@@ -137,7 +148,11 @@ export default defineConfig({
                       url: `http://127.0.0.1:${receiverPort}/ready`,
                       reuseExistingServer: false,
                       gracefulShutdown: { signal: 'SIGTERM' as const, timeout: 10_000 },
-                      env: { ...apiEnvironment, POSTDOT_E2E_RECEIVER_PORT: String(receiverPort) },
+                      env: {
+                          ...apiEnvironment,
+                          NODE_ENV: 'test',
+                          POSTDOT_E2E_RECEIVER_PORT: String(receiverPort),
+                      },
                   },
               ]),
         {
@@ -172,6 +187,7 @@ export default defineConfig({
                       gracefulShutdown: { signal: 'SIGTERM' as const, timeout: 10_000 },
                       env: {
                           ...apiEnvironment,
+                          NODE_ENV: 'test',
                           POSTDOT_E2E_REALTIME_ACCEPTANCE: 'true',
                           POSTDOT_E2E_TLS_PROXY: 'true',
                           POSTDOT_E2E_TLS_PROXY_PORT: String(tlsProxyPort),

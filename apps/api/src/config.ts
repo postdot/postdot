@@ -63,6 +63,7 @@ const environmentDefinitions = {
     POSTDOT_DATABASE_URL: env.optionalString({ minLength: 1 }),
     POSTDOT_DATABASE_POOL_SIZE: env.integer({ defaultValue: 10, minimum: 1, maximum: 100 }),
     POSTDOT_WEB_ASSETS_DIR: env.string({ defaultValue: defaultWebAssetsDirectory }),
+    POSTDOT_WEB_ENABLED: env.boolean({ defaultValue: true }),
     ...mediaEnvironmentDefinitions,
     BETTER_AUTH_URL: env.url({
         defaultValue: values => {
@@ -231,6 +232,7 @@ export interface PostdotConfig {
         readonly enabled: boolean
     }
     readonly web: {
+        readonly enabled: boolean
         readonly origin: string
         readonly assetsDirectory: string
     }
@@ -434,6 +436,7 @@ export function createPostdotConfig(source: EnvironmentSource = Bun.env): Postdo
             privateDestinations: outboundPrivateDestinations,
         },
         web: {
+            enabled: environment.POSTDOT_WEB_ENABLED,
             origin: environment.POSTDOT_WEB_ORIGIN,
             assetsDirectory: environment.POSTDOT_WEB_ASSETS_DIR,
         },

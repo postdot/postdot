@@ -4,6 +4,7 @@
     "pages": [
         "installation",
         "reverse-proxy",
+        "studio-hosting",
         "kubernetes",
         "docker-swarm",
         "provider-configuration",

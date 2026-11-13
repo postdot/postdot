@@ -35,6 +35,8 @@ export interface RealtimeTlsProxyOptions {
     readonly targetOrigin: string
     readonly key: string | Buffer
     readonly cert: string | Buffer
+    /** Isolated acceptance only: terminate live SSE sockets to prove reconnection. */
+    readonly allowStreamDisconnect?: boolean
 }
 
 export interface RealtimeTlsProxy {
@@ -52,6 +54,7 @@ export function createRealtimeTlsProxy(options: RealtimeTlsProxyOptions): Realti
     const clientSockets = new Set<Duplex>()
     const upstreamSockets = new Set<Duplex>()
     const upstreamRequests = new Set<ClientRequest>()
+    const eventResponses = new Set<ServerResponse>()
     let listenPromise: Promise<void> | undefined
     let stopPromise: Promise<void> | undefined
 
@@ -130,6 +133,22 @@ export function createRealtimeTlsProxy(options: RealtimeTlsProxyOptions): Realti
             return
         }
 
+        if (options.allowStreamDisconnect && pathname === '/__realtime_tls_disconnect') {
+            if (request.method !== 'POST') {
+                response.writeHead(405, { allow: 'POST' })
+                response.end()
+                return
+            }
+            const disconnected = eventResponses.size
+            for (const stream of eventResponses) stream.destroy()
+            response.writeHead(200, {
+                'content-type': 'application/json',
+                'cache-control': 'no-store',
+            })
+            response.end(JSON.stringify({ disconnected }))
+            return
+        }
+
         if (!requestPath.startsWith('/')) {
             response.writeHead(400, {
                 'cache-control': 'no-store',
@@ -179,6 +198,11 @@ export function createRealtimeTlsProxy(options: RealtimeTlsProxyOptions): Realti
         if (response.destroyed) {
             upstreamResponse.destroy()
             return
+        }
+
+        if (upstreamResponse.headers['content-type']?.includes('text/event-stream')) {
+            eventResponses.add(response)
+            response.once('close', () => eventResponses.delete(response))
         }
 
         const abort = () => {
@@ -559,7 +583,13 @@ async function runCli(): Promise<void> {
     parseTargetOrigin(targetOrigin, port)
 
     const { key, cert } = await loadOrCreateCertificate(dataDirectory)
-    const proxy = createRealtimeTlsProxy({ port, targetOrigin, key, cert })
+    const proxy = createRealtimeTlsProxy({
+        port,
+        targetOrigin,
+        key,
+        cert,
+        allowStreamDisconnect: environment.POSTDOT_E2E_SEPARATE_STUDIO === 'true',
+    })
     await proxy.listen()
     console.log(`Realtime TLS proxy listening on ${proxy.origin} -> ${targetOrigin}`)
 

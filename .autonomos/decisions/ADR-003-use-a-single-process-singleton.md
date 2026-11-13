@@ -5,6 +5,7 @@
 - Provenance: V1 deployment review
 - Related specs: [SPEC-001](../specs/SPEC-001-v1-scope.md), [SPEC-003](../specs/SPEC-003-product-foundation.md)
 - Partially superseded by: [ADR-097](ADR-097-selectable-storage-profiles.md) (deployment topology: the singleton constraint applies to the embedded profile)
+- Partially superseded by: [ADR-098](ADR-098-optional-studio-and-client-authentication.md) (Studio asset serving is optional; backend topology still follows ADR-097)
 
 ## Context
 

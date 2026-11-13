@@ -6,9 +6,14 @@ description: One server runtime, several ways to use it.
 ## Runtime
 
 The Bun/Elysia API owns authorization, publication state, scheduling and execution.
-SQLite persists application state and durable work. The standard production image
+SQLite or PostgreSQL persists application state and durable work. The standard production image
 also serves the built Studio assets, so the browser client does not require a
 second running service.
+
+`POSTDOT_WEB_ENABLED=false` disables only Studio file serving. An external static
+Studio can use the same public HTTPS origin through a streaming proxy; see
+[API-only and separate Studio hosting](/docs/studio-hosting/). Database and worker
+topology stay on the backend.
 
 Provider authorization and credentials stay on the server. A client submits work
 through the API; it does not run the publication worker itself.

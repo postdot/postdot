@@ -45,6 +45,10 @@ to remain coherent with the established domain and storage boundaries.
 
 - The default deployment remains a small self-hosted monolith with one Bun process,
   API, dashboard, scheduler, worker, and SQLite database.
+  [ADR-097](../decisions/ADR-097-selectable-storage-profiles.md) defines optional
+  PostgreSQL topology; [ADR-098](../decisions/ADR-098-optional-studio-and-client-authentication.md)
+  permits disabling Studio asset serving and hosting the SPA separately behind
+  the same public origin. These options preserve the integrated default.
 - Media storage must be backend-neutral at its application boundary. Local storage
   and Bun's S3-compatible client are implementations of the same Postbot contract,
   not two successive generations of the media model.

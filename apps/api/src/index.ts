@@ -489,7 +489,7 @@ async function startServerWithRuntimeLock(
         },
     })
     const app =
-        config.environment === 'production'
+        config.environment === 'production' && config.web.enabled
             ? baseApp.use(await createWebAssets(config.web.assetsDirectory))
             : baseApp
     dependencies.stopServer = () => app.stop()

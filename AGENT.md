@@ -37,7 +37,7 @@ content generator.
 ## 🏗 Stack & Architecture
 
 - **Tech:** Bun, Turborepo, TypeScript, Elysia 2 beta (API), Bun SQLite or PostgreSQL behind Postdot's persistence port, Better Auth, React 19, TanStack Router, Vite, Tailwind CSS, shadcn/ui with Base UI, Host Grotesk, and Solar Icons React v2 Linear
-- **Patterns:** A single process for API, static dashboard, scheduler, and worker; framework-independent domain logic in `packages/core`.
+- **Patterns:** The integrated deployment serves API, Studio, scheduler and worker; optional database topology follows ADR-097. [ADR-098](.autonomos/decisions/ADR-098-optional-studio-and-client-authentication.md) governs optional Studio serving and client authentication boundaries. Domain logic stays in `packages/core`.
 - **Authentication boundary:** Better Auth authenticates people into Postdot and currently uses email/password only. OAuth belongs exclusively to publisher-channel connections unless a later accepted decision explicitly changes the application-authentication strategy.
 - **Publisher ownership:** Workspace-owned channels, profiles, publishers, connections and credentials with explicit project attachments per [ADR-095](.autonomos/decisions/ADR-095-workspace-channels-and-project-attachments.md) and [SPEC-009](.autonomos/specs/SPEC-009-shared-channel-workflows.md); every new project belongs to a workspace, and connecting actors provide audit attribution rather than personal secret ownership.
 

@@ -20,7 +20,11 @@ const validatedDataDirectory = dataDirectory
 await rm(validatedDataDirectory, { recursive: true, force: true })
 await mkdir(validatedDataDirectory, { recursive: true })
 
-const server = Bun.spawn(['bun', './apps/api/src/index.ts'], {
+const entrypoint =
+    Bun.env.POSTDOT_E2E_SEPARATE_STUDIO === 'true'
+        ? './apps/api/dist/index.js'
+        : './apps/api/src/index.ts'
+const server = Bun.spawn(['bun', entrypoint], {
     env: { ...Bun.env },
     stderr: 'inherit',
     stdout: 'inherit',

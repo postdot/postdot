@@ -1,0 +1,198 @@
+---
+title: API-only and separate Studio hosting
+description: Disable built-in Studio serving and keep a separately hosted Studio on the same public origin as the API.
+---
+
+Set `POSTDOT_WEB_ENABLED=false` to run Postdot without serving Studio files. The
+API, authentication, scheduler, publication worker and storage continue running.
+The standard image keeps serving Studio by default.
+
+Choose this option for API automation or to serve the static Studio through your
+own web server. Separating files does not remove the Postdot backend or change its
+[storage and instance limits](/docs/postgresql/).
+
+## Run without Studio files
+
+Add this setting to the deployment environment, or to the `.env` used by the
+repository's Compose configuration:
+
+```dotenv
+POSTDOT_WEB_ENABLED=false
+BETTER_AUTH_URL=https://postdot.example.com
+POSTDOT_WEB_ORIGIN=https://postdot.example.com
+```
+
+Restart Postdot. Requests to `/dashboard` on the backend now return `404`;
+`/health`, `/ready`, `/openapi/json` and authenticated API routes remain available.
+The server does not require an `index.html` in `POSTDOT_WEB_ASSETS_DIR` while this
+flag is false. With the default `true`, a missing Studio build still prevents startup.
+
+Disabling files does not make the API private or remove human-session endpoints.
+Keep HTTPS, authentication and your existing network access rules.
+
+## Provision an API key without Studio
+
+Create the first administrator using [offline provisioning](/docs/installation/#offline-administrator-provisioning).
+The existing initial-signup and invitation policies still apply. Start the server
+after provisioning; keep the public HTTPS URL in `BETTER_AUTH_URL`.
+
+The following commands use a human session to create a key. Work in a private
+directory outside version control, run `umask 077`, and prepare two private files:
+
+- `credentials.json` with your administrator's `email` and `password`.
+- `key-request.json` with the desired name, scope and action ceiling. Replace the
+  project identifier below with a project you can currently access. You can list
+  projects with `GET /api/projects` or create one with `POST /api/projects` using
+  the same cookie jar. Set `expiresAt` to a future Unix timestamp in milliseconds
+  to give the key an expiry; it must be at least one day in the future.
+
+```json title="key-request.json"
+{
+    "name": "Reporting script",
+    "projectIds": ["replace-with-project-id"],
+    "actionAccess": ["project:read"]
+}
+```
+
+```sh
+umask 077
+curl --fail --silent --show-error \
+  --cookie-jar session.cookies \
+  --header 'Origin: https://postdot.example.com' \
+  --header 'Content-Type: application/json' \
+  --data-binary @credentials.json \
+  --output session.json \
+  https://postdot.example.com/api/auth/sign-in/email
+
+curl --fail --silent --show-error \
+  --cookie session.cookies \
+  --header 'Origin: https://postdot.example.com' \
+  --header 'Content-Type: application/json' \
+  --data-binary @key-request.json \
+  --output created-key.json \
+  https://postdot.example.com/api/api-keys
+
+curl --fail --silent --show-error \
+  --cookie session.cookies \
+  --header 'Origin: https://postdot.example.com' \
+  --header 'Content-Type: application/json' \
+  --data '{}' --output /dev/null \
+  https://postdot.example.com/api/auth/sign-out
+```
+
+`created-key.json` contains the plaintext key once. Transfer it to your script's
+secret storage, then remove the credential, session and response files. A key
+cannot manage other keys or replace a human session for installation, access or
+provider-connection administration. See [authentication](/docs/reference/authentication/)
+for the current boundary and [the CLI](/docs/cli-reference/) for using a saved key.
+
+Without a Studio destination, invitation pages, notification links and publisher
+OAuth return pages have no interface to display. Use human-session APIs where
+available and [offline account recovery](/docs/operations/#recover-an-existing-account-password)
+when needed. The file-serving flag does not provide a complete command-line
+replacement for these browser workflows.
+
+## Serve Studio separately
+
+Build Studio from the same source revision as your API and copy the contents of
+`apps/web/dist` to your static server. Use the repository's pinned Bun version and
+frozen dependencies:
+
+```sh
+bun install --frozen-lockfile
+bun run --cwd apps/web build
+```
+
+Keep Studio and API on the same published version. Publish the generated files as
+one release directory; preserve old hashed assets for already open tabs during
+updates. Keep third-party notices and licenses with redistributed files.
+
+Use one public HTTPS origin, for example `https://postdot.example.com`:
+
+| Requests                                            | Destination                                                |
+| --------------------------------------------------- | ---------------------------------------------------------- |
+| Studio pages, JavaScript, styles and local datasets | Static Studio files                                        |
+| `/api` and `/api/*`                                 | Postdot backend, including authentication, uploads and SSE |
+| `/oauth` and `/oauth/*`                             | Postdot backend, including public provider metadata        |
+
+Set both `BETTER_AUTH_URL` and `POSTDOT_WEB_ORIGIN` to that public origin. Preserve
+the path and query string through the proxy. Provider callbacks must arrive on
+that origin so the browser sends the session cookie; register the matching public
+callback URLs with each provider. Keep the backend upstream address in deployment
+configuration. Do not expose it as a user-controlled forwarding parameter.
+
+The proxy handles passwords, session cookies and private media. Use a trusted
+operator-controlled deployment, preserve Origin and Set-Cookie, sanitize forwarded
+headers, and bypass caching for every API/OAuth response. Retain signed-media
+expiry checks. Forward SSE bodies as streams, allow upload bodies up to your
+configured media limit, and stop upstream streams when clients disconnect.
+
+Better Auth retains its authentication rate limits. If startup/request logs report
+that it cannot determine a client IP, requests share a per-path rate-limit bucket.
+Forwarding headers alone does not establish a trusted client address. Qualify
+per-client ingress limits and the trusted proxy chain for your deployment; this
+mode does not introduce an application setting for that trust policy.
+
+### Nginx routing example
+
+This example assumes TLS certificates already exist and the backend listens on
+`127.0.0.1:3000`. Install the matching Studio build at `/srv/postdot/studio`.
+Use the [reverse-proxy guide](/docs/reverse-proxy/) for TLS and network setup.
+
+```nginx
+server {
+    listen 443 ssl;
+    server_name postdot.example.com;
+    ssl_certificate /etc/letsencrypt/live/postdot.example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/postdot.example.com/privkey.pem;
+    root /srv/postdot/studio;
+    client_max_body_size 100m;
+    add_header X-Robots-Tag "noindex, nofollow" always;
+
+    location ~ ^/(api|oauth)(/|$) {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header Connection "";
+        proxy_buffering off;
+        proxy_request_buffering off;
+        proxy_cache off;
+        proxy_intercept_errors off;
+        proxy_read_timeout 300s;
+        add_header Cache-Control "no-store" always;
+        add_header X-Robots-Tag "noindex, nofollow" always;
+    }
+
+    location = /robots.txt {
+        return 200 "User-agent: *\nDisallow: /\n";
+    }
+    location ~ \.[^/]+$ {
+        try_files $uri =404;
+    }
+    location / {
+        try_files $uri /index.html;
+        add_header Cache-Control "no-cache" always;
+        add_header X-Robots-Tag "noindex, nofollow" always;
+    }
+}
+```
+
+API errors retain their status and body; an unknown API path must never receive
+Studio's `index.html`. Keep backend probes, OpenAPI, MCP and metrics reachable
+according to your operator policy; this example routes only browser application
+traffic. Match the upload limit to `POSTDOT_MEDIA_MAX_OBJECT_BYTES` if you raise it.
+
+The repository acceptance journey exercises a separately served production build
+against an asset-free production API through a local HTTPS proxy. It does not
+qualify a particular Nginx version or hosted CDN. Check cookies, private media,
+uploads and SSE reconnection with your ingress configuration. Cloud-hosted proxy
+timeouts, body limits and cache behavior require their own qualification before
+using Cloudflare or Vercel as that ingress.
+
+To return to integrated serving, restore `POSTDOT_WEB_ENABLED=true`, provide the
+matching assets and route application traffic to Postdot. Preserve the public
+origin and release pairing to avoid changing callback registrations or session
+scope during the move.

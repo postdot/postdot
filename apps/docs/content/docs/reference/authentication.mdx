@@ -86,8 +86,10 @@ project or channel authority.
 ## Operations that require a session
 
 API-key management, access administration and built-in provider account
-connections require a human session. Complete these through Studio; an API key
-cannot perform them even if it has all available actions.
+connections require a human session. Complete these through Studio or the
+corresponding session-authenticated API; an API key cannot perform them even if
+it has all available actions. For key provisioning with Studio files disabled,
+see [API-only administration](/docs/studio-hosting/#provision-an-api-key-without-studio).
 
 Provider credentials are separate from Postdot API keys. A Bluesky authorization
 or a Discord bot token connects a publishing destination; it does not authenticate

@@ -615,3 +615,4 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] **[PUB-632]** Add thread authoring after PUB-631 `Priority: 🔵` `Complexity: L` `Completed: 2026-11-13`
 - [x] **[ANALYTICS-633]** Enrich Performance with saved delivery analytics, period comparison and daily activity `Priority: 🔵` `Complexity: L` `Completed: 2026-11-13`
 - [x] **[ANALYTICS-634]** Add per-publication saved engagement history with metric selection and bounded pagination `Priority: 🔵` `Complexity: L` `Completed: 2026-11-13`
+- [x] **[DEPLOY-635]** Define multi-client security and separate optional Studio serving from the API runtime `Priority: 🔵` `Complexity: L` `Completed: 2026-11-13`

@@ -80,6 +80,7 @@ describe('Postdot configuration', () => {
             },
             mcp: { enabled: true },
             web: {
+                enabled: true,
                 origin: 'http://localhost:5173',
                 assetsDirectory: '/tmp/postdot-web',
             },
@@ -103,9 +104,28 @@ describe('Postdot configuration', () => {
             environment: 'development',
             server: { port: 3200 },
             auth: { baseURL: 'http://localhost:3200' },
-            web: { origin: 'http://localhost:5173' },
+            web: { enabled: true, origin: 'http://localhost:5173' },
             logging: { enabled: true, level: 'info', pretty: true },
         })
+    })
+
+    it('disables only Studio asset serving explicitly and rejects malformed flags', () => {
+        const base = {
+            NODE_ENV: 'production',
+            BETTER_AUTH_URL: 'https://postdot.example.test',
+            POSTDOT_WEB_ORIGIN: 'https://postdot.example.test',
+            BETTER_AUTH_SECRET: secret,
+            POSTDOT_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
+            POSTDOT_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
+        }
+        expect(createPostdotConfig(base).web.enabled).toBe(true)
+        expect(createPostdotConfig({ ...base, POSTDOT_WEB_ENABLED: 'false' }).web).toMatchObject({
+            enabled: false,
+            origin: base.POSTDOT_WEB_ORIGIN,
+        })
+        expect(() => createPostdotConfig({ ...base, POSTDOT_WEB_ENABLED: 'disabled' })).toThrow(
+            'POSTDOT_WEB_ENABLED'
+        )
     })
 
     it('selects PostgreSQL when a database URL is configured', () => {
