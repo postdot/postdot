@@ -23,3 +23,8 @@ It uses local workerd and Nginx, not a hosted Cloudflare account. Its HTTPS Wran
 listener avoids development proxy rewriting of Origin/Location between schemes.
 Freeze this directory during that browser run; do not regenerate bindings or assets
 while Wrangler watches them. Start/stop Docker only outside browser execution.
+
+For release input, use `build.ts --release-dir` and verify the archive's manifest
+before replacing staging. Keep the extracted archive immutable; retained assets,
+Cloudflare headers and robots rules belong in the serving copy. Archives are
+exported from a stopped, immutable image, not rebuilt independently of the API.

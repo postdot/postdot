@@ -4,7 +4,7 @@ on:
     workflow_dispatch:
         inputs:
             image_tag:
-                description: Type the accepted image tag to authorize publication
+                description: Type the accepted version to authorize the image and matching Studio archive
                 required: true
                 type: string
             source_sha:
@@ -129,6 +129,8 @@ jobs:
               run: |
                   git fetch --no-tags origin "$SOURCE_SHA"
                   git merge-base --is-ancestor "$SOURCE_SHA" origin/main
+                  # Reject old source without archive tooling before any image publication.
+                  git cat-file -e "${SOURCE_SHA}:scripts/studio-archive.ts"
 
     accept:
         name: Accept native AMD64 and ARM64 images
@@ -224,6 +226,24 @@ jobs:
                   docker logout ghcr.io
                   docker buildx imagetools inspect "$IMAGE" --raw > /dev/null
 
+            - name: Set up Bun for Studio archive packaging
+              if: steps.anonymous_pull.outcome == 'success' && steps.manifest.outcome == 'success'
+              uses: oven-sh/setup-bun@v2.2.0
+              with:
+                  bun-version-file: package.json
+
+            - name: Package Studio from the immutable published image
+              id: studio_archive
+              if: steps.anonymous_pull.outcome == 'success' && steps.manifest.outcome == 'success'
+              env:
+                  IMAGE_TAG: ${{ inputs.image_tag }}
+                  SOURCE_SHA: ${{ inputs.source_sha }}
+                  IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
+              run: |
+                  image="ghcr.io/postdot/postdot@${IMAGE_DIGEST}"
+                  docker pull --platform linux/amd64 "$image"
+                  bun scripts/studio-archive.ts --image "$image" --version "$IMAGE_TAG" --revision "$SOURCE_SHA"
+
             - name: Publish the matching GitHub Release
               if: steps.anonymous_pull.outcome == 'success' && steps.manifest.outcome == 'success'
               uses: actions/github-script@v9.0.0
@@ -257,6 +277,8 @@ jobs:
                           `[Publication and acceptance run](https://github.com/postdot/postdot/actions/runs/${context.runId})`,
                           '',
                           'CLI and n8n packages have their own versions and release process.',
+                          'The attached Studio archive contains the static files extracted from this image and its exact source/version metadata.',
+                          '[Separate Studio hosting](https://postdot.app/docs/studio-hosting/)',
                       ].join('\n')
                       await github.rest.repos.createRelease({
                           ...context.repo,
@@ -268,14 +290,17 @@ jobs:
                           make_latest: version.includes('-') ? 'false' : 'true',
                       })
 
-            - name: Attach release-matched installation files
+            - name: Attach release-matched installation and Studio files
+              id: release_assets
               if: steps.anonymous_pull.outcome == 'success' && steps.manifest.outcome == 'success'
               env:
                   GH_TOKEN: ${{ github.token }}
                   IMAGE_TAG: ${{ inputs.image_tag }}
               run: |
-                  sha256sum compose.yaml compose.env.example > SHA256SUMS
-                  gh release upload "v${IMAGE_TAG}" compose.yaml compose.env.example SHA256SUMS --repo "$GITHUB_REPOSITORY"
+                  cp compose.yaml compose.env.example dist/studio-releases/
+                  cd dist/studio-releases
+                  sha256sum compose.yaml compose.env.example "postdot-studio-${IMAGE_TAG}.tar.gz" > SHA256SUMS
+                  gh release upload "v${IMAGE_TAG}" compose.yaml compose.env.example "postdot-studio-${IMAGE_TAG}.tar.gz" SHA256SUMS --repo "$GITHUB_REPOSITORY"
 
             - name: Record the image publication
               if: always()
@@ -287,6 +312,8 @@ jobs:
                   PACKAGE_VISIBILITY: ${{ steps.visibility.outputs.visibility }}
                   MANIFEST_CHECK_OUTCOME: ${{ steps.manifest.outcome }}
                   ANONYMOUS_PULL_OUTCOME: ${{ steps.anonymous_pull.outcome }}
+                  STUDIO_ARCHIVE_OUTCOME: ${{ steps.studio_archive.outcome }}
+                  RELEASE_ASSETS_OUTCOME: ${{ steps.release_assets.outcome }}
               run: |
                   docker logout ghcr.io
                   {
@@ -294,6 +321,8 @@ jobs:
                     echo
                     echo "Version: v${{ inputs.image_tag }}"
                     echo "Source commit: $SOURCE_SHA"
+                    echo "Studio archive packaging: ${STUDIO_ARCHIVE_OUTCOME:-not completed}"
+                    echo "Release assets upload: ${RELEASE_ASSETS_OUTCOME:-not completed}"
                     echo "Image: $IMAGE"
                     if [ -n "$IMAGE_DIGEST" ]; then
                       echo "Manifest digest: $IMAGE_DIGEST"

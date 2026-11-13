@@ -3,6 +3,15 @@ title: Releases
 description: Published images, changes, source revisions and validated upgrade paths.
 ---
 
+## Separate Studio assets
+
+The updated manual publication workflow attaches a versioned Studio archive to
+new releases, alongside the installation files and `SHA256SUMS`. It extracts the
+static files from the immutable image and records their version/source identity.
+See [separate Studio hosting](/docs/studio-hosting/#use-a-release-archive) for
+verification and deployment. Releases through `0.1.0-alpha.7` were published before
+that addition and do not include Studio archives.
+
 ## 0.1.0-alpha.7
 
 [GitHub Release and installation files](https://github.com/postdot/postdot/releases/tag/v0.1.0-alpha.7)

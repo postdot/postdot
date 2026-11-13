@@ -88,6 +88,21 @@ bun run build:studio:cloudflare
 The output is `scripts/studio-cloudflare/dist`, including distribution notices,
 robots exclusion and static response headers. It contains no API or server secrets.
 
+If your release includes a [Studio archive](/docs/studio-hosting/#use-a-release-archive),
+download, verify and extract it first. With the matching source checkout for the
+Worker recipe, you can prepare its assets without compiling the frontend:
+
+```sh
+bun scripts/studio-cloudflare/build.ts --release-dir /srv/releases/postdot-studio-YOUR_VERSION
+```
+
+The packaging command verifies the extracted manifest's version/source identity,
+file inventory and SHA-256 values before replacing its staging directory. Keep
+input and staging directories separate. It adds Cloudflare headers and robots
+exclusion to a serving copy, leaving the release archive unchanged. Check the
+version and source revision against your API before deploying; this local command
+does not contact the backend to select a version for you.
+
 Edit `scripts/studio-cloudflare/wrangler.jsonc` for your own deployment. Choose a
 Worker name, replace `POSTDOT_API_ORIGIN` and `POSTDOT_PUBLIC_ORIGIN`, and add your
 [custom domain](https://developers.cloudflare.com/workers/configuration/routing/custom-domains/):

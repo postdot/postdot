@@ -12,6 +12,7 @@
         "build": "turbo build",
         "build:studio:cloudflare": "bun run --cwd apps/web build && bun run scripts/studio-cloudflare/build.ts",
         "types:studio:cloudflare": "bun run scripts/studio-cloudflare/generate-types.ts",
+        "package:studio": "bun scripts/studio-archive.ts",
         "build-storybook": "bun run --cwd packages/ui build-storybook",
         "dev": "turbo dev",
         "lint": "turbo lint && oxlint --deny-warnings scripts e2e *.config.* && bun run lint:spelling",

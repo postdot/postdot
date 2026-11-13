@@ -98,16 +98,58 @@ replacement for these browser workflows.
 
 ## Serve Studio separately
 
-Build Studio from the same source revision as your API and copy the contents of
-`apps/web/dist` to your static server. Use the repository's pinned Bun version and
-frozen dependencies:
+Use Studio from the same release and source revision as your API. Releases made
+with the updated publication workflow attach `postdot-studio-<version>.tar.gz`
+and include it in `SHA256SUMS`. Earlier releases, including `0.1.0-alpha.7`, do not
+have that archive; use their matching source when an asset is absent.
+
+### Use a release archive
+
+Read the installed API's `GET /api/version` or use the
+[release identification command](/docs/installation/#identify-the-installed-release).
+In a new empty directory on Linux, replace the version below with that exact
+release, without the `v` prefix:
+
+```sh
+POSTDOT_RELEASE_VERSION='replace-with-api-version'
+curl --fail --location --remote-name \
+  "https://github.com/postdot/postdot/releases/download/v${POSTDOT_RELEASE_VERSION}/SHA256SUMS"
+curl --fail --location --remote-name \
+  "https://github.com/postdot/postdot/releases/download/v${POSTDOT_RELEASE_VERSION}/postdot-studio-${POSTDOT_RELEASE_VERSION}.tar.gz"
+sha256sum --check --ignore-missing SHA256SUMS
+tar -xzf "postdot-studio-${POSTDOT_RELEASE_VERSION}.tar.gz"
+```
+
+The checksum command verifies the downloaded archive while skipping installation
+files you did not download. Stop if verification fails. Keep the release download
+and checksum from the same trusted source; checksums alone do not authenticate
+an unknown archive.
+
+The extracted `postdot-studio-<version>/public` directory contains the image's
+exact Studio files. Keep its sibling license, attribution and `licenses/` files
+with the distribution. `studio-release.json` records the version, full source
+revision, immutable image reference and per-file SHA-256 values; compare its
+version and revision with your API before deploying. Its sibling `release.json`
+is the identity read from the image. Static browser files are architecture-independent;
+the archive is extracted from the Linux AMD64 member of that same image release.
+
+Point your static server at the extracted `public` directory, using the routing
+rules below. Preserve the unmodified release as the rollback input. Keep previous
+hashed assets available in your serving directory for already open tabs during
+the update; verify an archive before adding retained assets to its serving copy.
+
+### Build from source
+
+If your release has no archive, build from its exact source revision and copy the
+contents of `apps/web/dist` to your static server. Use the repository's pinned Bun
+version and frozen dependencies:
 
 ```sh
 bun install --frozen-lockfile
 bun run --cwd apps/web build
 ```
 
-Keep Studio and API on the same published version. Publish the generated files as
+Publish the generated files as
 one release directory; preserve old hashed assets for already open tabs during
 updates. Keep third-party notices and licenses with redistributed files.
 
