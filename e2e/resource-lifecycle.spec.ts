@@ -74,11 +74,34 @@ for (const [locale, messages] of [
         await expect(archived).toHaveCount(0)
         await page.goto(`/dashboard/projects/${project.id}/access`)
         await section.getByRole('button', { name: messages.lifecycle_delete, exact: true }).click()
+        await expect(
+            dialog.getByRole('heading', { name: messages.lifecycle_delete, exact: true })
+        ).toBeVisible()
         await expect(dialog.getByText(messages.lifecycle_delete_explanation)).toBeVisible()
+        await expect(dialog.getByText(name, { exact: true })).toBeVisible()
+        await expect(
+            dialog.getByText(messages.lifecycle_count_channels, { exact: true })
+        ).toBeVisible()
+        await expect(
+            dialog.getByText(messages.lifecycle_count_posts, { exact: true })
+        ).toBeVisible()
+        await expect(dialog.getByText(messages.lifecycle_count_media, { exact: true })).toHaveCount(
+            0
+        )
+        await expect(dialog.getByText(messages.lifecycle_count_bytes, { exact: true })).toHaveCount(
+            0
+        )
+        await expect(dialog.getByText(messages.lifecycle_pending, { exact: true })).toHaveCount(0)
+        await expect(dialog.getByText(messages.lifecycle_uncertain, { exact: true })).toHaveCount(0)
+        await expect(
+            dialog.getByText(messages.lifecycle_active_operations, { exact: true })
+        ).toHaveCount(0)
         await expect(
             dialog.getByRole('button', { name: messages.lifecycle_delete, exact: true })
         ).toBeDisabled()
-        await dialog.getByLabel(messages.lifecycle_confirm_name, { exact: true }).fill(name)
+        await dialog
+            .getByLabel(messages.lifecycle_confirm_name.replace('{name}', name), { exact: true })
+            .fill(name)
         await page.setViewportSize({ width: 390, height: 844 })
         expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(
             false

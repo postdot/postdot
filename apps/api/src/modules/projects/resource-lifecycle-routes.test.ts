@@ -134,10 +134,14 @@ it('archives through a scoped machine key, rejects writes, restores and permanen
         const deletion = (await (await request('GET', `${path}/lifecycle`)).json()) as {
             fingerprint: string
         }
-        expect(
-            (await request('DELETE', `${path}/lifecycle`, { ...deletion, confirmName: 'wrong' }))
-                .status
-        ).toBe(409)
+        const invalidDelete = await request('DELETE', `${path}/lifecycle`, {
+            ...deletion,
+            confirmName: 'wrong',
+        })
+        expect(invalidDelete.status).toBe(409)
+        expect(((await invalidDelete.json()) as { error: { code: string } }).error.code).toBe(
+            'name_required'
+        )
         const deleteKeyResponse = await request('POST', '/api/api-keys', {
             name: 'Explicit removal',
             projectIds: [project.id],

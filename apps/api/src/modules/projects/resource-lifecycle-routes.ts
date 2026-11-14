@@ -90,7 +90,7 @@ export function registerResourceLifecycleRoutes<const Routes extends Record<stri
             impact ?? { failure: true as const, code: 'not_found', message: 'Resource not found' }
         )
     }
-    function change(
+    async function change(
         kind: ResourceKind,
         id: string,
         userId: string,
@@ -98,7 +98,7 @@ export function registerResourceLifecycleRoutes<const Routes extends Record<stri
         input: Input
     ) {
         try {
-            return lifecycle.mutate({
+            return await lifecycle.mutate({
                 ...input,
                 kind,
                 id,

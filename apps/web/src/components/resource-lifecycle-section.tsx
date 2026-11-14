@@ -7,6 +7,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@postdot/ui/components/dialog'
+import { Field, FieldLabel } from '@postdot/ui/components/field'
 import { Input } from '@postdot/ui/components/input'
 import { toast } from '@postdot/ui/components/toast'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -19,6 +20,7 @@ import { PageColumn } from '@/components/page-column'
 import { QueryErrorState } from '@/components/query-error-state'
 import { ApiError, api, formatApiError } from '@/lib/api'
 import { useDashboardGlobal } from '@/lib/dashboard-context'
+import { formatBytes, formatNumber } from '@/lib/format'
 import { useLanguage } from '@/lib/i18n'
 import { useOptionalProjectAccess } from '@/lib/project-access'
 import { projectQueryKeys } from '@/lib/project-query-keys'
@@ -48,7 +50,7 @@ export function ResourceLifecycleSection({
     readonly id: string
     readonly inArchives?: boolean
 }) {
-    useLanguage()
+    const { locale } = useLanguage()
     const access = useOptionalProjectAccess()
     const global = useDashboardGlobal()
     const search = useSearch({ from: '/dashboard' })
@@ -117,6 +119,20 @@ export function ResourceLifecycleSection({
         ambiguous: m.publication_state_needs_review,
         cancelled: m.publication_state_cancelled,
     }
+    const nonZeroCounts = Object.entries(data.counts).filter(([, value]) => value > 0)
+    const nonZeroPublications = Object.entries(data.publications).filter(([, count]) => count > 0)
+    const hasNonZeroImpact =
+        nonZeroCounts.length > 0 ||
+        nonZeroPublications.length > 0 ||
+        data.pending > 0 ||
+        data.uncertain > 0 ||
+        data.active > 0
+    const actionLabel =
+        action === 'delete'
+            ? m.lifecycle_delete()
+            : action === 'restore'
+              ? m.lifecycle_restore()
+              : m.lifecycle_archive()
     async function submit() {
         if (!action || pending || (access !== null && !access.canWrite())) return
         setPending(true)
@@ -221,123 +237,157 @@ export function ResourceLifecycleSection({
                 onOpenChange={value => {
                     if (!pending && !value) setAction(null)
                 }}>
-                <DialogContent className="max-h-[90dvh] max-w-xl overflow-y-auto">
-                    <DialogHeader>
-                        <DialogTitle>
+                <DialogContent className="flex max-h-[calc(100dvh-2rem)] min-h-0 max-w-lg flex-col overflow-hidden sm:max-w-lg">
+                    <DialogHeader className="shrink-0">
+                        <DialogTitle>{actionLabel}</DialogTitle>
+                        <DialogDescription className="leading-6">
                             {action === 'delete'
-                                ? m.lifecycle_delete()
+                                ? m.lifecycle_delete_explanation()
                                 : action === 'restore'
-                                  ? m.lifecycle_restore()
-                                  : m.lifecycle_archive()}{' '}
-                            — {data.name}
-                        </DialogTitle>
+                                  ? kind === 'workspace'
+                                      ? m.lifecycle_restore_workspace_explanation()
+                                      : m.lifecycle_restore_explanation()
+                                  : m.lifecycle_archive_explanation()}
+                        </DialogDescription>
                     </DialogHeader>
-                    <DialogDescription className="text-sm leading-6">
-                        {action === 'delete'
-                            ? m.lifecycle_delete_explanation()
-                            : action === 'restore'
-                              ? kind === 'workspace'
-                                  ? m.lifecycle_restore_workspace_explanation()
-                                  : m.lifecycle_restore_explanation()
-                              : m.lifecycle_archive_explanation()}
-                    </DialogDescription>
-                    <dl className="grid grid-cols-[1fr_auto] gap-x-6 gap-y-2 text-sm">
-                        {Object.entries(data.counts).map(([key, value]) => (
-                            <div key={key} className="contents">
-                                <dt>{countLabels[key]?.() ?? key}</dt>
-                                <dd>{value}</dd>
-                            </div>
-                        ))}
-                        {Object.entries(data.publications).map(([state, count]) => (
-                            <div className="contents" key={`publication-${state}`}>
-                                <dt>
-                                    {m.lifecycle_count_publications()} ·{' '}
-                                    {publicationLabels[state]?.() ?? state}
-                                </dt>
-                                <dd>{count}</dd>
-                            </div>
-                        ))}
-                        <dt>{m.lifecycle_pending()}</dt>
-                        <dd>{data.pending}</dd>
-                        <dt>{m.lifecycle_uncertain()}</dt>
-                        <dd>{data.uncertain}</dd>
-                        <dt>{m.lifecycle_active_operations()}</dt>
-                        <dd>{data.active}</dd>
-                    </dl>
-                    {kind === 'workspace' && (
-                        <ul className="space-y-1 text-sm">
-                            {data.projects.map(project => (
-                                <li key={project.id}>
-                                    {project.name} · {stateLabel(project.state)}
-                                </li>
-                            ))}
-                        </ul>
-                    )}
-                    {action !== 'restore' && data.pending > 0 && (
-                        <label className="flex items-start gap-2 text-sm">
-                            <input
-                                type="checkbox"
-                                checked={cancelPending}
-                                onChange={event => setCancelPending(event.target.checked)}
-                            />
-                            {m.lifecycle_cancel_pending()}
-                        </label>
-                    )}
-                    {action !== 'restore' && data.isDefault && (
-                        <label className="grid gap-2 text-sm">
-                            {m.lifecycle_replacement()}
-                            <select
-                                className="w-full rounded-md border border-input bg-background p-2"
-                                value={replacementWorkspaceId}
-                                onChange={event => setReplacement(event.target.value)}>
-                                <option value="">{m.lifecycle_replacement_hint()}</option>
-                                {workspaces.data?.workspaces
-                                    .filter(
-                                        workspace =>
-                                            workspace.id !== id &&
-                                            ['owner', 'admin'].includes(workspace.role)
-                                    )
-                                    .map(workspace => (
-                                        <option value={workspace.id} key={workspace.id}>
-                                            {workspace.name}
-                                        </option>
-                                    ))}
-                            </select>
-                        </label>
-                    )}
-                    {action === 'delete' && (
-                        <>
-                            <label className="grid gap-2 text-sm">
-                                {m.lifecycle_confirm_name()}
+                    <div className="min-h-0 space-y-4 overflow-y-auto overscroll-contain">
+                        <div className="flex items-center gap-2.5 rounded-md border border-border bg-muted/40 px-3 py-2 text-sm">
+                            <ResourceAvatar kind={kind} name={data.name} seed={id} size="sm" />
+                            <span className="min-w-0 truncate font-medium">{data.name}</span>
+                        </div>
+                        {action === 'delete' && (
+                            <Field className="gap-1.5">
+                                <FieldLabel htmlFor="lifecycle-confirm-name">
+                                    {m.lifecycle_confirm_name({ name: data.name })}
+                                </FieldLabel>
                                 <Input
+                                    id="lifecycle-confirm-name"
                                     value={confirmName}
                                     onChange={event => setConfirmName(event.target.value)}
                                     autoComplete="off"
                                 />
+                            </Field>
+                        )}
+                        {hasNonZeroImpact && (
+                            <dl className="grid grid-cols-[1fr_auto] gap-x-6 gap-y-2 rounded-md border border-border bg-muted/20 px-3 py-2.5 text-sm tabular-nums">
+                                {nonZeroCounts.map(([key, value]) => (
+                                    <div key={key} className="contents">
+                                        <dt className="text-muted-foreground">
+                                            {countLabels[key]?.() ?? key}
+                                        </dt>
+                                        <dd className="font-medium">
+                                            {key === 'mediaBytes'
+                                                ? formatBytes(value, locale)
+                                                : formatNumber(value, locale)}
+                                        </dd>
+                                    </div>
+                                ))}
+                                {nonZeroPublications.map(([state, count]) => (
+                                    <div className="contents" key={`publication-${state}`}>
+                                        <dt className="text-muted-foreground">
+                                            {m.lifecycle_count_publications()} ·{' '}
+                                            {publicationLabels[state]?.() ?? state}
+                                        </dt>
+                                        <dd className="font-medium">
+                                            {formatNumber(count, locale)}
+                                        </dd>
+                                    </div>
+                                ))}
+                                {data.pending > 0 && (
+                                    <div className="contents">
+                                        <dt className="text-muted-foreground">
+                                            {m.lifecycle_pending()}
+                                        </dt>
+                                        <dd className="font-medium">
+                                            {formatNumber(data.pending, locale)}
+                                        </dd>
+                                    </div>
+                                )}
+                                {data.uncertain > 0 && (
+                                    <div className="contents">
+                                        <dt className="text-muted-foreground">
+                                            {m.lifecycle_uncertain()}
+                                        </dt>
+                                        <dd className="font-medium">
+                                            {formatNumber(data.uncertain, locale)}
+                                        </dd>
+                                    </div>
+                                )}
+                                {data.active > 0 && (
+                                    <div className="contents">
+                                        <dt className="text-muted-foreground">
+                                            {m.lifecycle_active_operations()}
+                                        </dt>
+                                        <dd className="font-medium">
+                                            {formatNumber(data.active, locale)}
+                                        </dd>
+                                    </div>
+                                )}
+                            </dl>
+                        )}
+                        {kind === 'workspace' && data.projects.length > 0 && (
+                            <ul className="space-y-1 text-sm text-muted-foreground">
+                                {data.projects.map(project => (
+                                    <li key={project.id}>
+                                        {project.name} · {stateLabel(project.state)}
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
+                        {action !== 'restore' && data.pending > 0 && (
+                            <label className="flex items-start gap-2 text-sm">
+                                <input
+                                    type="checkbox"
+                                    checked={cancelPending}
+                                    onChange={event => setCancelPending(event.target.checked)}
+                                />
+                                {m.lifecycle_cancel_pending()}
                             </label>
-                            {data.uncertain > 0 && (
-                                <label className="flex items-start gap-2 text-sm">
-                                    <input
-                                        type="checkbox"
-                                        checked={acknowledgeUncertain}
-                                        onChange={event =>
-                                            setAcknowledgeUncertain(event.target.checked)
-                                        }
-                                    />
-                                    {m.lifecycle_ack_uncertain()}
-                                </label>
-                            )}
-                        </>
-                    )}
-                    {impact.isError ? (
-                        <QueryErrorState onRetry={() => void impact.refetch()} />
-                    ) : null}
-                    {error && (
-                        <p role="alert" className="text-sm text-destructive">
-                            {error}
-                        </p>
-                    )}
-                    <DialogFooter>
+                        )}
+                        {action !== 'restore' && data.isDefault && (
+                            <label className="grid gap-2 text-sm">
+                                {m.lifecycle_replacement()}
+                                <select
+                                    className="w-full rounded-md border border-input bg-background p-2"
+                                    value={replacementWorkspaceId}
+                                    onChange={event => setReplacement(event.target.value)}>
+                                    <option value="">{m.lifecycle_replacement_hint()}</option>
+                                    {workspaces.data?.workspaces
+                                        .filter(
+                                            workspace =>
+                                                workspace.id !== id &&
+                                                ['owner', 'admin'].includes(workspace.role)
+                                        )
+                                        .map(workspace => (
+                                            <option value={workspace.id} key={workspace.id}>
+                                                {workspace.name}
+                                            </option>
+                                        ))}
+                                </select>
+                            </label>
+                        )}
+                        {action === 'delete' && data.uncertain > 0 && (
+                            <label className="flex items-start gap-2 text-sm">
+                                <input
+                                    type="checkbox"
+                                    checked={acknowledgeUncertain}
+                                    onChange={event =>
+                                        setAcknowledgeUncertain(event.target.checked)
+                                    }
+                                />
+                                {m.lifecycle_ack_uncertain()}
+                            </label>
+                        )}
+                        {impact.isError ? (
+                            <QueryErrorState onRetry={() => void impact.refetch()} />
+                        ) : null}
+                        {error && (
+                            <p role="alert" className="text-sm text-destructive">
+                                {error}
+                            </p>
+                        )}
+                    </div>
+                    <DialogFooter className="shrink-0">
                         <Button
                             variant="outline"
                             disabled={pending}
@@ -358,13 +408,7 @@ export function ResourceLifecycleSection({
                                         (data.uncertain > 0 && !acknowledgeUncertain)))
                             }
                             onClick={() => void submit()}>
-                            {pending
-                                ? m.common_loading()
-                                : action === 'delete'
-                                  ? m.lifecycle_delete()
-                                  : action === 'restore'
-                                    ? m.lifecycle_restore()
-                                    : m.lifecycle_archive()}
+                            {pending ? m.common_loading() : actionLabel}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
