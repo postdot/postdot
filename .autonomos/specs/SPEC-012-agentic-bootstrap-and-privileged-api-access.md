@@ -1,10 +1,11 @@
 # SPEC-012 — Agentic deployment bootstrap and full-privilege API access
 
-- Status: draft
+- Status: accepted
 - Scope: first-run instance bootstrap, user API-key capabilities, administrative HTTP routes, CLI, MCP, and Studio key management
-- Provenance: [ISSUE-197](../ISSUES.md); owner direction on 2026-11-14 regarding agent-first administration ("dot" = bot) and eliminating the unauthenticated first-user takeover window
+- Provenance: [ISSUE-197](../ISSUES.md); owner direction and design acceptance on 2026-11-14 regarding agent-first administration ("dot" = bot) and eliminating the unauthenticated first-user takeover window
 - Related decisions: [ADR-102](../decisions/ADR-102-token-gated-bootstrap-and-admin-api-key-capabilities.md), [ADR-061](../decisions/ADR-061-human-account-and-instance-access-policy.md), [ADR-074](../decisions/ADR-074-workspace-and-access-boundaries.md), [ADR-075](../decisions/ADR-075-user-owned-api-keys.md), [ADR-095](../decisions/ADR-095-workspace-channels-and-project-attachments.md), [ADR-096](../decisions/ADR-096-mcp-operator-surface.md), [ADR-098](../decisions/ADR-098-optional-studio-and-client-authentication.md)
 - Related specs: [SPEC-009](SPEC-009-shared-channel-workflows.md), [SPEC-011](SPEC-011-public-cli.md)
+- Tasks: `AUTH-648`, `API-649`, `CLI-650` in [`TASKS.md`](../TASKS.md)
 
 ## Intent
 
@@ -17,8 +18,9 @@ An API key must only be blocked when it lacks the required capability or when it
 ### 1. Secure, zero-window instance bootstrap
 
 1. **One-time bootstrap token (`POSTDOT_BOOTSTRAP_TOKEN` / `POSTDOT_BOOTSTRAP_TOKEN_FILE`):**
-   - Deployments may configure a pre-shared bootstrap secret via `POSTDOT_BOOTSTRAP_TOKEN` or `POSTDOT_BOOTSTRAP_TOKEN_FILE` (Docker secrets, Kubernetes Secrets, Terraform, PaaS secret managers, or agent-generated `.env`).
-   - While `instance_state.state === 'claimable'` and a bootstrap token is configured, public unauthenticated account creation (`POST /api/auth/sign-up/email`) is closed (`signupAllowed = false`), preventing any unauthenticated visitor from claiming the instance before the deploying agent or operator acts.
+   - Deployments may configure a pre-shared bootstrap secret via `POSTDOT_BOOTSTRAP_TOKEN`, `POSTDOT_BOOTSTRAP_TOKEN_FILE`, or `POSTDOT_BOOTSTRAP_TOKEN_HASH` (Docker secrets, Kubernetes Secrets, Terraform, PaaS secret managers, or agent-generated `.env`).
+   - **Default mode when unconfigured:** In `NODE_ENV=production`, if `instance_state.state === 'claimable'` and no bootstrap token is configured (and `POSTDOT_BOOTSTRAP_MODE=open` is not explicitly set), Postdot automatically generates a cryptographically random one-time bootstrap token at startup, persists it with `0600` permissions to `<dataDir>/bootstrap-token`, logs the location/token once for the deploying operator or agent, and activates `token_required` mode. In local development/test (`NODE_ENV !== 'production'`) or when `POSTDOT_BOOTSTRAP_MODE=open` is explicitly set without a token, `bootstrapMode` defaults to `open`.
+   - While `instance_state.state === 'claimable'` and `bootstrapMode === 'token_required'`, public unauthenticated account creation (`POST /api/auth/sign-up/email`) is closed (`signupAllowed = false`), preventing any unauthenticated visitor from claiming the instance before the deploying agent or operator acts.
    - `GET /api/instance/status` reports public non-sensitive bootstrap readiness (`setupAvailable: boolean`, `bootstrapMode: 'open' | 'token_required' | 'claimed'`).
 2. **Atomic HTTP bootstrap endpoint (`POST /api/instance/bootstrap`):**
    - Accepts the bootstrap token (`Authorization: Bearer <token>` or `X-Postdot-Bootstrap-Token`), validated with constant-time digest comparison.
@@ -36,20 +38,22 @@ An API key must only be blocked when it lacks the required capability or when it
 Add explicit capabilities so narrow keys remain fail-closed while privileged keys can operate every administrative surface:
 
 1. **New capability identifiers (alongside ADR-075 capabilities):**
-   - `instance:admin` — read/update instance members (roles, enable/disable), manage instance invitations, manage instance taxonomy categories, manage runtime provider application configurations, manage installation SMTP/email settings, view/resume restore recovery holds, and inspect cross-instance retirements. Requires live `access.isInstanceAdmin(user.id)`.
+   - `instance:admin` — read/update instance members (roles, enable/disable), directly create enabled member or agent service accounts (`POST /api/access/members`, optionally minting an initial API key in the same call without requiring SMTP or an invite-accept round-trip), manage instance invitations, manage instance taxonomy categories, manage runtime provider application configurations, manage installation SMTP/email settings, view/resume restore recovery holds, and inspect cross-instance retirements. Requires live `access.isInstanceAdmin(user.id)`.
    - `workspace:manage` — create workspaces, read workspace administration details, manage workspace members, invitations, and teams, and archive/restore workspaces. Requires live workspace `owner`/`admin` authority where applicable (`workspace:permanently_delete` or `project:permanently_delete` / explicit permanent deletion capability governs permanent workspace deletion).
    - `project:access_manage` — list and mutate project members, project invitations, user grants, and group grants. Requires live project `owner` or workspace `owner`/`admin` authority.
    - `api_key:manage` — list, create, update, and revoke API keys owned by the calling user (and, when paired with `instance:admin`, inspect/revoke keys during member offboarding).
    - `publication:approve` — approve or reject publication approval requests. Kept separate from `publication:manage` so draft-authoring agents still cannot self-approve.
-2. **Existing capability expansions:**
+2. **Unrestricted key inheritance (`actionAccess: null` / `'all'`):**
+   - Keys configured with `actionAccess: null` (`'all'`) inherit every capability permitted by the owning user's live instance, workspace, and project roles — including `instance:admin`, `workspace:manage`, `project:access_manage`, `api_key:manage`, and `publication:approve`. Keys belonging to non-admin users remain blocked by live role intersection, and keys with an explicit action list remain bounded to their granted capabilities.
+3. **Existing capability expansions:**
    - `project:read` additionally authorizes `GET /api/access` (current user summary), `GET /api/categories`, `GET /api/search`, `GET /api/resource-removals`, workspace detail reads, project member/grant reads, and approval-request listing (all filtered to the caller's live access).
    - `channel:manage` additionally authorizes non-interactive credential connections where no browser OAuth consent is involved (`devto` API key, `discord` bot token, `telegram` bot token, `bluesky` app-password, in addition to existing `custom-http`).
-3. **Anti-escalation and attribution invariants:**
+4. **Anti-escalation and attribution invariants:**
    - **No privilege escalation through `api_key:manage`:** An API key creating or updating another API key cannot grant `projectIds === null` (`all`) if the calling key is restricted to `selected` projects, cannot include project IDs outside the calling key's project scope, cannot grant `actionAccess === null` (`all`) if the calling key has a bounded action list, and cannot grant any capability the calling key does not itself hold.
    - **Live role intersection:** Every administrative request continues to verify the owner's live instance/workspace/project membership and role, last-admin protection, and self-demotion/self-disable guards.
    - **Server-authoritative Better Auth sync:** Routes in `apps/api/src/modules/access/routes.ts` and `workspace-routes.ts` that currently forward `headers: request.headers` to Better Auth's session-expecting `auth.api.*` methods must invoke server-authoritative sync paths after Postdot capability + role verification, so `Bearer postdot_pat_...` requests succeed identically to cookie sessions.
    - **Audit attribution:** Audit events record the acting user and API-key actor identity (`api-key:<id>` / `displayName`) consistently with ADR-075.
-4. **Surfaces intentionally left interactive/human-session-first:**
+5. **Surfaces intentionally left interactive/human-session-first:**
    - Browser OAuth consent handshakes (`/oauth/*`, `POST .../oauth/start`) remain interactive browser flows because third-party identity providers enforce user consent in a browser.
    - Browser realtime SSE streams (`/api/projects/:id/events`, `/api/notifications/events`) and personal account password change remain session-scoped unless a distinct machine streaming requirement is accepted later.
 
@@ -66,9 +70,9 @@ Add explicit capabilities so narrow keys remain fail-closed while privileged key
 
 ## Acceptance criteria
 
-- A fresh Postdot instance started with `POSTDOT_BOOTSTRAP_TOKEN` rejects unauthenticated `POST /api/auth/sign-up/email`, creates the initial administrator and unrestricted API key atomically via `POST /api/instance/bootstrap`, and permanently rejects replay after `state === 'claimed'`.
+- A fresh Postdot instance started with `POSTDOT_BOOTSTRAP_TOKEN` (or in `NODE_ENV=production` without `POSTDOT_BOOTSTRAP_MODE=open`, using the auto-generated `<dataDir>/bootstrap-token`) rejects unauthenticated `POST /api/auth/sign-up/email`, creates the initial administrator and unrestricted API key atomically via `POST /api/instance/bootstrap`, and permanently rejects replay after `state === 'claimed'`.
 - `account bootstrap` supports PostgreSQL (`--database-url`) and optional initial API-key issuance.
-- A privileged API key (`instance:admin`, `workspace:manage`, `project:access_manage`, `api_key:manage`, `publication:approve`, or unrestricted) can create workspaces, invite/manage instance and project members, mint/update/revoke narrower API keys, configure runtime provider apps, connect non-OAuth providers (`devto`, `discord`, `telegram`, `bluesky`), approve publications, and search accessible content.
+- A privileged API key (`instance:admin`, `workspace:manage`, `project:access_manage`, `api_key:manage`, `publication:approve`, or unrestricted `'all'` owned by an admin) can create workspaces, directly provision enabled member/agent accounts (`POST /api/access/members`) with optional initial API keys, invite/manage instance and project members, mint/update/revoke narrower API keys, configure runtime provider apps, connect non-OAuth providers (`devto`, `discord`, `telegram`, `bluesky`), approve publications, and search accessible content.
 - A bounded API key cannot escalate privileges (e.g., mint a wider key, demote the last admin, bypass project scope, or self-approve without `publication:approve`).
 - Existing narrow-key, session-cookie, and browser OAuth security guarantees continue to pass regression suites.
 

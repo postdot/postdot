@@ -9,6 +9,12 @@
 
 - [/] **[PUB-627]** Complete GitHub profile, application releases and clean-install acceptance `Priority: 🟠` `Complexity: L`
 
+- [ ] **[AUTH-648]** Implement token-gated zero-window instance bootstrap and CLI/Studio setup onboarding ([SPEC-012](specs/SPEC-012-agentic-bootstrap-and-privileged-api-access.md), [ADR-102](decisions/ADR-102-token-gated-bootstrap-and-admin-api-key-capabilities.md)) `Priority: 🔴` `Complexity: M`
+
+- [ ] **[API-649]** Implement admin API-key capabilities, anti-escalation, and `POST /api/access/members` ([SPEC-012](specs/SPEC-012-agentic-bootstrap-and-privileged-api-access.md), [ADR-102](decisions/ADR-102-token-gated-bootstrap-and-admin-api-key-capabilities.md)) `Priority: 🔴` `Complexity: L`
+
+- [ ] **[CLI-650]** Expose admin API-key parity across CLI, MCP catalog, Studio UI, and docs ([SPEC-012](specs/SPEC-012-agentic-bootstrap-and-privileged-api-access.md), [ADR-102](decisions/ADR-102-token-gated-bootstrap-and-admin-api-key-capabilities.md)) `Priority: 🟠` `Complexity: M`
+
 ## Current direction
 
 Shared-channel implementation follows [ADR-095](decisions/ADR-095-workspace-channels-and-project-attachments.md)
