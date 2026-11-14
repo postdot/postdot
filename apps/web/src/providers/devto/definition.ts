@@ -4,6 +4,7 @@ import type { ProviderDefinition } from '../contract'
 
 export const devtoProvider = {
     id: 'devto',
+    templateUpgrade: { revision: 'article-v1', presetId: 'devto' },
     name: 'DEV.to',
     suggestedName: 'DEV.to',
     profileLabel: () => m.channel_devto_profile(),

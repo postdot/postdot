@@ -242,7 +242,13 @@ export function TargetFieldControl({
                         onChange={onChange}
                     />
                 ) : field.kind === 'boolean' ? (
-                    <BooleanField value={value} disabled={disabled} onChange={onChange} />
+                    <BooleanField
+                        fieldId={fieldId}
+                        errorId={errorId}
+                        value={value}
+                        disabled={disabled}
+                        onChange={onChange}
+                    />
                 ) : field.kind === 'enum' ? (
                     <EnumField
                         fieldId={fieldId}
@@ -269,10 +275,14 @@ export function TargetFieldControl({
 }
 
 function BooleanField({
+    fieldId,
+    errorId,
     value,
     disabled,
     onChange,
 }: {
+    readonly fieldId: string
+    readonly errorId?: string
     readonly value: unknown
     readonly disabled: boolean
     readonly onChange: (value: unknown | undefined) => void
@@ -285,7 +295,11 @@ function BooleanField({
             onValueChange={next =>
                 onChange(next === unsetTargetFieldValue ? undefined : next === 'true')
             }>
-            <SelectTrigger disabled={disabled}>
+            <SelectTrigger
+                id={fieldId}
+                disabled={disabled}
+                aria-invalid={Boolean(errorId) || undefined}
+                aria-describedby={errorId}>
                 <SelectValue />
             </SelectTrigger>
             <SelectContent align="start">

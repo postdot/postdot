@@ -176,6 +176,49 @@ describe('DEV.to publisher', () => {
         ).resolves.toMatchObject({ type: 'ambiguous', code: 'provider_failure' })
     })
 
+    it('forwards optional Forem article options without setting omitted fields', async () => {
+        let requestBody: unknown
+        const publisher = createDevtoPublisher({
+            baseUrl: 'https://devto.test',
+            fetcher: async (_input, init) => {
+                requestBody = JSON.parse(String(init?.body))
+                return jsonResponse({ id: 456, url: 'https://dev.to/postdot/draft' }, 201)
+            },
+        })
+
+        const outcome = await publisher.publishArticle({
+            apiKey: API_KEY,
+            title: 'A staged DEV.to article',
+            bodyMarkdown: '# Draft body',
+            published: false,
+            tags: ['typescript', 'devto'],
+            canonicalUrl: 'https://blog.example.com/staged-article',
+            description: 'Article meta description',
+            series: 'Engineering notes',
+            aiDisclosureLevel: 'some_ai',
+            organizationId: 77,
+        })
+
+        expect(outcome).toEqual({
+            type: 'published',
+            externalId: '456',
+            externalUrl: 'https://dev.to/postdot/draft',
+        })
+        expect(requestBody).toEqual({
+            article: {
+                title: 'A staged DEV.to article',
+                body_markdown: '# Draft body',
+                published: false,
+                tags: ['typescript', 'devto'],
+                canonical_url: 'https://blog.example.com/staged-article',
+                description: 'Article meta description',
+                series: 'Engineering notes',
+                ai_disclosure_level: 'some_ai',
+                organization_id: 77,
+            },
+        })
+    })
+
     it('rejects invalid input before dispatch', async () => {
         let calls = 0
         const publisher = createDevtoPublisher({
@@ -185,9 +228,42 @@ describe('DEV.to publisher', () => {
             },
         })
 
-        await expect(
-            publisher.publishArticle({ apiKey: API_KEY, title: '', bodyMarkdown: 'Body' })
-        ).resolves.toMatchObject({ type: 'permanent_failure', code: 'invalid_input' })
+        const invalidInputs = [
+            { apiKey: API_KEY, title: '', bodyMarkdown: 'Body' },
+            { apiKey: API_KEY, title: 'Title', bodyMarkdown: 'Body', tags: ['bad-tag'] },
+            { apiKey: API_KEY, title: 'Title', bodyMarkdown: 'Body', tags: ['Dev', 'dev'] },
+            {
+                apiKey: API_KEY,
+                title: 'Title',
+                bodyMarkdown: 'Body',
+                tags: ['one', 'two', 'three', 'four', 'five'],
+            },
+            {
+                apiKey: API_KEY,
+                title: 'Title',
+                bodyMarkdown: 'Body',
+                canonicalUrl: 'ftp://example.com/post',
+            },
+            {
+                apiKey: API_KEY,
+                title: 'Title',
+                bodyMarkdown: 'Body',
+                description: '   ',
+            },
+            {
+                apiKey: API_KEY,
+                title: 'Title',
+                bodyMarkdown: 'Body',
+                organizationId: 0,
+            },
+        ] as const
+
+        for (const invalid of invalidInputs) {
+            await expect(publisher.publishArticle(invalid)).resolves.toMatchObject({
+                type: 'permanent_failure',
+                code: 'invalid_input',
+            })
+        }
         expect(calls).toBe(0)
     })
 })

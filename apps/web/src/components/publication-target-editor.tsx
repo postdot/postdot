@@ -266,6 +266,12 @@ function fieldValidationMessage(
         return m.editor_field_min_items({ count: field.minItems })
     if (issue.code === 'schema.maxItems' && field.maxItems !== null)
         return m.editor_field_max_items({ count: field.maxItems })
+    if (issue.code === 'schema.minimum' && field.minimum !== null)
+        return m.editor_field_minimum({ count: field.minimum })
+    if (issue.code === 'devto.canonical_url_invalid') return m.editor_field_devto_canonical_url()
+    if (issue.code === 'devto.tag_invalid') return m.editor_field_devto_tag()
+    if (issue.code === 'devto.tags_duplicate') return m.editor_field_devto_tags_duplicate()
+    if (issue.code === 'devto.text_blank') return m.editor_field_devto_text_blank()
     return m.editor_field_invalid()
 }
 

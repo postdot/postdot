@@ -1979,6 +1979,13 @@
     "editor_field_required": "Renseignez {field}.",
     "editor_field_min_length": "Utilisez au moins {count} caractères.",
     "editor_field_max_length": "Utilisez au maximum {count} caractères.",
+    "editor_field_minimum": "Saisissez une valeur d’au moins {count}.",
+    "editor_field_devto_canonical_url": "Saisissez une URL HTTP ou HTTPS valide sans identifiants intégrés.",
+    "editor_field_devto_tag": "Les étiquettes DEV.to doivent contenir de 1 à 30 lettres ou chiffres.",
+    "editor_field_devto_tags_duplicate": "Supprimez les étiquettes DEV.to en double.",
+    "editor_field_devto_text_blank": "Saisissez une valeur non vide ou videz ce champ.",
+    "publication_preview_devto_draft": "Brouillon DEV.to",
+    "publication_preview_devto_series": "Série : {series}",
     "editor_field_invalid": "Vérifiez cette valeur.",
     "editor_validation_diagnostics": "Détails de validation",
     "editor_field_min_items": [

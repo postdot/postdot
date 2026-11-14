@@ -77,6 +77,20 @@ export function PublicationDraftPreview({
     const Poll = definition?.preview.Poll
     const article = definition?.preview.layout === 'article'
     const message = definition?.preview.layout === 'message'
+    const devtoTags =
+        article && platform === 'devto' && Array.isArray(target?.tags)
+            ? target.tags.filter(
+                  (item): item is string => typeof item === 'string' && item.trim() !== ''
+              )
+            : []
+    const devtoSeries =
+        article &&
+        platform === 'devto' &&
+        typeof target?.series === 'string' &&
+        target.series.trim() !== ''
+            ? target.series.trim()
+            : null
+    const devtoDraft = article && platform === 'devto' && target?.published === false
     const wideContent = definition?.preview.mosaic === 'tight'
     const social = definition !== undefined && !article && !message
     const accountDriven = definition?.preview.accountDriven ?? false
@@ -217,10 +231,31 @@ export function PublicationDraftPreview({
                               ? 'px-3 pb-2 pt-1'
                               : 'px-4 pb-4 pt-2'
                     )}>
+                    {devtoDraft || devtoSeries ? (
+                        <div className="mb-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                            {devtoDraft ? (
+                                <span className="rounded bg-surface-inset px-1.5 py-0.5 font-medium">
+                                    {m.publication_preview_devto_draft()}
+                                </span>
+                            ) : null}
+                            {devtoSeries ? (
+                                <span>
+                                    {m.publication_preview_devto_series({ series: devtoSeries })}
+                                </span>
+                            ) : null}
+                        </div>
+                    ) : null}
                     {preview.showTitle && preview.title !== '' ? (
                         <h2 className="break-words text-2xl font-bold leading-tight tracking-tight">
                             {preview.title}
                         </h2>
+                    ) : null}
+                    {devtoTags.length > 0 ? (
+                        <ul className="mt-2 flex flex-wrap gap-x-3 gap-y-1 font-mono text-xs text-muted-foreground">
+                            {devtoTags.map((tag, index) => (
+                                <li key={`${tag}-${index}`}>#{tag}</li>
+                            ))}
+                        </ul>
                     ) : null}
 
                     {preview.hasText && article ? (

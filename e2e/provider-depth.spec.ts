@@ -209,3 +209,125 @@ test('edits and retains a Bluesky link card with a thumbnail and blocks credenti
     expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([])
     await page.screenshot({ path: info.outputPath('bluesky-card-mobile.png'), fullPage: true })
 })
+
+test('authors DEV.to article metadata without defaulting AI disclosure and rejects invalid canonical URLs or tags', async ({
+    page,
+}, info) => {
+    const { projectId, channelId } = await setup(page, 'devto')
+    const invalid = await page.request.post(`/api/projects/${projectId}/posts`, {
+        data: {
+            title: 'Invalid DEV.to draft',
+            sourceContent: {
+                body: { format: 'markdown', text: '# Draft body' },
+                media: [],
+            },
+            publications: [
+                {
+                    channelId,
+                    deliveryMode: 'manual',
+                    targetContent: {
+                        title: 'Invalid DEV.to draft',
+                        body_markdown: '# Draft body',
+                        media: [],
+                        tags: ['bad-tag'],
+                        canonical_url: 'https://user:secret@example.com/post',
+                    },
+                },
+            ],
+        },
+    })
+    expect(invalid.status()).toBe(201)
+    const invalidPayload = await invalid.json()
+    const invalidBase = `/api/projects/${projectId}/publications/${invalidPayload.publications[0].id}`
+    const invalidEditor = (await (await page.request.get(`${invalidBase}/editor`)).json()).editor
+    expect(invalidEditor.draft.validationIssues).toEqual(
+        expect.arrayContaining([
+            expect.objectContaining({ path: '/tags/0', code: 'devto.tag_invalid' }),
+            expect.objectContaining({
+                path: '/canonical_url',
+                code: 'devto.canonical_url_invalid',
+            }),
+        ])
+    )
+    const promotion = await page.request.post(`${invalidBase}/draft/promote`, {
+        data: { expectedRevision: invalidEditor.draft.revision },
+    })
+    expect(promotion.status()).toBe(400)
+    expect((await promotion.json()).error.code).toBe('invalid_content')
+
+    const created = await page.request.post(`/api/projects/${projectId}/posts`, {
+        data: {
+            title: 'Postdot DEV.to v2 article',
+            sourceContent: {
+                body: { format: 'markdown', text: '# Hello Forem API v1' },
+                media: [],
+            },
+            publications: [{ channelId, deliveryMode: 'manual' }],
+        },
+    })
+    expect(created.status(), await created.text()).toBe(201)
+    const { publications } = await created.json()
+    const base = `/api/projects/${projectId}/publications/${publications[0].id}`
+    const initialEditor = (await (await page.request.get(`${base}/editor`)).json()).editor
+    expect(initialEditor.profile.profile.version).toBe(2)
+    expect(initialEditor.draft.content.ai_disclosure_level).toBeUndefined()
+    expect(initialEditor.draft.content.published).toBeUndefined()
+
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await page.goto(`/dashboard/projects/${projectId}/publications/${publications[0].id}`)
+    const disclosure = page.locator('[data-publication-customization]')
+    if ((await disclosure.getAttribute('open')) === null)
+        await disclosure.locator(':scope > summary').click()
+
+    const tagsField = disclosure.locator('[data-target-field="tags"]')
+    await tagsField.getByRole('button', { name: 'Add value', exact: true }).click()
+    await tagsField.getByLabel('Tags item 1', { exact: true }).fill('typescript')
+    await tagsField.getByRole('button', { name: 'Add value', exact: true }).click()
+    await tagsField.getByLabel('Tags item 2', { exact: true }).fill('postdot')
+
+    await disclosure.getByLabel('Description', { exact: true }).fill('Article SEO summary')
+    await disclosure.getByLabel('Series', { exact: true }).fill('Release Notes')
+    await disclosure
+        .getByLabel('Canonical URL', { exact: true })
+        .fill('https://example.com/original-article')
+    await disclosure.getByLabel('Organization ID', { exact: true }).fill('42')
+
+    await disclosure.getByLabel('AI disclosure level', { exact: true }).click()
+    await page.getByRole('option', { name: 'some_ai', exact: true }).click()
+
+    const publishedGroup = disclosure.locator('[data-target-field="schema:/published"]')
+    await publishedGroup.getByRole('combobox').click()
+    await page.getByRole('option', { name: 'No', exact: true }).click()
+
+    await expect
+        .poll(
+            async () =>
+                (await (await page.request.get(`${base}/editor`)).json()).editor.draft.content
+        )
+        .toMatchObject({
+            tags: ['typescript', 'postdot'],
+            description: 'Article SEO summary',
+            series: 'Release Notes',
+            canonical_url: 'https://example.com/original-article',
+            organization_id: 42,
+            ai_disclosure_level: 'some_ai',
+            published: false,
+        })
+    await expect(page.getByText('Saved', { exact: true })).toBeVisible()
+
+    const preview = page.locator('[data-preview-platform="devto"]')
+    await expect(preview).toContainText('DEV.to draft')
+    await expect(preview).toContainText('Series: Release Notes')
+    await expect(preview).toContainText('#typescript')
+    await expect(preview).toContainText('#postdot')
+
+    await page.reload()
+    await expect(preview).toContainText('Series: Release Notes')
+    await expect(preview).toContainText('#typescript')
+    await page.screenshot({ path: info.outputPath('devto-v2-desktop.png'), fullPage: true })
+    await page.setViewportSize({ width: 390, height: 844 })
+    await preview.scrollIntoViewIfNeeded()
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([])
+    await page.screenshot({ path: info.outputPath('devto-v2-mobile.png'), fullPage: true })
+})

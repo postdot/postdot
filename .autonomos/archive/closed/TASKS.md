@@ -630,3 +630,4 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] **[PROJ-644]** Allow privileged API keys and MCP to create projects and manage project timezones in API and Studio (GH #35, #37) `Priority: 🟠` `Complexity: M` `Completed: 2026-11-14`
 - [x] **[UX-645]** Simplify project and workspace lifecycle confirmation dialogs while preserving ADR-094 safety checks (GH #36) `Priority: 🟠` `Complexity: S` `Completed: 2026-11-14`
 - [x] **[UX-646]** Make internal publication tags visible as removable chips with direct creation and management link (GH #39) `Priority: 🟠` `Complexity: S` `Completed: 2026-11-14`
+- [x] **[DEVTO-647]** Support full Forem/DEV.to article fields (tags, canonical_url, description, series, ai_disclosure_level, published, organization_id) in profile v2, worker, validation, web, and docs (GH #38) `Priority: 🔵` `Complexity: M` `Completed: 2026-11-14` — [Worklog](../../worklogs/2026-11-14-DEVTO-647.md)

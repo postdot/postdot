@@ -3,6 +3,9 @@ import {
     DEVTO_API_BASE_URL,
     DEVTO_DEFAULT_TIMEOUT_MS,
     DEVTO_MAX_BODY_LENGTH,
+    DEVTO_MAX_DESCRIPTION_LENGTH,
+    DEVTO_MAX_SERIES_LENGTH,
+    DEVTO_MAX_TAGS,
     DEVTO_MAX_TITLE_LENGTH,
     type DevtoFetcher,
     type DevtoArticleAnalytics,
@@ -14,6 +17,7 @@ import {
     type DevtoUser,
     type PublishDevtoArticleInput,
 } from './contract'
+import { isDevtoAiDisclosureLevel, isDevtoTagValid, normalizeDevtoHttpUrl } from './profile'
 
 function operationSuccess<Value>(value: Value): DevtoOperationResult<Value> {
     return { kind: 'success', value }
@@ -331,11 +335,103 @@ export function createDevtoPublisher(options: DevtoPublisherOptions = {}): Devto
                 }
             }
 
+            if (input.published !== undefined && typeof input.published !== 'boolean') {
+                return permanentFailure('invalid_input', 'The DEV.to published flag is invalid')
+            }
+
+            let tags: readonly string[] | undefined
+            if (input.tags !== undefined) {
+                if (input.tags.length > DEVTO_MAX_TAGS) {
+                    return permanentFailure(
+                        'invalid_input',
+                        `DEV.to articles support at most ${DEVTO_MAX_TAGS} tags`
+                    )
+                }
+                const seenTags = new Set<string>()
+                for (const tag of input.tags) {
+                    if (!isDevtoTagValid(tag)) {
+                        return permanentFailure(
+                            'invalid_input',
+                            'The DEV.to article tag is invalid'
+                        )
+                    }
+                    const normalizedTag = tag.toLowerCase()
+                    if (seenTags.has(normalizedTag)) {
+                        return permanentFailure(
+                            'invalid_input',
+                            'DEV.to article tags must be unique'
+                        )
+                    }
+                    seenTags.add(normalizedTag)
+                }
+                if (input.tags.length > 0) tags = [...input.tags]
+            }
+
+            let canonicalUrl: string | undefined
+            if (input.canonicalUrl !== undefined) {
+                const normalized = normalizeDevtoHttpUrl(input.canonicalUrl)
+                if (normalized === null) {
+                    return permanentFailure('invalid_input', 'The DEV.to canonical URL is invalid')
+                }
+                canonicalUrl = normalized
+            }
+
+            let description: string | undefined
+            if (input.description !== undefined) {
+                const trimmed = input.description.trim()
+                if (
+                    trimmed.length === 0 ||
+                    input.description.length > DEVTO_MAX_DESCRIPTION_LENGTH
+                ) {
+                    return permanentFailure(
+                        'invalid_input',
+                        'The DEV.to article description is invalid'
+                    )
+                }
+                description = trimmed
+            }
+
+            let series: string | undefined
+            if (input.series !== undefined) {
+                const trimmed = input.series.trim()
+                if (trimmed.length === 0 || input.series.length > DEVTO_MAX_SERIES_LENGTH) {
+                    return permanentFailure('invalid_input', 'The DEV.to article series is invalid')
+                }
+                series = trimmed
+            }
+
+            if (
+                input.aiDisclosureLevel !== undefined &&
+                !isDevtoAiDisclosureLevel(input.aiDisclosureLevel)
+            ) {
+                return permanentFailure(
+                    'invalid_input',
+                    'The DEV.to AI disclosure level is invalid'
+                )
+            }
+
+            if (
+                input.organizationId !== undefined &&
+                (!Number.isSafeInteger(input.organizationId) || input.organizationId < 1)
+            ) {
+                return permanentFailure('invalid_input', 'The DEV.to organization ID is invalid')
+            }
+
             const article = {
                 title: input.title,
                 body_markdown: input.bodyMarkdown,
-                published: true,
+                published: input.published ?? true,
                 ...(mainImageUrl === undefined ? {} : { main_image: mainImageUrl }),
+                ...(tags === undefined ? {} : { tags }),
+                ...(canonicalUrl === undefined ? {} : { canonical_url: canonicalUrl }),
+                ...(description === undefined ? {} : { description }),
+                ...(series === undefined ? {} : { series }),
+                ...(input.aiDisclosureLevel === undefined
+                    ? {}
+                    : { ai_disclosure_level: input.aiDisclosureLevel }),
+                ...(input.organizationId === undefined
+                    ? {}
+                    : { organization_id: input.organizationId }),
             }
             const result = await request(
                 '/api/articles',

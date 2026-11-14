@@ -27,7 +27,7 @@ import {
     type TaxonomyStore,
     type UserAvatarStore,
 } from '@postdot/db'
-import type { DevtoFetcher } from '@postdot/devto'
+import { devtoChannelProfileValidationAdapter, type DevtoFetcher } from '@postdot/devto'
 import type { DiscordFetcher } from '@postdot/discord'
 import { facebookChannelProfileValidationAdapter } from '@postdot/facebook'
 import { instagramChannelProfileValidationAdapter } from '@postdot/instagram'
@@ -187,6 +187,7 @@ function createDomainApp({
             new ChannelProfileCompiler({
                 validationAdapters: [
                     blueskyChannelProfileValidationAdapter,
+                    devtoChannelProfileValidationAdapter,
                     xChannelProfileValidationAdapter,
                     telegramChannelProfileValidationAdapter,
                     facebookChannelProfileValidationAdapter,

@@ -28,6 +28,24 @@ Use the DEV.to article profile and review its title, body and other required fie
 in Studio. An article is not interchangeable with a short social-network message;
 check the destination version before scheduling shared source content.
 
+The shipped DEV.to article profile supports Forem's `POST /api/articles` options
+while keeping media and scheduling under Postdot control:
+
+- **Tags** (`tags`): up to 4 alphanumeric tags, at most 30 characters each.
+- **Description** (`description`): short summary used for article previews and meta tags.
+- **Series** (`series`): series name to group related articles on DEV.to.
+- **Canonical URL** (`canonical_url`): original HTTP or HTTPS URL if published elsewhere first.
+- **AI disclosure level** (`ai_disclosure_level`): optional (`not_disclosed`, `no_ai`,
+  `some_ai`, or `fully_autonomous`); left unset unless explicitly selected.
+- **Publish immediately** (`published`): publishes live by default when omitted or set to
+  **Yes**; set to **No** to create an unpublished draft on DEV.to instead.
+- **Organization ID** (`organization_id`): positive numeric DEV.to organization identifier.
+
+The cover image remains governed by Postdot **Media** attachments (`media`), and release
+timing remains owned by Postdot scheduling rather than a separate remote `published_at`
+field. Existing channels using the earlier v1 profile can load and activate the updated
+shipped template under **Channels → Edit profile**.
+
 ## If the connection fails
 
 An invalid-connection error can mean the key was rejected or no longer works.

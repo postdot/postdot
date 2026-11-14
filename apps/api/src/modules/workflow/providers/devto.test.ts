@@ -3,9 +3,11 @@ import { createHash } from 'node:crypto'
 
 import type { PublisherExecutionMedia, PublisherExecutionTarget } from '@postdot/db'
 import type { DevtoPublishOutcome, DevtoPublisher } from '@postdot/devto'
-import { devtoChannelProfile } from '@postdot/devto'
+import { devtoArticleV1ChannelProfile, devtoChannelProfile } from '@postdot/devto'
 
+import { createDevtoAdapters } from '../../../providers/devto/module'
 import { createDevtoProviderAdapter } from '../../../providers/devto/worker'
+import type { ProviderWorkerContext } from '../../../providers/worker-context'
 import type {
     BuiltInProviderExecutionInput,
     ProviderMediaDeliveryPort,
@@ -265,6 +267,114 @@ describe('DEV.to provider adapter', () => {
             })
         )
         await expect(unavailable.adapter.execute(unavailable.input)).resolves.toMatchObject({
+            type: 'permanent_failure',
+        })
+        expect(dispatched).toBe(false)
+    })
+
+    it('registers both article-v1 and article-v2 adapters and forwards optional Forem article fields', async () => {
+        const adapters = createDevtoAdapters({} as ProviderWorkerContext)
+        expect(adapters.map(item => item.revision)).toEqual(['article-v1', 'article-v2'])
+
+        let publishedInput: Parameters<DevtoPublisher['publishArticle']>[0] | undefined
+        const publisher: DevtoPublisher = {
+            async getMe() {
+                return {
+                    kind: 'success',
+                    value: { id: '42', username: 'postdot', name: 'Postdot' },
+                }
+            },
+            async getArticleAnalytics() {
+                return {
+                    kind: 'success',
+                    value: { articleId: '1', comments: 0, reactions: 0, pageViews: 0 },
+                }
+            },
+            async publishArticle(input) {
+                publishedInput = input
+                return { type: 'published', externalId: 'article-99' }
+            },
+        }
+
+        const v2 = executeWith(
+            publisher,
+            createTarget({
+                content: {
+                    title: 'Postdot v2 release notes',
+                    body_markdown: '# Details',
+                    media: [],
+                    tags: ['typescript', 'bun'],
+                    canonical_url: 'https://example.com/v2-notes',
+                    description: 'Release overview',
+                    series: 'Postdot Releases',
+                    ai_disclosure_level: 'no_ai',
+                    published: false,
+                    organization_id: 12,
+                },
+            })
+        )
+        await expect(v2.adapter.execute(v2.input)).resolves.toEqual({
+            type: 'published',
+            externalId: 'article-99',
+        })
+        expect(publishedInput).toEqual({
+            apiKey: API_KEY,
+            title: 'Postdot v2 release notes',
+            bodyMarkdown: '# Details',
+            tags: ['typescript', 'bun'],
+            canonicalUrl: 'https://example.com/v2-notes',
+            description: 'Release overview',
+            series: 'Postdot Releases',
+            aiDisclosureLevel: 'no_ai',
+            published: false,
+            organizationId: 12,
+        })
+
+        const v1 = executeWith(
+            publisher,
+            createTarget({
+                profile: devtoArticleV1ChannelProfile,
+            })
+        )
+        await expect(v1.adapter.execute(v1.input)).resolves.toEqual({
+            type: 'published',
+            externalId: 'article-99',
+        })
+    })
+
+    it('rejects malformed optional DEV.to target fields before dispatch', async () => {
+        let dispatched = false
+        const publisher: DevtoPublisher = {
+            async getMe() {
+                return {
+                    kind: 'success',
+                    value: { id: '42', username: 'postdot', name: 'Postdot' },
+                }
+            },
+            async getArticleAnalytics() {
+                return {
+                    kind: 'success',
+                    value: { articleId: '1', comments: 0, reactions: 0, pageViews: 0 },
+                }
+            },
+            async publishArticle() {
+                dispatched = true
+                return { type: 'published', externalId: 'article-99' }
+            },
+        }
+
+        const malformed = executeWith(
+            publisher,
+            createTarget({
+                content: {
+                    title: 'Postdot article',
+                    body_markdown: '# Details',
+                    media: [],
+                    organization_id: 'not-a-number',
+                },
+            })
+        )
+        await expect(malformed.adapter.execute(malformed.input)).resolves.toMatchObject({
             type: 'permanent_failure',
         })
         expect(dispatched).toBe(false)

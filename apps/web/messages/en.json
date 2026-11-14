@@ -1979,6 +1979,13 @@
     "editor_field_required": "Enter {field}.",
     "editor_field_min_length": "Use at least {count} characters.",
     "editor_field_max_length": "Use no more than {count} characters.",
+    "editor_field_minimum": "Enter a value of at least {count}.",
+    "editor_field_devto_canonical_url": "Enter a valid HTTP or HTTPS URL without embedded credentials.",
+    "editor_field_devto_tag": "DEV.to tags must contain 1 to 30 letters or numbers.",
+    "editor_field_devto_tags_duplicate": "Remove duplicate DEV.to tags.",
+    "editor_field_devto_text_blank": "Enter a non-blank value or clear this field.",
+    "publication_preview_devto_draft": "DEV.to draft",
+    "publication_preview_devto_series": "Series: {series}",
     "editor_field_invalid": "Check this value.",
     "editor_validation_diagnostics": "Validation details",
     "editor_field_min_items": [

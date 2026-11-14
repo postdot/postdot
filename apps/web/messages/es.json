@@ -1979,6 +1979,13 @@
     "editor_field_required": "Introduce {field}.",
     "editor_field_min_length": "Usa al menos {count} caracteres.",
     "editor_field_max_length": "Usa no más de {count} caracteres.",
+    "editor_field_minimum": "Introduce un valor de al menos {count}.",
+    "editor_field_devto_canonical_url": "Introduce una URL HTTP o HTTPS válida sin credenciales integradas.",
+    "editor_field_devto_tag": "Las etiquetas de DEV.to deben contener entre 1 y 30 letras o números.",
+    "editor_field_devto_tags_duplicate": "Elimina las etiquetas de DEV.to duplicadas.",
+    "editor_field_devto_text_blank": "Introduce un valor no vacío o limpia este campo.",
+    "publication_preview_devto_draft": "Borrador de DEV.to",
+    "publication_preview_devto_series": "Serie: {series}",
     "editor_field_invalid": "Comprueba este valor.",
     "editor_validation_diagnostics": "Detalles de validación",
     "editor_field_min_items": [

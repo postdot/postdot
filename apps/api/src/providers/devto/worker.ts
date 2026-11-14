@@ -1,10 +1,12 @@
 import type { ExternalEffectOutcome } from '@postdot/core'
 import type { PublisherExecutionTarget } from '@postdot/db'
 import {
+    type DEVTO_ARTICLE_V1_EXECUTION_CONTRACT_REVISION,
     DEVTO_EXECUTION_CONTRACT_REVISION,
     DEVTO_MAX_IMAGES,
     DEVTO_PROVIDER,
     createDevtoPublisher,
+    readDevtoArticleOptionalContent,
     readDevtoBodyContent,
     readDevtoTitleContent,
     type DevtoFetcher,
@@ -22,7 +24,12 @@ import type {
     BuiltInProviderExecutionInput,
 } from '../../modules/workflow/providers/registry'
 
+export type DevtoExecutionRevision =
+    | typeof DEVTO_ARTICLE_V1_EXECUTION_CONTRACT_REVISION
+    | typeof DEVTO_EXECUTION_CONTRACT_REVISION
+
 export interface DevtoProviderAdapterOptions {
+    readonly revision?: DevtoExecutionRevision
     readonly createPublisher?: () => DevtoPublisher
     readonly fetcher?: DevtoFetcher
 }
@@ -33,7 +40,7 @@ export function createDevtoProviderAdapter(
     return {
         providerId: DEVTO_PROVIDER,
         contractId: DEVTO_PROVIDER,
-        revision: DEVTO_EXECUTION_CONTRACT_REVISION,
+        revision: options.revision ?? DEVTO_EXECUTION_CONTRACT_REVISION,
         execute: input =>
             executeDevtoPublication({
                 input,
@@ -84,6 +91,11 @@ async function executeDevtoPublication(input: {
         )
     }
 
+    const optional = readDevtoArticleOptionalContent(target.content)
+    if (!optional.ok) {
+        return permanentFailure(optional.message)
+    }
+
     const mainImageUrl = await resolveMainImageUrl(execution)
     if (mainImageUrl.kind === 'failed') return mainImageUrl.outcome
 
@@ -93,6 +105,7 @@ async function executeDevtoPublication(input: {
             apiKey: secrets.accessToken,
             title,
             bodyMarkdown,
+            ...optional.options,
             ...(mainImageUrl.url === undefined ? {} : { mainImageUrl: mainImageUrl.url }),
         })
     } catch {
