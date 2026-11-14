@@ -21,7 +21,7 @@
 
 - [ ] **[UX-661]** Calendar filter by channel and state, and "Move by…" bulk reschedule (audit C10 remainder, C11) `Priority: ⚪` `Complexity: M`
 
-- [ ] **[UX-662]** Queue: undo after Mark published with a Published history tab (needs API), hide filters when empty, two-line mobile rows (audit Q4–Q6) `Priority: 🟠` `Complexity: M`
+- [/] **[UX-662]** Queue: Published history tab, hide filters when empty, two-line mobile rows (audit Q4–Q6; undo of Mark published done in Studio, API, MCP, CLI) `Priority: 🟠` `Complexity: M`
 
 ## Current direction
 
