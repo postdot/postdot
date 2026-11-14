@@ -1,4 +1,8 @@
-import type { PostdotAuth } from '@postdot/auth'
+import {
+    createPostdotAuthServerActions,
+    type PostdotAuth,
+    type PostdotAuthServerActions,
+} from '@postdot/auth'
 import type { ResourceLifecycleStore } from '@postdot/db'
 import type { AccessStore } from '@postdot/db'
 import { filterSequential } from '@postdot/db'
@@ -138,7 +142,7 @@ const workspaceForbiddenResponse = () => ({
 const workspaceAdminForbiddenResponse = () => ({
     error: {
         code: 'forbidden',
-        message: 'A workspace owner or administrator session is required',
+        message: 'A workspace owner or administrator role is required',
     },
 })
 
@@ -250,14 +254,12 @@ function isDefaultWorkspaceTeam(workspaceId: string, teamId: string): boolean {
 }
 
 async function findWorkspaceTeam(
-    auth: PostdotAuth,
+    serverActions: PostdotAuthServerActions,
     workspace: NonNullable<Awaited<ReturnType<AccessStore['getWorkspace']>>>,
-    teamId: string,
-    headers: Headers
+    teamId: string
 ) {
-    const teams = await auth.api.listOrganizationTeams({
-        query: { organizationId: workspace.organizationId },
-        headers,
+    const teams = await serverActions.listOrganizationTeams({
+        organizationId: workspace.organizationId,
     })
     return teams.find(team => team.id === teamId) ?? null
 }
@@ -266,7 +268,7 @@ function toWorkspaceInvitation(invitation: {
     readonly id: string
     readonly email: string
     readonly role: string
-    readonly teamId?: string
+    readonly teamId?: string | null
     readonly inviterId: string
     readonly status: string
     readonly expiresAt: Date
@@ -276,7 +278,9 @@ function toWorkspaceInvitation(invitation: {
         id: invitation.id,
         email: invitation.email,
         role: invitation.role,
-        ...(invitation.teamId === undefined ? {} : { teamId: invitation.teamId }),
+        ...(typeof invitation.teamId === 'string' && invitation.teamId.length > 0
+            ? { teamId: invitation.teamId }
+            : {}),
         inviterId: invitation.inviterId,
         status: invitation.status,
         expiresAt: invitation.expiresAt.getTime(),
@@ -306,6 +310,8 @@ export function registerWorkspaceRoutes<const Routes extends Record<string, unkn
     access: AccessStore,
     lifecycle?: ResourceLifecycleStore
 ) {
+    const serverActions = createPostdotAuthServerActions(auth)
+
     return app
         .post(
             '/api/workspaces',
@@ -324,16 +330,14 @@ export function registerWorkspaceRoutes<const Routes extends Record<string, unkn
                     operationId: 'createWorkspace',
                     summary: 'Create a workspace for the Postdot instance',
                     tags: ['Access'],
-                    security: sessionSecurity,
                 },
             },
-            async ({ authMethod, body, request, status, user }) => {
-                if (authMethod !== 'session') return status(403, sessionOnlyForbiddenResponse())
+            async ({ body, status, user }) => {
                 if (!(await access.isInstanceAdmin(user.id))) {
                     return status(403, {
                         error: {
                             code: 'forbidden',
-                            message: 'An instance administrator session is required',
+                            message: 'An instance administrator role is required',
                         },
                     })
                 }
@@ -391,9 +395,8 @@ export function registerWorkspaceRoutes<const Routes extends Record<string, unkn
                     })
                 } catch {
                     try {
-                        await auth.api.deleteOrganization({
-                            body: { organizationId: organization.id },
-                            headers: request.headers,
+                        await serverActions.deleteOrganization({
+                            organizationId: organization.id,
                         })
                     } catch {
                         // Leave the original failure visible; a retry can be
@@ -454,11 +457,9 @@ export function registerWorkspaceRoutes<const Routes extends Record<string, unkn
                     operationId: 'getWorkspace',
                     summary: 'Get a workspace and its groups',
                     tags: ['Access'],
-                    security: sessionSecurity,
                 },
             },
-            async ({ authMethod, params, request, status, user }) => {
-                if (authMethod !== 'session') return status(403, sessionOnlyForbiddenResponse())
+            async ({ params, status, user }) => {
                 const workspace = await access.getWorkspace(params.workspaceId)
                 if (workspace === null) {
                     return status(404, {
@@ -471,13 +472,11 @@ export function registerWorkspaceRoutes<const Routes extends Record<string, unkn
 
                 try {
                     const [members, teams] = await Promise.all([
-                        auth.api.listMembers({
-                            query: { organizationId: workspace.organizationId, limit: 1_000 },
-                            headers: request.headers,
+                        serverActions.listOrganizationMembers({
+                            organizationId: workspace.organizationId,
                         }),
-                        auth.api.listOrganizationTeams({
-                            query: { organizationId: workspace.organizationId },
-                            headers: request.headers,
+                        serverActions.listOrganizationTeams({
+                            organizationId: workspace.organizationId,
                         }),
                     ])
                     return {
@@ -513,11 +512,9 @@ export function registerWorkspaceRoutes<const Routes extends Record<string, unkn
                     operationId: 'updateWorkspaceMemberRole',
                     summary: 'Update a workspace member role',
                     tags: ['Access'],
-                    security: sessionSecurity,
                 },
             },
-            async ({ authMethod, body, params, request, status, user }) => {
-                if (authMethod !== 'session') return status(403, sessionOnlyForbiddenResponse())
+            async ({ body, params, status, user }) => {
                 const workspace = await access.getWorkspace(params.workspaceId)
                 if (workspace === null) {
                     return status(404, {
@@ -529,9 +526,8 @@ export function registerWorkspaceRoutes<const Routes extends Record<string, unkn
                 }
 
                 try {
-                    const members = await auth.api.listMembers({
-                        query: { organizationId: workspace.organizationId, limit: 1_000 },
-                        headers: request.headers,
+                    const members = await serverActions.listOrganizationMembers({
+                        organizationId: workspace.organizationId,
                     })
                     const member = members.members.find(
                         candidate => candidate.id === params.memberId
@@ -564,24 +560,11 @@ export function registerWorkspaceRoutes<const Routes extends Record<string, unkn
                         return status(409, workspaceLastAdminResponse())
                     }
 
-                    await auth.api.updateMemberRole({
-                        body: {
-                            memberId: member.id,
-                            role: body.role,
-                            organizationId: workspace.organizationId,
-                        },
-                        headers: request.headers,
+                    const updated = await serverActions.updateOrganizationMemberRole({
+                        memberId: member.id,
+                        role: body.role,
+                        organizationId: workspace.organizationId,
                     })
-                    const updatedMembers = await auth.api.listMembers({
-                        query: { organizationId: workspace.organizationId, limit: 1_000 },
-                        headers: request.headers,
-                    })
-                    const updated = updatedMembers.members.find(
-                        candidate => candidate.id === member.id
-                    )
-                    if (updated === undefined) {
-                        return status(503, workspaceOperationFailedResponse())
-                    }
                     return { member: toWorkspaceMember(updated) }
                 } catch {
                     return status(503, workspaceOperationFailedResponse())
@@ -605,11 +588,9 @@ export function registerWorkspaceRoutes<const Routes extends Record<string, unkn
                     operationId: 'removeWorkspaceMember',
                     summary: 'Remove a member from a workspace',
                     tags: ['Access'],
-                    security: sessionSecurity,
                 },
             },
-            async ({ authMethod, params, request, status, user }) => {
-                if (authMethod !== 'session') return status(403, sessionOnlyForbiddenResponse())
+            async ({ params, status, user }) => {
                 const workspace = await access.getWorkspace(params.workspaceId)
                 if (workspace === null) {
                     return status(404, {
@@ -621,9 +602,8 @@ export function registerWorkspaceRoutes<const Routes extends Record<string, unkn
                 }
 
                 try {
-                    const members = await auth.api.listMembers({
-                        query: { organizationId: workspace.organizationId, limit: 1_000 },
-                        headers: request.headers,
+                    const members = await serverActions.listOrganizationMembers({
+                        organizationId: workspace.organizationId,
                     })
                     const member = members.members.find(
                         candidate => candidate.id === params.memberId
@@ -640,9 +620,8 @@ export function registerWorkspaceRoutes<const Routes extends Record<string, unkn
                         return status(409, workspaceSelfRemovalResponse())
                     }
 
-                    const teams = await auth.api.listOrganizationTeams({
-                        query: { organizationId: workspace.organizationId },
-                        headers: request.headers,
+                    const teams = await serverActions.listOrganizationTeams({
+                        organizationId: workspace.organizationId,
                     })
                     const teamMemberships: { teamId: string; userId: string }[] = []
                     for (const team of teams) {
@@ -656,22 +635,16 @@ export function registerWorkspaceRoutes<const Routes extends Record<string, unkn
                     }
                     await Promise.all(
                         teamMemberships.map(teamMember =>
-                            auth.api.removeTeamMember({
-                                body: {
-                                    teamId: teamMember.teamId,
-                                    userId: teamMember.userId,
-                                    organizationId: workspace.organizationId,
-                                },
-                                headers: request.headers,
+                            serverActions.removeOrganizationTeamMember({
+                                teamId: teamMember.teamId,
+                                userId: teamMember.userId,
+                                organizationId: workspace.organizationId,
                             })
                         )
                     )
-                    await auth.api.removeMember({
-                        body: {
-                            memberIdOrEmail: member.id,
-                            organizationId: workspace.organizationId,
-                        },
-                        headers: request.headers,
+                    await serverActions.removeOrganizationMember({
+                        memberIdOrEmail: member.id,
+                        organizationId: workspace.organizationId,
                     })
                     return { removed: true }
                 } catch {
@@ -697,11 +670,9 @@ export function registerWorkspaceRoutes<const Routes extends Record<string, unkn
                     operationId: 'createWorkspaceTeam',
                     summary: 'Create a workspace group',
                     tags: ['Access'],
-                    security: sessionSecurity,
                 },
             },
-            async ({ authMethod, body, params, request, status, user }) => {
-                if (authMethod !== 'session') return status(403, sessionOnlyForbiddenResponse())
+            async ({ body, params, status, user }) => {
                 const workspace = await access.getWorkspace(params.workspaceId)
                 if (workspace === null) {
                     return status(404, {
@@ -719,9 +690,9 @@ export function registerWorkspaceRoutes<const Routes extends Record<string, unkn
                 }
 
                 try {
-                    const team = await auth.api.createTeam({
-                        body: { name, organizationId: workspace.organizationId },
-                        headers: request.headers,
+                    const team = await serverActions.createOrganizationTeam({
+                        name,
+                        organizationId: workspace.organizationId,
                     })
                     return status(201, { team: toWorkspaceTeam(team, workspace.id) })
                 } catch {
@@ -747,11 +718,9 @@ export function registerWorkspaceRoutes<const Routes extends Record<string, unkn
                     operationId: 'renameWorkspaceTeam',
                     summary: 'Rename a workspace group',
                     tags: ['Access'],
-                    security: sessionSecurity,
                 },
             },
-            async ({ authMethod, body, params, request, status, user }) => {
-                if (authMethod !== 'session') return status(403, sessionOnlyForbiddenResponse())
+            async ({ body, params, status, user }) => {
                 const workspace = await access.getWorkspace(params.workspaceId)
                 if (workspace === null) {
                     return status(404, {
@@ -770,22 +739,19 @@ export function registerWorkspaceRoutes<const Routes extends Record<string, unkn
 
                 try {
                     const existing = await findWorkspaceTeam(
-                        auth,
+                        serverActions,
                         workspace,
-                        params.teamId,
-                        request.headers
+                        params.teamId
                     )
                     if (existing === null) {
                         return status(404, {
                             error: { code: 'not_found', message: 'Workspace group not found' },
                         })
                     }
-                    const team = await auth.api.updateTeam({
-                        body: {
-                            teamId: existing.id,
-                            data: { name, organizationId: workspace.organizationId },
-                        },
-                        headers: request.headers,
+                    const team = await serverActions.updateOrganizationTeam({
+                        teamId: existing.id,
+                        name,
+                        organizationId: workspace.organizationId,
                     })
                     return { team: toWorkspaceTeam(team, workspace.id) }
                 } catch {
@@ -809,11 +775,9 @@ export function registerWorkspaceRoutes<const Routes extends Record<string, unkn
                     operationId: 'listWorkspaceTeamMembers',
                     summary: 'List members of a workspace group',
                     tags: ['Access'],
-                    security: sessionSecurity,
                 },
             },
-            async ({ authMethod, params, request, status, user }) => {
-                if (authMethod !== 'session') return status(403, sessionOnlyForbiddenResponse())
+            async ({ params, status, user }) => {
                 const workspace = await access.getWorkspace(params.workspaceId)
                 if (workspace === null) {
                     return status(404, {
@@ -825,12 +789,7 @@ export function registerWorkspaceRoutes<const Routes extends Record<string, unkn
                 }
 
                 try {
-                    const team = await findWorkspaceTeam(
-                        auth,
-                        workspace,
-                        params.teamId,
-                        request.headers
-                    )
+                    const team = await findWorkspaceTeam(serverActions, workspace, params.teamId)
                     if (team === null) {
                         return status(404, {
                             error: { code: 'not_found', message: 'Workspace group not found' },
@@ -864,11 +823,9 @@ export function registerWorkspaceRoutes<const Routes extends Record<string, unkn
                     operationId: 'addWorkspaceTeamMember',
                     summary: 'Add a member to a workspace group',
                     tags: ['Access'],
-                    security: sessionSecurity,
                 },
             },
-            async ({ authMethod, body, params, request, status, user }) => {
-                if (authMethod !== 'session') return status(403, sessionOnlyForbiddenResponse())
+            async ({ body, params, status, user }) => {
                 const workspace = await access.getWorkspace(params.workspaceId)
                 if (workspace === null) {
                     return status(404, {
@@ -880,12 +837,7 @@ export function registerWorkspaceRoutes<const Routes extends Record<string, unkn
                 }
 
                 try {
-                    const team = await findWorkspaceTeam(
-                        auth,
-                        workspace,
-                        params.teamId,
-                        request.headers
-                    )
+                    const team = await findWorkspaceTeam(serverActions, workspace, params.teamId)
                     if (team === null) {
                         return status(404, {
                             error: { code: 'not_found', message: 'Workspace group not found' },
@@ -899,13 +851,10 @@ export function registerWorkspaceRoutes<const Routes extends Record<string, unkn
                             },
                         })
                     }
-                    const member = await auth.api.addTeamMember({
-                        body: {
-                            organizationId: workspace.organizationId,
-                            teamId: team.id,
-                            userId: body.userId,
-                        },
-                        headers: request.headers,
+                    const member = await serverActions.addOrganizationTeamMember({
+                        organizationId: workspace.organizationId,
+                        teamId: team.id,
+                        userId: body.userId,
                     })
                     return { member: toWorkspaceTeamMember(member) }
                 } catch {
@@ -929,11 +878,9 @@ export function registerWorkspaceRoutes<const Routes extends Record<string, unkn
                     operationId: 'removeWorkspaceTeamMember',
                     summary: 'Remove a member from a workspace group',
                     tags: ['Access'],
-                    security: sessionSecurity,
                 },
             },
-            async ({ authMethod, params, request, status, user }) => {
-                if (authMethod !== 'session') return status(403, sessionOnlyForbiddenResponse())
+            async ({ params, status, user }) => {
                 const workspace = await access.getWorkspace(params.workspaceId)
                 if (workspace === null) {
                     return status(404, {
@@ -945,24 +892,16 @@ export function registerWorkspaceRoutes<const Routes extends Record<string, unkn
                 }
 
                 try {
-                    const team = await findWorkspaceTeam(
-                        auth,
-                        workspace,
-                        params.teamId,
-                        request.headers
-                    )
+                    const team = await findWorkspaceTeam(serverActions, workspace, params.teamId)
                     if (team === null) {
                         return status(404, {
                             error: { code: 'not_found', message: 'Workspace group not found' },
                         })
                     }
-                    await auth.api.removeTeamMember({
-                        body: {
-                            organizationId: workspace.organizationId,
-                            teamId: team.id,
-                            userId: params.userId,
-                        },
-                        headers: request.headers,
+                    await serverActions.removeOrganizationTeamMember({
+                        organizationId: workspace.organizationId,
+                        teamId: team.id,
+                        userId: params.userId,
                     })
                     return { removed: true }
                 } catch {
@@ -986,11 +925,9 @@ export function registerWorkspaceRoutes<const Routes extends Record<string, unkn
                     operationId: 'listWorkspaceInvitations',
                     summary: 'List pending workspace invitations',
                     tags: ['Access'],
-                    security: sessionSecurity,
                 },
             },
-            async ({ authMethod, params, request, status, user }) => {
-                if (authMethod !== 'session') return status(403, sessionOnlyForbiddenResponse())
+            async ({ params, status, user }) => {
                 const workspace = await access.getWorkspace(params.workspaceId)
                 if (workspace === null) {
                     return status(404, {
@@ -1002,9 +939,8 @@ export function registerWorkspaceRoutes<const Routes extends Record<string, unkn
                 }
 
                 try {
-                    const invitations = await auth.api.listInvitations({
-                        query: { organizationId: workspace.organizationId },
-                        headers: request.headers,
+                    const invitations = await serverActions.listOrganizationInvitations({
+                        organizationId: workspace.organizationId,
                     })
                     return {
                         invitations: invitations
@@ -1035,11 +971,9 @@ export function registerWorkspaceRoutes<const Routes extends Record<string, unkn
                     operationId: 'createWorkspaceInvitation',
                     summary: 'Invite a member to a workspace group',
                     tags: ['Access'],
-                    security: sessionSecurity,
                 },
             },
-            async ({ authMethod, body, params, request, status, user }) => {
-                if (authMethod !== 'session') return status(403, sessionOnlyForbiddenResponse())
+            async ({ body, params, status, user }) => {
                 const workspace = await access.getWorkspace(params.workspaceId)
                 if (workspace === null) {
                     return status(404, {
@@ -1051,15 +985,13 @@ export function registerWorkspaceRoutes<const Routes extends Record<string, unkn
                 }
 
                 try {
-                    const invitation = await auth.api.createInvitation({
-                        body: {
-                            email: body.email.trim().toLowerCase(),
-                            role: body.role ?? 'member',
-                            organizationId: workspace.organizationId,
-                            ...(body.resend === undefined ? {} : { resend: body.resend }),
-                            ...(body.teamId === undefined ? {} : { teamId: body.teamId }),
-                        },
-                        headers: request.headers,
+                    const invitation = await serverActions.createOrganizationInvitation({
+                        email: body.email.trim().toLowerCase(),
+                        role: body.role ?? 'member',
+                        organizationId: workspace.organizationId,
+                        inviterUserId: user.id,
+                        ...(body.resend === undefined ? {} : { resend: body.resend }),
+                        ...(body.teamId === undefined ? {} : { teamId: body.teamId }),
                     })
                     return status(201, { invitation: toWorkspaceInvitation(invitation) })
                 } catch {
@@ -1084,11 +1016,9 @@ export function registerWorkspaceRoutes<const Routes extends Record<string, unkn
                     operationId: 'cancelWorkspaceInvitation',
                     summary: 'Cancel a workspace invitation',
                     tags: ['Access'],
-                    security: sessionSecurity,
                 },
             },
-            async ({ authMethod, params, request, status, user }) => {
-                if (authMethod !== 'session') return status(403, sessionOnlyForbiddenResponse())
+            async ({ params, status, user }) => {
                 const workspace = await access.getWorkspace(params.workspaceId)
                 if (workspace === null) {
                     return status(404, {
@@ -1100,9 +1030,8 @@ export function registerWorkspaceRoutes<const Routes extends Record<string, unkn
                 }
 
                 try {
-                    const invitations = await auth.api.listInvitations({
-                        query: { organizationId: workspace.organizationId },
-                        headers: request.headers,
+                    const invitations = await serverActions.listOrganizationInvitations({
+                        organizationId: workspace.organizationId,
                     })
                     const invitation = invitations.find(item => item.id === params.invitationId)
                     if (invitation === undefined) {
@@ -1110,9 +1039,8 @@ export function registerWorkspaceRoutes<const Routes extends Record<string, unkn
                             error: { code: 'not_found', message: 'Workspace invitation not found' },
                         })
                     }
-                    const canceled = await auth.api.cancelInvitation({
-                        body: { invitationId: params.invitationId },
-                        headers: request.headers,
+                    const canceled = await serverActions.cancelOrganizationInvitation({
+                        invitationId: params.invitationId,
                     })
                     return { invitation: toWorkspaceInvitation(canceled) }
                 } catch {

@@ -9,6 +9,11 @@ export const postdotApiKeyCapabilities = [
     'media:manage',
     'analytics:refresh',
     'media:permanently_delete',
+    'project:access_manage',
+    'publication:approve',
+    'workspace:manage',
+    'api_key:manage',
+    'instance:admin',
 ] as const
 
 export type PostdotApiKeyCapability = (typeof postdotApiKeyCapabilities)[number]
@@ -35,6 +40,11 @@ const capabilityStatements: Record<PostdotApiKeyCapability, readonly [string, st
     'media:manage': ['media', 'manage'],
     'analytics:refresh': ['analytics', 'refresh'],
     'media:permanently_delete': ['media', 'permanently_delete'],
+    'project:access_manage': ['project', 'access_manage'],
+    'publication:approve': ['publication', 'approve'],
+    'workspace:manage': ['workspace', 'manage'],
+    'api_key:manage': ['api_key', 'manage'],
+    'instance:admin': ['instance', 'admin'],
 }
 
 export function permissionsForCapabilities(
@@ -67,16 +77,171 @@ export function capabilitiesForPermissions(
     })
 }
 
+const nonInteractiveConnectProviders = new Set(['custom-http', 'devto', 'discord', 'telegram'])
+
 /**
  * Translate an API request to one explicitly allowed capability. Unknown
  * and session-only routes return null and therefore fail closed for all keys.
  */
-export function requiredApiKeyCapability(method: string, requestPath: string) {
+export function requiredApiKeyCapability(
+    method: string,
+    requestPath: string
+): PostdotApiKeyCapability | null {
     const normalizedMethod = method.toUpperCase()
     const segments = requestPath.split('?')[0]?.split('/').filter(Boolean) ?? []
 
-    if (segments[0] === 'api' && segments[1] === 'workspaces') {
+    if (segments[0] !== 'api') return null
+
+    if (segments[1] === 'access') {
         if (segments.length === 2 && normalizedMethod === 'GET') return 'project:read'
+        if (segments[2] === 'members') {
+            if (
+                segments.length === 3 &&
+                (normalizedMethod === 'GET' || normalizedMethod === 'POST')
+            )
+                return 'instance:admin'
+            if (segments.length === 4 && normalizedMethod === 'PATCH') return 'instance:admin'
+            if (segments.length === 5 && segments[4] === 'api-keys' && normalizedMethod === 'GET')
+                return 'instance:admin'
+            if (
+                segments.length === 6 &&
+                segments[4] === 'api-keys' &&
+                normalizedMethod === 'DELETE'
+            )
+                return 'instance:admin'
+            return null
+        }
+        if (segments[2] === 'invitations') {
+            if (
+                segments.length === 3 &&
+                (normalizedMethod === 'GET' || normalizedMethod === 'POST')
+            )
+                return 'instance:admin'
+            if (segments.length === 4 && segments[3] !== 'accept' && normalizedMethod === 'DELETE')
+                return 'instance:admin'
+            return null
+        }
+        return null
+    }
+
+    if (segments[1] === 'api-keys') {
+        if (segments.length === 2 && (normalizedMethod === 'GET' || normalizedMethod === 'POST'))
+            return 'api_key:manage'
+        if (
+            segments.length === 3 &&
+            (normalizedMethod === 'PATCH' || normalizedMethod === 'DELETE')
+        )
+            return 'api_key:manage'
+        return null
+    }
+
+    if (segments[1] === 'categories') {
+        if (segments.length === 2) {
+            if (normalizedMethod === 'GET') return 'project:read'
+            if (normalizedMethod === 'POST') return 'instance:admin'
+            return null
+        }
+        if (segments.length === 3 && normalizedMethod === 'PATCH') return 'instance:admin'
+        if (
+            segments.length === 4 &&
+            ['archive', 'restore'].includes(segments[3]!) &&
+            normalizedMethod === 'POST'
+        ) {
+            return 'instance:admin'
+        }
+        return null
+    }
+
+    if (segments[1] === 'search') {
+        return segments.length === 2 && normalizedMethod === 'GET' ? 'project:read' : null
+    }
+
+    if (segments[1] === 'resource-removals') {
+        return segments.length === 2 && normalizedMethod === 'GET' ? 'project:read' : null
+    }
+
+    if (segments[1] === 'settings') {
+        if (segments[2] === 'email') {
+            if (segments.length === 3 && (normalizedMethod === 'GET' || normalizedMethod === 'PUT'))
+                return 'instance:admin'
+            if (segments.length === 4 && segments[3] === 'test' && normalizedMethod === 'POST')
+                return 'instance:admin'
+            return null
+        }
+        if (segments[2] === 'recovery') {
+            if (segments.length === 3 && normalizedMethod === 'GET') return 'instance:admin'
+            if (segments.length === 4 && segments[3] === 'resume' && normalizedMethod === 'POST')
+                return 'instance:admin'
+            return null
+        }
+        if (segments[2] === 'provider-applications') {
+            if (
+                segments.length === 3 &&
+                (normalizedMethod === 'GET' || normalizedMethod === 'POST')
+            )
+                return 'instance:admin'
+            if (segments.length === 4 && normalizedMethod === 'PATCH') return 'instance:admin'
+            return null
+        }
+        return null
+    }
+
+    if (segments[1] === 'workspaces') {
+        if (segments.length === 2) {
+            if (normalizedMethod === 'GET') return 'project:read'
+            if (normalizedMethod === 'POST') return 'workspace:manage'
+            return null
+        }
+        if (segments.length === 3) {
+            return normalizedMethod === 'GET' ? 'project:read' : null
+        }
+        if (segments[3] === 'lifecycle') {
+            if (segments.length === 4 && normalizedMethod === 'GET') return 'project:read'
+            if (segments.length === 4 && normalizedMethod === 'DELETE')
+                return 'project:permanently_delete'
+            if (
+                segments.length === 5 &&
+                ['archive', 'restore'].includes(segments[4]!) &&
+                normalizedMethod === 'POST'
+            ) {
+                return 'workspace:manage'
+            }
+            return null
+        }
+        if (segments[3] === 'members') {
+            if (
+                segments.length === 5 &&
+                (normalizedMethod === 'PATCH' || normalizedMethod === 'DELETE')
+            )
+                return 'workspace:manage'
+            return null
+        }
+        if (segments[3] === 'teams') {
+            if (segments.length === 4 && normalizedMethod === 'POST') return 'workspace:manage'
+            if (segments.length === 5 && normalizedMethod === 'PATCH') return 'workspace:manage'
+            if (segments.length === 6 && segments[5] === 'members') {
+                if (normalizedMethod === 'GET') return 'project:read'
+                if (normalizedMethod === 'POST') return 'workspace:manage'
+                return null
+            }
+            if (
+                segments.length === 7 &&
+                segments[5] === 'members' &&
+                normalizedMethod === 'DELETE'
+            ) {
+                return 'workspace:manage'
+            }
+            return null
+        }
+        if (segments[3] === 'invitations') {
+            if (
+                segments.length === 4 &&
+                (normalizedMethod === 'GET' || normalizedMethod === 'POST')
+            )
+                return 'workspace:manage'
+            if (segments.length === 5 && normalizedMethod === 'DELETE') return 'workspace:manage'
+            return null
+        }
         if (segments[3] === 'channels') {
             if (segments.length === 4 && normalizedMethod === 'GET') return 'project:read'
             if (segments.length !== 6) return null
@@ -94,7 +259,8 @@ export function requiredApiKeyCapability(method: string, requestPath: string) {
         }
         return null
     }
-    if (segments[0] !== 'api' || segments[1] !== 'projects') return null
+
+    if (segments[1] !== 'projects') return null
     if (segments.length === 2) {
         if (normalizedMethod === 'GET') return 'project:read'
         if (normalizedMethod === 'POST') return 'project:manage'
@@ -107,6 +273,37 @@ export function requiredApiKeyCapability(method: string, requestPath: string) {
 
     if (resource === undefined) {
         return normalizedMethod === 'PATCH' ? 'project:manage' : null
+    }
+
+    if (resource === 'membership') {
+        return detail.length === 0 && normalizedMethod === 'GET' ? 'project:read' : null
+    }
+
+    if (resource === 'members') {
+        if (detail.length === 0 && normalizedMethod === 'GET') return 'project:read'
+        if (detail.length === 1 && (normalizedMethod === 'PATCH' || normalizedMethod === 'DELETE'))
+            return 'project:access_manage'
+        return null
+    }
+
+    if (resource === 'user-grants' || resource === 'team-grants') {
+        if (detail.length === 0) {
+            if (normalizedMethod === 'GET') return 'project:read'
+            if (normalizedMethod === 'POST') return 'project:access_manage'
+            return null
+        }
+        if (detail.length === 1 && (normalizedMethod === 'PATCH' || normalizedMethod === 'DELETE'))
+            return 'project:access_manage'
+        return null
+    }
+
+    if (resource === 'invitations') {
+        if (detail.length === 0 && (normalizedMethod === 'GET' || normalizedMethod === 'POST'))
+            return 'project:access_manage'
+        if (detail.length === 1 && normalizedMethod === 'DELETE') return 'project:access_manage'
+        if (detail.length === 2 && detail[1] === 'resend' && normalizedMethod === 'POST')
+            return 'project:access_manage'
+        return null
     }
 
     if (resource === 'lifecycle') {
@@ -155,9 +352,9 @@ export function requiredApiKeyCapability(method: string, requestPath: string) {
             if (detail.length === 2 && normalizedMethod === 'GET') return 'project:read'
             if (detail.length === 2 && normalizedMethod === 'DELETE') return 'channel:manage'
             if (
-                detail[2] === 'custom-http' &&
-                detail[3] === 'connect' &&
                 detail.length === 4 &&
+                nonInteractiveConnectProviders.has(detail[2] ?? '') &&
+                detail[3] === 'connect' &&
                 normalizedMethod === 'POST'
             ) {
                 return 'channel:manage'
@@ -239,11 +436,26 @@ export function requiredApiKeyCapability(method: string, requestPath: string) {
             return 'project:read'
         }
         if (
+            detail.length === 1 &&
+            detail[0] === 'approval-requests' &&
+            normalizedMethod === 'GET'
+        ) {
+            return 'project:read'
+        }
+        if (
             detail.length === 2 &&
             detail[1] === 'approval-request' &&
             normalizedMethod === 'POST'
         ) {
             return 'publication:manage'
+        }
+        if (
+            detail.length === 3 &&
+            detail[1] === 'approval-request' &&
+            ['approve', 'reject'].includes(detail[2] ?? '') &&
+            normalizedMethod === 'POST'
+        ) {
+            return 'publication:approve'
         }
         if (
             detail.length === 1 &&
@@ -383,12 +595,21 @@ export function requiredApiKeyCapability(method: string, requestPath: string) {
 export function canApiKeyAccessRequest(
     method: string,
     requestPath: string,
-    permissions: PostdotApiKeyPermissions
+    permissions: PostdotApiKeyPermissions,
+    projectIds: readonly string[] | null = null
 ): boolean {
     const required = requiredApiKeyCapability(method, requestPath)
     if (required === null) return false
-    if (permissions === null) return true
 
-    const [resource, action] = capabilityStatements[required]
-    return permissions[resource]?.includes(action) ?? false
+    if (projectIds !== null) {
+        if (required === 'instance:admin' || required === 'workspace:manage') return false
+        const segments = requestPath.split('?')[0]?.split('/').filter(Boolean) ?? []
+        if (segments[0] === 'api' && segments[1] === 'workspaces' && segments.length >= 3) {
+            if (segments.length === 3 || segments[3] === 'lifecycle' || segments[3] === 'teams') {
+                return false
+            }
+        }
+    }
+
+    return apiKeyHasCapability(permissions, required)
 }

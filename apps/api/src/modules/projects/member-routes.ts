@@ -1,11 +1,12 @@
-import type { PostdotAuth, PostdotOrganizationInvitation } from '@postdot/auth'
+import {
+    createPostdotAuthServerActions,
+    type PostdotAuth,
+    type PostdotAuthServerActions,
+    type PostdotOrganizationInvitation,
+} from '@postdot/auth'
 import type { AccessProjectMembership, AccessStore } from '@postdot/db'
 
-import {
-    sessionSecurity,
-    type AuthenticatedElysia,
-    type PostdotAuthenticationMethod,
-} from '../../plugins/auth'
+import type { AuthenticatedElysia } from '../../plugins/auth'
 import {
     createProjectInvitationBody,
     errorResponse,
@@ -27,7 +28,7 @@ const projectOwnerForbiddenResponse = () =>
     ({
         error: {
             code: 'forbidden',
-            message: 'A project owner session is required to manage project access',
+            message: 'A project owner role is required to manage project access',
         },
     }) as const
 
@@ -43,7 +44,7 @@ const workspaceAdminForbiddenResponse = () =>
     ({
         error: {
             code: 'forbidden',
-            message: 'A workspace owner or administrator session is required to send invitations',
+            message: 'A workspace owner or administrator role is required to send invitations',
         },
     }) as const
 
@@ -99,33 +100,25 @@ async function getProjectWorkspace(projectId: string, access: AccessStore) {
 async function canManageProject(
     projectId: string,
     access: AccessStore,
-    authMethod: PostdotAuthenticationMethod,
     userId: string
 ): Promise<boolean> {
-    return authMethod === 'session' && (await access.canAccessProject(projectId, userId, 'owner'))
+    return await access.canAccessProject(projectId, userId, 'owner')
 }
 
 async function canManageProjectInvitations(
     projectId: string,
     access: AccessStore,
-    authMethod: PostdotAuthenticationMethod,
     userId: string
 ): Promise<boolean> {
     const workspace = await getProjectWorkspace(projectId, access)
-    return (
-        authMethod === 'session' &&
-        workspace !== null &&
-        (await access.canManageWorkspace(workspace.id, userId))
-    )
+    return workspace !== null && (await access.canManageWorkspace(workspace.id, userId))
 }
 
 async function canViewProjectAccess(
     projectId: string,
     access: AccessStore,
-    authMethod: PostdotAuthenticationMethod,
     userId: string
 ): Promise<boolean> {
-    if (authMethod !== 'session') return false
     if (await access.canAccessProject(projectId, userId, 'viewer')) return true
 
     const workspaceId = await access.getProjectWorkspaceId(projectId)
@@ -180,13 +173,11 @@ function toProjectInvitation(invitation: PostdotOrganizationInvitation) {
 }
 
 async function listWorkspaceInvitations(
-    auth: PostdotAuth,
-    workspaceOrganizationId: string,
-    headers: Headers
+    serverActions: PostdotAuthServerActions,
+    workspaceOrganizationId: string
 ) {
-    return auth.api.listInvitations({
-        query: { organizationId: workspaceOrganizationId },
-        headers,
+    return serverActions.listOrganizationInvitations({
+        organizationId: workspaceOrganizationId,
     })
 }
 
@@ -201,6 +192,8 @@ export function registerProjectMemberRoutes<const Routes extends Record<string, 
     auth: PostdotAuth,
     access: AccessStore
 ) {
+    const serverActions = createPostdotAuthServerActions(auth)
+
     return app
         .get(
             '/api/projects/:projectId/membership',
@@ -218,13 +211,9 @@ export function registerProjectMemberRoutes<const Routes extends Record<string, 
                     operationId: 'getProjectMembership',
                     summary: 'Read the current user project membership',
                     tags: ['Projects'],
-                    security: sessionSecurity,
                 },
             },
-            async ({ authMethod, params, status, user }) => {
-                if (authMethod !== 'session') {
-                    return status(403, projectMemberForbiddenResponse())
-                }
+            async ({ params, status, user }) => {
                 if (!(await projectExists(params.projectId, access))) {
                     return status(404, {
                         error: { code: 'not_found', message: 'Project not found' },
@@ -255,16 +244,15 @@ export function registerProjectMemberRoutes<const Routes extends Record<string, 
                     operationId: 'listProjectMembers',
                     summary: 'List effective members of a project',
                     tags: ['Projects'],
-                    security: sessionSecurity,
                 },
             },
-            async ({ authMethod, params, status, user }) => {
+            async ({ params, status, user }) => {
                 if (!(await projectExists(params.projectId, access))) {
                     return status(404, {
                         error: { code: 'not_found', message: 'Project not found' },
                     })
                 }
-                if (!(await canViewProjectAccess(params.projectId, access, authMethod, user.id))) {
+                if (!(await canViewProjectAccess(params.projectId, access, user.id))) {
                     return status(403, projectMemberForbiddenResponse())
                 }
                 const members = (await access.listProjectMemberships(params.projectId)).map(
@@ -290,23 +278,15 @@ export function registerProjectMemberRoutes<const Routes extends Record<string, 
                     operationId: 'listProjectInvitations',
                     summary: 'List project access invitations',
                     tags: ['Projects'],
-                    security: sessionSecurity,
                 },
             },
-            async ({ authMethod, params, request, status, user }) => {
+            async ({ params, status, user }) => {
                 if (!(await projectExists(params.projectId, access))) {
                     return status(404, {
                         error: { code: 'not_found', message: 'Project not found' },
                     })
                 }
-                if (
-                    !(await canManageProjectInvitations(
-                        params.projectId,
-                        access,
-                        authMethod,
-                        user.id
-                    ))
-                ) {
+                if (!(await canManageProjectInvitations(params.projectId, access, user.id))) {
                     return status(403, workspaceAdminForbiddenResponse())
                 }
                 const workspace = await getProjectWorkspace(params.projectId, access)
@@ -314,9 +294,8 @@ export function registerProjectMemberRoutes<const Routes extends Record<string, 
 
                 try {
                     const invitations = await listWorkspaceInvitations(
-                        auth,
-                        workspace.organizationId,
-                        request.headers
+                        serverActions,
+                        workspace.organizationId
                     )
                     return {
                         invitations: invitations
@@ -348,23 +327,15 @@ export function registerProjectMemberRoutes<const Routes extends Record<string, 
                     operationId: 'createProjectInvitation',
                     summary: 'Invite a member to a project workspace',
                     tags: ['Projects'],
-                    security: sessionSecurity,
                 },
             },
-            async ({ authMethod, body, params, request, status, user }) => {
+            async ({ body, params, status, user }) => {
                 if (!(await projectExists(params.projectId, access))) {
                     return status(404, {
                         error: { code: 'not_found', message: 'Project not found' },
                     })
                 }
-                if (
-                    !(await canManageProjectInvitations(
-                        params.projectId,
-                        access,
-                        authMethod,
-                        user.id
-                    ))
-                ) {
+                if (!(await canManageProjectInvitations(params.projectId, access, user.id))) {
                     return status(403, workspaceAdminForbiddenResponse())
                 }
                 const workspace = await getProjectWorkspace(params.projectId, access)
@@ -372,9 +343,8 @@ export function registerProjectMemberRoutes<const Routes extends Record<string, 
 
                 try {
                     const email = body.email.trim().toLowerCase()
-                    const members = await auth.api.listMembers({
-                        query: { organizationId: workspace.organizationId, limit: 1_000 },
-                        headers: request.headers,
+                    const members = await serverActions.listOrganizationMembers({
+                        organizationId: workspace.organizationId,
                     })
                     if (members.members.some(member => member.user.email.toLowerCase() === email)) {
                         return status(409, {
@@ -386,15 +356,13 @@ export function registerProjectMemberRoutes<const Routes extends Record<string, 
                         })
                     }
 
-                    const invitation = await auth.api.createInvitation({
-                        body: {
-                            email,
-                            role: 'member',
-                            organizationId: workspace.organizationId,
-                            projectId: params.projectId,
-                            projectRole: body.role,
-                        },
-                        headers: request.headers,
+                    const invitation = await serverActions.createOrganizationInvitation({
+                        email,
+                        role: 'member',
+                        organizationId: workspace.organizationId,
+                        inviterUserId: user.id,
+                        projectId: params.projectId,
+                        projectRole: body.role,
                     })
                     return status(201, { invitation: toProjectInvitation(invitation) })
                 } catch {
@@ -420,23 +388,15 @@ export function registerProjectMemberRoutes<const Routes extends Record<string, 
                     operationId: 'cancelProjectInvitation',
                     summary: 'Cancel a project access invitation',
                     tags: ['Projects'],
-                    security: sessionSecurity,
                 },
             },
-            async ({ authMethod, params, request, status, user }) => {
+            async ({ params, status, user }) => {
                 if (!(await projectExists(params.projectId, access))) {
                     return status(404, {
                         error: { code: 'not_found', message: 'Project not found' },
                     })
                 }
-                if (
-                    !(await canManageProjectInvitations(
-                        params.projectId,
-                        access,
-                        authMethod,
-                        user.id
-                    ))
-                ) {
+                if (!(await canManageProjectInvitations(params.projectId, access, user.id))) {
                     return status(403, workspaceAdminForbiddenResponse())
                 }
                 const workspace = await getProjectWorkspace(params.projectId, access)
@@ -444,9 +404,8 @@ export function registerProjectMemberRoutes<const Routes extends Record<string, 
 
                 try {
                     const invitations = await listWorkspaceInvitations(
-                        auth,
-                        workspace.organizationId,
-                        request.headers
+                        serverActions,
+                        workspace.organizationId
                     )
                     const existing = invitations.find(
                         invitation =>
@@ -466,9 +425,8 @@ export function registerProjectMemberRoutes<const Routes extends Record<string, 
                             },
                         })
                     }
-                    const invitation = await auth.api.cancelInvitation({
-                        body: { invitationId: params.invitationId },
-                        headers: request.headers,
+                    const invitation = await serverActions.cancelOrganizationInvitation({
+                        invitationId: params.invitationId,
                     })
                     return { invitation: toProjectInvitation(invitation) }
                 } catch {
@@ -494,23 +452,15 @@ export function registerProjectMemberRoutes<const Routes extends Record<string, 
                     operationId: 'resendProjectInvitation',
                     summary: 'Resend a project access invitation',
                     tags: ['Projects'],
-                    security: sessionSecurity,
                 },
             },
-            async ({ authMethod, params, request, status, user }) => {
+            async ({ params, status, user }) => {
                 if (!(await projectExists(params.projectId, access))) {
                     return status(404, {
                         error: { code: 'not_found', message: 'Project not found' },
                     })
                 }
-                if (
-                    !(await canManageProjectInvitations(
-                        params.projectId,
-                        access,
-                        authMethod,
-                        user.id
-                    ))
-                ) {
+                if (!(await canManageProjectInvitations(params.projectId, access, user.id))) {
                     return status(403, workspaceAdminForbiddenResponse())
                 }
                 const workspace = await getProjectWorkspace(params.projectId, access)
@@ -518,9 +468,8 @@ export function registerProjectMemberRoutes<const Routes extends Record<string, 
 
                 try {
                     const invitations = await listWorkspaceInvitations(
-                        auth,
-                        workspace.organizationId,
-                        request.headers
+                        serverActions,
+                        workspace.organizationId
                     )
                     const existing = invitations.find(
                         invitation =>
@@ -547,22 +496,19 @@ export function registerProjectMemberRoutes<const Routes extends Record<string, 
                             invitation.projectId === params.projectId &&
                             invitation.email.toLowerCase() === existing.email.toLowerCase()
                         ) {
-                            await auth.api.cancelInvitation({
-                                body: { invitationId: invitation.id },
-                                headers: request.headers,
+                            await serverActions.cancelOrganizationInvitation({
+                                invitationId: invitation.id,
                             })
                         }
                     }
 
-                    const invitation = await auth.api.createInvitation({
-                        body: {
-                            email: existing.email,
-                            role: 'member',
-                            organizationId: workspace.organizationId,
-                            projectId: params.projectId,
-                            projectRole: normalizeProjectInvitationRole(existing.projectRole),
-                        },
-                        headers: request.headers,
+                    const invitation = await serverActions.createOrganizationInvitation({
+                        email: existing.email,
+                        role: 'member',
+                        organizationId: workspace.organizationId,
+                        inviterUserId: user.id,
+                        projectId: params.projectId,
+                        projectRole: normalizeProjectInvitationRole(existing.projectRole),
                     })
                     return { invitation: toProjectInvitation(invitation) }
                 } catch {
@@ -589,16 +535,15 @@ export function registerProjectMemberRoutes<const Routes extends Record<string, 
                     operationId: 'updateProjectMemberRole',
                     summary: 'Update a direct project member grant',
                     tags: ['Projects'],
-                    security: sessionSecurity,
                 },
             },
-            async ({ authMethod, body, params, status, user }) => {
+            async ({ body, params, status, user }) => {
                 if (!(await projectExists(params.projectId, access))) {
                     return status(404, {
                         error: { code: 'not_found', message: 'Project not found' },
                     })
                 }
-                if (!(await canManageProject(params.projectId, access, authMethod, user.id))) {
+                if (!(await canManageProject(params.projectId, access, user.id))) {
                     return status(403, projectOwnerForbiddenResponse())
                 }
                 const existing = await findProjectMember(access, params.projectId, params.memberId)
@@ -639,16 +584,15 @@ export function registerProjectMemberRoutes<const Routes extends Record<string, 
                     operationId: 'removeProjectMember',
                     summary: 'Remove direct project access',
                     tags: ['Projects'],
-                    security: sessionSecurity,
                 },
             },
-            async ({ authMethod, params, status, user }) => {
+            async ({ params, status, user }) => {
                 if (!(await projectExists(params.projectId, access))) {
                     return status(404, {
                         error: { code: 'not_found', message: 'Project not found' },
                     })
                 }
-                if (!(await canManageProject(params.projectId, access, authMethod, user.id))) {
+                if (!(await canManageProject(params.projectId, access, user.id))) {
                     return status(403, projectOwnerForbiddenResponse())
                 }
                 const existing = await findProjectMember(access, params.projectId, params.memberId)

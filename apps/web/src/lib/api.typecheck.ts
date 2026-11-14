@@ -276,6 +276,11 @@ export type InferredUserApiKeyContracts = [
             | 'media:permanently_delete'
             | 'project:manage'
             | 'project:permanently_delete'
+            | 'project:access_manage'
+            | 'publication:approve'
+            | 'workspace:manage'
+            | 'api_key:manage'
+            | 'instance:admin'
         >
     >,
     Assert<

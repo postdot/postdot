@@ -1,4 +1,5 @@
 import {
+    createPostdotAuthServerActions,
     postdotUserApiKeyConfigId,
     type PostdotApiKeyRecord,
     type PostdotAuth,
@@ -7,8 +8,13 @@ import type { AccessStore } from '@postdot/db'
 import { everySequential } from '@postdot/db'
 import { Type } from 'typebox'
 
-import { sessionSecurity, type AuthenticatedElysia } from '../../plugins/auth'
 import {
+    type AuthenticatedElysia,
+    type PostdotAuthenticatedApiKeyPermissions,
+    type PostdotAuthenticationMethod,
+} from '../../plugins/auth'
+import {
+    apiKeyHasCapability,
     capabilitiesForPermissions,
     permissionsForCapabilities,
     type PostdotApiKeyCapability,
@@ -25,7 +31,7 @@ const userApiKeyProjectAccessSchema = Type.Union([
     Type.Literal('all'),
     Type.Array(Type.String({ minLength: 1 })),
 ])
-const userApiKeyCapabilitySchema = Type.Union([
+export const userApiKeyCapabilitySchema = Type.Union([
     Type.Literal('project:read'),
     Type.Literal('project:manage'),
     Type.Literal('project:permanently_delete'),
@@ -36,6 +42,11 @@ const userApiKeyCapabilitySchema = Type.Union([
     Type.Literal('media:manage'),
     Type.Literal('analytics:refresh'),
     Type.Literal('media:permanently_delete'),
+    Type.Literal('project:access_manage'),
+    Type.Literal('publication:approve'),
+    Type.Literal('workspace:manage'),
+    Type.Literal('api_key:manage'),
+    Type.Literal('instance:admin'),
 ])
 const userApiKeyActionAccessSchema = Type.Union([
     Type.Literal('all'),
@@ -199,6 +210,61 @@ function invalidProjectAccessResponse() {
     }
 }
 
+export function apiKeyEscalationDeniedResponse() {
+    return {
+        error: {
+            code: 'api_key_escalation_denied',
+            message:
+                'An API key cannot grant or modify permissions or projects beyond its own scope',
+        },
+    }
+}
+
+export function canApiKeyGrantScope(input: {
+    readonly authMethod: PostdotAuthenticationMethod
+    readonly callerProjectIds: readonly string[] | null | undefined
+    readonly callerPermissions: PostdotAuthenticatedApiKeyPermissions | undefined
+    readonly targetProjectIds: readonly string[] | null | undefined
+    readonly targetActionAccess: 'all' | readonly PostdotApiKeyCapability[] | null | undefined
+}): boolean {
+    if (input.authMethod !== 'user_api_key') return true
+
+    if (input.callerProjectIds != null && input.targetProjectIds !== undefined) {
+        if (input.targetProjectIds === null) return false
+        const allowed = new Set(input.callerProjectIds)
+        if (input.targetProjectIds.some(projectId => !allowed.has(projectId))) return false
+    }
+
+    if (input.callerPermissions != null && input.targetActionAccess !== undefined) {
+        if (input.targetActionAccess === null || input.targetActionAccess === 'all') return false
+        if (
+            input.targetActionAccess.some(
+                capability => !apiKeyHasCapability(input.callerPermissions ?? null, capability)
+            )
+        ) {
+            return false
+        }
+    }
+
+    return true
+}
+
+function existingKeyExceedsCaller(input: {
+    readonly authMethod: PostdotAuthenticationMethod
+    readonly callerProjectIds: readonly string[] | null | undefined
+    readonly callerPermissions: PostdotAuthenticatedApiKeyPermissions | undefined
+    readonly existing: PostdotApiKeyRecord
+}): boolean {
+    const mapped = toUserApiKey(input.existing)
+    return !canApiKeyGrantScope({
+        authMethod: input.authMethod,
+        callerProjectIds: input.callerProjectIds,
+        callerPermissions: input.callerPermissions,
+        targetProjectIds: mapped.projectAccess === 'all' ? null : mapped.projectAccess,
+        targetActionAccess: mapped.actionAccess,
+    })
+}
+
 export function expiresInFrom(
     expiresAt: number | null | undefined,
     now: number
@@ -228,6 +294,8 @@ export function registerUserApiKeyRoutes<const Routes extends Record<string, unk
     access: AccessStore,
     now: () => number = Date.now
 ) {
+    const serverActions = createPostdotAuthServerActions(auth)
+
     return app
         .get(
             '/api/api-keys',
@@ -242,24 +310,15 @@ export function registerUserApiKeyRoutes<const Routes extends Record<string, unk
                     operationId: 'listUserApiKeys',
                     summary: 'List API keys owned by the current user',
                     tags: ['Access'],
-                    security: sessionSecurity,
                 },
             },
-            async ({ authMethod, request, status }) => {
-                if (authMethod !== 'session') {
-                    return status(403, {
-                        error: {
-                            code: 'forbidden',
-                            message: 'A human session is required to manage API keys',
-                        },
-                    })
-                }
-                const listed = await auth.api.listApiKeys({
-                    query: { configId: postdotUserApiKeyConfigId },
-                    headers: request.headers,
+            async ({ user }) => {
+                const listed = await serverActions.listUserApiKeys({
+                    userId: user.id,
+                    configId: postdotUserApiKeyConfigId,
                 })
                 return {
-                    keys: listed.apiKeys
+                    keys: listed
                         .map(toUserApiKey)
                         .filter(key => key.projectAccess === 'all' || key.projectAccess.length > 0),
                 }
@@ -280,20 +339,22 @@ export function registerUserApiKeyRoutes<const Routes extends Record<string, unk
                     operationId: 'createUserApiKey',
                     summary: 'Create a user-owned Postdot API key',
                     tags: ['Access'],
-                    security: sessionSecurity,
                 },
             },
-            async ({ authMethod, body, status, user }) => {
-                if (authMethod !== 'session') {
-                    return status(403, {
-                        error: {
-                            code: 'forbidden',
-                            message: 'A human session is required to manage API keys',
-                        },
-                    })
-                }
+            async ({ apiKeyPermissions, apiKeyProjectIds, authMethod, body, status, user }) => {
                 const projectIds = await projectIdsForRequest(body.projectIds, access, user.id)
                 if (projectIds === undefined) return status(400, invalidProjectAccessResponse())
+                if (
+                    !canApiKeyGrantScope({
+                        authMethod,
+                        callerProjectIds: apiKeyProjectIds,
+                        callerPermissions: apiKeyPermissions,
+                        targetProjectIds: projectIds,
+                        targetActionAccess: body.actionAccess ?? null,
+                    })
+                ) {
+                    return status(403, apiKeyEscalationDeniedResponse())
+                }
                 const expiresIn = expiresInFrom(body.expiresAt, now())
                 if (expiresIn === -1) {
                     return status(400, {
@@ -339,18 +400,17 @@ export function registerUserApiKeyRoutes<const Routes extends Record<string, unk
                     operationId: 'updateUserApiKey',
                     summary: 'Update a user-owned Postdot API key',
                     tags: ['Access'],
-                    security: sessionSecurity,
                 },
             },
-            async ({ authMethod, body, params, request, status, user }) => {
-                if (authMethod !== 'session') {
-                    return status(403, {
-                        error: {
-                            code: 'forbidden',
-                            message: 'A human session is required to manage API keys',
-                        },
-                    })
-                }
+            async ({
+                apiKeyPermissions,
+                apiKeyProjectIds,
+                authMethod,
+                body,
+                params,
+                status,
+                user,
+            }) => {
                 const projectIds =
                     body.projectIds === undefined
                         ? undefined
@@ -367,15 +427,32 @@ export function registerUserApiKeyRoutes<const Routes extends Record<string, unk
                         },
                     })
                 }
-                const existing = await auth.api.listApiKeys({
-                    query: { configId: postdotUserApiKeyConfigId },
-                    headers: request.headers,
+                const existing = await serverActions.listUserApiKeys({
+                    userId: user.id,
+                    configId: postdotUserApiKeyConfigId,
                 })
-                const current = existing.apiKeys.find(key => key.id === params.keyId)
+                const current = existing.find(key => key.id === params.keyId)
                 if (current === undefined) {
                     return status(404, {
                         error: { code: 'not_found', message: 'API key not found' },
                     })
+                }
+                if (
+                    existingKeyExceedsCaller({
+                        authMethod,
+                        callerProjectIds: apiKeyProjectIds,
+                        callerPermissions: apiKeyPermissions,
+                        existing: current,
+                    }) ||
+                    !canApiKeyGrantScope({
+                        authMethod,
+                        callerProjectIds: apiKeyProjectIds,
+                        callerPermissions: apiKeyPermissions,
+                        targetProjectIds: body.projectIds === undefined ? undefined : projectIds,
+                        targetActionAccess: body.actionAccess,
+                    })
+                ) {
+                    return status(403, apiKeyEscalationDeniedResponse())
                 }
                 const updated = await auth.api.updateApiKey({
                     body: {
@@ -417,22 +494,34 @@ export function registerUserApiKeyRoutes<const Routes extends Record<string, unk
                     operationId: 'deleteUserApiKey',
                     summary: 'Delete a user-owned Postdot API key',
                     tags: ['Access'],
-                    security: sessionSecurity,
                 },
             },
-            async ({ authMethod, params, request, status }) => {
-                if (authMethod !== 'session') {
-                    return status(403, {
-                        error: {
-                            code: 'forbidden',
-                            message: 'A human session is required to manage API keys',
-                        },
+            async ({ apiKeyPermissions, apiKeyProjectIds, authMethod, params, status, user }) => {
+                const existing = await serverActions.listUserApiKeys({
+                    userId: user.id,
+                    configId: postdotUserApiKeyConfigId,
+                })
+                const current = existing.find(key => key.id === params.keyId)
+                if (current === undefined) {
+                    return status(404, {
+                        error: { code: 'not_found', message: 'API key not found' },
                     })
                 }
+                if (
+                    existingKeyExceedsCaller({
+                        authMethod,
+                        callerProjectIds: apiKeyProjectIds,
+                        callerPermissions: apiKeyPermissions,
+                        existing: current,
+                    })
+                ) {
+                    return status(403, apiKeyEscalationDeniedResponse())
+                }
                 try {
-                    await auth.api.deleteApiKey({
-                        body: { configId: postdotUserApiKeyConfigId, keyId: params.keyId },
-                        headers: request.headers,
+                    await serverActions.deleteUserApiKey({
+                        userId: user.id,
+                        keyId: params.keyId,
+                        configId: postdotUserApiKeyConfigId,
                     })
                 } catch {
                     return status(404, {

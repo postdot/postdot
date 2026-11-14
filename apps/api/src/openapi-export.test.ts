@@ -26,6 +26,15 @@ describe('isolated OpenAPI export', () => {
                 first.paths[
                     '/api/projects/{projectId}/channels/{channelId}/publisher/discord/connect'
                 ]?.post?.security
+            ).toBeUndefined()
+            expect(
+                first.paths[
+                    '/api/projects/{projectId}/channels/{channelId}/publisher/bluesky/connect'
+                ]?.post?.security
+            ).toEqual([{ sessionCookie: [] }])
+            expect(
+                first.paths['/api/projects/{projectId}/channels/{channelId}/publisher/x/connect']
+                    ?.post?.security
             ).toEqual([{ sessionCookie: [] }])
             const composer = first.paths['/api/projects/{projectId}/publication-composer-draft']
             expect(composer?.delete?.requestBody).toBeUndefined()

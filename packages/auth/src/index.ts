@@ -14,8 +14,10 @@ import { postdotSqlAdapter } from './sql-adapter'
 
 export type { PostdotAuthInvitationOptions, PostdotOrganizationInvitationEmail } from './plugins'
 export { postdotUserApiKeyConfigId } from './plugins'
+export { createPostdotAuthServerActions, type PostdotAuthServerActions } from './server-actions'
 
 const bootstrapAuthorizationContext = new AsyncLocalStorage<boolean>()
+const memberProvisioningAuthorizationContext = new AsyncLocalStorage<boolean>()
 
 /**
  * Allows the server's verified `/api/instance/bootstrap` handler to create the
@@ -26,6 +28,17 @@ export function runWithAuthorizedBootstrap<Result>(
     callback: () => Promise<Result>
 ): Promise<Result> {
     return bootstrapAuthorizationContext.run(true, callback)
+}
+
+/**
+ * Allows an authorized administrator request (`POST /api/access/members`) to
+ * create enabled instance members or service accounts directly without
+ * opening public unauthenticated signups.
+ */
+export function runWithAuthorizedMemberProvisioning<Result>(
+    callback: () => Promise<Result>
+): Promise<Result> {
+    return memberProvisioningAuthorizationContext.run(true, callback)
 }
 
 /** Written only by Postdot's socket/proxy boundary; never trust it from the wire. */
@@ -357,6 +370,21 @@ export interface PostdotOrganizationInvitationAuthApi {
 }
 
 export interface PostdotAdminAuthApi {
+    createUser(input: {
+        body: {
+            email: string
+            name: string
+            password?: string
+            role?: 'admin' | 'user' | ('admin' | 'user')[]
+        }
+    }): Promise<{
+        readonly user: {
+            readonly id: string
+            readonly email: string
+            readonly name: string
+            readonly role?: string | null
+        }
+    }>
     setRole(input: {
         body: { userId: string; role: string | string[] }
         headers: Headers
@@ -579,8 +607,11 @@ export function createAuth(
                         const authorizedBootstrap =
                             bootstrapAuthorizationContext.getStore() === true &&
                             instanceSignupAllowed
+                        const authorizedMemberProvisioning =
+                            memberProvisioningAuthorizationContext.getStore() === true
                         const openSignupAllowed =
                             authorizedBootstrap ||
+                            authorizedMemberProvisioning ||
                             (instanceSignupAllowed && (await isOpenSignupAllowed()))
                         if (!allowAdditionalSignups && !openSignupAllowed && !invited) {
                             return false

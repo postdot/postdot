@@ -2,10 +2,14 @@ import { describe, expect, it } from 'bun:test'
 
 import { createAuth } from '@postdot/auth'
 import type { DatabaseHandle } from '@postdot/db'
-import { createAccessStore, createTaxonomyStore } from '@postdot/db'
+import { createTaxonomyStore } from '@postdot/db'
+import { createAccessStore } from '@postdot/db'
 import { closeTestDatabase, openTestDatabase } from '@postdot/db/testing'
+import type { DevtoFetcher } from '@postdot/devto'
 
 import { createApp } from '../../app'
+import type { RecoveryService } from '../../recovery'
+import type { EmailSettingsService } from '../email/settings'
 import { requiredApiKeyCapability } from '../projects/api-key-permissions'
 import { createPublisherRuntime } from '../publishers/runtime'
 import type { PostdotBootstrapController } from './public-routes'
@@ -19,6 +23,9 @@ async function createFixture(
     options: {
         readonly allowAdditionalSignups?: boolean
         readonly bootstrap?: PostdotBootstrapController
+        readonly devtoFetcher?: DevtoFetcher
+        readonly emailSettings?: EmailSettingsService
+        readonly recovery?: RecoveryService
     } = {}
 ) {
     const database = (await openTestDatabase()).database
@@ -49,6 +56,9 @@ async function createFixture(
         taxonomy: createTaxonomyStore(database, { now: () => now }),
         bootstrap: options.bootstrap,
         allowAdditionalSignups: options.allowAdditionalSignups,
+        devtoFetcher: options.devtoFetcher,
+        emailSettings: options.emailSettings,
+        recovery: options.recovery,
     })
     return { access, app, auth, database }
 }
@@ -152,12 +162,15 @@ async function jsonRequest(
     return app.handle(new Request(`${baseURL}${path}`, { ...init, headers }))
 }
 
-async function bearerRequest(app: ReturnType<typeof createApp>, path: string, token: string) {
-    return app.handle(
-        new Request(`${baseURL}${path}`, {
-            headers: { authorization: `Bearer ${token}` },
-        })
-    )
+async function bearerRequest(
+    app: ReturnType<typeof createApp>,
+    path: string,
+    token: string,
+    init: RequestInit = {}
+) {
+    const headers = new Headers(init.headers)
+    headers.set('authorization', `Bearer ${token}`)
+    return app.handle(new Request(`${baseURL}${path}`, { ...init, headers }))
 }
 
 async function bearerJsonRequest(
@@ -847,12 +860,65 @@ describe('access HTTP routes', () => {
             expect(tokenResponse.status).toBe(201)
             const token = (await tokenResponse.json()) as { token: string }
 
-            expect((await bearerRequest(app, '/api/access', token.token)).status).toBe(403)
+            expect((await bearerRequest(app, '/api/access', token.token)).status).toBe(200)
+            expect((await bearerRequest(app, '/api/categories', token.token)).status).toBe(200)
+            expect(
+                (
+                    await bearerJsonRequest(app, '/api/categories', token.token, {
+                        method: 'POST',
+                        body: JSON.stringify({ name: 'Scoped key blocked' }),
+                    })
+                ).status
+            ).toBe(403)
             expect(
                 (await bearerRequest(app, '/api/settings/provider-applications', token.token))
                     .status
             ).toBe(403)
-            expect((await bearerRequest(app, '/api/categories', token.token)).status).toBe(403)
+
+            const unrestrictedAdminResponse = await jsonRequest(app, '/api/api-keys', adminCookie, {
+                method: 'POST',
+                body: JSON.stringify({
+                    name: 'instance-admin-unrestricted',
+                    projectIds: null,
+                }),
+            })
+            expect(unrestrictedAdminResponse.status).toBe(201)
+            const unrestrictedAdmin = (await unrestrictedAdminResponse.json()) as { token: string }
+            expect(
+                (
+                    await bearerRequest(
+                        app,
+                        '/api/settings/provider-applications',
+                        unrestrictedAdmin.token
+                    )
+                ).status
+            ).toBe(200)
+
+            const unrestrictedMemberResponse = await jsonRequest(
+                app,
+                '/api/api-keys',
+                memberCookie,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        name: 'member-unrestricted',
+                        projectIds: null,
+                    }),
+                }
+            )
+            expect(unrestrictedMemberResponse.status).toBe(201)
+            const unrestrictedMember = (await unrestrictedMemberResponse.json()) as {
+                token: string
+            }
+            expect(
+                (
+                    await bearerRequest(
+                        app,
+                        '/api/settings/provider-applications',
+                        unrestrictedMember.token
+                    )
+                ).status
+            ).toBe(403)
         } finally {
             await closeTestDatabase(database)
         }
@@ -1705,6 +1771,728 @@ describe('access HTTP routes', () => {
             expect(await replayBootstrap.json()).toMatchObject({
                 error: { code: 'already_claimed' },
             })
+        } finally {
+            await closeTestDatabase(database)
+        }
+    })
+
+    it('provisions and offboards agent accounts without passwords and initial keys while preventing escalation', async () => {
+        const { app, database } = await createFixture()
+
+        try {
+            const adminCookie = await signUp(app, 'admin@postdot.local')
+            const p1 = (
+                (await (
+                    await jsonRequest(app, '/api/projects', adminCookie, {
+                        method: 'POST',
+                        body: JSON.stringify({ name: 'Agent Project One' }),
+                    })
+                ).json()) as { project: { id: string } }
+            ).project.id
+            const p2 = (
+                (await (
+                    await jsonRequest(app, '/api/projects', adminCookie, {
+                        method: 'POST',
+                        body: JSON.stringify({ name: 'Agent Project Two' }),
+                    })
+                ).json()) as { project: { id: string } }
+            ).project.id
+
+            const adminAllKey = (
+                (await (
+                    await jsonRequest(app, '/api/api-keys', adminCookie, {
+                        method: 'POST',
+                        body: JSON.stringify({ name: 'Admin unrestricted', projectIds: null }),
+                    })
+                ).json()) as { token: string }
+            ).token
+
+            const adminOnlyKey = (
+                (await (
+                    await jsonRequest(app, '/api/api-keys', adminCookie, {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            name: 'Instance admin only',
+                            projectIds: null,
+                            actionAccess: ['instance:admin', 'project:read'],
+                        }),
+                    })
+                ).json()) as { token: string }
+            ).token
+
+            // instance:admin key without publication:manage cannot mint an initial key with publication:manage or 'all'.
+            const blockedEscalation = await bearerJsonRequest(
+                app,
+                '/api/access/members',
+                adminOnlyKey,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        email: 'blocked-agent@postdot.local',
+                        name: 'Blocked Agent',
+                        role: 'member',
+                        apiKey: {
+                            name: 'Escalated key',
+                            projectIds: [p1],
+                            actionAccess: ['publication:manage'],
+                        },
+                    }),
+                }
+            )
+            expect(blockedEscalation.status).toBe(403)
+            expect(await blockedEscalation.json()).toMatchObject({
+                error: { code: 'api_key_escalation_denied' },
+            })
+
+            // Unrestricted admin key provisions a service account without a password + scoped initial key atomically.
+            const provisioned = await bearerJsonRequest(app, '/api/access/members', adminAllKey, {
+                method: 'POST',
+                body: JSON.stringify({
+                    email: 'release-bot@postdot.local',
+                    name: 'Release Bot',
+                    role: 'member',
+                    apiKey: {
+                        name: 'Release Bot Key',
+                        projectIds: [p1],
+                        actionAccess: ['project:read', 'channel:manage'],
+                    },
+                }),
+            })
+            expect(provisioned.status).toBe(201)
+            const provisionedBody = (await provisioned.json()) as {
+                membership: { userId: string; email: string; role: string; state: string }
+                apiKey?: { key: { id: string; projectAccess: string[] }; token: string }
+            }
+            expect(provisionedBody.membership).toMatchObject({
+                email: 'release-bot@postdot.local',
+                role: 'member',
+                state: 'enabled',
+            })
+            expect(provisionedBody.apiKey?.token).toStartWith('postdot_pat_')
+            expect(provisionedBody.apiKey?.key.projectAccess).toEqual([p1])
+
+            const botToken = provisionedBody.apiKey!.token
+            const botKeyId = provisionedBody.apiKey!.key.id
+            const botUserId = provisionedBody.membership.userId
+
+            // Granted scope does NOT automatically confer project membership until granted; default workspace member sees 0 projects.
+            expect((await bearerRequest(app, '/api/access', botToken)).status).toBe(200)
+            // Grant bot editor access on p1 and p2: bot key only holds [p1], so p2 remains hidden (404).
+            expect(
+                (
+                    await jsonRequest(app, `/api/projects/${p1}/user-grants`, adminCookie, {
+                        method: 'POST',
+                        body: JSON.stringify({ userId: botUserId, role: 'editor' }),
+                    })
+                ).status
+            ).toBe(201)
+            expect(
+                (
+                    await jsonRequest(app, `/api/projects/${p2}/user-grants`, adminCookie, {
+                        method: 'POST',
+                        body: JSON.stringify({ userId: botUserId, role: 'editor' }),
+                    })
+                ).status
+            ).toBe(201)
+
+            const botChannel = await bearerJsonRequest(
+                app,
+                `/api/projects/${p1}/channels`,
+                botToken,
+                { method: 'POST', body: JSON.stringify({ name: 'Bot channel' }) }
+            )
+            expect(botChannel.status).toBe(201)
+            expect(
+                (await bearerRequest(app, `/api/projects/${p2}/channels`, botToken)).status
+            ).toBe(404)
+
+            // Key offboarding requires BOTH instance:admin AND api_key:manage.
+            expect(
+                (
+                    await bearerRequest(
+                        app,
+                        `/api/access/members/${botUserId}/api-keys`,
+                        adminOnlyKey
+                    )
+                ).status
+            ).toBe(403)
+            const listedKeys = await bearerRequest(
+                app,
+                `/api/access/members/${botUserId}/api-keys`,
+                adminAllKey
+            )
+            expect(listedKeys.status).toBe(200)
+            expect(await listedKeys.json()).toMatchObject({
+                keys: [expect.objectContaining({ id: botKeyId, name: 'Release Bot Key' })],
+            })
+
+            const revokedKey = await bearerRequest(
+                app,
+                `/api/access/members/${botUserId}/api-keys/${botKeyId}`,
+                adminAllKey,
+                { method: 'DELETE' }
+            )
+            expect(revokedKey.status).toBe(200)
+            expect(await revokedKey.json()).toEqual({ deleted: true })
+
+            // Revoked key fails immediately with 401.
+            expect((await bearerRequest(app, '/api/access', botToken)).status).toBe(401)
+        } finally {
+            await closeTestDatabase(database)
+        }
+    })
+
+    it('enforces anti-escalation rules on api_key:manage keys', async () => {
+        const { app, database } = await createFixture()
+
+        try {
+            const ownerCookie = await signUp(app, 'key-mgr@postdot.local')
+            const p1 = (
+                (await (
+                    await jsonRequest(app, '/api/projects', ownerCookie, {
+                        method: 'POST',
+                        body: JSON.stringify({ name: 'Scoped One' }),
+                    })
+                ).json()) as { project: { id: string } }
+            ).project.id
+            const p2 = (
+                (await (
+                    await jsonRequest(app, '/api/projects', ownerCookie, {
+                        method: 'POST',
+                        body: JSON.stringify({ name: 'Scoped Two' }),
+                    })
+                ).json()) as { project: { id: string } }
+            ).project.id
+
+            const broaderKey = (
+                (await (
+                    await jsonRequest(app, '/api/api-keys', ownerCookie, {
+                        method: 'POST',
+                        body: JSON.stringify({ name: 'Broader unrestricted', projectIds: null }),
+                    })
+                ).json()) as { key: { id: string } }
+            ).key.id
+
+            const readOnlyKey = (
+                (await (
+                    await jsonRequest(app, '/api/api-keys', ownerCookie, {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            name: 'Read only',
+                            projectIds: [p1],
+                            actionAccess: ['project:read'],
+                        }),
+                    })
+                ).json()) as { token: string }
+            ).token
+            expect((await bearerRequest(app, '/api/api-keys', readOnlyKey)).status).toBe(403)
+
+            const managerKey = (
+                (await (
+                    await jsonRequest(app, '/api/api-keys', ownerCookie, {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            name: 'Scoped Manager',
+                            projectIds: [p1],
+                            actionAccess: ['api_key:manage', 'project:read', 'publication:manage'],
+                        }),
+                    })
+                ).json()) as { token: string }
+            ).token
+
+            // Cannot mint wider projectIds or wider capabilities or 'all'.
+            for (const invalidBody of [
+                { name: 'All projects', projectIds: null, actionAccess: ['project:read'] },
+                { name: 'Other project', projectIds: [p2], actionAccess: ['project:read'] },
+                { name: 'All actions', projectIds: [p1], actionAccess: null },
+                {
+                    name: 'Extra capability',
+                    projectIds: [p1],
+                    actionAccess: ['project:read', 'project:manage'],
+                },
+            ]) {
+                const denied = await bearerJsonRequest(app, '/api/api-keys', managerKey, {
+                    method: 'POST',
+                    body: JSON.stringify(invalidBody),
+                })
+                expect(denied.status).toBe(403)
+                expect(await denied.json()).toMatchObject({
+                    error: { code: 'api_key_escalation_denied' },
+                })
+            }
+
+            // Can mint a narrower child key.
+            const childRes = await bearerJsonRequest(app, '/api/api-keys', managerKey, {
+                method: 'POST',
+                body: JSON.stringify({
+                    name: 'Child reader',
+                    projectIds: [p1],
+                    actionAccess: ['project:read'],
+                }),
+            })
+            expect(childRes.status).toBe(201)
+            const childId = ((await childRes.json()) as { key: { id: string } }).key.id
+
+            // Cannot update or delete the owner's broader key.
+            expect(
+                (
+                    await bearerJsonRequest(app, `/api/api-keys/${broaderKey}`, managerKey, {
+                        method: 'PATCH',
+                        body: JSON.stringify({ name: 'Hijacked' }),
+                    })
+                ).status
+            ).toBe(403)
+            expect(
+                (
+                    await bearerRequest(app, `/api/api-keys/${broaderKey}`, managerKey, {
+                        method: 'DELETE',
+                    })
+                ).status
+            ).toBe(403)
+
+            // Cannot escalate child key via PATCH.
+            expect(
+                (
+                    await bearerJsonRequest(app, `/api/api-keys/${childId}`, managerKey, {
+                        method: 'PATCH',
+                        body: JSON.stringify({ actionAccess: ['publication:approve'] }),
+                    })
+                ).status
+            ).toBe(403)
+
+            // Can update and delete the narrower child key cleanly.
+            const renamed = await bearerJsonRequest(app, `/api/api-keys/${childId}`, managerKey, {
+                method: 'PATCH',
+                body: JSON.stringify({ name: 'Renamed Child' }),
+            })
+            expect(renamed.status).toBe(200)
+            expect((await renamed.json()) as { key: { name: string } }).toMatchObject({
+                key: { name: 'Renamed Child' },
+            })
+
+            const deleted = await bearerRequest(app, `/api/api-keys/${childId}`, managerKey, {
+                method: 'DELETE',
+            })
+            expect(deleted.status).toBe(200)
+        } finally {
+            await closeTestDatabase(database)
+        }
+    })
+
+    it('administers workspaces, project grants, instance settings, and Better Auth sync via API keys', async () => {
+        const { access, app, database } = await createFixture()
+
+        try {
+            const adminCookie = await signUp(app, 'admin@postdot.local')
+            const memberId = await seedExistingUser(database, 'member@postdot.local', 'Member')
+            const memberCookie = await signIn(app, 'member@postdot.local')
+
+            const wsKeyRes = await jsonRequest(app, '/api/api-keys', adminCookie, {
+                method: 'POST',
+                body: JSON.stringify({
+                    name: 'Workspace Admin Key',
+                    projectIds: null,
+                    actionAccess: [
+                        'workspace:manage',
+                        'project:manage',
+                        'project:access_manage',
+                        'project:read',
+                        'instance:admin',
+                    ],
+                }),
+            })
+            expect(wsKeyRes.status).toBe(201)
+            const wsKey = ((await wsKeyRes.json()) as { token: string }).token
+
+            // Invite & manage instance member via Bearer API key (server-side Better Auth sync).
+            const inviteMember = await bearerJsonRequest(app, '/api/access/invitations', wsKey, {
+                method: 'POST',
+                body: JSON.stringify({ targetEmail: 'member@postdot.local' }),
+            })
+            expect(inviteMember.status).toBe(201)
+            const inviteToken = ((await inviteMember.json()) as { token: string }).token
+
+            // Accepting an invitation via API key stays session-only.
+            expect(
+                (
+                    await bearerJsonRequest(app, '/api/access/invitations/accept', wsKey, {
+                        method: 'POST',
+                        body: JSON.stringify({ token: inviteToken }),
+                    })
+                ).status
+            ).toBe(403)
+
+            // Member accepts with their session cookie.
+            expect(
+                (
+                    await jsonRequest(app, '/api/access/invitations/accept', memberCookie, {
+                        method: 'POST',
+                        body: JSON.stringify({ token: inviteToken }),
+                    })
+                ).status
+            ).toBe(200)
+
+            // Create workspace + team + manage team members + workspace invitations without cookies.
+            const createdWsRes = await bearerJsonRequest(app, '/api/workspaces', wsKey, {
+                method: 'POST',
+                body: JSON.stringify({ name: 'Agent Managed Workspace' }),
+            })
+            expect(createdWsRes.status).toBe(201)
+            const wsId = ((await createdWsRes.json()) as { workspace: { id: string } }).workspace.id
+
+            const wsInvite = await bearerJsonRequest(
+                app,
+                `/api/workspaces/${wsId}/invitations`,
+                wsKey,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({ email: 'member@postdot.local' }),
+                }
+            )
+            expect(wsInvite.status).toBe(201)
+            const wsInviteId = ((await wsInvite.json()) as { invitation: { id: string } })
+                .invitation.id
+
+            // Workspace invitation accept remains session-only.
+            expect(
+                (
+                    await bearerRequest(
+                        app,
+                        `/api/workspaces/${wsId}/invitations/${wsInviteId}/accept`,
+                        wsKey,
+                        { method: 'POST' }
+                    )
+                ).status
+            ).toBe(403)
+            expect(
+                (
+                    await jsonRequest(
+                        app,
+                        `/api/workspaces/${wsId}/invitations/${wsInviteId}/accept`,
+                        memberCookie,
+                        { method: 'POST' }
+                    )
+                ).status
+            ).toBe(200)
+
+            const teamRes = await bearerJsonRequest(app, `/api/workspaces/${wsId}/teams`, wsKey, {
+                method: 'POST',
+                body: JSON.stringify({ name: 'Automation Crew' }),
+            })
+            expect(teamRes.status).toBe(201)
+            const teamId = ((await teamRes.json()) as { team: { id: string } }).team.id
+
+            expect(
+                (
+                    await bearerJsonRequest(
+                        app,
+                        `/api/workspaces/${wsId}/teams/${teamId}/members`,
+                        wsKey,
+                        { method: 'POST', body: JSON.stringify({ userId: memberId }) }
+                    )
+                ).status
+            ).toBe(200)
+
+            const wsDetail = await bearerRequest(app, `/api/workspaces/${wsId}`, wsKey)
+            expect(wsDetail.status).toBe(200)
+            const wsDetailBody = (await wsDetail.json()) as {
+                members: Array<{ id: string; userId: string }>
+            }
+            const wsMemberRecord = wsDetailBody.members.find(m => m.userId === memberId)
+            expect(wsMemberRecord).toBeDefined()
+
+            expect(
+                (
+                    await bearerJsonRequest(
+                        app,
+                        `/api/workspaces/${wsId}/members/${wsMemberRecord!.id}`,
+                        wsKey,
+                        { method: 'PATCH', body: JSON.stringify({ role: 'admin' }) }
+                    )
+                ).status
+            ).toBe(200)
+
+            // Create project in workspace & grant team + user access via Bearer key.
+            const projectRes = await bearerJsonRequest(app, '/api/projects', wsKey, {
+                method: 'POST',
+                body: JSON.stringify({ name: 'Team Project', workspaceId: wsId }),
+            })
+            expect(projectRes.status).toBe(201)
+            const projectId = ((await projectRes.json()) as { project: { id: string } }).project.id
+
+            expect(
+                (
+                    await bearerJsonRequest(app, `/api/projects/${projectId}/team-grants`, wsKey, {
+                        method: 'POST',
+                        body: JSON.stringify({ teamId, role: 'editor' }),
+                    })
+                ).status
+            ).toBe(201)
+            expect(await access.canAccessProject(projectId, memberId, 'editor')).toBe(true)
+
+            expect(
+                (
+                    await bearerJsonRequest(app, `/api/projects/${projectId}/user-grants`, wsKey, {
+                        method: 'POST',
+                        body: JSON.stringify({ userId: memberId, role: 'viewer' }),
+                    })
+                ).status
+            ).toBe(201)
+
+            // Manage categories and provider applications via instance:admin API key.
+            const createdCategory = await bearerJsonRequest(app, '/api/categories', wsKey, {
+                method: 'POST',
+                body: JSON.stringify({ name: 'Releases' }),
+            })
+            expect(createdCategory.status).toBe(201)
+
+            const createdApp = await bearerJsonRequest(
+                app,
+                '/api/settings/provider-applications',
+                wsKey,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        providerId: 'x',
+                        name: 'Agent X App',
+                        clientId: 'client-id-123',
+                        clientSecret: 'client-secret-456',
+                    }),
+                }
+            )
+            expect(createdApp.status).toBe(201)
+
+            // Disable member via PATCH /api/access/members/:userId and verify Better Auth banned sync.
+            const disabled = await bearerJsonRequest(
+                app,
+                `/api/access/members/${memberId}`,
+                wsKey,
+                { method: 'PATCH', body: JSON.stringify({ state: 'disabled' }) }
+            )
+            expect(disabled.status).toBe(200)
+            expect(
+                await database.sql
+                    .statement<{ readonly banned: number | null }, [string]>(
+                        'select banned from "user" where id = ?1'
+                    )
+                    .get(memberId)
+            ).toEqual({ banned: 1 })
+        } finally {
+            await closeTestDatabase(database)
+        }
+    })
+
+    it('separates publication:approve from publication:manage, filters search/removals, and unlocks non-OAuth connect', async () => {
+        const devtoFetcher: DevtoFetcher = async () =>
+            new Response(JSON.stringify({ id: 99, username: 'agent_dev', name: 'Agent Dev' }), {
+                status: 200,
+                headers: { 'content-type': 'application/json' },
+            })
+        const { app, database } = await createFixture({ devtoFetcher })
+
+        try {
+            const adminCookie = await signUp(app, 'workflow-admin@postdot.local')
+            const p1 = (
+                (await (
+                    await jsonRequest(app, '/api/projects', adminCookie, {
+                        method: 'POST',
+                        body: JSON.stringify({ name: 'Alpha Launch' }),
+                    })
+                ).json()) as { project: { id: string } }
+            ).project.id
+            const p2 = (
+                (await (
+                    await jsonRequest(app, '/api/projects', adminCookie, {
+                        method: 'POST',
+                        body: JSON.stringify({ name: 'Beta Launch Hidden' }),
+                    })
+                ).json()) as { project: { id: string } }
+            ).project.id
+
+            const devtoChannel = (
+                (await (
+                    await jsonRequest(app, `/api/projects/${p1}/channels`, adminCookie, {
+                        method: 'POST',
+                        body: JSON.stringify({ name: 'DEV.to Articles', profile: 'devto' }),
+                    })
+                ).json()) as { channel: { id: string } }
+            ).channel.id
+
+            const authorKey = (
+                (await (
+                    await jsonRequest(app, '/api/api-keys', adminCookie, {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            name: 'Author key',
+                            projectIds: [p1],
+                            actionAccess: ['project:read', 'publication:manage', 'channel:manage'],
+                        }),
+                    })
+                ).json()) as { token: string }
+            ).token
+
+            const approverKey = (
+                (await (
+                    await jsonRequest(app, '/api/api-keys', adminCookie, {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            name: 'Approver key',
+                            projectIds: [p1],
+                            actionAccess: ['project:read', 'publication:approve'],
+                        }),
+                    })
+                ).json()) as { token: string }
+            ).token
+
+            // Non-interactive devto connect works with channel:manage; bluesky connect remains session-only.
+            const connectDevto = await bearerJsonRequest(
+                app,
+                `/api/projects/${p1}/channels/${devtoChannel}/publisher/devto/connect`,
+                authorKey,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({ apiKey: 'devto-test-api-key-value' }),
+                }
+            )
+            expect(connectDevto.status).toBe(200)
+
+            const blueskyChannel = (
+                (await (
+                    await jsonRequest(app, `/api/projects/${p1}/channels`, adminCookie, {
+                        method: 'POST',
+                        body: JSON.stringify({ name: 'Bluesky Feed', profile: 'bluesky' }),
+                    })
+                ).json()) as { channel: { id: string } }
+            ).channel.id
+            expect(
+                (
+                    await bearerJsonRequest(
+                        app,
+                        `/api/projects/${p1}/channels/${blueskyChannel}/publisher/bluesky/connect`,
+                        authorKey,
+                        {
+                            method: 'POST',
+                            body: JSON.stringify({ handle: 'postdot.bsky.social' }),
+                        }
+                    )
+                ).status
+            ).toBe(403)
+
+            // Create post & submit for approval via authorKey (publication:manage).
+            const createdPost = await bearerJsonRequest(
+                app,
+                `/api/projects/${p1}/posts`,
+                authorKey,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        title: 'Approval Target Alpha',
+                        sourceContent: {
+                            body: { text: 'Hello launch', format: 'plain_text' },
+                            media: [],
+                        },
+                        publications: [
+                            {
+                                channelId: devtoChannel,
+                                deliveryMode: 'manual',
+                                targetContent: {
+                                    title: 'Hello DEV.to',
+                                    body_markdown: 'Hello **DEV.to**',
+                                    media: [],
+                                },
+                            },
+                        ],
+                    }),
+                }
+            )
+            expect(createdPost.status).toBe(201)
+            const publicationId = (
+                (await createdPost.json()) as { publications: Array<{ id: string }> }
+            ).publications[0]!.id
+
+            const submitApproval = await bearerJsonRequest(
+                app,
+                `/api/projects/${p1}/publications/${publicationId}/approval-request`,
+                authorKey,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        expectedDraftRevision: 1,
+                        proposedScheduledAt: now + 60_000,
+                    }),
+                }
+            )
+            expect(submitApproval.status).toBe(201)
+
+            // Author key CANNOT approve its own request.
+            expect(
+                (
+                    await bearerJsonRequest(
+                        app,
+                        `/api/projects/${p1}/publications/${publicationId}/approval-request/approve`,
+                        authorKey,
+                        { method: 'POST', body: JSON.stringify({}) }
+                    )
+                ).status
+            ).toBe(403)
+
+            // Approver key lists approval requests (project:read) and approves (publication:approve).
+            const approvalList = await bearerRequest(
+                app,
+                `/api/projects/${p1}/publications/approval-requests`,
+                approverKey
+            )
+            expect(approvalList.status).toBe(200)
+            expect((await approvalList.json()) as { requests: unknown[] }).toMatchObject({
+                requests: [expect.objectContaining({ publicationId, state: 'pending' })],
+            })
+
+            const approved = await bearerJsonRequest(
+                app,
+                `/api/projects/${p1}/publications/${publicationId}/approval-request/approve`,
+                approverKey,
+                { method: 'POST', body: JSON.stringify({}) }
+            )
+            expect(approved.status).toBe(200)
+
+            // Scoped search only exposes p1 (not p2).
+            const searchRes = await bearerRequest(app, '/api/search?q=Launch', authorKey)
+            expect(searchRes.status).toBe(200)
+            const searchBody = (await searchRes.json()) as {
+                results: Array<{ kind: string; id: string; projectId: string }>
+            }
+            expect(searchBody.results.length).toBeGreaterThan(0)
+            expect(searchBody.results.every(r => r.projectId === p1)).toBe(true)
+
+            // Archive both projects and check GET /api/resource-removals is scoped to p1 for authorKey.
+            for (const pid of [p1, p2]) {
+                const impact = (await (
+                    await jsonRequest(app, `/api/projects/${pid}/lifecycle`, adminCookie)
+                ).json()) as { fingerprint: string }
+                expect(
+                    (
+                        await jsonRequest(
+                            app,
+                            `/api/projects/${pid}/lifecycle/archive`,
+                            adminCookie,
+                            {
+                                method: 'POST',
+                                body: JSON.stringify({
+                                    fingerprint: impact.fingerprint,
+                                    cancelPending: true,
+                                }),
+                            }
+                        )
+                    ).status
+                ).toBe(200)
+            }
+
+            const removals = await bearerRequest(app, '/api/resource-removals', authorKey)
+            expect(removals.status).toBe(200)
+            const removalsBody = (await removals.json()) as {
+                resources: Array<{ kind: string; id: string }>
+            }
+            expect(removalsBody.resources.map(r => r.id)).toEqual([p1])
         } finally {
             await closeTestDatabase(database)
         }

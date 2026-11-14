@@ -37,7 +37,8 @@ export interface AuthenticatedElysiaOptions {
     readonly authorizeUserApiKeyRequest?: (
         method: string,
         requestPath: string,
-        permissions: PostdotApiKeyPermissions
+        permissions: PostdotApiKeyPermissions,
+        projectIds?: readonly string[] | null
     ) => boolean
     /**
      * Current project access for an authenticated caller. Session requests and
@@ -178,7 +179,8 @@ export function createAuthenticatedElysia(
                             options.authorizeUserApiKeyRequest?.(
                                 request.method,
                                 new URL(request.url).pathname,
-                                authentication.permissions
+                                authentication.permissions,
+                                authentication.projectIds
                             ) !== true
                         ) {
                             return status(403, {

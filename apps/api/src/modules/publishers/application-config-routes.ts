@@ -7,7 +7,7 @@ import {
 } from '@postdot/db'
 import { Type } from 'typebox'
 
-import { sessionSecurity, type AuthenticatedElysia } from '../../plugins/auth'
+import type { AuthenticatedElysia } from '../../plugins/auth'
 import { providerApplicationIds } from '../../providers/registry'
 import type { PublisherRuntime } from './runtime'
 
@@ -74,8 +74,8 @@ const applicationResponseSchema = Type.Object({ application: applicationSchema }
 
 /**
  * Provider applications are instance-level configuration, not project data.
- * Only enabled instance administrators may manage these settings; user API keys
- * are never accepted for this instance-scoped surface.
+ * Only enabled instance administrators (session or instance:admin API key)
+ * may manage these settings.
  */
 export function registerProviderApplicationRoutes<const Routes extends Record<string, unknown>>(
     app: AuthenticatedElysia<Routes>,
@@ -96,16 +96,15 @@ export function registerProviderApplicationRoutes<const Routes extends Record<st
                     operationId: 'listProviderApplicationConfigurations',
                     summary: 'List runtime provider application configurations',
                     tags: ['Settings'],
-                    security: sessionSecurity,
                 },
             },
-            async ({ authMethod, status, user }) => {
-                if (authMethod !== 'session' || !(await access.isInstanceAdmin(user.id))) {
+            async ({ status, user }) => {
+                if (!(await access.isInstanceAdmin(user.id))) {
                     return status(403, {
                         error: {
                             code: 'forbidden',
                             message:
-                                'An instance administrator session is required to manage provider applications',
+                                'An instance administrator role is required to manage provider applications',
                         },
                     })
                 }
@@ -134,16 +133,15 @@ export function registerProviderApplicationRoutes<const Routes extends Record<st
                     operationId: 'createProviderApplicationConfiguration',
                     summary: 'Create a runtime provider application configuration',
                     tags: ['Settings'],
-                    security: sessionSecurity,
                 },
             },
-            async ({ authMethod, body, status, user }) => {
-                if (authMethod !== 'session' || !(await access.isInstanceAdmin(user.id))) {
+            async ({ body, status, user }) => {
+                if (!(await access.isInstanceAdmin(user.id))) {
                     return status(403, {
                         error: {
                             code: 'forbidden',
                             message:
-                                'An instance administrator session is required to manage provider applications',
+                                'An instance administrator role is required to manage provider applications',
                         },
                     })
                 }
@@ -192,16 +190,15 @@ export function registerProviderApplicationRoutes<const Routes extends Record<st
                     operationId: 'updateProviderApplicationConfiguration',
                     summary: 'Update or disable a runtime provider application configuration',
                     tags: ['Settings'],
-                    security: sessionSecurity,
                 },
             },
-            async ({ authMethod, body, params, status, user }) => {
-                if (authMethod !== 'session' || !(await access.isInstanceAdmin(user.id))) {
+            async ({ body, params, status, user }) => {
+                if (!(await access.isInstanceAdmin(user.id))) {
                     return status(403, {
                         error: {
                             code: 'forbidden',
                             message:
-                                'An instance administrator session is required to manage provider applications',
+                                'An instance administrator role is required to manage provider applications',
                         },
                     })
                 }

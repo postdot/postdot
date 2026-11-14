@@ -1,7 +1,6 @@
 import type { AccessStore } from '@postdot/db'
 import { Type } from 'typebox'
 
-import { sessionSecurity } from '../../plugins/auth'
 import { errorResponse } from '../projects/models'
 import type { AuthenticatedElysia } from '../projects/types'
 import {
@@ -11,7 +10,7 @@ import {
 } from './settings'
 
 const denied = {
-    error: { code: 'forbidden', message: 'An instance administrator session is required' },
+    error: { code: 'forbidden', message: 'An instance administrator role is required' },
 }
 const unavailable = {
     error: { code: 'unavailable', message: 'Email configuration is unavailable' },
@@ -37,12 +36,10 @@ export function registerEmailSettingsRoutes<const Routes extends Record<string, 
                     operationId: 'getEmailSettings',
                     summary: 'Read installation SMTP settings',
                     tags: ['Configuration'],
-                    security: sessionSecurity,
                 },
             },
-            async ({ authMethod, user, status }) => {
-                if (authMethod !== 'session' || !(await access.isInstanceAdmin(user.id)))
-                    return status(403, denied)
+            async ({ user, status }) => {
+                if (!(await access.isInstanceAdmin(user.id))) return status(403, denied)
                 if (!service) return status(503, unavailable)
                 return service.view()
             }
@@ -63,12 +60,10 @@ export function registerEmailSettingsRoutes<const Routes extends Record<string, 
                     operationId: 'saveEmailSettings',
                     summary: 'Save encrypted installation SMTP settings',
                     tags: ['Configuration'],
-                    security: sessionSecurity,
                 },
             },
-            async ({ authMethod, user, body, status }) => {
-                if (authMethod !== 'session' || !(await access.isInstanceAdmin(user.id)))
-                    return status(403, denied)
+            async ({ user, body, status }) => {
+                if (!(await access.isInstanceAdmin(user.id))) return status(403, denied)
                 if (!service) return status(503, unavailable)
                 try {
                     return await service.save(body)
@@ -98,15 +93,23 @@ export function registerEmailSettingsRoutes<const Routes extends Record<string, 
                     operationId: 'testEmailSettings',
                     summary: 'Send a test email to the current administrator',
                     tags: ['Configuration'],
-                    security: sessionSecurity,
                 },
             },
-            async ({ authMethod, user, status }) => {
-                if (authMethod !== 'session' || !(await access.isInstanceAdmin(user.id)))
-                    return status(403, denied)
+            async ({ user, status }) => {
+                if (!(await access.isInstanceAdmin(user.id))) return status(403, denied)
                 if (!service) return status(503, unavailable)
+                const recipientEmail =
+                    user.email ?? (await access.getInstanceMembership(user.id))?.email ?? null
+                if (recipientEmail === null) {
+                    return status(400, {
+                        error: {
+                            code: 'email_test_failed',
+                            message: 'No email address is configured for the acting administrator',
+                        },
+                    })
+                }
                 try {
-                    return await service.test(user.email)
+                    return await service.test(recipientEmail)
                 } catch {
                     return status(400, {
                         error: {

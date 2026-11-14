@@ -6,7 +6,6 @@ import {
 } from '@postdot/db'
 import { Type } from 'typebox'
 
-import { sessionSecurity } from '../../plugins/auth'
 import { errorResponse } from './models'
 import type { AuthenticatedElysia } from './types'
 
@@ -129,17 +128,21 @@ export function registerResourceLifecycleRoutes<const Routes extends Record<stri
                     operationId: 'listResourceRetirements',
                     summary: 'List manageable archived resources and removal receipts',
                     tags: ['Access'],
-                    security: sessionSecurity,
                 },
             },
-            async ({ user, authMethod, status }) => {
-                if (authMethod !== 'session') {
-                    return status(403, {
-                        error: { code: 'forbidden', message: 'A human session is required' },
-                    })
-                }
+            async ({ user, authMethod, apiKeyProjectIds }) => {
+                const scopedProjectIds =
+                    authMethod === 'user_api_key' && apiKeyProjectIds != null
+                        ? new Set(apiKeyProjectIds)
+                        : null
                 const resources = []
                 for (const item of await lifecycle.retired()) {
+                    if (
+                        scopedProjectIds !== null &&
+                        (item.kind !== 'project' || !scopedProjectIds.has(item.id))
+                    ) {
+                        continue
+                    }
                     const visible =
                         (await canManage(item.kind, item.id, user.id)) ||
                         (await lifecycle.canReadReceipt(item.kind, item.id, user.id))
@@ -266,7 +269,6 @@ export function registerResourceLifecycleRoutes<const Routes extends Record<stri
                     operationId: 'getWorkspaceLifecycleImpact',
                     summary: 'Preview workspace and project retirement impact',
                     tags: ['Access'],
-                    security: sessionSecurity,
                 },
             },
             async ({ params, user, status }) => {
@@ -289,7 +291,6 @@ export function registerResourceLifecycleRoutes<const Routes extends Record<stri
                     operationId: 'archiveWorkspace',
                     summary: 'Archive a workspace and its projects',
                     tags: ['Access'],
-                    security: sessionSecurity,
                 },
             },
             async ({ params, body, user, status }) => {
@@ -318,7 +319,6 @@ export function registerResourceLifecycleRoutes<const Routes extends Record<stri
                     operationId: 'restoreWorkspace',
                     summary: 'Restore a workspace without restoring projects',
                     tags: ['Access'],
-                    security: sessionSecurity,
                 },
             },
             async ({ params, body, user, status }) => {
@@ -347,7 +347,6 @@ export function registerResourceLifecycleRoutes<const Routes extends Record<stri
                     operationId: 'deleteWorkspace',
                     summary: 'Permanently delete a workspace and its owned projects',
                     tags: ['Access'],
-                    security: sessionSecurity,
                 },
             },
             async ({ params, body, user, status }) => {

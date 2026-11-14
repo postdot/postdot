@@ -1114,6 +1114,8 @@ describe('Postdot API', () => {
                 '/api/access',
                 '/api/access/members',
                 '/api/access/members/{userId}',
+                '/api/access/members/{userId}/api-keys',
+                '/api/access/members/{userId}/api-keys/{keyId}',
                 '/api/access/invitations',
                 '/api/access/invitations/{invitationId}',
                 '/api/access/invitations/accept',
@@ -1336,7 +1338,7 @@ describe('Postdot API', () => {
             expect(
                 specification.paths['/api/projects/{projectId}/publications/approval-requests']?.get
                     ?.security
-            ).toEqual([{ sessionCookie: [] }])
+            ).toBeUndefined()
             expect(
                 specification.paths[
                     '/api/projects/{projectId}/publications/{publicationId}/approval-request'
@@ -1346,12 +1348,12 @@ describe('Postdot API', () => {
                 specification.paths[
                     '/api/projects/{projectId}/publications/{publicationId}/approval-request/approve'
                 ]?.post?.security
-            ).toEqual([{ sessionCookie: [] }])
+            ).toBeUndefined()
             expect(
                 specification.paths[
                     '/api/projects/{projectId}/publications/{publicationId}/approval-request/reject'
                 ]?.post?.security
-            ).toEqual([{ sessionCookie: [] }])
+            ).toBeUndefined()
             expect(specification.components?.securitySchemes).toEqual({
                 bearerAuth: {
                     bearerFormat: 'Postdot API key',
@@ -3106,7 +3108,22 @@ describe('Postdot API', () => {
             ).toBe(humanActor?.id)
 
             const keyListResponse = await bearerRequest(app, '/api/api-keys', createdBody.token)
-            expect(keyListResponse.status).toBe(403)
+            expect(keyListResponse.status).toBe(200)
+
+            const escalateKeyResponse = await bearerRequest(
+                app,
+                '/api/api-keys',
+                createdBody.token,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        name: 'Should fail escalation to all projects',
+                        projectIds: null,
+                        actionAccess: ['project:read'],
+                    }),
+                }
+            )
+            expect(escalateKeyResponse.status).toBe(403)
 
             const notificationResponse = await bearerRequest(
                 app,

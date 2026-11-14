@@ -1,7 +1,6 @@
 import type { AccessStore, TaxonomyStore } from '@postdot/db'
 import { Type } from 'typebox'
 
-import { sessionSecurity } from '../../plugins/auth'
 import { canAccessProjectRole, forbiddenProjectMutation } from './authorization'
 import {
     categoryParams,
@@ -25,9 +24,9 @@ import {
 import type { AuthenticatedElysia } from './types'
 
 /**
- * Categories are instance-level definitions. Human sessions may read them for
- * project context and filters; only enabled instance administrators may mutate
- * them. User API keys are never accepted on this instance surface.
+ * Categories are instance-level definitions. Authenticated callers with
+ * project:read may read them for project context and filters; only enabled
+ * instance administrators (session or instance:admin API key) may mutate them.
  */
 export function registerTaxonomyRoutes<const Routes extends Record<string, unknown>>(
     app: AuthenticatedElysia<Routes>,
@@ -51,15 +50,7 @@ export function registerTaxonomyRoutes<const Routes extends Record<string, unkno
                     tags: ['Taxonomy'],
                 },
             },
-            async ({ authMethod, query, status }) => {
-                if (authMethod !== 'session') {
-                    return status(403, {
-                        error: {
-                            code: 'forbidden',
-                            message: 'A human session is required to read project categories',
-                        },
-                    })
-                }
+            async ({ query }) => {
                 return {
                     categories: await taxonomy.listCategories(query.includeArchived === true),
                 }
@@ -82,16 +73,15 @@ export function registerTaxonomyRoutes<const Routes extends Record<string, unkno
                     operationId: 'createProjectCategory',
                     summary: 'Create an instance project category',
                     tags: ['Taxonomy'],
-                    security: sessionSecurity,
                 },
             },
-            async ({ authMethod, body, status, user }) => {
-                if (authMethod !== 'session' || !(await access.isInstanceAdmin(user.id))) {
+            async ({ body, status, user }) => {
+                if (!(await access.isInstanceAdmin(user.id))) {
                     return status(403, {
                         error: {
                             code: 'forbidden',
                             message:
-                                'An instance administrator session is required for project category administration',
+                                'An instance administrator role is required for project category administration',
                         },
                     })
                 }
@@ -117,16 +107,15 @@ export function registerTaxonomyRoutes<const Routes extends Record<string, unkno
                     operationId: 'renameProjectCategory',
                     summary: 'Rename an instance project category',
                     tags: ['Taxonomy'],
-                    security: sessionSecurity,
                 },
             },
-            async ({ authMethod, body, params, status, user }) => {
-                if (authMethod !== 'session' || !(await access.isInstanceAdmin(user.id))) {
+            async ({ body, params, status, user }) => {
+                if (!(await access.isInstanceAdmin(user.id))) {
                     return status(403, {
                         error: {
                             code: 'forbidden',
                             message:
-                                'An instance administrator session is required for project category administration',
+                                'An instance administrator role is required for project category administration',
                         },
                     })
                 }
@@ -159,16 +148,15 @@ export function registerTaxonomyRoutes<const Routes extends Record<string, unkno
                     operationId: 'archiveProjectCategory',
                     summary: 'Archive an instance project category',
                     tags: ['Taxonomy'],
-                    security: sessionSecurity,
                 },
             },
-            async ({ authMethod, params, status, user }) => {
-                if (authMethod !== 'session' || !(await access.isInstanceAdmin(user.id))) {
+            async ({ params, status, user }) => {
+                if (!(await access.isInstanceAdmin(user.id))) {
                     return status(403, {
                         error: {
                             code: 'forbidden',
                             message:
-                                'An instance administrator session is required for project category administration',
+                                'An instance administrator role is required for project category administration',
                         },
                     })
                 }
@@ -198,16 +186,15 @@ export function registerTaxonomyRoutes<const Routes extends Record<string, unkno
                     operationId: 'restoreProjectCategory',
                     summary: 'Restore an archived instance project category',
                     tags: ['Taxonomy'],
-                    security: sessionSecurity,
                 },
             },
-            async ({ authMethod, params, status, user }) => {
-                if (authMethod !== 'session' || !(await access.isInstanceAdmin(user.id))) {
+            async ({ params, status, user }) => {
+                if (!(await access.isInstanceAdmin(user.id))) {
                     return status(403, {
                         error: {
                             code: 'forbidden',
                             message:
-                                'An instance administrator session is required for project category administration',
+                                'An instance administrator role is required for project category administration',
                         },
                     })
                 }
@@ -239,19 +226,9 @@ export function registerTaxonomyRoutes<const Routes extends Record<string, unkno
                     operationId: 'setProjectPrimaryCategory',
                     summary: 'Set or clear a project primary category',
                     tags: ['Taxonomy'],
-                    security: sessionSecurity,
                 },
             },
             async ({ authMethod, body, params, status, user }) => {
-                if (authMethod !== 'session') {
-                    return status(403, {
-                        error: {
-                            code: 'forbidden',
-                            message:
-                                'Human authentication is required for project category administration',
-                        },
-                    })
-                }
                 if (
                     !(await canAccessProjectRole({
                         access,

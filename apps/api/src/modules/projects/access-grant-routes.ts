@@ -1,10 +1,6 @@
 import type { AccessProjectRole, AccessStore } from '@postdot/db'
 
-import {
-    sessionSecurity,
-    type AuthenticatedElysia,
-    type PostdotAuthenticationMethod,
-} from '../../plugins/auth'
+import type { AuthenticatedElysia } from '../../plugins/auth'
 import {
     errorResponse,
     projectMemberRemovedSchema,
@@ -30,7 +26,7 @@ const projectGrantForbiddenResponse = () =>
     ({
         error: {
             code: 'forbidden',
-            message: 'A project owner session is required to manage project access grants',
+            message: 'A project owner role is required to manage project access grants',
         },
     }) as const
 
@@ -57,10 +53,8 @@ async function projectExists(projectId: string, access: AccessStore): Promise<bo
 async function canManageProjectGrants(
     projectId: string,
     access: AccessStore,
-    authMethod: PostdotAuthenticationMethod,
     userId: string
 ): Promise<boolean> {
-    if (authMethod !== 'session') return false
     if (await access.canAccessProject(projectId, userId, 'owner')) return true
 
     const workspaceId = await access.getProjectWorkspaceId(projectId)
@@ -70,10 +64,8 @@ async function canManageProjectGrants(
 async function canViewProjectGrants(
     projectId: string,
     access: AccessStore,
-    authMethod: PostdotAuthenticationMethod,
     userId: string
 ): Promise<boolean> {
-    if (authMethod !== 'session') return false
     if (await access.canAccessProject(projectId, userId, 'viewer')) return true
 
     const workspaceId = await access.getProjectWorkspaceId(projectId)
@@ -101,14 +93,13 @@ export function registerProjectAccessGrantRoutes<const Routes extends Record<str
                     operationId: 'listProjectUserGrants',
                     summary: 'List direct user grants for a project',
                     tags: ['Projects'],
-                    security: sessionSecurity,
                 },
             },
-            async ({ authMethod, params, status, user }) => {
+            async ({ params, status, user }) => {
                 if (!(await projectExists(params.projectId, access))) {
                     return status(404, projectNotFoundResponse())
                 }
-                if (!(await canViewProjectGrants(params.projectId, access, authMethod, user.id))) {
+                if (!(await canViewProjectGrants(params.projectId, access, user.id))) {
                     return status(403, projectGrantReadForbiddenResponse())
                 }
                 return { grants: await access.listProjectUserGrants(params.projectId) }
@@ -133,16 +124,13 @@ export function registerProjectAccessGrantRoutes<const Routes extends Record<str
                     operationId: 'createProjectUserGrant',
                     summary: 'Grant a Postdot user access to a project',
                     tags: ['Projects'],
-                    security: sessionSecurity,
                 },
             },
-            async ({ authMethod, body, params, status, user }) => {
+            async ({ body, params, status, user }) => {
                 if (!(await projectExists(params.projectId, access))) {
                     return status(404, projectNotFoundResponse())
                 }
-                if (
-                    !(await canManageProjectGrants(params.projectId, access, authMethod, user.id))
-                ) {
+                if (!(await canManageProjectGrants(params.projectId, access, user.id))) {
                     return status(403, projectGrantForbiddenResponse())
                 }
                 const grant = await access.grantProjectUserAccess({
@@ -172,16 +160,13 @@ export function registerProjectAccessGrantRoutes<const Routes extends Record<str
                     operationId: 'updateProjectUserGrant',
                     summary: 'Update a direct project user grant',
                     tags: ['Projects'],
-                    security: sessionSecurity,
                 },
             },
-            async ({ authMethod, body, params, status, user }) => {
+            async ({ body, params, status, user }) => {
                 if (!(await projectExists(params.projectId, access))) {
                     return status(404, projectNotFoundResponse())
                 }
-                if (
-                    !(await canManageProjectGrants(params.projectId, access, authMethod, user.id))
-                ) {
+                if (!(await canManageProjectGrants(params.projectId, access, user.id))) {
                     return status(403, projectGrantForbiddenResponse())
                 }
                 if (
@@ -217,16 +202,13 @@ export function registerProjectAccessGrantRoutes<const Routes extends Record<str
                     operationId: 'removeProjectUserGrant',
                     summary: 'Remove a direct user grant from a project',
                     tags: ['Projects'],
-                    security: sessionSecurity,
                 },
             },
-            async ({ authMethod, params, status, user }) => {
+            async ({ params, status, user }) => {
                 if (!(await projectExists(params.projectId, access))) {
                     return status(404, projectNotFoundResponse())
                 }
-                if (
-                    !(await canManageProjectGrants(params.projectId, access, authMethod, user.id))
-                ) {
+                if (!(await canManageProjectGrants(params.projectId, access, user.id))) {
                     return status(403, projectGrantForbiddenResponse())
                 }
                 if (
@@ -258,14 +240,13 @@ export function registerProjectAccessGrantRoutes<const Routes extends Record<str
                     operationId: 'listProjectTeamGrants',
                     summary: 'List workspace groups granted access to a project',
                     tags: ['Projects'],
-                    security: sessionSecurity,
                 },
             },
-            async ({ authMethod, params, status, user }) => {
+            async ({ params, status, user }) => {
                 if (!(await projectExists(params.projectId, access))) {
                     return status(404, projectNotFoundResponse())
                 }
-                if (!(await canViewProjectGrants(params.projectId, access, authMethod, user.id))) {
+                if (!(await canViewProjectGrants(params.projectId, access, user.id))) {
                     return status(403, projectGrantReadForbiddenResponse())
                 }
                 return { grants: await access.listProjectTeamGrants(params.projectId) }
@@ -290,16 +271,13 @@ export function registerProjectAccessGrantRoutes<const Routes extends Record<str
                     operationId: 'createProjectTeamGrant',
                     summary: 'Grant a workspace group access to a project',
                     tags: ['Projects'],
-                    security: sessionSecurity,
                 },
             },
-            async ({ authMethod, body, params, status, user }) => {
+            async ({ body, params, status, user }) => {
                 if (!(await projectExists(params.projectId, access))) {
                     return status(404, projectNotFoundResponse())
                 }
-                if (
-                    !(await canManageProjectGrants(params.projectId, access, authMethod, user.id))
-                ) {
+                if (!(await canManageProjectGrants(params.projectId, access, user.id))) {
                     return status(403, projectGrantForbiddenResponse())
                 }
                 if ((await access.getProjectWorkspaceId(params.projectId)) === null) {
@@ -333,16 +311,13 @@ export function registerProjectAccessGrantRoutes<const Routes extends Record<str
                     operationId: 'updateProjectTeamGrant',
                     summary: 'Update a project group access grant',
                     tags: ['Projects'],
-                    security: sessionSecurity,
                 },
             },
-            async ({ authMethod, body, params, status, user }) => {
+            async ({ body, params, status, user }) => {
                 if (!(await projectExists(params.projectId, access))) {
                     return status(404, projectNotFoundResponse())
                 }
-                if (
-                    !(await canManageProjectGrants(params.projectId, access, authMethod, user.id))
-                ) {
+                if (!(await canManageProjectGrants(params.projectId, access, user.id))) {
                     return status(403, projectGrantForbiddenResponse())
                 }
                 if (
@@ -378,16 +353,13 @@ export function registerProjectAccessGrantRoutes<const Routes extends Record<str
                     operationId: 'removeProjectTeamGrant',
                     summary: 'Remove a workspace group from a project',
                     tags: ['Projects'],
-                    security: sessionSecurity,
                 },
             },
-            async ({ authMethod, params, status, user }) => {
+            async ({ params, status, user }) => {
                 if (!(await projectExists(params.projectId, access))) {
                     return status(404, projectNotFoundResponse())
                 }
-                if (
-                    !(await canManageProjectGrants(params.projectId, access, authMethod, user.id))
-                ) {
+                if (!(await canManageProjectGrants(params.projectId, access, user.id))) {
                     return status(403, projectGrantForbiddenResponse())
                 }
                 if (

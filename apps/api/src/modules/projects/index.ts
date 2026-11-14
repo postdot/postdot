@@ -167,7 +167,12 @@ export function createProjectModule(options: ProjectModuleOptions) {
         options.access,
         options.emailSettings
     )
-    const accessRoutes = registerAccessRoutes(emailSettingsRoutes, options.access, options.auth)
+    const accessRoutes = registerAccessRoutes(
+        emailSettingsRoutes,
+        options.access,
+        options.auth,
+        options.now
+    )
     const userApiKeyRoutes = registerUserApiKeyRoutes(
         accessRoutes,
         options.auth,

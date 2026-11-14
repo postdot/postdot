@@ -48,14 +48,7 @@ export function registerSearchRoutes<const Routes extends Record<string, unknown
                 tags: ['Search'],
             },
         },
-        async ({ user, authMethod, query, status }) => {
-            if (authMethod !== 'session')
-                return status(403, {
-                    error: {
-                        code: 'forbidden',
-                        message: 'Human authentication is required for dashboard search',
-                    },
-                })
+        async ({ user, authMethod, apiKeyProjectIds, query }) => {
             const candidates = new Map(
                 (await manualStore.listProjects(user.id)).map(project => [project.id, project])
             )
@@ -63,10 +56,15 @@ export function registerSearchRoutes<const Routes extends Record<string, unknown
                 for (const project of await manualStore.listProjectsForWorkspace(workspace.id))
                     candidates.set(project.id, project)
             }
+            const allowedProjectIds =
+                authMethod === 'user_api_key' && apiKeyProjectIds != null
+                    ? new Set(apiKeyProjectIds)
+                    : null
             const projectIds = (
                 await filterSequential(
                     [...candidates.values()],
                     async project =>
+                        (allowedProjectIds === null || allowedProjectIds.has(project.id)) &&
                         (await access.canAccessProject(project.id, user.id)) &&
                         (query.projectId === undefined || project.id === query.projectId)
                 )

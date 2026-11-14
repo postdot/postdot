@@ -1,7 +1,6 @@
 import type { AccessStore } from '@postdot/db'
 import { Type } from 'typebox'
 
-import { sessionSecurity } from '../../plugins/auth'
 import type { RecoveryService } from '../../recovery'
 import { errorResponse } from '../projects/models'
 import type { AuthenticatedElysia } from '../projects/types'
@@ -19,7 +18,7 @@ const recoverySchema = Type.Object({
     ]),
 })
 const denied = {
-    error: { code: 'forbidden', message: 'An instance administrator session is required' },
+    error: { code: 'forbidden', message: 'An instance administrator role is required' },
 }
 
 export function registerRecoveryRoutes<const Routes extends Record<string, unknown>>(
@@ -36,12 +35,10 @@ export function registerRecoveryRoutes<const Routes extends Record<string, unkno
                 detail: {
                     operationId: 'getRecoveryState',
                     tags: ['Settings'],
-                    security: sessionSecurity,
                 },
             },
-            async ({ authMethod, user, status }) => {
-                if (authMethod !== 'session' || !(await access.isInstanceAdmin(user.id)))
-                    return status(403, denied)
+            async ({ user, status }) => {
+                if (!(await access.isInstanceAdmin(user.id))) return status(403, denied)
                 return recovery?.view() ?? { held: false, hold: null }
             }
         )
@@ -62,12 +59,10 @@ export function registerRecoveryRoutes<const Routes extends Record<string, unkno
                 detail: {
                     operationId: 'resumeAfterRestore',
                     tags: ['Settings'],
-                    security: sessionSecurity,
                 },
             },
-            async ({ authMethod, user, body, status }) => {
-                if (authMethod !== 'session' || !(await access.isInstanceAdmin(user.id)))
-                    return status(403, denied)
+            async ({ user, body, status }) => {
+                if (!(await access.isInstanceAdmin(user.id))) return status(403, denied)
                 try {
                     if (!recovery) throw new Error('Recovery unavailable')
                     recovery.resume(body.token)

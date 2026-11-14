@@ -2,7 +2,6 @@ import { DomainInvariantError } from '@postdot/core'
 import type { AccessStore, PublicationDestinationState } from '@postdot/db'
 import { Type } from 'typebox'
 
-import { sessionSecurity } from '../../plugins/auth'
 import { apiKeyHasCapability } from './api-key-permissions'
 import { accountChanged, canAccessProjectRole, forbiddenProjectMutation } from './authorization'
 import {
@@ -540,12 +539,10 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                     operationId: 'listPublicationApprovalRequests',
                     summary: 'List publications awaiting human approval',
                     tags: ['Publications'],
-                    security: sessionSecurity,
                 },
             },
             async ({ authMethod, params, status, user }) => {
                 if (
-                    authMethod !== 'session' ||
                     !(await canAccessProjectRole({
                         access,
                         authMethod,
@@ -557,7 +554,7 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                     return status(403, {
                         error: {
                             code: 'forbidden',
-                            message: 'Human project editor access is required',
+                            message: 'Project editor access is required',
                         },
                     })
                 }
@@ -842,12 +839,10 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                     operationId: 'approvePublicationRequest',
                     summary: 'Approve a publication and schedule the reviewed revision',
                     tags: ['Publications'],
-                    security: sessionSecurity,
                 },
             },
             async ({ authMethod, body, params, status, user }) => {
                 if (
-                    authMethod !== 'session' ||
                     !(await canAccessProjectRole({
                         access,
                         authMethod,
@@ -859,7 +854,7 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                     return status(403, {
                         error: {
                             code: 'forbidden',
-                            message: 'Human project editor access is required to approve',
+                            message: 'Project editor access is required to approve',
                         },
                     })
                 }
@@ -910,12 +905,10 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                     operationId: 'rejectPublicationRequest',
                     summary: 'Reject a publication approval request',
                     tags: ['Publications'],
-                    security: sessionSecurity,
                 },
             },
             async ({ authMethod, body, params, status, user }) => {
                 if (
-                    authMethod !== 'session' ||
                     !(await canAccessProjectRole({
                         access,
                         authMethod,
@@ -927,7 +920,7 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                     return status(403, {
                         error: {
                             code: 'forbidden',
-                            message: 'Human project editor access is required to reject',
+                            message: 'Project editor access is required to reject',
                         },
                     })
                 }

@@ -9,7 +9,7 @@ import {
 } from '../../modules/projects/authorization'
 import { errorResponse } from '../../modules/projects/models'
 import type { PublisherRuntime } from '../../modules/publishers/runtime'
-import { sessionSecurity, type AuthenticatedElysia } from '../../plugins/auth'
+import type { AuthenticatedElysia } from '../../plugins/auth'
 import { telegramConnectionBody, telegramConnectionResponse } from './models'
 
 export function registerTelegramPublisherRoutes<const Routes extends Record<string, unknown>>(
@@ -46,18 +46,9 @@ export function registerTelegramPublisherRoutes<const Routes extends Record<stri
                 operationId: 'createTelegramPublisherConnection',
                 summary: 'Create a Telegram publisher connection',
                 tags: ['Channels'],
-                security: sessionSecurity,
             },
         },
         async ({ authMethod, body, params, status, user }) => {
-            if (authMethod !== 'session') {
-                return status(403, {
-                    error: {
-                        code: 'forbidden',
-                        message: 'Human authentication is required to connect Telegram',
-                    },
-                })
-            }
             if (
                 !(await canAccessProjectRole({
                     access: options.access,

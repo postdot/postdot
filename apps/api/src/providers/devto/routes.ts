@@ -14,7 +14,7 @@ import {
 } from '../../modules/projects/authorization'
 import { errorResponse } from '../../modules/projects/models'
 import type { PublisherRuntime } from '../../modules/publishers/runtime'
-import { sessionSecurity, type AuthenticatedElysia } from '../../plugins/auth'
+import type { AuthenticatedElysia } from '../../plugins/auth'
 import { devtoConnectionBody, devtoConnectionResponse } from './models'
 
 export function registerDevtoPublisherRoutes<const Routes extends Record<string, unknown>>(
@@ -51,18 +51,9 @@ export function registerDevtoPublisherRoutes<const Routes extends Record<string,
                 operationId: 'createDevtoPublisherConnection',
                 summary: 'Create a DEV.to publisher connection',
                 tags: ['Channels'],
-                security: sessionSecurity,
             },
         },
         async ({ authMethod, body, params, status, user }) => {
-            if (authMethod !== 'session') {
-                return status(403, {
-                    error: {
-                        code: 'forbidden',
-                        message: 'Human authentication is required to connect DEV.to',
-                    },
-                })
-            }
             if (
                 !(await canAccessProjectRole({
                     access: options.access,

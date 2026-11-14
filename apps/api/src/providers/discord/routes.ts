@@ -16,7 +16,7 @@ import {
 } from '../../modules/projects/authorization'
 import { errorResponse } from '../../modules/projects/models'
 import type { PublisherRuntime } from '../../modules/publishers/runtime'
-import { sessionSecurity, type AuthenticatedElysia } from '../../plugins/auth'
+import type { AuthenticatedElysia } from '../../plugins/auth'
 import { discordConnectionBody, discordConnectionResponse } from './models'
 
 export function registerDiscordPublisherRoutes<const Routes extends Record<string, unknown>>(
@@ -53,18 +53,9 @@ export function registerDiscordPublisherRoutes<const Routes extends Record<strin
                 operationId: 'createDiscordPublisherConnection',
                 summary: 'Create a Discord publisher connection',
                 tags: ['Channels'],
-                security: sessionSecurity,
             },
         },
         async ({ authMethod, body, params, status, user }) => {
-            if (authMethod !== 'session') {
-                return status(403, {
-                    error: {
-                        code: 'forbidden',
-                        message: 'Human authentication is required to connect Discord',
-                    },
-                })
-            }
             if (
                 !(await canAccessProjectRole({
                     access: options.access,

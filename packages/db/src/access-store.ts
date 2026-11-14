@@ -1033,6 +1033,17 @@ export function createAccessStore(database: DatabaseHandle, options: AccessStore
             state = instance_memberships.state,
             updated_at = excluded.updated_at
     `)
+    const upsertDirectInstanceMembershipStatement = sql.statement<
+        void,
+        [id: string, userId: string, role: AccessInstanceRole, now: number]
+    >(`
+        insert into instance_memberships (id, user_id, role, state, created_at, updated_at)
+        values (?1, ?2, ?3, 'enabled', ?4, ?4)
+        on conflict (user_id) do update set
+            role = excluded.role,
+            state = 'enabled',
+            updated_at = excluded.updated_at
+    `)
     const upsertProjectUserGrantStatement = sql.statement<
         void,
         [
@@ -1750,6 +1761,41 @@ export function createAccessStore(database: DatabaseHandle, options: AccessStore
             input: UpdateInstanceMembershipInput
         ): Promise<UpdateInstanceMembershipResult> {
             return updateInstanceMembershipTransaction(input)
+        },
+
+        async provisionDirectInstanceMembership(input: {
+            readonly userId: string
+            readonly role: AccessInstanceRole
+            readonly displayName: string
+            readonly joinDefaultWorkspace?: boolean
+            readonly workspaceRole?: AccessWorkspaceRole
+        }): Promise<AccessInstanceMembership> {
+            return database.sql.transaction(async () => {
+                const userId = requireNonBlank(input.userId, 'userId')
+                const timestamp = now()
+                await upsertDirectInstanceMembershipStatement.run(
+                    `instance-membership:${userId}`,
+                    userId,
+                    input.role,
+                    timestamp
+                )
+                if (input.joinDefaultWorkspace ?? true) {
+                    const workspace = await loadDefaultWorkspaceStatement.get()
+                    if (workspace !== null) {
+                        await addWorkspaceMemberInCurrentTransaction({
+                            workspace: toWorkspace(workspace),
+                            userId,
+                            role: input.workspaceRole ?? 'member',
+                            displayName: input.displayName,
+                        })
+                    }
+                }
+                const membership = await loadInstanceMembershipStatement.get(userId)
+                if (membership === null) {
+                    throw new Error('The instance membership was not persisted')
+                }
+                return toInstanceMembership(membership)
+            }, 'immediate')
         },
 
         async getInstanceMembership(userId: string): Promise<AccessInstanceMembership | null> {
