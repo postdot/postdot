@@ -860,8 +860,9 @@ function defaultTimeOn(day: Date, timeZone: string) {
     const now = Date.now()
     const parts = getZonedDateTimeParts(day.getTime(), timeZone)
     const morning = new Date(day.getTime() + (9 - parts.hour) * 3_600_000 - parts.minute * 60_000)
-    if (morning.getTime() > now) return morning
-    // Today after nine: the next full hour.
+    // Today after nine: the next full hour. Any other day: nine in the morning.
+    if (toDateKey(day, timeZone) !== toDateKey(new Date(now), timeZone) || morning.getTime() > now)
+        return morning
     const next = new Date(now + 3_600_000)
     next.setUTCMinutes(0, 0, 0)
     return next

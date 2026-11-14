@@ -38,7 +38,7 @@ export function PublicationComposer({
             {/* P4: the writing area is a defined surface with its toolbar attached. */}
             <div
                 data-composer-editor="true"
-                className="min-w-0 rounded-lg bg-surface-field shadow-field">
+                className="min-w-0 rounded-lg bg-surface-raised shadow-surface">
                 {editor}
             </div>
             {settings ? (
