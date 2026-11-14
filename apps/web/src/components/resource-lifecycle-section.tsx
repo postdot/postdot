@@ -426,7 +426,7 @@ export function ResourceArchives() {
     })
     return (
         <main className="min-w-0 px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
-            <AccessPageHeader title={m.lifecycle_archives()} />
+            <AccessPageHeader column="management" title={m.lifecycle_archives()} />
             <PageColumn variant="management">
                 {resources.isPending ? (
                     <p role="status">{m.common_loading()}</p>

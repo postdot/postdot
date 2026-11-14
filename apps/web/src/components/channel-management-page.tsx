@@ -124,6 +124,7 @@ export function ChannelManagementPage({
                 />
             ) : null}
             <DashboardPageHeader
+                column="management"
                 action={
                     canEditProject ? (
                         <ChannelCreationDialog
@@ -136,26 +137,28 @@ export function ChannelManagementPage({
                     ) : undefined
                 }
                 back={
-                    <Link
-                        aria-label={backLabel}
-                        className={buttonVariants({
-                            variant: 'ghost',
-                            size: 'icon',
-                            className: canResumeComposition
-                                ? 'w-auto justify-self-start gap-1.5 px-2.5 text-muted-foreground hover:text-foreground'
-                                : 'justify-self-start text-muted-foreground hover:text-foreground lg:w-auto lg:gap-1.5 lg:px-2.5',
-                        })}
-                        params={{ projectId: project.id }}
-                        to={
-                            canResumeComposition
-                                ? '/dashboard/projects/$projectId/publications/new'
-                                : '/dashboard/projects/$projectId/overview'
-                        }>
-                        <AltArrowLeftIcon aria-hidden="true" />
-                        <span className={canResumeComposition ? undefined : 'hidden lg:inline'}>
-                            {backLabel}
-                        </span>
-                    </Link>
+                    canResumeComposition ? (
+                        <Link
+                            aria-label={backLabel}
+                            className={buttonVariants({
+                                variant: 'ghost',
+                                size: 'icon',
+                                className: canResumeComposition
+                                    ? 'w-auto justify-self-start gap-1.5 px-2.5 text-muted-foreground hover:text-foreground'
+                                    : 'justify-self-start text-muted-foreground hover:text-foreground lg:w-auto lg:gap-1.5 lg:px-2.5',
+                            })}
+                            params={{ projectId: project.id }}
+                            to={
+                                canResumeComposition
+                                    ? '/dashboard/projects/$projectId/publications/new'
+                                    : '/dashboard/projects/$projectId/overview'
+                            }>
+                            <AltArrowLeftIcon aria-hidden="true" />
+                            <span className={canResumeComposition ? undefined : 'hidden lg:inline'}>
+                                {backLabel}
+                            </span>
+                        </Link>
+                    ) : undefined
                 }
                 title={m.channels_title()}
             />

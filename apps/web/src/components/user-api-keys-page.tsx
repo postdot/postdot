@@ -207,7 +207,7 @@ export function UserApiKeysPage() {
         <main className="min-w-0 px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
             <div className="mx-auto w-full max-w-6xl">
                 <DashboardPageHeader
-                    centered
+                    column="reading"
                     action={
                         <Button
                             type="button"

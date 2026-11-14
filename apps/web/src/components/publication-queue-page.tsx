@@ -1,5 +1,5 @@
 import { Badge } from '@postdot/ui/components/badge'
-import { Button, buttonVariants } from '@postdot/ui/components/button'
+import { Button } from '@postdot/ui/components/button'
 import {
     Select,
     SelectContent,
@@ -10,7 +10,6 @@ import {
 import { Tabs, TabsList, TabsTrigger } from '@postdot/ui/components/tabs'
 import { cn } from '@postdot/ui/lib/utils'
 import { AddIcon } from '@solar-icons/react/linear/add'
-import { AltArrowLeftIcon } from '@solar-icons/react/linear/alt-arrow-left'
 import { CalendarAddIcon } from '@solar-icons/react/linear/calendar-add'
 import { TrashBinMinimalisticIcon } from '@solar-icons/react/linear/trash-bin-minimalistic'
 import { useInfiniteQuery } from '@tanstack/react-query'
@@ -276,21 +275,6 @@ export function PublicationQueuePage({
                             </Button>
                         )
                     ) : undefined
-                }
-                back={
-                    <Link
-                        aria-label={m.nav_back_to_overview()}
-                        className={buttonVariants({
-                            variant: 'ghost',
-                            size: 'icon',
-                            className:
-                                'justify-self-start text-muted-foreground hover:text-foreground lg:w-auto lg:gap-1.5 lg:px-2.5',
-                        })}
-                        params={{ projectId: project.id }}
-                        to="/dashboard/projects/$projectId/overview">
-                        <AltArrowLeftIcon aria-hidden="true" />
-                        <span className="hidden lg:inline">{m.nav_back_to_overview()}</span>
-                    </Link>
                 }
                 title={m.queue_title()}
             />

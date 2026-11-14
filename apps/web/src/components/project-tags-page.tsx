@@ -87,6 +87,7 @@ export function ProjectTagsPage() {
         <main className="min-w-0 px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
             <div className="w-full">
                 <AccessPageHeader
+                    column="management"
                     action={
                         canManage && loaded ? (
                             <Button onClick={() => setCreateOpen(true)} size="sm">
@@ -95,7 +96,6 @@ export function ProjectTagsPage() {
                             </Button>
                         ) : undefined
                     }
-                    projectId={project.id}
                     title={m.project_tags_title()}
                 />
                 <PageColumn variant="management">

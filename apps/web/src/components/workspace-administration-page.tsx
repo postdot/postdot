@@ -79,7 +79,7 @@ export function WorkspaceAdministrationPage({
     return (
         <main className="min-w-0 px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
             <div className="w-full">
-                <AccessPageHeader title={m.access_workspace_title()} />
+                <AccessPageHeader column="reading" title={m.access_workspace_title()} />
 
                 <PageColumn variant="reading">
                     {error ? (

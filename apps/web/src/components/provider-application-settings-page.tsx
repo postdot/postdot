@@ -175,6 +175,7 @@ export function ProviderApplicationSettingsPage() {
             <main className="min-w-0 px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
                 <div className="mx-auto w-full max-w-6xl">
                     <AccessPageHeader
+                        column="reading"
                         title={m.provider_apps_title()}
                         action={
                             applications?.length ? (

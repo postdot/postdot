@@ -14,7 +14,7 @@ export function ProjectInvitationsPage() {
         <main className="min-w-0 px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
             <div className="w-full">
                 <AccessPageHeader
-                    projectId={project.id}
+                    column="management"
                     title={m.access_project_invitations_title()}
                 />
 

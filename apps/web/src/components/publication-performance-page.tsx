@@ -1,5 +1,4 @@
-import { Button, buttonVariants } from '@postdot/ui/components/button'
-import { AltArrowLeftIcon } from '@solar-icons/react/linear/alt-arrow-left'
+import { Button } from '@postdot/ui/components/button'
 import { ChartSquareIcon } from '@solar-icons/react/linear/chart-square'
 import { RefreshIcon } from '@solar-icons/react/linear/refresh'
 import { useInfiniteQuery, useMutation, useQueries, useQueryClient } from '@tanstack/react-query'
@@ -408,24 +407,7 @@ export function PublicationPerformancePage({
 
     return (
         <main className="min-w-0 px-4 py-7 sm:px-6 lg:px-8 lg:py-8">
-            <DashboardPageHeader
-                back={
-                    <Link
-                        aria-label={m.nav_back_to_overview()}
-                        className={buttonVariants({
-                            variant: 'ghost',
-                            size: 'icon',
-                            className:
-                                'justify-self-start text-muted-foreground hover:text-foreground lg:w-auto lg:gap-1.5 lg:px-2.5',
-                        })}
-                        params={{ projectId: project.id }}
-                        to="/dashboard/projects/$projectId/overview">
-                        <AltArrowLeftIcon aria-hidden="true" />
-                        <span className="hidden lg:inline">{m.nav_back_to_overview()}</span>
-                    </Link>
-                }
-                title={m.performance_title()}
-            />
+            <DashboardPageHeader title={m.performance_title()} />
             <DeliveryAnalyticsDashboard days={deliveryDays} channelId={deliveryChannel} />
             <div className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-6">
                 <h2 className="text-lg font-semibold">{m.delivery_engagement_title()}</h2>

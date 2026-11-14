@@ -232,7 +232,7 @@ export function InstanceAccessSettingsPage({
     return (
         <main className="min-w-0 px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
             <div className="mx-auto w-full max-w-6xl">
-                <AccessPageHeader title={m.access_instance_title()} />
+                <AccessPageHeader column="reading" title={m.access_instance_title()} />
 
                 <div className="mx-auto w-full max-w-xl">
                     {error && !inviteOpen ? (

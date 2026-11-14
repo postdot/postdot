@@ -1,58 +1,48 @@
 import { cn } from '@postdot/ui/lib/utils'
 import type { ReactNode } from 'react'
 
+/**
+ * The one page header (ADR-103 §2): a left-aligned title that equals the navigation label, with the
+ * page action on the same row. Only object pages (a post, a publication) pass `back`; sidebar
+ * destinations never do.
+ */
 export function DashboardPageHeader({
     action,
     back,
     children,
-    centered = false,
+    column,
     description,
     title,
 }: {
     readonly action?: ReactNode
     readonly back?: ReactNode
     readonly children?: ReactNode
-    readonly centered?: boolean
+    /** Aligns the header with the page's bounded content column (SPEC-010 LAY-01). */
+    readonly column?: 'management' | 'reading'
     readonly description?: string
     readonly title: string
 }) {
-    const hasBack = back !== undefined || centered
-    const titleBlock = (
-        <>
-            <h1 className="break-words text-balance font-heading text-3xl font-semibold leading-[1.02] xl:text-4xl">
-                {title}
-            </h1>
+    return (
+        <header
+            className={cn(
+                'min-w-0 pb-5',
+                column === 'management' && 'mx-auto w-full max-w-5xl',
+                column === 'reading' && 'mx-auto w-full max-w-xl'
+            )}
+            data-page-header="true">
+            {back !== undefined ? <div className="-ml-2 mb-1 flex min-w-0">{back}</div> : null}
+            <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-2">
+                <h1 className="line-clamp-2 min-w-0 break-words font-heading text-2xl leading-tight font-semibold">
+                    {title}
+                </h1>
+                {action ? <div className="flex shrink-0 items-center gap-2">{action}</div> : null}
+            </div>
             {description ? (
-                <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+                <p className="mt-1.5 max-w-2xl text-sm leading-6 text-muted-foreground">
                     {description}
                 </p>
             ) : null}
             {children}
-        </>
-    )
-
-    if (hasBack) {
-        return (
-            <header className="grid min-w-0 grid-cols-1 gap-3 pb-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)_minmax(0,1fr)] lg:items-start">
-                <div className="flex min-w-0 w-full items-center justify-between lg:contents">
-                    <div className="min-w-0 lg:col-start-1 lg:row-start-1">{back}</div>
-                    <div className="shrink-0 lg:col-start-3 lg:row-start-1 lg:justify-self-end">
-                        {action ?? <div aria-hidden="true" />}
-                    </div>
-                </div>
-                <div className="min-w-0 text-center lg:col-start-2 lg:row-start-1">
-                    {titleBlock}
-                </div>
-            </header>
-        )
-    }
-
-    return (
-        <header className="min-w-0 gap-4 pb-6 flex flex-col justify-between sm:flex-row sm:items-end">
-            <div className="min-w-0">{titleBlock}</div>
-            {action ? (
-                <div className={cn('shrink-0', !description && 'sm:pb-0.5')}>{action}</div>
-            ) : null}
         </header>
     )
 }

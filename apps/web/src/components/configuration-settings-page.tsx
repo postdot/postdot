@@ -14,7 +14,7 @@ export function ConfigurationSettingsPage() {
     return (
         <main className="min-w-0 px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
             <div className="w-full">
-                <DashboardPageHeader centered title={m.nav_instance()} />
+                <DashboardPageHeader column="reading" title={m.nav_instance()} />
                 <PageColumn
                     className="[&>section:first-child]:mt-0 [&>section:first-child]:border-t-0 [&>section:first-child]:pt-0"
                     variant="reading">

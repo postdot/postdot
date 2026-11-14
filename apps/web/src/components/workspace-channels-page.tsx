@@ -42,7 +42,7 @@ export function WorkspaceChannelsPage() {
     if (!global.selectedWorkspaceId)
         return (
             <main className="px-4 py-8">
-                <AccessPageHeader title={m.workspace_channels_title()} />
+                <AccessPageHeader column="management" title={m.workspace_channels_title()} />
             </main>
         )
     return (
@@ -110,6 +110,7 @@ function WorkspaceChannelContent({ workspaceId }: { workspaceId: string }) {
     return (
         <main className="min-w-0 px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
             <AccessPageHeader
+                column="management"
                 title={m.workspace_channels_title()}
                 action={
                     canCreate.length ? (

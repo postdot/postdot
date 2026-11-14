@@ -59,7 +59,7 @@ export function UserAccountPage() {
 
     return (
         <main className="min-w-0 px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
-            <DashboardPageHeader centered title={m.nav_preferences_account()} />
+            <DashboardPageHeader column="reading" title={m.nav_preferences_account()} />
             <div className="mx-auto grid max-w-xl gap-5">
                 <section
                     aria-label={m.account_profile()}
