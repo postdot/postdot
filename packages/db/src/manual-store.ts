@@ -249,6 +249,16 @@ export interface PublishManualPublicationInput {
     readonly externalUrl?: string
 }
 
+/**
+ * Undoes a person's "mark published" on a manual publication. Nothing was sent by Postdot,
+ * so the record alone is withdrawn and the publication is again one to publish by hand.
+ */
+export interface UndoManualPublicationInput {
+    readonly projectId: string
+    readonly publicationId: string
+    readonly subjectId: string
+}
+
 export interface ReconcileAmbiguousPublicationInput {
     readonly threadMessagePosition?: number
     readonly externalCid?: string

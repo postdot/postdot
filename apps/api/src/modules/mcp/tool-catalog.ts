@@ -316,6 +316,11 @@ export const mcpToolCatalog: readonly McpToolEntry[] = [
         openWorld: true,
         guidance: 'Marks a manual publication as published by a human.',
     },
+    {
+        operationId: 'undoManualPublication',
+        guidance:
+            'Withdraws a mistaken "published" record on a manual publication; it becomes due by hand again. Nothing is deleted at the destination.',
+    },
     { operationId: 'retryFailedPublication', openWorld: true },
     {
         operationId: 'reconcileAmbiguousPublication',

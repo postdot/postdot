@@ -282,6 +282,7 @@ export type {
     ManualStoreOptions,
     PromotePublicationDraftInput,
     PublishManualPublicationInput,
+    UndoManualPublicationInput,
     PreviewChannelProfileActivationInput,
     ReconcileAmbiguousPublicationInput,
     ReconcileAmbiguousPublicationResult,

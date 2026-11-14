@@ -1460,6 +1460,15 @@ export const api = {
         )
     },
 
+    async undoManualPublication(projectId: string, publicationId: string) {
+        return unwrap(
+            await client.api
+                .projects({ projectId })
+                .publications({ publicationId })
+                .publish.undo.post()
+        )
+    },
+
     async retryFailedPublication(projectId: string, publicationId: string) {
         return withCadenceConfirmation(async cadenceConfirmation =>
             unwrap(

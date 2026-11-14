@@ -2729,5 +2729,9 @@
     "channel_new_ellipsis": "New channel…",
     "publication_new_recovery_restored": "Your draft was restored.",
     "publication_new_recovery_start_over": "Start over",
-    "channel_platform_setup_missing": "This platform is not set up on this installation yet, so the channel cannot connect until it is."
+    "channel_platform_setup_missing": "This platform is not set up on this installation yet, so the channel cannot connect until it is.",
+    "common_undo": "Undo",
+    "publication_marked_published": "Marked as published.",
+    "publication_publish_undone": "Back to publish by hand.",
+    "publication_undo_publish": "Not published after all"
 }

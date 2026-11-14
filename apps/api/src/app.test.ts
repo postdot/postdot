@@ -1231,6 +1231,7 @@ describe('Postdot API', () => {
                 '/api/projects/{projectId}/publications/{publicationId}/draft/rebase',
                 '/api/projects/{projectId}/publications/{publicationId}/draft/promote',
                 '/api/projects/{projectId}/publications/{publicationId}/publish',
+                '/api/projects/{projectId}/publications/{publicationId}/publish/undo',
                 '/api/projects/{projectId}/publications/{publicationId}/retry',
                 '/api/projects/{projectId}/publications/{publicationId}/reconcile',
                 '/api/projects/{projectId}/media/uploads',

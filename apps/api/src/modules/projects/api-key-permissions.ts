@@ -501,6 +501,15 @@ export function requiredApiKeyCapability(
         ) {
             return 'publication:dispatch'
         }
+        // Undoing a manual "published" record is the same authority as recording it.
+        if (
+            detail.length === 3 &&
+            detail[1] === 'publish' &&
+            detail[2] === 'undo' &&
+            normalizedMethod === 'POST'
+        ) {
+            return 'publication:dispatch'
+        }
         return null
     }
 

@@ -216,6 +216,20 @@ export function registerPublicationCommands(program: Command) {
             output(body, 'Manual publication marked as published.', options)
         })
     single(
+        'undo-publish',
+        'Undo a mistaken "published" record on a manual publication; it becomes due by hand again.'
+    ).action(async (_options, command: Command) => {
+        const options = command.optsWithGlobals<PublicationOptions>()
+        const { client, projectId } = projectConnection(options)
+        const body = await result(
+            client.api
+                .projects({ projectId })
+                .publications({ publicationId: options.publication })
+                .publish.undo.post()
+        )
+        output(body, 'Manual publication is due again.', options)
+    })
+    single(
         'move',
         'Move future work using the current revisions and destination from publications show.'
     )

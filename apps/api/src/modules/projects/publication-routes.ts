@@ -1376,6 +1376,53 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
             }
         )
         .post(
+            '/api/projects/:projectId/publications/:publicationId/publish/undo',
+            {
+                auth: true,
+                params: publicationParams,
+                response: {
+                    200: Type.Object({ publication: publicationSchema }),
+                    401: errorResponse,
+                    403: errorResponse,
+                    404: errorResponse,
+                    409: errorResponse,
+                },
+                detail: {
+                    operationId: 'undoManualPublication',
+                    summary:
+                        'Undo a mistaken manual publication record; the publication is again one to publish by hand',
+                    tags: ['Publications'],
+                },
+            },
+            async ({ authMethod, params, status, user }) => {
+                if (
+                    !(await canAccessProjectRole({
+                        access,
+                        authMethod,
+                        minimumRole: 'editor',
+                        projectId: params.projectId,
+                        userId: user.id,
+                    }))
+                ) {
+                    return status(403, forbiddenProjectMutation())
+                }
+                const publication = await manualStore.undoManualPublication({
+                    projectId: params.projectId,
+                    publicationId: params.publicationId,
+                    subjectId: user.id,
+                })
+                if (publication === null) {
+                    return status(404, {
+                        error: {
+                            code: 'not_found',
+                            message: 'Manually published publication not found',
+                        },
+                    })
+                }
+                return { publication }
+            }
+        )
+        .post(
             '/api/projects/:projectId/publications/:publicationId/retry',
             {
                 auth: true,

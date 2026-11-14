@@ -147,6 +147,8 @@ destination and scheduling revisions from `show`.
 For manual work, `publications due` lists publications awaiting completion.
 `publications publish --publication ID` records that you published the content
 manually; it does not send the content to a provider.
+`publications undo-publish --publication ID` withdraws that record when it was a
+mistake; the publication is due by hand again.
 
 ## Inspect failures and explicit exceptions
 

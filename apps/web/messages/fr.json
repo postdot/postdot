@@ -2729,5 +2729,9 @@
     "channel_new_ellipsis": "Nouveau canal…",
     "publication_new_recovery_restored": "Votre brouillon a été restauré.",
     "publication_new_recovery_start_over": "Recommencer",
-    "channel_platform_setup_missing": "Cette plateforme n’est pas encore configurée sur cette installation : le canal ne pourra pas se connecter avant."
+    "channel_platform_setup_missing": "Cette plateforme n’est pas encore configurée sur cette installation : le canal ne pourra pas se connecter avant.",
+    "common_undo": "Annuler",
+    "publication_marked_published": "Marquée comme publiée.",
+    "publication_publish_undone": "De nouveau à publier à la main.",
+    "publication_undo_publish": "Finalement pas publiée"
 }

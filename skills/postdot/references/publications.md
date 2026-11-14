@@ -62,7 +62,8 @@ CLI help before using it.
 
 The source CLI's `publications publish` records completion of a due manual item;
 it does not send an automatic provider request. Do not use it as a generic
-publish-now operation. `retry` applies only to eligible failed automatic work.
+publish-now operation. `undo-publish` (MCP `undo_manual_publication`) withdraws a
+mistaken manual record; the item becomes due by hand again. `retry` applies only to eligible failed automatic work.
 Ambiguous effects require inspection/reconciliation, not unconditional retry.
 A lost response to post creation may have created drafts; inspect the list before
 creating them again. Report unverified delivery honestly.

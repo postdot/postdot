@@ -17,6 +17,7 @@ export function PublicationLifecyclePanel({
     onCancel,
     onPublish,
     onRetry,
+    onUndoPublish,
     pending = false,
     publication,
     retryDisabled = false,
@@ -28,6 +29,7 @@ export function PublicationLifecyclePanel({
     readonly onCancel?: () => void
     readonly onPublish?: () => Promise<boolean>
     readonly onRetry?: () => void | Promise<unknown>
+    readonly onUndoPublish?: () => void
     readonly pending?: boolean
     readonly publication: Publication
     readonly retryDisabled?: boolean
@@ -37,6 +39,11 @@ export function PublicationLifecyclePanel({
     const due = isManualPublicationDue(publication)
     const showManualAction = due && onPublish !== undefined
     const showCancelAction = publication.state === 'scheduled' && onCancel !== undefined
+    const showUndoPublishAction =
+        publication.state === 'published' &&
+        publication.deliveryMode === 'manual' &&
+        !readOnly &&
+        onUndoPublish !== undefined
     const showRetryAction =
         publication.state === 'failed' &&
         publication.deliveryMode === 'automatic' &&
@@ -46,7 +53,12 @@ export function PublicationLifecyclePanel({
         ['draft', 'scheduled', 'ready', 'failed'].includes(publication.state) &&
         connection !== undefined &&
         connection?.state !== 'active'
-    const hasAction = showManualAction || showRetryAction || showCancelAction || needsConnection
+    const hasAction =
+        showManualAction ||
+        showRetryAction ||
+        showCancelAction ||
+        showUndoPublishAction ||
+        needsConnection
 
     return (
         <>
@@ -123,6 +135,17 @@ export function PublicationLifecyclePanel({
                                 size="sm">
                                 <CheckIcon aria-hidden="true" />
                                 {m.publication_record_published()}
+                            </Button>
+                        ) : null}
+                        {showUndoPublishAction ? (
+                            <Button
+                                data-publication-action="undo-publish"
+                                disabled={pending}
+                                onClick={onUndoPublish}
+                                size="sm"
+                                variant="ghost">
+                                <RestartIcon aria-hidden="true" />
+                                {m.publication_undo_publish()}
                             </Button>
                         ) : null}
                         {showCancelAction ? (

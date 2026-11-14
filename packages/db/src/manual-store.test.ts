@@ -398,6 +398,36 @@ describe('manual workflow store', () => {
                 await store.listDueManualPublications(createdProject.project.id, 'user-1', now)
             ).toEqual([])
 
+            // A mistaken "mark published" can be undone; the work is due by hand again.
+            const undone = await store.undoManualPublication({
+                projectId: createdProject.project.id,
+                publicationId: published?.id ?? '',
+                subjectId: 'user-1',
+            })
+            expect(undone).toMatchObject({
+                externalId: null,
+                externalUrl: null,
+                publishedAt: null,
+                state: 'scheduled',
+            })
+            expect(
+                (
+                    await store.listDueManualPublications(createdProject.project.id, 'user-1', now)
+                )?.map(item => item.id)
+            ).toEqual([published?.id ?? ''])
+            expect(
+                await store.undoManualPublication({
+                    projectId: createdProject.project.id,
+                    publicationId: published?.id ?? '',
+                    subjectId: 'user-1',
+                })
+            ).toBeNull()
+            await store.publishManualPublication({
+                projectId: createdProject.project.id,
+                publicationId: published?.id ?? '',
+                subjectId: 'user-1',
+            })
+
             expect(
                 (await store.listAuditEvents(createdProject.project.id, 'user-1'))
                     ?.map(event => event.action)
@@ -409,7 +439,10 @@ describe('manual workflow store', () => {
                 'project.created',
                 'publication.created',
                 'publication.created',
+                'publication.publish_undone',
                 'publication.published',
+                'publication.published',
+                'publication.ready',
                 'publication.ready',
             ])
         } finally {

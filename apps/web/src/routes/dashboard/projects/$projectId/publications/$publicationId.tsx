@@ -92,7 +92,8 @@ function PublicationEditorRoute() {
         projectRole,
         access: projectAccess,
     } = useProjectDashboard()
-    const { onCancelPublications, onPublish, onRetryPublication } = useProjectPublicationActions()
+    const { onCancelPublications, onPublish, onRetryPublication, onUndoPublish } =
+        useProjectPublicationActions()
     const { onCreateProjectTag } = useProjectTagActions(project.id)
     const [access, dispatchAccess] = useReducer(
         projectAccessReducer,
@@ -215,7 +216,8 @@ function PublicationEditorRoute() {
                 <AccessTechnicalErrorNotice onRetry={retryAccessVerification} />
             ) : null}
             <PublicationEditor
-                key={currentEditor.draft.id}
+                // Leaving or entering "published" (record or undo) remounts with fresh state.
+                key={`${currentEditor.draft.id}:${currentEditor.publication.state === 'published'}`}
                 projectId={projectId}
                 destinationAction={
                     canAct ? (
@@ -241,6 +243,9 @@ function PublicationEditorRoute() {
                     canAct ? () => onCancelPublications([currentEditor.publication.id]) : undefined
                 }
                 onPublish={canAct ? () => onPublish(currentEditor.publication.id) : undefined}
+                onUndoPublish={
+                    canAct ? () => onUndoPublish(currentEditor.publication.id) : undefined
+                }
                 onRetry={
                     canAct ? () => onRetryPublication(currentEditor.publication.id) : undefined
                 }

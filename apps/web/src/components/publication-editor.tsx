@@ -107,6 +107,8 @@ interface PublicationEditorProps {
     readonly onCancel?: () => Promise<boolean>
     readonly onPublish?: () => Promise<boolean>
     readonly onRetry?: () => Promise<boolean>
+    /** Withdraws a mistaken manual "published" record. */
+    readonly onUndoPublish?: () => Promise<boolean>
     readonly readOnly?: boolean
     /**
      * Explicit project-access assessment owning this editor instance. Anything
@@ -161,6 +163,7 @@ export function PublicationEditor({
     onCreateProjectTag,
     onCancel,
     onPublish,
+    onUndoPublish,
     onRetry,
     readOnly = false,
     accessStatus,
@@ -1633,6 +1636,11 @@ export function PublicationEditor({
                     cancelDisabled={cancellationBlocked}
                     onCancel={onCancel === undefined ? undefined : () => setCancelDialogOpen(true)}
                     onPublish={onPublish === undefined ? undefined : recordManualPublication}
+                    onUndoPublish={
+                        onUndoPublish === undefined || accessWritesBlocked
+                            ? undefined
+                            : () => void onUndoPublish()
+                    }
                     onRetry={
                         editor.publication.state === 'failed'
                             ? () => void retryDelivery()

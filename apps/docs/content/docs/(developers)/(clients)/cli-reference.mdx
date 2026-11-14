@@ -142,7 +142,9 @@ contract, including `expectedRevision`, optional `sourceContent`, and optional
 `publications retry --publication <id>` requests the existing retry of a failed
 automatic publication. It cannot retry arbitrary states. The existing
 `publications publish` command still marks a due **manual** publication as
-published; it does not mean automatic dispatch. Existing reconciliation commands
+published; it does not mean automatic dispatch. `publications undo-publish`
+withdraws a mistaken record so the publication is due by hand again; nothing
+changes at the destination. Existing reconciliation commands
 remain available for ambiguous outcomes.
 
 ## Output and failures
