@@ -35,6 +35,7 @@ import { Route as DashboardProjectsProjectIdMediaRouteImport } from './routes/da
 import { Route as DashboardProjectsProjectIdOverviewRouteImport } from './routes/dashboard/projects/$projectId/overview'
 import { Route as DashboardProjectsProjectIdPerformanceRouteImport } from './routes/dashboard/projects/$projectId/performance'
 import { Route as DashboardProjectsProjectIdQueueRouteImport } from './routes/dashboard/projects/$projectId/queue'
+import { Route as DashboardProjectsProjectIdSettingsRouteImport } from './routes/dashboard/projects/$projectId/settings'
 import { Route as DashboardProjectsProjectIdTagsRouteImport } from './routes/dashboard/projects/$projectId/tags'
 import { Route as DashboardProjectsProjectIdPostsPostIdRouteImport } from './routes/dashboard/projects/$projectId/posts/$postId'
 import { Route as DashboardProjectsProjectIdPublicationsPublicationIdRouteImport } from './routes/dashboard/projects/$projectId/publications/$publicationId'
@@ -185,6 +186,12 @@ const DashboardProjectsProjectIdQueueRoute =
     path: '/queue',
     getParentRoute: () => DashboardProjectsProjectIdRoute,
   } as any)
+const DashboardProjectsProjectIdSettingsRoute =
+  DashboardProjectsProjectIdSettingsRouteImport.update({
+    id: '/settings',
+    path: '/settings',
+    getParentRoute: () => DashboardProjectsProjectIdRoute,
+  } as any)
 const DashboardProjectsProjectIdTagsRoute =
   DashboardProjectsProjectIdTagsRouteImport.update({
     id: '/tags',
@@ -237,6 +244,7 @@ export interface FileRoutesByFullPath {
   '/dashboard/projects/$projectId/overview': typeof DashboardProjectsProjectIdOverviewRoute
   '/dashboard/projects/$projectId/performance': typeof DashboardProjectsProjectIdPerformanceRoute
   '/dashboard/projects/$projectId/queue': typeof DashboardProjectsProjectIdQueueRoute
+  '/dashboard/projects/$projectId/settings': typeof DashboardProjectsProjectIdSettingsRoute
   '/dashboard/projects/$projectId/tags': typeof DashboardProjectsProjectIdTagsRoute
   '/dashboard/projects/$projectId/posts/$postId': typeof DashboardProjectsProjectIdPostsPostIdRoute
   '/dashboard/projects/$projectId/publications/$publicationId': typeof DashboardProjectsProjectIdPublicationsPublicationIdRoute
@@ -268,6 +276,7 @@ export interface FileRoutesByTo {
   '/dashboard/projects/$projectId/overview': typeof DashboardProjectsProjectIdOverviewRoute
   '/dashboard/projects/$projectId/performance': typeof DashboardProjectsProjectIdPerformanceRoute
   '/dashboard/projects/$projectId/queue': typeof DashboardProjectsProjectIdQueueRoute
+  '/dashboard/projects/$projectId/settings': typeof DashboardProjectsProjectIdSettingsRoute
   '/dashboard/projects/$projectId/tags': typeof DashboardProjectsProjectIdTagsRoute
   '/dashboard/projects/$projectId/posts/$postId': typeof DashboardProjectsProjectIdPostsPostIdRoute
   '/dashboard/projects/$projectId/publications/$publicationId': typeof DashboardProjectsProjectIdPublicationsPublicationIdRoute
@@ -301,6 +310,7 @@ export interface FileRoutesById {
   '/dashboard/projects/$projectId/overview': typeof DashboardProjectsProjectIdOverviewRoute
   '/dashboard/projects/$projectId/performance': typeof DashboardProjectsProjectIdPerformanceRoute
   '/dashboard/projects/$projectId/queue': typeof DashboardProjectsProjectIdQueueRoute
+  '/dashboard/projects/$projectId/settings': typeof DashboardProjectsProjectIdSettingsRoute
   '/dashboard/projects/$projectId/tags': typeof DashboardProjectsProjectIdTagsRoute
   '/dashboard/projects/$projectId/posts/$postId': typeof DashboardProjectsProjectIdPostsPostIdRoute
   '/dashboard/projects/$projectId/publications/$publicationId': typeof DashboardProjectsProjectIdPublicationsPublicationIdRoute
@@ -335,6 +345,7 @@ export interface FileRouteTypes {
     | '/dashboard/projects/$projectId/overview'
     | '/dashboard/projects/$projectId/performance'
     | '/dashboard/projects/$projectId/queue'
+    | '/dashboard/projects/$projectId/settings'
     | '/dashboard/projects/$projectId/tags'
     | '/dashboard/projects/$projectId/posts/$postId'
     | '/dashboard/projects/$projectId/publications/$publicationId'
@@ -366,6 +377,7 @@ export interface FileRouteTypes {
     | '/dashboard/projects/$projectId/overview'
     | '/dashboard/projects/$projectId/performance'
     | '/dashboard/projects/$projectId/queue'
+    | '/dashboard/projects/$projectId/settings'
     | '/dashboard/projects/$projectId/tags'
     | '/dashboard/projects/$projectId/posts/$postId'
     | '/dashboard/projects/$projectId/publications/$publicationId'
@@ -398,6 +410,7 @@ export interface FileRouteTypes {
     | '/dashboard/projects/$projectId/overview'
     | '/dashboard/projects/$projectId/performance'
     | '/dashboard/projects/$projectId/queue'
+    | '/dashboard/projects/$projectId/settings'
     | '/dashboard/projects/$projectId/tags'
     | '/dashboard/projects/$projectId/posts/$postId'
     | '/dashboard/projects/$projectId/publications/$publicationId'
@@ -599,6 +612,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardProjectsProjectIdQueueRouteImport
       parentRoute: typeof DashboardProjectsProjectIdRoute
     }
+    '/dashboard/projects/$projectId/settings': {
+      id: '/dashboard/projects/$projectId/settings'
+      path: '/settings'
+      fullPath: '/dashboard/projects/$projectId/settings'
+      preLoaderRoute: typeof DashboardProjectsProjectIdSettingsRouteImport
+      parentRoute: typeof DashboardProjectsProjectIdRoute
+    }
     '/dashboard/projects/$projectId/tags': {
       id: '/dashboard/projects/$projectId/tags'
       path: '/tags'
@@ -653,6 +673,7 @@ interface DashboardProjectsProjectIdRouteChildren {
   DashboardProjectsProjectIdOverviewRoute: typeof DashboardProjectsProjectIdOverviewRoute
   DashboardProjectsProjectIdPerformanceRoute: typeof DashboardProjectsProjectIdPerformanceRoute
   DashboardProjectsProjectIdQueueRoute: typeof DashboardProjectsProjectIdQueueRoute
+  DashboardProjectsProjectIdSettingsRoute: typeof DashboardProjectsProjectIdSettingsRoute
   DashboardProjectsProjectIdTagsRoute: typeof DashboardProjectsProjectIdTagsRoute
   DashboardProjectsProjectIdPostsPostIdRoute: typeof DashboardProjectsProjectIdPostsPostIdRoute
   DashboardProjectsProjectIdPublicationsPublicationIdRoute: typeof DashboardProjectsProjectIdPublicationsPublicationIdRoute
@@ -673,6 +694,8 @@ const DashboardProjectsProjectIdRouteChildren: DashboardProjectsProjectIdRouteCh
     DashboardProjectsProjectIdPerformanceRoute:
       DashboardProjectsProjectIdPerformanceRoute,
     DashboardProjectsProjectIdQueueRoute: DashboardProjectsProjectIdQueueRoute,
+    DashboardProjectsProjectIdSettingsRoute:
+      DashboardProjectsProjectIdSettingsRoute,
     DashboardProjectsProjectIdTagsRoute: DashboardProjectsProjectIdTagsRoute,
     DashboardProjectsProjectIdPostsPostIdRoute:
       DashboardProjectsProjectIdPostsPostIdRoute,

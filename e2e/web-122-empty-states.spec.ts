@@ -14,7 +14,7 @@ test('keeps the empty project overview focused while Queue remains usable', asyn
     // the calendar is absent.
     await expect(page.getByText('Add your first channel', { exact: true })).toBeVisible()
     await expect(page.getByText(/The calendar appears here as soon as/)).toBeVisible()
-    await expect(page.locator('a[href*="/publications/new"]')).toHaveCount(0)
+    await expect(page.locator('main a[href*="/publications/new"]')).toHaveCount(0)
     await page.getByRole('button', { name: 'Add channel', exact: true }).click()
     await expect(page).toHaveURL(/\/channels$/)
     await expect(page.getByRole('dialog', { name: 'Add a channel' })).toBeVisible()
@@ -29,7 +29,7 @@ test('keeps the empty project overview focused while Queue remains usable', asyn
         page.getByText('Add a channel to choose where your publications go.', { exact: true })
     ).toBeVisible()
     await expect(
-        page.locator('a[href*="/publications/new"]').filter({ hasText: 'New publication' })
+        page.locator('a[href*="/publications/new"]').filter({ hasText: 'New post' })
     ).toHaveCount(0)
 
     await page.getByRole('tab', { name: 'Needs attention (0)', exact: true }).click()
@@ -37,7 +37,7 @@ test('keeps the empty project overview focused while Queue remains usable', asyn
     await expect(page.locator('[data-publication-empty-illustration="true"]')).toHaveCount(1)
     await expect(page.getByRole('button', { name: 'Show all', exact: true })).toBeVisible()
     await expect(
-        page.locator('a[href*="/publications/new"]').filter({ hasText: 'New publication' })
+        page.locator('a[href*="/publications/new"]').filter({ hasText: 'New post' })
     ).toHaveCount(0)
 
     await page.getByRole('button', { name: 'Show all', exact: true }).click()
@@ -62,13 +62,11 @@ async function createAccountAndProject(page: Page, suffix: string) {
 
     await page.getByRole('combobox', { name: 'Select project', exact: true }).click()
     await page.getByRole('button', { name: 'Create project', exact: true }).last().click()
-    await page
-        .getByRole('textbox', { name: 'New project', exact: true })
-        .fill(`E2E-122 project ${suffix}`)
+    await page.getByRole('textbox', { name: 'Name', exact: true }).fill(`E2E-122 project ${suffix}`)
     await page
         .locator('form')
-        .filter({ has: page.getByRole('textbox', { name: 'New project', exact: true }) })
-        .getByRole('button', { name: 'Add project', exact: true })
+        .filter({ has: page.getByRole('textbox', { name: 'Name', exact: true }) })
+        .getByRole('button', { name: 'Create project', exact: true })
         .click()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/overview$/)
 }

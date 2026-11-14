@@ -6,6 +6,7 @@ import { expect, test, type Page } from '@playwright/test'
 import en from '../apps/web/messages/en.json' with { type: 'json' }
 import fr from '../apps/web/messages/fr.json' with { type: 'json' }
 import { calendarLocales } from '../packages/ui/src/components/calendar'
+import { openLanguageMenu, switchTheme } from './locale'
 
 type TestEventSourceController = {
     readonly url: string
@@ -101,13 +102,13 @@ test('refreshes an open publication editor after a worker state change', async (
     await expect(addChannelButton).toBeEnabled()
     await addChannelButton.click()
     await expect(page.getByRole('dialog')).toBeVisible()
-    await page.getByRole('radio', { name: 'Manual message', exact: true }).click()
+    await page.getByRole('radio', { name: 'Other (publish by hand)', exact: true }).click()
     await page.getByLabel('Channel name').fill(channelName)
-    await page.getByRole('button', { name: 'Configure content', exact: true }).click()
+    await page.getByRole('button', { name: 'Content rules', exact: true }).click()
     await page.getByRole('button', { name: 'Create channel', exact: true }).click()
     await expect(page.getByRole('paragraph').filter({ hasText: channelName }).first()).toBeVisible()
 
-    await page.getByRole('link', { name: 'New publication', exact: true }).click()
+    await page.getByRole('link', { name: 'New post', exact: true }).click()
     await expect(page.locator('[data-new-publication-form]')).toHaveAttribute('aria-busy', 'false')
     await page.getByLabel('Content', { exact: true }).fill('E2E realtime editor content')
     await expect(page.getByLabel('Content', { exact: true })).toHaveText(
@@ -201,7 +202,7 @@ test('refreshes an open publication editor after a worker state change', async (
     await publicationLink.click()
     await expect(page.locator('[data-publication-lifecycle="true"]')).toBeVisible()
     await expect(
-        page.locator('[data-publication-lifecycle="true"]').getByText('Queued', { exact: true })
+        page.locator('[data-publication-lifecycle="true"]').getByText('Scheduled', { exact: true })
     ).toBeVisible()
     await expect
         .poll(() => readEventSource(page))
@@ -397,7 +398,7 @@ test('keeps operational labels localized without changing custom notification co
         [
             'publication_ambiguous',
             'warning',
-            'Publication outcome unknown',
+            'Couldn’t confirm publication',
             'Postdot could not confirm whether the publication was delivered.',
         ],
         [
@@ -450,8 +451,8 @@ test('keeps operational labels localized without changing custom notification co
     for (const locale of ['en', 'fr'] as const) {
         const copy = locale === 'fr' ? fr : en
         if (locale === 'fr') {
-            await page.locator('[data-slot="language-switcher-trigger"]').click()
-            await page.getByRole('menuitem', { name: en.language_french, exact: true }).click()
+            await openLanguageMenu(page)
+            await page.getByRole('menuitem', { name: 'Français', exact: true }).click()
         }
         await expect(page.locator('html')).toHaveAttribute('lang', locale)
         await page.setViewportSize({ width: locale === 'fr' ? 390 : 1280, height: 844 })
@@ -666,12 +667,7 @@ test('opens notification subjects without acknowledgement and handles unavailabl
     const { publications } = (await postResponse.json()) as { publications: { id: string }[] }
     const publicationId = publications[0]!.id
     if ((await page.locator('html').getAttribute('class'))?.split(' ').includes('dark')) {
-        await page
-            .getByRole('button', {
-                name: en.theme_switch_to.replace('{theme}', en.theme_light),
-                exact: true,
-            })
-            .click()
+        await switchTheme(page, 'light')
     }
     const titles = ['Delivered subject', 'Failed subject', 'Uncertain subject']
     await page.route('**/api/notifications?*', route =>
@@ -797,12 +793,7 @@ test('opens notification subjects without acknowledgement and handles unavailabl
     await page.screenshot({ path: testInfo.outputPath('notification-unavailable-mobile.png') })
     expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([])
     await page.keyboard.press('Escape')
-    await page
-        .getByRole('button', {
-            name: en.theme_switch_to.replace('{theme}', en.theme_dark),
-            exact: true,
-        })
-        .click()
+    await switchTheme(page, 'dark')
     await openInbox()
     mode = 'forbidden'
     await subject.click()
@@ -839,12 +830,12 @@ async function createAccountAndProject(page: Page, suffix: string): Promise<stri
     await page.getByRole('combobox', { name: 'Select project', exact: true }).click()
     await page.getByRole('button', { name: 'Create project', exact: true }).last().click()
     await page
-        .getByRole('textbox', { name: 'New project', exact: true })
+        .getByRole('textbox', { name: 'Name', exact: true })
         .fill(`E2E realtime project ${suffix}`)
     await page
         .locator('form')
-        .filter({ has: page.getByRole('textbox', { name: 'New project', exact: true }) })
-        .getByRole('button', { name: 'Add project', exact: true })
+        .filter({ has: page.getByRole('textbox', { name: 'Name', exact: true }) })
+        .getByRole('button', { name: 'Create project', exact: true })
         .click()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/overview$/)
     await expect(page.getByRole('heading', { name: 'Overview', exact: true })).toBeVisible()

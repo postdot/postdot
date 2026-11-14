@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto'
 import { expect, test, type Locator, type Page } from '@playwright/test'
 
 import en from '../apps/web/messages/en.json' with { type: 'json' }
-import { frenchTranslation } from './locale'
+import { frenchTranslation, openLanguageMenu } from './locale'
 
 interface EditableProfile {
     contentSchema: { properties: { body: { maxLength: number } } }
@@ -123,7 +123,7 @@ test('explains profile errors by field and preserves work until a valid draft is
 
     await page.goto(`/dashboard/projects/${projectId}/channels`)
     await page.getByRole('button', { name: 'Manage Validation channel', exact: true }).click()
-    await page.getByRole('menuitem', { name: 'Edit profile', exact: true }).click()
+    await page.getByRole('menuitem', { name: 'Content rules', exact: true }).click()
     const dialog = page.getByRole('dialog')
     await expect(bodyMaximum(dialog)).toHaveValue('1000000')
 
@@ -134,7 +134,9 @@ test('explains profile errors by field and preserves work until a valid draft is
     await expect(alert).toContainText('/capabilities/textFields/0/bindingId')
     await expect(alert).toContainText('Reference an ID declared in fieldBindings.')
     await expect(alert).not.toContainText('FAKE_SENTINEL')
-    await expect(alert).not.toContainText('The request could not be completed.')
+    await expect(alert).not.toContainText(
+        'Something went wrong. Check your connection and try again.'
+    )
     // The refusal keeps the operator's work and stays a single, field-level signal.
     await expect(bodyMaximum(dialog)).toHaveValue('900')
     await expect(dialog.getByRole('button', { name: 'Preview impact', exact: true })).toBeDisabled()
@@ -165,8 +167,8 @@ test('explains profile errors by field and preserves work until a valid draft is
     expect(saved.draft.revision).toBe(1)
     await dialog.getByRole('button', { name: 'Close', exact: true }).click()
 
-    await page.locator('[data-slot="language-switcher-trigger"]').click()
-    await page.getByRole('menuitem', { name: 'French', exact: true }).click()
+    await openLanguageMenu(page)
+    await page.getByRole('menuitem', { name: 'Français', exact: true }).click()
     await page
         .getByRole('button', {
             name: frenchTranslation('channel_manage').replace('{channel}', 'Validation channel'),
@@ -251,13 +253,11 @@ async function createAccountAndProject(page: Page, suffix: string): Promise<void
 
     await page.getByRole('combobox', { name: 'Select project', exact: true }).click()
     await page.getByRole('button', { name: 'Create project', exact: true }).last().click()
-    await page
-        .getByRole('textbox', { name: 'New project', exact: true })
-        .fill(`E2E-142 project ${suffix}`)
+    await page.getByRole('textbox', { name: 'Name', exact: true }).fill(`E2E-142 project ${suffix}`)
     await page
         .locator('form')
-        .filter({ has: page.getByRole('textbox', { name: 'New project', exact: true }) })
-        .getByRole('button', { name: 'Add project', exact: true })
+        .filter({ has: page.getByRole('textbox', { name: 'Name', exact: true }) })
+        .getByRole('button', { name: 'Create project', exact: true })
         .click()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/overview$/)
     await expect(page.getByRole('heading', { name: 'Overview', exact: true })).toBeVisible()

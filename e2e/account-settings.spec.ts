@@ -5,6 +5,7 @@ import { expect, test } from '@playwright/test'
 
 import en from '../apps/web/messages/en.json' with { type: 'json' }
 import fr from '../apps/web/messages/fr.json' with { type: 'json' }
+import { openLanguageMenu, switchTheme } from './locale'
 
 test('edits personal identity and safely changes the password across settings layouts', async ({
     page,
@@ -75,17 +76,12 @@ test('edits personal identity and safely changes the password across settings la
     for (const locale of ['en', 'fr'] as const) {
         const copy = locale === 'en' ? en : fr
         if (locale === 'fr') {
-            await page.locator('[data-slot="language-switcher-trigger"]').click()
-            await page.getByRole('menuitem', { name: en.language_french, exact: true }).click()
+            await openLanguageMenu(page)
+            await page.getByRole('menuitem', { name: 'Français', exact: true }).click()
         }
         for (const theme of ['light', 'dark'] as const) {
             if (!(await page.locator('html').getAttribute('class'))?.split(' ').includes(theme)) {
-                await page
-                    .getByRole('button', {
-                        name: copy.theme_switch_to.replace('{theme}', copy[`theme_${theme}`]),
-                        exact: true,
-                    })
-                    .click()
+                await switchTheme(page, theme)
             }
             for (const width of [1280, 820, 390]) {
                 await page.setViewportSize({ width, height: 844 })

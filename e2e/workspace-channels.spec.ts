@@ -74,7 +74,7 @@ for (const [locale, messages] of [
         ).toBeVisible()
         await expect(
             page.getByRole('button', { name: messages.nav_back_to_project, exact: true })
-        ).toBeVisible()
+        ).toHaveCount(0)
         const row = page.locator(`[data-workspace-channel="${channel.id}"]`)
         await expect(row).toBeVisible()
         await row.locator('summary').focus()

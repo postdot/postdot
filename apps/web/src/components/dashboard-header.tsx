@@ -4,12 +4,17 @@ import {
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuSeparator,
+    DropdownMenuSub,
+    DropdownMenuSubContent,
+    DropdownMenuSubTrigger,
     DropdownMenuTrigger,
 } from '@postdot/ui/components/dropdown-menu'
 import { SidebarTrigger } from '@postdot/ui/components/sidebar'
-import { AltArrowLeftIcon } from '@solar-icons/react/linear/alt-arrow-left'
+import { CheckIcon } from '@solar-icons/react/linear/check'
 import { Logout2Icon } from '@solar-icons/react/linear/logout-2'
+import { PaletteIcon } from '@solar-icons/react/linear/palette'
 import { SettingsIcon } from '@solar-icons/react/linear/settings'
+import { TranslationIcon } from '@solar-icons/react/linear/translation'
 import { Link } from '@tanstack/react-router'
 import type { FormEvent } from 'react'
 
@@ -17,20 +22,18 @@ import { ActionTooltip } from '@/components/action-tooltip'
 import { DashboardProjectContext } from '@/components/dashboard-project-context'
 import { DashboardSearch } from '@/components/dashboard-search'
 import { UserAvatar } from '@/components/identity-visuals'
-import { LanguageSwitcher } from '@/components/language-switcher'
+import { isLocale, languageLabels } from '@/components/language-switcher'
 import { NotificationInbox } from '@/components/notification-inbox'
-import { ThemeToggle } from '@/components/theme-toggle'
+import { themeLabel, themeOptions } from '@/components/theme-toggle'
 import type { Project, ProjectCategory, Session, WorkspaceListItem } from '@/lib/api'
 import { useLanguage } from '@/lib/i18n'
+import { useTheme } from '@/lib/theme'
 import * as m from '@/paraglide/messages.js'
+import { locales } from '@/paraglide/runtime.js'
 
 interface DashboardHeaderProps {
-    readonly hasPageBack: boolean
     readonly canCreateWorkspace: boolean
     readonly categories: readonly ProjectCategory[]
-    readonly isInstanceSettings: boolean
-    readonly isProjectSettings: boolean
-    readonly isWorkspaceSettings: boolean
     readonly isUserPreferences: boolean
     readonly onCreateProject: (event: FormEvent<HTMLFormElement>) => void
     readonly onCreateWorkspace: (event: FormEvent<HTMLFormElement>) => void
@@ -52,12 +55,8 @@ interface DashboardHeaderProps {
 }
 
 export function DashboardHeader({
-    hasPageBack,
     canCreateWorkspace,
     categories,
-    isInstanceSettings,
-    isProjectSettings,
-    isWorkspaceSettings,
     isUserPreferences,
     onCreateProject,
     onCreateWorkspace,
@@ -77,20 +76,8 @@ export function DashboardHeader({
     workspaceName,
     workspaces,
 }: DashboardHeaderProps) {
-    useLanguage()
-    const isSettingsShell =
-        isInstanceSettings || isProjectSettings || isWorkspaceSettings || isUserPreferences
-    const backLabel = projectId !== null ? m.nav_back_to_project() : m.nav_back_to_projects()
-    const backLink =
-        projectId !== null ? (
-            <Link params={{ projectId }} to="/dashboard/projects/$projectId/overview" />
-        ) : (
-            <Link
-                search={{ workspaceId: workspaceId ?? undefined, projectId: 'none' }}
-                to="/dashboard"
-            />
-        )
-
+    const { locale, setLocale } = useLanguage()
+    const { resolvedTheme, setTheme } = useTheme()
     return (
         <header
             data-dashboard-header="true"
@@ -99,20 +86,6 @@ export function DashboardHeader({
                 <ActionTooltip label={m.nav_toggle()}>
                     <SidebarTrigger aria-label={m.nav_toggle()} />
                 </ActionTooltip>
-                {isSettingsShell && !hasPageBack ? (
-                    <ActionTooltip label={backLabel}>
-                        <Button
-                            aria-label={backLabel}
-                            className="gap-1.5 px-2 text-muted-foreground hover:text-foreground"
-                            nativeButton={false}
-                            render={backLink}
-                            size="sm"
-                            variant="ghost">
-                            <AltArrowLeftIcon aria-hidden="true" />
-                            <span className="hidden sm:inline">{backLabel}</span>
-                        </Button>
-                    </ActionTooltip>
-                ) : null}
                 <DashboardProjectContext
                     canCreateWorkspace={canCreateWorkspace}
                     categories={categories}
@@ -140,13 +113,12 @@ export function DashboardHeader({
                     projectId={isUserPreferences ? null : projectId}
                     projects={projects}
                 />
-                <LanguageSwitcher />
-                <ThemeToggle />
                 <DropdownMenu>
                     <DropdownMenuTrigger
                         render={
                             <Button
                                 aria-label={m.nav_account_menu()}
+                                data-slot="account-menu-trigger"
                                 variant="ghost"
                                 className="h-auto gap-2 px-1.5 py-1.5"
                             />
@@ -178,7 +150,54 @@ export function DashboardHeader({
                             <SettingsIcon aria-hidden="true" />
                             {m.nav_preferences()}
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={onSignOut} disabled={pending}>
+                        <DropdownMenuSub>
+                            <DropdownMenuSubTrigger data-slot="account-menu-theme">
+                                <PaletteIcon aria-hidden="true" />
+                                {m.preferences_theme()}
+                            </DropdownMenuSubTrigger>
+                            <DropdownMenuSubContent className="min-w-36">
+                                {themeOptions.map(theme => (
+                                    <DropdownMenuItem
+                                        key={theme}
+                                        aria-current={resolvedTheme === theme ? 'true' : undefined}
+                                        data-theme-option={theme}
+                                        onClick={() => setTheme(theme)}>
+                                        {themeLabel(theme)}
+                                        {resolvedTheme === theme ? (
+                                            <CheckIcon aria-hidden="true" className="ml-auto" />
+                                        ) : null}
+                                    </DropdownMenuItem>
+                                ))}
+                            </DropdownMenuSubContent>
+                        </DropdownMenuSub>
+                        <DropdownMenuSub>
+                            <DropdownMenuSubTrigger data-slot="account-menu-language">
+                                <TranslationIcon aria-hidden="true" />
+                                {m.language_menu_label()}
+                            </DropdownMenuSubTrigger>
+                            <DropdownMenuSubContent className="min-w-36">
+                                {locales.map(language => (
+                                    <DropdownMenuItem
+                                        key={language}
+                                        aria-current={locale === language ? 'true' : undefined}
+                                        lang={language}
+                                        onClick={() => {
+                                            if (locale !== language && isLocale(language))
+                                                void setLocale(language)
+                                        }}>
+                                        {languageLabels[language]()}
+                                        {locale === language ? (
+                                            <CheckIcon aria-hidden="true" className="ml-auto" />
+                                        ) : null}
+                                    </DropdownMenuItem>
+                                ))}
+                            </DropdownMenuSubContent>
+                        </DropdownMenuSub>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                            data-slot="account-menu-sign-out"
+                            onClick={onSignOut}
+                            disabled={pending}>
                             <Logout2Icon aria-hidden="true" />
                             {m.nav_sign_out()}
                         </DropdownMenuItem>

@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 
 import { expect, test } from '@playwright/test'
 
-import { frenchTranslation } from './locale'
+import { frenchTranslation, openLanguageMenu } from './locale'
 
 test('groups loaded destinations by source and distinguishes zero, missing, and failed reads', async ({
     page,
@@ -24,7 +24,7 @@ test('groups loaded destinations by source and distinguishes zero, missing, and 
         ['Bluesky primary', 'bluesky'],
         ['Bluesky secondary', 'bluesky'],
         ['Article', 'devto'],
-        ['Mastodon status', 'mastodon'],
+        ['Mastodon', 'mastodon'],
     ]) {
         const response = await page.request.post(`/api/projects/${project.id}/channels`, {
             data: { name, profile },
@@ -162,7 +162,7 @@ test('groups loaded destinations by source and distinguishes zero, missing, and 
     expect(requested.map(ids => ids.length).sort()).toEqual([1, 1, 2])
     const mastodon = page
         .locator('[data-performance-publication]')
-        .filter({ has: page.getByRole('link', { name: 'Mastodon status', exact: true }) })
+        .filter({ has: page.getByRole('link', { name: 'Mastodon', exact: true }) })
     await expect(mastodon.getByText('0', { exact: true })).toBeVisible()
     await expect(mastodon).toContainText('Favourites')
     await expect(mastodon).toContainText('Boosts')
@@ -174,8 +174,8 @@ test('groups loaded destinations by source and distinguishes zero, missing, and 
         animations: 'disabled',
     })
     await page.setViewportSize({ width: 390, height: 844 })
-    await page.getByRole('button', { name: 'Language', exact: true }).click()
-    await page.getByRole('menuitem', { name: 'French', exact: true }).click()
+    await openLanguageMenu(page)
+    await page.getByRole('menuitem', { name: 'Français', exact: true }).click()
     await expect(
         page.getByText(frenchTranslation('performance_grouped_description'), { exact: true })
     ).toBeVisible()

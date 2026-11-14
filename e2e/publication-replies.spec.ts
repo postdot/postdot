@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 
 import { expect, test } from '@playwright/test'
 
-import { frenchTranslation } from './locale'
+import { frenchTranslation, openLanguageMenu } from './locale'
 
 for (const provider of ['bluesky', 'mastodon'] as const) {
     const platform = provider === 'mastodon' ? 'Mastodon' : 'Bluesky'
@@ -194,8 +194,8 @@ for (const provider of ['bluesky', 'mastodon'] as const) {
         expect(requests).toHaveLength(3)
         await expect(panel.locator('script')).toHaveCount(0)
         await page.setViewportSize({ width: 390, height: 844 })
-        await page.getByRole('button', { name: 'Language', exact: true }).click()
-        await page.getByRole('menuitem', { name: 'French', exact: true }).click()
+        await openLanguageMenu(page)
+        await page.getByRole('menuitem', { name: 'Français', exact: true }).click()
         const frenchPanel = page.locator('details').filter({
             has: page
                 .locator('summary')

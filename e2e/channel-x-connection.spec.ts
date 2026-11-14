@@ -76,9 +76,7 @@ test('connects and recovers an X channel from the web workflow', async ({ page }
 
     const projectId = await createAccountAndProject(page, suffix)
     await page.goto('/dashboard/settings/provider-applications')
-    await expect(
-        page.getByRole('heading', { name: 'OAuth applications', exact: true })
-    ).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Platform setup', exact: true })).toBeVisible()
     await page.getByRole('button', { name: 'Edit', exact: true }).click()
     await expect(page.getByLabel('OAuth 2.0 redirect URI', { exact: true })).toHaveValue(
         callbackUri
@@ -89,7 +87,7 @@ test('connects and recovers an X channel from the web workflow', async ({ page }
     await page.goto(`/dashboard/projects/${projectId}/channels`)
     await page.getByRole('button', { name: 'Add channel', exact: true }).click()
     await page.getByLabel('Channel name', { exact: true }).fill(`E2E X channel ${suffix}`)
-    await page.getByRole('radio', { name: 'X post', exact: true }).click()
+    await page.getByRole('radio', { name: 'X', exact: true }).click()
 
     const channelResponse = page.waitForResponse(
         response =>
@@ -284,12 +282,12 @@ async function createAccountAndProject(page: Page, suffix: string): Promise<stri
         await page.getByRole('combobox', { name: 'Select project', exact: true }).click()
         await page.getByRole('button', { name: 'Create project', exact: true }).last().click()
         await page
-            .getByRole('textbox', { name: 'New project', exact: true })
+            .getByRole('textbox', { name: 'Name', exact: true })
             .fill(`E2E X project ${suffix}`)
         await page
             .locator('form')
-            .filter({ has: page.getByRole('textbox', { name: 'New project', exact: true }) })
-            .getByRole('button', { name: 'Add project', exact: true })
+            .filter({ has: page.getByRole('textbox', { name: 'Name', exact: true }) })
+            .getByRole('button', { name: 'Create project', exact: true })
             .click()
     } else {
         const accountResponse = await page.request.post('/api/auth/sign-up/email', {

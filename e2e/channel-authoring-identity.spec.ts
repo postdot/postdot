@@ -5,6 +5,7 @@ import { expect, test, type Page } from '@playwright/test'
 
 import en from '../apps/web/messages/en.json' with { type: 'json' }
 import fr from '../apps/web/messages/fr.json' with { type: 'json' }
+import { switchTheme } from './locale'
 
 test('creates manual channels with defaults and explains provider setup before connection', async ({
     page,
@@ -120,12 +121,7 @@ test('distinguishes repeated platforms and creates a channel without leaving the
     await expect(page.getByRole('heading', { name: en.nav_channels, exact: true })).toBeVisible()
     for (const theme of ['light', 'dark'] as const) {
         if (!(await page.locator('html').getAttribute('class'))?.split(' ').includes(theme)) {
-            await page
-                .getByRole('button', {
-                    name: en.theme_switch_to.replace('{theme}', en[`theme_${theme}`]),
-                    exact: true,
-                })
-                .click()
+            await switchTheme(page, theme)
         }
         expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([])
         await page.screenshot({ path: testInfo.outputPath(`channels-surfaces-${theme}.png`) })
@@ -133,12 +129,7 @@ test('distinguishes repeated platforms and creates a channel without leaving the
     await page.goto(`/dashboard/projects/${projectId}/publications/new`)
     await expect(page.locator('[data-new-publication-form]')).toHaveAttribute('aria-busy', 'false')
     for (const theme of ['light', 'dark'] as const) {
-        await page
-            .getByRole('button', {
-                name: en.theme_switch_to.replace('{theme}', en[`theme_${theme}`]),
-                exact: true,
-            })
-            .click()
+        await switchTheme(page, theme)
         await page.screenshot({ path: testInfo.outputPath(`compose-surfaces-${theme}.png`) })
     }
 
@@ -291,13 +282,11 @@ async function createAccountAndProject(page: Page, suffix: string): Promise<stri
 
     await page.getByRole('combobox', { name: 'Select project', exact: true }).click()
     await page.getByRole('button', { name: 'Create project', exact: true }).last().click()
-    await page
-        .getByRole('textbox', { name: 'New project', exact: true })
-        .fill(`E2E-124 project ${suffix}`)
+    await page.getByRole('textbox', { name: 'Name', exact: true }).fill(`E2E-124 project ${suffix}`)
     await page
         .locator('form')
-        .filter({ has: page.getByRole('textbox', { name: 'New project', exact: true }) })
-        .getByRole('button', { name: 'Add project', exact: true })
+        .filter({ has: page.getByRole('textbox', { name: 'Name', exact: true }) })
+        .getByRole('button', { name: 'Create project', exact: true })
         .click()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/overview$/)
     await expect(page.getByRole('heading', { name: 'Overview', exact: true })).toBeVisible()
@@ -604,7 +593,7 @@ test('resumes composition from channel setup and after an OAuth callback reload'
     const channelId = (await response.json()).channel.id
     await page.goto(`/dashboard/projects/${projectId}/channels`)
     await expect(
-        page.getByRole('link', { name: en.nav_back_to_overview, exact: true })
+        page.getByRole('heading', { name: en.nav_channels, exact: true, level: 1 })
     ).toBeVisible()
     await expect(
         page.getByRole('link', { name: en.publication_resume_composition, exact: true })

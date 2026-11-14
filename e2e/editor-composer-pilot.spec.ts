@@ -37,7 +37,7 @@ test('recovers composition text, target formatting and media through the existin
     await expect(target).toHaveText('Shared 👋 draft')
     await target.press('Control+a')
     await page.getByRole('button', { name: 'Underline', exact: true }).click()
-    await page.getByRole('button', { name: 'Common', exact: true }).click()
+    await page.getByRole('button', { name: 'All channels', exact: true }).click()
     await expect(common).toHaveText('Shared 👋 draft')
     await page.getByRole('button', { name: 'Pilot Discord', exact: true }).click()
     await expect(target.locator('u')).toHaveText('Shared 👋 draft')
@@ -112,7 +112,7 @@ test('recovers composition text, target formatting and media through the existin
     await expect(page.locator('[data-weighted-count="true"]')).toHaveText(
         '282 / 280 weighted characters'
     )
-    await page.getByRole('button', { name: 'Common', exact: true }).click()
+    await page.getByRole('button', { name: 'All channels', exact: true }).click()
     await expect(common).toHaveText('Shared 👋 draft')
     await common.press('End')
     await page.getByRole('button', { name: 'Insert emoji', exact: true }).click()
@@ -128,7 +128,7 @@ test('recovers composition text, target formatting and media through the existin
     await page.getByRole('button', { name: 'Pilot X', exact: true }).click()
     await target.fill('X copy')
     await expect(target).not.toHaveAttribute('aria-invalid', 'true')
-    await page.getByRole('button', { name: 'Common', exact: true }).click()
+    await page.getByRole('button', { name: 'All channels', exact: true }).click()
     const createdResponse = page.waitForResponse(
         response => response.url().endsWith('/posts') && response.request().method() === 'POST'
     )
@@ -146,7 +146,7 @@ test('recovers composition text, target formatting and media through the existin
     await expect(
         page.getByRole('heading', { level: 1, name: 'Shared 👋 draft😀', exact: true })
     ).toBeVisible()
-    const destinations = page.getByRole('region', { name: 'Destinations', exact: true })
+    const destinations = page.getByRole('region', { name: 'Channels', exact: true })
     await expect(destinations.locator('a[data-publication-edit-link]')).toHaveCount(3)
     for (const publication of created.publications) {
         await expect(
@@ -413,7 +413,7 @@ test('corrects destination attachments without changing shared media or another 
     }
     await page.goto(`/dashboard/projects/${id}/publications/new`)
     await page.getByRole('button', { name: 'Add Media discord', exact: true }).click()
-    await page.getByRole('button', { name: 'Common', exact: true }).click()
+    await page.getByRole('button', { name: 'All channels', exact: true }).click()
     await page.getByRole('textbox', { name: 'Content', exact: true }).fill('Shared images')
     await page.getByRole('button', { name: 'Add media', exact: true }).click()
     const library = page.locator('[data-media-library="true"]')
@@ -722,7 +722,7 @@ test('projects custom destination text and ordered media through active nested b
                 .fill('Explicit projection text')
         }
     }
-    await page.getByRole('button', { name: 'Common', exact: true }).click()
+    await page.getByRole('button', { name: 'All channels', exact: true }).click()
     let blockProfile = true
     await page.route(`**/channels/${channels[2]!.id}/profile`, route =>
         blockProfile
@@ -1084,10 +1084,8 @@ async function createProject(page: Page) {
     await page.getByRole('combobox', { name: 'Select project', exact: true }).click()
     await page.getByRole('button', { name: 'Create project', exact: true }).last().click()
     const dialog = page.getByRole('dialog')
-    await dialog
-        .getByRole('textbox', { name: 'New project', exact: true })
-        .fill('Editor pilot project')
-    await dialog.getByRole('button', { name: 'Add project', exact: true }).click()
+    await dialog.getByRole('textbox', { name: 'Name', exact: true }).fill('Editor pilot project')
+    await dialog.getByRole('button', { name: 'Create project', exact: true }).click()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/overview$/)
     const id = new URL(page.url()).pathname.split('/')[3]
     if (!id) throw new Error('Missing pilot project')
@@ -1313,7 +1311,7 @@ test('upgrades LinkedIn explicitly and composes multiple images without changing
 
     await page.goto(`/dashboard/projects/${projectId}/channels`)
     await page.getByRole('button', { name: 'Manage LinkedIn images', exact: true }).click()
-    await page.getByRole('menuitem', { name: 'Edit profile', exact: true }).click()
+    await page.getByRole('menuitem', { name: 'Content rules', exact: true }).click()
     const dialog = page.getByRole('dialog')
     await dialog.getByRole('button', { name: 'Load latest LinkedIn template', exact: true }).click()
     // The loaded template is a local edit in the structured controls: the media
@@ -1539,7 +1537,7 @@ test('adds a destination draft to the existing post with explicit repeated-chann
     expect(createdResponse.status()).toBe(201)
     const created = await createdResponse.json()
     await page.goto(`/dashboard/projects/${projectId}/publications/${created.publications[0].id}`)
-    await page.getByRole('button', { name: 'Add destination', exact: true }).click()
+    await page.getByRole('button', { name: 'Add a channel', exact: true }).click()
     const dialog = page.getByRole('dialog')
     await dialog.getByRole('combobox', { name: 'Channel', exact: true }).click()
     await page.getByRole('option', { name: 'Reuse manual', exact: true }).click()
@@ -1630,7 +1628,7 @@ test('keeps partial tag-assignment feedback visible after reaching the created p
     )
     await expect(
         page
-            .getByRole('region', { name: 'Destinations', exact: true })
+            .getByRole('region', { name: 'Channels', exact: true })
             .locator('a[data-publication-edit-link]')
     ).toHaveCount(1)
     expect(creations).toBe(1)

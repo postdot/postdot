@@ -7,11 +7,9 @@ test('an owner can invite, update, and remove project members', async ({ page })
 
     const suffix = randomUUID().slice(0, 8)
     const owner = await createAccountAndProject(page, suffix)
-    await page.goto(`/dashboard/projects/${owner.projectId}/invitations`)
+    await page.goto(`/dashboard/projects/${owner.projectId}/access`)
 
-    await expect(
-        page.getByRole('heading', { name: 'Project invitations', exact: true }).first()
-    ).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'People', exact: true, level: 1 })).toBeVisible()
     await expect(
         page.getByRole('heading', { name: 'Pending invitations', exact: true })
     ).toHaveCount(0)
@@ -126,13 +124,11 @@ async function createAccountAndProject(page: Page, suffix: string) {
 
     await page.getByRole('combobox', { name: 'Select project', exact: true }).click()
     await page.getByRole('button', { name: 'Create project', exact: true }).last().click()
-    await page
-        .getByRole('textbox', { name: 'New project', exact: true })
-        .fill(`E2E-134 project ${suffix}`)
+    await page.getByRole('textbox', { name: 'Name', exact: true }).fill(`E2E-134 project ${suffix}`)
     await page
         .locator('form')
-        .filter({ has: page.getByRole('textbox', { name: 'New project', exact: true }) })
-        .getByRole('button', { name: 'Add project', exact: true })
+        .filter({ has: page.getByRole('textbox', { name: 'Name', exact: true }) })
+        .getByRole('button', { name: 'Create project', exact: true })
         .click()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/overview$/)
 

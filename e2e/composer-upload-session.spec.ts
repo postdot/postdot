@@ -51,7 +51,7 @@ test('a session refusal during an upload keeps the file and text and resumes aft
                 new URL(response.url()).pathname === `/api/projects/${data.project.id}/posts` &&
                 response.request().method() === 'POST'
         )
-        await page.getByRole('button', { name: 'Create draft', exact: true }).click()
+        await page.getByRole('button', { name: 'Save as draft', exact: true }).click()
         const response = await created
         expect(response.status()).toBe(201)
         expect(response.request().postDataJSON().sourceContent.media).toHaveLength(1)
@@ -83,7 +83,9 @@ test('a session that ends mid-upload offers sign-in without losing the held crea
             await route.continue()
         })
         await page.locator('input[type=file]').setInputFiles(file)
-        await expect(page.getByRole('button', { name: 'Create draft', exact: true })).toBeDisabled()
+        await expect(
+            page.getByRole('button', { name: 'Save as draft', exact: true })
+        ).toBeDisabled()
 
         expect((await page.request.post('/api/auth/sign-out')).status()).toBe(200)
         release()

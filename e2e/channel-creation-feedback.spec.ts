@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto'
 import { expect, test, type Page } from '@playwright/test'
 
 import en from '../apps/web/messages/en.json' with { type: 'json' }
-import { frenchTranslation } from './locale'
+import { frenchTranslation, openLanguageMenu } from './locale'
 
 test('refuses malformed custom channel definitions and derives fingerprints on the server', async ({
     page,
@@ -160,8 +160,8 @@ test('projects custom channel definition errors in the creation dialog', async (
     await page.setViewportSize({ width: 390, height: 844 })
     await dialog.getByRole('button', { name: en.common_cancel, exact: true }).click()
     await expect(dialog).toHaveCount(0)
-    await page.locator('[data-slot="language-switcher-trigger"]').click()
-    await page.getByRole('menuitem', { name: 'French', exact: true }).click()
+    await openLanguageMenu(page)
+    await page.getByRole('menuitem', { name: 'Français', exact: true }).click()
     await page.getByRole('button', { name: frenchTranslation('channel_add'), exact: true }).click()
     const frenchDialog = page.getByRole('dialog')
     await frenchDialog
@@ -243,13 +243,11 @@ async function createAccountAndProject(page: Page, suffix: string): Promise<stri
 
     await page.getByRole('combobox', { name: 'Select project', exact: true }).click()
     await page.getByRole('button', { name: 'Create project', exact: true }).last().click()
-    await page
-        .getByRole('textbox', { name: 'New project', exact: true })
-        .fill(`E2E-332 project ${suffix}`)
+    await page.getByRole('textbox', { name: 'Name', exact: true }).fill(`E2E-332 project ${suffix}`)
     await page
         .locator('form')
-        .filter({ has: page.getByRole('textbox', { name: 'New project', exact: true }) })
-        .getByRole('button', { name: 'Add project', exact: true })
+        .filter({ has: page.getByRole('textbox', { name: 'Name', exact: true }) })
+        .getByRole('button', { name: 'Create project', exact: true })
         .click()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/overview$/)
     return new URL(page.url()).pathname.split('/')[3]!

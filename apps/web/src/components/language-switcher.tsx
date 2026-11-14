@@ -1,88 +1,57 @@
-import flagDe from '@iconify-icons/flag/de-4x3'
-import flagEs from '@iconify-icons/flag/es-4x3'
-import flagFr from '@iconify-icons/flag/fr-4x3'
-import flagGb from '@iconify-icons/flag/gb-4x3'
-import { Icon } from '@iconify/react'
-import { Button } from '@postdot/ui/components/button'
 import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from '@postdot/ui/components/dropdown-menu'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@postdot/ui/components/tooltip'
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@postdot/ui/components/select'
 
 import { useLanguage } from '@/lib/i18n'
 import * as m from '@/paraglide/messages.js'
 import { type Locale, locales } from '@/paraglide/runtime.js'
 
-const languageLabels: Record<Locale, () => string> = {
-    en: m.language_english,
-    fr: m.language_french,
-    es: m.language_spanish,
-    de: m.language_german,
+/** Languages are named in their own language, never by a flag and never translated (ADR-103). */
+const nativeLanguageNames: Record<Locale, string> = {
+    en: 'English',
+    fr: 'Français',
+    es: 'Español',
+    de: 'Deutsch',
 }
 
-const languageFlags = {
-    en: flagGb,
-    fr: flagFr,
-    es: flagEs,
-    de: flagDe,
-} as const
+export const languageLabels: Record<Locale, () => string> = {
+    en: () => nativeLanguageNames.en,
+    fr: () => nativeLanguageNames.fr,
+    es: () => nativeLanguageNames.es,
+    de: () => nativeLanguageNames.de,
+}
 
-export function LanguageSwitcher() {
+export function isLocale(value: unknown): value is Locale {
+    return typeof value === 'string' && locales.includes(value as Locale)
+}
+
+export function LanguageSelect({ id }: { readonly id?: string }) {
     const { locale, setLocale } = useLanguage()
-    const label = m.language_menu_label()
 
     return (
-        <DropdownMenu>
-            <Tooltip>
-                <TooltipTrigger
-                    render={
-                        <DropdownMenuTrigger
-                            render={
-                                <Button
-                                    aria-label={label}
-                                    className="px-2"
-                                    data-slot="language-switcher-trigger"
-                                    size="icon-sm"
-                                    variant="ghost"
-                                />
-                            }
-                        />
-                    }>
-                    <Icon
-                        aria-hidden="true"
-                        className="h-3.5 w-5 overflow-hidden rounded-[2px]"
-                        icon={languageFlags[locale]}
-                    />
-                </TooltipTrigger>
-                <TooltipContent>{label}</TooltipContent>
-            </Tooltip>
-            <DropdownMenuContent align="end" className="min-w-40">
+        <Select
+            value={locale}
+            onValueChange={value => {
+                if (isLocale(value) && value !== locale) void setLocale(value)
+            }}>
+            <SelectTrigger
+                aria-label={m.language_menu_label()}
+                className="w-44"
+                data-slot="language-select"
+                id={id}>
+                <SelectValue>{languageLabels[locale]()}</SelectValue>
+            </SelectTrigger>
+            <SelectContent align="end">
                 {locales.map(language => (
-                    <DropdownMenuItem
-                        key={language}
-                        aria-current={locale === language ? 'true' : undefined}
-                        className="gap-2"
-                        onClick={() => {
-                            if (locale !== language && isLocale(language)) {
-                                void setLocale(language)
-                            }
-                        }}>
-                        <Icon
-                            aria-hidden="true"
-                            className="h-3.5 w-5 overflow-hidden rounded-[2px]"
-                            icon={languageFlags[language]}
-                        />
+                    <SelectItem key={language} value={language}>
                         {languageLabels[language]()}
-                    </DropdownMenuItem>
+                    </SelectItem>
                 ))}
-            </DropdownMenuContent>
-        </DropdownMenu>
+            </SelectContent>
+        </Select>
     )
-}
-
-function isLocale(value: string | null): value is Locale {
-    return value !== null && locales.includes(value as Locale)
 }

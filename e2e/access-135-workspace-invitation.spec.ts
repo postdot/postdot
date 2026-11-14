@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto'
 import AxeBuilder from '@axe-core/playwright'
 import { expect, test, type Page } from '@playwright/test'
 
-import en from '../apps/web/messages/en.json' with { type: 'json' }
+import { switchTheme } from './locale'
 
 test('a workspace invitation joins the selected group and unlocks its project access', async ({
     page,
@@ -103,12 +103,7 @@ test('a workspace invitation joins the selected group and unlocks its project ac
     await expect(inviteDialog).toHaveCount(0)
     for (const theme of ['light', 'dark'] as const) {
         if (!(await page.locator('html').getAttribute('class'))?.split(' ').includes(theme)) {
-            await page
-                .getByRole('button', {
-                    name: en.theme_switch_to.replace('{theme}', en[`theme_${theme}`]),
-                    exact: true,
-                })
-                .click()
+            await switchTheme(page, theme)
         }
         for (const width of [1280, 820, 390]) {
             await page.setViewportSize({ width, height: 844 })
@@ -271,11 +266,11 @@ async function createAccountAndProject(page: Page, suffix: string) {
 
     await page.getByRole('combobox', { name: 'Select project', exact: true }).click()
     await page.getByRole('button', { name: 'Create project', exact: true }).last().click()
-    await page.getByRole('textbox', { name: 'New project', exact: true }).fill(projectName)
+    await page.getByRole('textbox', { name: 'Name', exact: true }).fill(projectName)
     await page
         .locator('form')
-        .filter({ has: page.getByRole('textbox', { name: 'New project', exact: true }) })
-        .getByRole('button', { name: 'Add project', exact: true })
+        .filter({ has: page.getByRole('textbox', { name: 'Name', exact: true }) })
+        .getByRole('button', { name: 'Create project', exact: true })
         .click()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/overview$/)
 

@@ -4,7 +4,7 @@ import { expect, test, type Page, type Route } from '@playwright/test'
 import type { MediaReference } from '@postdot/client'
 
 import en from '../apps/web/messages/en.json' with { type: 'json' }
-import fr from '../apps/web/messages/fr.json' with { type: 'json' }
+import { openLanguageMenu, switchTheme } from './locale'
 
 const e2eApiPort = process.env.POSTDOT_E2E_API_PORT
 if (e2eApiPort === undefined) {
@@ -120,23 +120,16 @@ test('keeps dashboard and composer media journeys reliable', async ({ page, requ
         'rgba(0, 0, 0, 0)'
     )
 
-    await expect(
-        page.getByRole('button', { name: 'Switch to light theme', exact: true })
-    ).toBeVisible()
-    await page.getByRole('button', { name: 'Switch to light theme', exact: true }).click()
+    await switchTheme(page, 'light')
     await expect(page.locator('html')).toHaveClass(/\blight\b/)
-    await expect(
-        page.getByRole('button', { name: 'Switch to dark theme', exact: true })
-    ).toBeVisible()
-    await page.getByRole('button', { name: 'Switch to dark theme', exact: true }).click()
-    await page.getByRole('button', { name: 'Language', exact: true }).click()
-    await page.getByRole('menuitem', { name: 'French', exact: true }).click()
+    await switchTheme(page, 'dark')
+    await expect(page.locator('html')).toHaveClass(/\bdark\b/)
+    await openLanguageMenu(page)
+    await page.getByRole('menuitem', { name: 'Français', exact: true }).click()
     await expect(page.locator('html')).toHaveAttribute('lang', 'fr')
-    const languageSwitcher = page.locator('[data-slot="language-switcher-trigger"]')
-    await expect(languageSwitcher).toBeVisible()
-    await languageSwitcher.click()
-    await expect(page.locator('[role="menuitem"][aria-current="true"]')).toHaveCount(1)
-    await page.getByRole('menuitem', { name: fr.language_english, exact: true }).click()
+    await openLanguageMenu(page)
+    await expect(page.locator('[role="menuitem"][aria-current="true"][lang]')).toHaveCount(1)
+    await page.getByRole('menuitem', { name: 'English', exact: true }).click()
     await expect(page.locator('html')).toHaveAttribute('lang', 'en')
 
     await page.getByRole('button', { name: 'Open account menu', exact: true }).click()
@@ -237,8 +230,8 @@ test('keeps dashboard and composer media journeys reliable', async ({ page, requ
     await page.getByRole('combobox', { name: 'Select project', exact: true }).click()
     await page.getByRole('button', { name: 'Create project', exact: true }).last().click()
     const desktopProjectForm = page.getByRole('dialog')
-    await page.getByRole('textbox', { name: 'New project', exact: true }).fill(projectName)
-    await desktopProjectForm.getByRole('button', { name: 'Add project', exact: true }).click()
+    await page.getByRole('textbox', { name: 'Name', exact: true }).fill(projectName)
+    await desktopProjectForm.getByRole('button', { name: 'Create project', exact: true }).click()
     await expect(page.getByRole('combobox', { name: 'Select project' }).first()).toHaveText(
         projectName
     )
@@ -313,8 +306,8 @@ test('keeps dashboard and composer media journeys reliable', async ({ page, requ
     )
     await page.goto('/dashboard/settings/provider-applications')
     await expect(page).toHaveURL(/\/dashboard\/settings\/provider-applications(?:\?.*)?$/)
-    await expect(page.getByRole('heading', { name: 'OAuth applications', level: 1 })).toBeVisible()
-    await expect(page.getByText('No provider applications', { exact: true })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Platform setup', level: 1 })).toBeVisible()
+    await expect(page.getByText('No platform set up yet', { exact: true })).toBeVisible()
     await page.unroute('**/api/settings/provider-applications')
 
     await page.goto('/dashboard')
@@ -335,19 +328,19 @@ test('keeps dashboard and composer media journeys reliable', async ({ page, requ
     const initialChannelNameField = page.getByLabel('Channel name')
     await initialAddChannelButton.click()
     await expect(initialChannelNameField).toBeVisible()
-    await expect(page.getByRole('radiogroup', { name: 'Profile', exact: true })).toBeVisible()
+    await expect(page.getByRole('radiogroup', { name: 'Platform', exact: true })).toBeVisible()
     await page.getByRole('button', { name: 'Cancel', exact: true }).click()
 
     await page.getByRole('link', { name: 'Channels', exact: true }).click()
     await page.getByRole('button', { name: 'Add channel', exact: true }).click()
-    await page.getByRole('radio', { name: 'Manual message', exact: true }).click()
+    await page.getByRole('radio', { name: 'Other (publish by hand)', exact: true }).click()
     await page.getByLabel('Channel name').fill(channelName)
-    await page.getByRole('button', { name: 'Configure content', exact: true }).click()
+    await page.getByRole('button', { name: 'Content rules', exact: true }).click()
     await page.getByRole('button', { name: 'Create channel', exact: true }).click()
     await expect(page.getByRole('paragraph').filter({ hasText: channelName }).first()).toBeVisible()
     await page.getByRole('button', { name: 'Add channel', exact: true }).click()
-    const channelProfile = page.getByRole('radiogroup', { name: 'Profile', exact: true })
-    await channelProfile.getByRole('radio', { name: 'LinkedIn post', exact: true }).click()
+    const channelProfile = page.getByRole('radiogroup', { name: 'Platform', exact: true })
+    await channelProfile.getByRole('radio', { name: 'LinkedIn', exact: true }).click()
     await page.getByLabel('Channel name').fill(secondChannelName)
     await page.getByRole('button', { name: 'Create channel', exact: true }).click()
     await expect(
@@ -363,7 +356,7 @@ test('keeps dashboard and composer media journeys reliable', async ({ page, requ
         '[data-slot="event-calendar-month-cell"][data-today="true"]'
     )
     await todayCell.hover()
-    await todayCell.getByRole('button', { name: 'Create publication', exact: true }).click()
+    await todayCell.getByRole('button', { name: 'New post', exact: true }).click()
     await expect(page).toHaveURL(
         /\/dashboard\/projects\/[^/]+\/publications\/new\?date=\d{4}-\d{2}-\d{2}$/
     )
@@ -382,7 +375,7 @@ test('keeps dashboard and composer media journeys reliable', async ({ page, requ
     await expect(
         page.locator('[data-slot="sidebar-inner"]').getByText(channelName, { exact: true })
     ).toHaveCount(0)
-    await page.getByRole('link', { name: 'New publication', exact: true }).click()
+    await page.getByRole('link', { name: 'New post', exact: true }).click()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/publications\/new$/)
 
     const newPublicationEditor = page.locator('[data-new-publication-editor="true"]')
@@ -398,7 +391,7 @@ test('keeps dashboard and composer media journeys reliable', async ({ page, requ
     const draftResponse = page.waitForResponse(
         response => response.url().endsWith('/posts') && response.request().method() === 'POST'
     )
-    await page.getByRole('button', { name: 'Create draft', exact: true }).click()
+    await page.getByRole('button', { name: 'Save as draft', exact: true }).click()
     const draftResult = (await (await draftResponse).json()) as {
         publications: { id: string; postId: string; state: string }[]
     }
@@ -417,7 +410,7 @@ test('keeps dashboard and composer media journeys reliable', async ({ page, requ
         page.getByRole('button', { name: /^Use this version(?:\s*(?:Ctrl|⌘)↵)?$/ })
     ).toBeVisible()
     await page.getByRole('link', { name: /Back to queue/ }).click()
-    await page.getByRole('link', { name: 'New publication', exact: true }).click()
+    await page.getByRole('link', { name: 'New post', exact: true }).click()
 
     await page.locator('input[type="file"]').setInputFiles({
         name: mediaFilename,
@@ -992,15 +985,15 @@ test('persists mixed and media-only publications through the dashboard', async (
 
     const { projectId: firstProjectId } = await createAccountAndProject(page, suffix, projectName)
     await createChannel(page, channelName)
-    await createChannel(page, secondChannelName, 'LinkedIn post')
+    await createChannel(page, secondChannelName, 'LinkedIn')
     await page.goto(`/dashboard/projects/${firstProjectId}/media`)
     await importMediaFiles(page, [editedMediaFilename])
     await page.getByRole('button', { name: 'List view', exact: true }).click()
 
     await expect(
-        page.locator('main').getByRole('button', { name: 'New publication', exact: true })
+        page.locator('main').getByRole('button', { name: 'New post', exact: true })
     ).toHaveCount(0)
-    await page.getByRole('link', { name: 'New publication', exact: true }).click()
+    await page.getByRole('link', { name: 'New post', exact: true }).click()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/publications\/new$/)
     await expect(page.locator('[data-new-publication-form]')).toHaveAttribute('aria-busy', 'false')
 
@@ -1039,7 +1032,7 @@ test('persists mixed and media-only publications through the dashboard', async (
     if ((await deliveryDetails.getAttribute('open')) === null) {
         await deliveryDetails.locator('summary').click()
     }
-    await page.getByRole('button', { name: 'Customize delivery', exact: true }).click()
+    await page.getByRole('button', { name: 'Different time for this channel', exact: true }).click()
     await expect(page.getByLabel('Channel schedule', { exact: true })).toContainText(
         defaultSchedule.trim()
     )
@@ -1049,7 +1042,7 @@ test('persists mixed and media-only publications through the dashboard', async (
         exact: true,
     })
     await secondPublicationDelivery.click()
-    await page.getByRole('option', { name: 'Automatic publication', exact: true }).click()
+    await page.getByRole('option', { name: 'Publish automatically', exact: true }).click()
     const channelSchedule = page.getByLabel('Channel schedule', { exact: true })
     await channelSchedule.click()
     const channelSchedulePicker = page.locator('[role="dialog"][aria-label="Date"]')
@@ -1098,7 +1091,7 @@ test('persists mixed and media-only publications through the dashboard', async (
             .getByRole('button', { name: 'Edit', exact: true })
     ).toBeVisible()
 
-    await page.getByRole('link', { name: 'New publication', exact: true }).click()
+    await page.getByRole('link', { name: 'New post', exact: true }).click()
     await page.getByRole('button', { name: 'Add media', exact: true }).click()
     const attachmentLibrary = page.locator('[data-media-library="true"]')
     await expect(attachmentLibrary).toHaveAttribute('data-media-picker-mode', 'attach')
@@ -1672,11 +1665,11 @@ test('persists mixed and media-only publications through the dashboard', async (
     const secondProjectName = `E2E-51 Second project ${suffix}`
     await page.getByRole('combobox', { name: 'Select project', exact: true }).click()
     await page.getByRole('button', { name: 'Create project', exact: true }).last().click()
-    await page.getByRole('textbox', { name: 'New project', exact: true }).fill(secondProjectName)
+    await page.getByRole('textbox', { name: 'Name', exact: true }).fill(secondProjectName)
     await page
         .locator('form')
-        .filter({ has: page.getByRole('textbox', { name: 'New project', exact: true }) })
-        .getByRole('button', { name: 'Add project', exact: true })
+        .filter({ has: page.getByRole('textbox', { name: 'Name', exact: true }) })
+        .getByRole('button', { name: 'Create project', exact: true })
         .click()
     await expect(page.getByRole('combobox', { name: 'Select project' }).first()).toHaveText(
         secondProjectName
@@ -1729,11 +1722,11 @@ async function createAccountAndProject(page: Page, suffix: string, projectName?:
 
     await page.getByRole('combobox', { name: 'Select project', exact: true }).click()
     await page.getByRole('button', { name: 'Create project', exact: true }).last().click()
-    await page.getByRole('textbox', { name: 'New project', exact: true }).fill(resolvedProjectName)
+    await page.getByRole('textbox', { name: 'Name', exact: true }).fill(resolvedProjectName)
     await page
         .locator('form')
-        .filter({ has: page.getByRole('textbox', { name: 'New project', exact: true }) })
-        .getByRole('button', { name: 'Add project', exact: true })
+        .filter({ has: page.getByRole('textbox', { name: 'Name', exact: true }) })
+        .getByRole('button', { name: 'Create project', exact: true })
         .click()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/overview$/)
 
@@ -1745,15 +1738,15 @@ async function createChannel(page: Page, channelName: string, profileName?: stri
     await page.goto(`/dashboard/projects/${projectId}/channels`)
     await page.getByRole('button', { name: 'Add channel', exact: true }).click()
     if (profileName === undefined) {
-        await page.getByRole('radio', { name: 'Manual message', exact: true }).click()
+        await page.getByRole('radio', { name: 'Other (publish by hand)', exact: true }).click()
     }
     if (profileName !== undefined) {
-        const channelProfile = page.getByRole('radiogroup', { name: 'Profile', exact: true })
+        const channelProfile = page.getByRole('radiogroup', { name: 'Platform', exact: true })
         await channelProfile.getByRole('radio', { name: profileName, exact: true }).click()
     }
     await page.getByLabel('Channel name').fill(channelName)
     if (profileName === undefined)
-        await page.getByRole('button', { name: 'Configure content', exact: true }).click()
+        await page.getByRole('button', { name: 'Content rules', exact: true }).click()
     await page.getByRole('button', { name: 'Create channel', exact: true }).click()
     await expect(page.getByRole('paragraph').filter({ hasText: channelName }).first()).toBeVisible()
 }

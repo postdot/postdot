@@ -2,6 +2,8 @@ import { randomUUID } from 'node:crypto'
 
 import { expect, test, type Page } from '@playwright/test'
 
+import { openLanguageMenu } from './locale'
+
 test('keeps the workspace navigation reachable when reduced and on mobile', async ({ page }) => {
     test.setTimeout(30_000)
 
@@ -148,8 +150,8 @@ test('keeps the workspace navigation reachable when reduced and on mobile', asyn
     await expect(page.locator('[data-slot="sidebar"]')).toHaveAttribute('data-variant', 'inset')
     await expect(page.locator('[data-slot="sidebar-inset"]')).toBeVisible()
 
-    await page.getByRole('button', { name: 'Language', exact: true }).click()
-    await page.getByRole('menuitem', { name: 'French', exact: true }).click()
+    await openLanguageMenu(page)
+    await page.getByRole('menuitem', { name: 'Français', exact: true }).click()
     await expect(page.getByRole('heading', { name: 'Vue d’ensemble', exact: true })).toBeVisible()
 
     await page.setViewportSize({ width: 390, height: 844 })
@@ -223,7 +225,7 @@ test('keeps a fixed page edge, readable menus and transient action feedback', as
 
     await page.goto(`/dashboard/projects/${projectId}/queue`)
     await page.getByRole('combobox', { name: 'Delivery', exact: true }).click()
-    await page.getByRole('option', { name: 'Manual delivery', exact: true }).click()
+    await page.getByRole('option', { name: 'By hand only', exact: true }).click()
     await page.getByRole('combobox', { name: 'Delivery', exact: true }).click()
     const options = page.locator('[data-slot="select-content"]')
     await expect(options).toBeVisible()
@@ -243,7 +245,7 @@ test('keeps a fixed page edge, readable menus and transient action feedback', as
     await trigger.click()
     const menu = page.getByRole('menu')
     await expect(menu).toBeVisible()
-    const item = page.getByRole('menuitem', { name: 'Edit profile', exact: true })
+    const item = page.getByRole('menuitem', { name: 'Content rules', exact: true })
     await expect(item).toBeVisible()
     const geometry = await item.evaluate(element => ({
         height: element.clientHeight,
@@ -309,13 +311,11 @@ async function createAccountAndProject(page: Page, suffix: string): Promise<void
 
     await page.getByRole('combobox', { name: 'Select project', exact: true }).click()
     await page.getByRole('button', { name: 'Create project', exact: true }).last().click()
-    await page
-        .getByRole('textbox', { name: 'New project', exact: true })
-        .fill(`E2E-121 project ${suffix}`)
+    await page.getByRole('textbox', { name: 'Name', exact: true }).fill(`E2E-121 project ${suffix}`)
     await page
         .locator('form')
-        .filter({ has: page.getByRole('textbox', { name: 'New project', exact: true }) })
-        .getByRole('button', { name: 'Add project', exact: true })
+        .filter({ has: page.getByRole('textbox', { name: 'Name', exact: true }) })
+        .getByRole('button', { name: 'Create project', exact: true })
         .click()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/overview$/)
     await expect(page.getByRole('heading', { name: 'Overview', exact: true })).toBeVisible()

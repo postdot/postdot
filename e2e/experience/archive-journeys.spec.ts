@@ -69,7 +69,7 @@ for (const [locale, copy, theme] of [
                 })
             ).status()
         ).toBe(200)
-        await page.goto(`/dashboard/projects/${current.id}/access`)
+        await page.goto(`/dashboard/projects/${current.id}/settings`)
         await page.getByRole('link', { name: copy.lifecycle_archives, exact: true }).click()
         await expect(page).toHaveURL(/\/dashboard\/settings\/archives\?/)
         await expect(

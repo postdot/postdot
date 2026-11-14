@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 
 import { expect, test } from '@playwright/test'
 
-import { frenchTranslation } from './locale'
+import { frenchTranslation, openLanguageMenu } from './locale'
 
 test('authors a Mastodon poll, retains it through reload and selects an immutable target without publishing', async ({
     page,
@@ -91,8 +91,8 @@ test('authors a Mastodon poll, retains it through reload and selects an immutabl
         })
         .toBe(true)
     await page.setViewportSize({ width: 390, height: 844 })
-    await page.getByRole('button', { name: 'Language', exact: true }).click()
-    await page.getByRole('menuitem', { name: 'French', exact: true }).click()
+    await openLanguageMenu(page)
+    await page.getByRole('menuitem', { name: 'Français', exact: true }).click()
     await expect(
         details.getByRole('checkbox', { name: frenchTranslation('poll_multiple'), exact: true })
     ).toBeChecked()

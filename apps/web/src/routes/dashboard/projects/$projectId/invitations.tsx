@@ -1,7 +1,8 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, redirect } from '@tanstack/react-router'
 
-import { ProjectInvitationsPage } from '@/components/project-invitations-page'
-
+// Invitations are part of the People page (ADR-103 §4); keep old links working.
 export const Route = createFileRoute('/dashboard/projects/$projectId/invitations')({
-    component: ProjectInvitationsPage,
+    beforeLoad: ({ params }) => {
+        throw redirect({ to: '/dashboard/projects/$projectId/access', params, replace: true })
+    },
 })

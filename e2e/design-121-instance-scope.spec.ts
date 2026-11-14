@@ -14,9 +14,7 @@ test('keeps instance settings separate from project navigation', async ({ page }
     await page.goto(`/dashboard/settings?projectId=${projectId}`)
 
     await expect(page).toHaveURL(/\/dashboard\/settings(?:\?.*)?$/)
-    await expect(
-        page.getByRole('heading', { name: 'Installation settings', exact: true })
-    ).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'System', exact: true })).toBeVisible()
     await expect(
         page.getByRole('navigation', { name: 'Installation administration', exact: true })
     ).toBeVisible()
@@ -26,16 +24,14 @@ test('keeps instance settings separate from project navigation', async ({ page }
     await expect(
         page.getByRole('navigation', { name: 'Project management navigation', exact: true })
     ).toHaveCount(0)
-    await expect(page.getByRole('link', { name: 'OAuth applications', exact: true })).toBeVisible()
+    await expect(page.getByRole('link', { name: 'Platform setup', exact: true })).toBeVisible()
 
-    await page.getByRole('link', { name: 'OAuth applications', exact: true }).click()
+    await page.getByRole('link', { name: 'Platform setup', exact: true }).click()
 
     await page.goto('/dashboard/settings/provider-applications')
 
     await expect(page).toHaveURL(/\/dashboard\/settings\/provider-applications(?:\?.*)?$/)
-    await expect(
-        page.getByRole('heading', { name: 'OAuth applications', exact: true })
-    ).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Platform setup', exact: true })).toBeVisible()
     await expect(
         page.getByRole('navigation', { name: 'Installation administration', exact: true })
     ).toBeVisible()
@@ -130,12 +126,12 @@ async function createAccountAndProject(page: Page, suffix: string): Promise<stri
     await page.getByRole('combobox', { name: 'Select project', exact: true }).click()
     await page.getByRole('button', { name: 'Create project', exact: true }).last().click()
     await page
-        .getByRole('textbox', { name: 'New project', exact: true })
+        .getByRole('textbox', { name: 'Name', exact: true })
         .fill(`E2E-121 scope project ${suffix}`)
     await page
         .locator('form')
-        .filter({ has: page.getByRole('textbox', { name: 'New project', exact: true }) })
-        .getByRole('button', { name: 'Add project', exact: true })
+        .filter({ has: page.getByRole('textbox', { name: 'Name', exact: true }) })
+        .getByRole('button', { name: 'Create project', exact: true })
         .click()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/overview$/)
 

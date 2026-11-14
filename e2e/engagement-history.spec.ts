@@ -209,7 +209,7 @@ for (const [provider, metrics] of [
         ).toBeVisible()
         await expect(history.locator('[data-history-chart]')).toHaveCount(0)
         failHistory = true
-        await history.getByRole('button', { name: 'Reload saved data', exact: true }).click()
+        await history.getByRole('button', { name: 'Refresh', exact: true }).click()
         await expect(history.getByRole('button', { name: 'Retry', exact: true })).toBeVisible()
         await expect(history.locator('[data-history-value]')).toHaveText(['10', '4'])
         failHistory = false

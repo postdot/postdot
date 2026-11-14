@@ -40,7 +40,7 @@ for (const [locale, messages] of [
         expect(postResponse.status()).toBe(201)
         const { publications } = await postResponse.json()
         await page.addInitScript(value => localStorage.setItem('PARAGLIDE_LOCALE', value), locale)
-        await page.goto(`/dashboard/projects/${project.id}/access`)
+        await page.goto(`/dashboard/projects/${project.id}/settings`)
         const section = page.getByRole('region', { name: messages.lifecycle_title })
         await section.getByRole('button', { name: messages.lifecycle_archive, exact: true }).click()
         const dialog = page.locator('[data-slot="dialog-content"]')
@@ -72,7 +72,7 @@ for (const [locale, messages] of [
             .click()
         await dialog.getByRole('button', { name: messages.lifecycle_restore, exact: true }).click()
         await expect(archived).toHaveCount(0)
-        await page.goto(`/dashboard/projects/${project.id}/access`)
+        await page.goto(`/dashboard/projects/${project.id}/settings`)
         await section.getByRole('button', { name: messages.lifecycle_delete, exact: true }).click()
         await expect(
             dialog.getByRole('heading', { name: messages.lifecycle_delete, exact: true })

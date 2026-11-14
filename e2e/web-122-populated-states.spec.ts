@@ -2,6 +2,8 @@ import { randomUUID } from 'node:crypto'
 
 import { expect, test, type Locator, type Page } from '@playwright/test'
 
+import { openLanguageMenu } from './locale'
+
 test('uses the calendar as the project overview and keeps Queue distinct', async ({ page }) => {
     test.setTimeout(30_000)
 
@@ -72,15 +74,15 @@ test('uses the calendar as the project overview and keeps Queue distinct', async
 
     const overviewSummary = page.getByLabel('Overview summary', { exact: true })
     // Overview surfaces actionable work and the next publication without zero-value totals.
-    await expect(overviewSummary).toContainText('Manual posts due')
+    await expect(overviewSummary).toContainText('To publish by hand')
     await expect(overviewSummary).toContainText('Next publication')
     await expect(overviewSummary).not.toContainText('3 scheduled')
     const overviewCalendar = page.locator('[data-calendar="reui"]')
     await expect(overviewCalendar).toBeVisible()
     // JRN-04: desktop creation lives in the sidebar; the header supplies the mobile action.
-    await expect(page.getByRole('link', { name: 'New publication', exact: true })).toBeVisible()
+    await expect(page.getByRole('link', { name: 'New post', exact: true })).toBeVisible()
     await expect(
-        page.getByRole('main').getByRole('button', { name: 'New publication', exact: true })
+        page.getByRole('main').getByRole('button', { name: 'New post', exact: true })
     ).not.toBeVisible()
     await expect(overviewCalendar.locator('[data-calendar-view="month"]')).toBeVisible()
     await expect(overviewCalendar.locator('[data-slot="event-calendar-event"]')).toHaveCount(4)
@@ -145,12 +147,12 @@ test('uses the calendar as the project overview and keeps Queue distinct', async
     await expect(page.getByRole('tab', { name: 'Scheduled (3)', exact: true })).toBeVisible()
     await expect(page.getByRole('tab', { name: 'Drafts (4)', exact: true })).toBeVisible()
     const deliveryFilter = page.getByRole('combobox', { name: 'Delivery', exact: true })
-    await expect(deliveryFilter).toContainText('All delivery modes')
+    await expect(deliveryFilter).toContainText('Automatic and by hand')
     await expect(page.locator('a[data-publication-edit-link="true"]')).toHaveCount(8)
     await expect(page.locator('[data-queue-publication-list="true"]')).toHaveCount(1)
     const publicationTable = page.locator('[data-publication-table-header="true"]')
-    await expect(publicationTable).toContainText('Publication')
-    await expect(publicationTable).toContainText('Destination')
+    await expect(publicationTable).toContainText('Post')
+    await expect(publicationTable).toContainText('Channel')
     await expect(publicationTable).toContainText('Action')
     await expect(
         publicationTable.locator('[data-queue-select-all="true"] input[type="checkbox"]')
@@ -170,7 +172,7 @@ test('uses the calendar as the project overview and keeps Queue distinct', async
     await expect(page.getByRole('link').filter({ hasText: 'E2E-122 publication 4' })).toBeVisible()
 
     await deliveryFilter.click()
-    await page.getByRole('option', { name: 'Manual delivery', exact: true }).click()
+    await page.getByRole('option', { name: 'By hand only', exact: true }).click()
     await expect(page).toHaveURL(/\/queue\?filter=manual$/)
     await expect(page.locator('a[data-publication-edit-link="true"]')).toHaveCount(4)
     await expect(page.getByRole('link').filter({ hasText: 'E2E-122 publication 2' })).toBeVisible()
@@ -330,8 +332,8 @@ test('keeps calendar titles readable across intermediate workspace widths', asyn
 }, testInfo) => {
     test.setTimeout(90_000)
     const { calendar, projectId } = await createDenseCalendarProject(page)
-    await page.getByRole('button', { name: 'Language', exact: true }).click()
-    await page.getByRole('menuitem', { name: 'French', exact: true }).click()
+    await openLanguageMenu(page)
+    await page.getByRole('menuitem', { name: 'Français', exact: true }).click()
     await page.emulateMedia({ reducedMotion: 'reduce' })
 
     for (const collapsed of [false, true]) {
@@ -796,12 +798,12 @@ async function createAccountAndProject(page: Page, suffix: string): Promise<stri
     await page.getByRole('combobox', { name: 'Select project', exact: true }).click()
     await page.getByRole('button', { name: 'Create project', exact: true }).last().click()
     await page
-        .getByRole('textbox', { name: 'New project', exact: true })
+        .getByRole('textbox', { name: 'Name', exact: true })
         .fill(`E2E-122 populated project ${suffix}`)
     await page
         .locator('form')
-        .filter({ has: page.getByRole('textbox', { name: 'New project', exact: true }) })
-        .getByRole('button', { name: 'Add project', exact: true })
+        .filter({ has: page.getByRole('textbox', { name: 'Name', exact: true }) })
+        .getByRole('button', { name: 'Create project', exact: true })
         .click()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/overview$/)
 

@@ -54,7 +54,9 @@ Wherever a publication is listed or drawn, its channel is identified by its mark
 
 ### 4. One navigation
 
-One sidebar. Project, workspace, personal and installation settings are reached from visible entries, never only from inside a selector menu. Settings that act on an object live on that object's settings page, with destructive actions in a danger zone at the end. The header carries scope, search and notifications; language and theme live in settings.
+One sidebar, with two states. The product state lists the work (Overview, Queue, Performance), the project (Channels, Media, Tags, People, Project settings) and workspace channels; a Settings entry at its foot opens the settings state. The settings state lists personal, workspace and installation settings and starts with a single return row naming the project it returns to. No other return control exists on a sidebar destination.
+
+Project, workspace, personal and installation settings are reached from visible entries, never only from inside a selector menu. Settings that act on an object live on that object's settings page, with destructive actions in a danger zone at the end. One concept has one page: project members and invitations share People; the time zone and archiving share Project settings. The header carries scope, search, notifications and the account menu; language and theme sit in the account menu and in personal settings, never as loose header buttons.
 
 ### 5. Weight follows frequency
 

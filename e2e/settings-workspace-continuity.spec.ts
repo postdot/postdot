@@ -5,6 +5,7 @@ import { expect, test } from '@playwright/test'
 
 import en from '../apps/web/messages/en.json' with { type: 'json' }
 import fr from '../apps/web/messages/fr.json' with { type: 'json' }
+import { openLanguageMenu, switchTheme } from './locale'
 
 test('keeps personal and installation settings open when changing workspace context', async ({
     page,
@@ -62,9 +63,7 @@ test('keeps personal and installation settings open when changing workspace cont
         await page.reload()
         await expect(workspaceSelector).toContainText(second!.name)
         expect(new URL(page.url()).pathname).toBe(path)
-        await expect(
-            page.getByRole('button', { name: en.nav_back_to_projects, exact: true })
-        ).toBeVisible()
+        await expect(page.locator('[data-settings-return="true"]')).toBeVisible()
         // NAV-03: the same context survives a fresh link with optional context omitted.
         await page.goto(path)
         await expect(workspaceSelector).toContainText(second!.name)
@@ -101,10 +100,8 @@ test('keeps personal and installation settings open when changing workspace cont
     for (const locale of ['en', 'fr'] as const) {
         const copy = locale === 'en' ? en : fr
         if (locale === 'fr') {
-            await page
-                .locator('[data-dashboard-header] [data-slot="language-switcher-trigger"]')
-                .click()
-            await page.getByRole('menuitem', { name: en.language_french, exact: true }).click()
+            await openLanguageMenu(page)
+            await page.getByRole('menuitem', { name: 'Français', exact: true }).click()
         }
         await page.goto(`/dashboard/preferences?workspaceId=${second!.id}&projectId=none`)
         await expect(
@@ -112,13 +109,7 @@ test('keeps personal and installation settings open when changing workspace cont
         ).toBeVisible()
         for (const theme of ['light', 'dark'] as const) {
             if (!(await page.locator('html').getAttribute('class'))?.split(' ').includes(theme)) {
-                await page
-                    .getByRole('button', {
-                        name: copy.theme_switch_to.replace('{theme}', copy[`theme_${theme}`]),
-                        exact: true,
-                    })
-                    .first()
-                    .click()
+                await switchTheme(page, theme)
             }
             for (const width of [1280, 820, 390]) {
                 await page.setViewportSize({ width, height: 844 })

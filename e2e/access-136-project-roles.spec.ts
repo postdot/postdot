@@ -40,9 +40,9 @@ test('project roles keep viewer read-only and editor actions available', async (
         })
 
         await viewerPage.goto(`/dashboard/projects/${owner.projectId}/queue`)
-        await expect(
-            viewerPage.getByRole('button', { name: 'New publication', exact: true })
-        ).toHaveCount(0)
+        await expect(viewerPage.getByRole('button', { name: 'New post', exact: true })).toHaveCount(
+            0
+        )
         await expect(
             viewerPage.getByRole('button', { name: 'Add channel', exact: true })
         ).toHaveCount(0)
@@ -184,11 +184,11 @@ async function createAccountAndProject(page: Page, suffix: string) {
 
     await page.getByRole('combobox', { name: 'Select project', exact: true }).click()
     await page.getByRole('button', { name: 'Create project', exact: true }).last().click()
-    await page.getByRole('textbox', { name: 'New project', exact: true }).fill(projectName)
+    await page.getByRole('textbox', { name: 'Name', exact: true }).fill(projectName)
     await page
         .locator('form')
-        .filter({ has: page.getByRole('textbox', { name: 'New project', exact: true }) })
-        .getByRole('button', { name: 'Add project', exact: true })
+        .filter({ has: page.getByRole('textbox', { name: 'Name', exact: true }) })
+        .getByRole('button', { name: 'Create project', exact: true })
         .click()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/overview$/)
 

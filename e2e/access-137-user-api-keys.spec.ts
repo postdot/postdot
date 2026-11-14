@@ -4,6 +4,7 @@ import AxeBuilder from '@axe-core/playwright'
 import { expect, test, type Locator, type Page } from '@playwright/test'
 
 import en from '../apps/web/messages/en.json' with { type: 'json' }
+import { switchTheme } from './locale'
 
 test('creates and edits user-owned API keys with bounded project and action access', async ({
     page,
@@ -126,12 +127,7 @@ test('creates and edits user-owned API keys with bounded project and action acce
 
     for (const theme of ['light', 'dark'] as const) {
         if (!(await page.locator('html').getAttribute('class'))?.split(' ').includes(theme)) {
-            await page
-                .getByRole('button', {
-                    name: en.theme_switch_to.replace('{theme}', en[`theme_${theme}`]),
-                    exact: true,
-                })
-                .click()
+            await switchTheme(page, theme)
         }
         for (const width of [1280, 820, 390]) {
             await page.setViewportSize({ width, height: 844 })
@@ -194,8 +190,8 @@ async function createAccountAndProject(
     await page.getByRole('combobox', { name: 'Select project', exact: true }).click()
     await page.getByRole('button', { name: 'Create project', exact: true }).last().click()
     const projectDialog = page.getByRole('dialog')
-    await projectDialog.getByRole('textbox', { name: 'New project', exact: true }).fill(projectName)
-    await projectDialog.getByRole('button', { name: 'Add project', exact: true }).click()
+    await projectDialog.getByRole('textbox', { name: 'Name', exact: true }).fill(projectName)
+    await projectDialog.getByRole('button', { name: 'Create project', exact: true }).click()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/overview$/)
 
     const match = new URL(page.url()).pathname.match(/^\/dashboard\/projects\/([^/]+)/)

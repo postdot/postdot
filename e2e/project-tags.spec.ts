@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 
 import { expect, test, type Page } from '@playwright/test'
 
-import { frenchTranslation } from './locale'
+import { frenchTranslation, openLanguageMenu } from './locale'
 
 async function createProject(page: Page) {
     const suffix = randomUUID().slice(0, 8)
@@ -45,7 +45,7 @@ test('creates tags without losing composition and synchronizes archived assignme
         'Release notes'
     )
     const picker = page.getByRole('button', { name: '1 tags selected', exact: true })
-    await expect(picker).toContainText('Internal tags')
+    await expect(picker).toContainText('Tags')
     const tagRow = page.locator('[data-publication-tag-picker="true"]')
     await expect(tagRow.getByText('Launch', { exact: true })).toBeVisible()
     await expect(tagRow.getByRole('link', { name: 'Manage tags', exact: true })).toHaveAttribute(
@@ -65,7 +65,7 @@ test('creates tags without losing composition and synchronizes archived assignme
     await picker.click()
     await expect(page.getByRole('menuitemcheckbox', { name: 'Launch', exact: true })).toBeChecked()
     await page.keyboard.press('Escape')
-    await page.getByRole('button', { name: 'Create draft', exact: true }).click()
+    await page.getByRole('button', { name: 'Save as draft', exact: true }).click()
     await expect(page).toHaveURL(new RegExp(`/dashboard/projects/${projectId}/posts/`))
     const publications = await page.request.get(`/api/projects/${projectId}/publications`)
     const { publications: entries } = (await publications.json()) as {
@@ -165,8 +165,8 @@ test('keeps duplicate input and provides a narrow localized tag manager', async 
     await page.keyboard.press('Escape')
     await expect(page.getByRole('dialog')).toHaveCount(0)
     await page.setViewportSize({ width: 390, height: 844 })
-    await page.getByRole('button', { name: 'Language', exact: true }).click()
-    await page.getByRole('menuitem', { name: 'French', exact: true }).click()
+    await openLanguageMenu(page)
+    await page.getByRole('menuitem', { name: 'Français', exact: true }).click()
     await expect(
         page.getByRole('heading', { name: frenchTranslation('project_tags_title'), exact: true })
     ).toBeVisible()

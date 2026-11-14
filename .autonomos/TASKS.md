@@ -11,13 +11,13 @@
 
 - [/] **[UX-651]** Studio experience overhaul from the 2026-11-14 audit (umbrella) `Priority: 🔴` `Complexity: XL` — [audit](reviews/2026-11-14-studio-experience-audit.md), [ADR-103](decisions/ADR-103-studio-experience-principles.md); children DESIGN-652 to UX-660.
 
-- [/] **[DESIGN-652]** Revise design direction, experience rules and agent guidance after the audit `Priority: 🔴` `Complexity: S`
+- [x] **[DESIGN-652]** Revise design direction, experience rules and agent guidance after the audit `Priority: 🔴` `Complexity: S`
 
-- [ ] **[COPY-653]** Apply the user vocabulary and useful errors to both catalogs (audit W1–W7, F1) `Priority: 🔴` `Complexity: L`
+- [/] **[COPY-653]** Apply the user vocabulary and useful errors to both catalogs (audit W1–W7, F1) `Priority: 🔴` `Complexity: L`
 
-- [ ] **[UX-654]** One page anatomy: header, empty state, dialog, status, buttons, time format (audit S8–S15) `Priority: 🔴` `Complexity: L`
+- [/] **[UX-654]** One page anatomy: header, empty state, dialog, status, buttons, time format (audit S8–S15) `Priority: 🔴` `Complexity: L`
 
-- [ ] **[UX-655]** One navigation: single sidebar, object settings pages, lean header (audit S1–S7, S16, T3, T4) `Priority: 🟠` `Complexity: L`
+- [x] **[UX-655]** One navigation: single sidebar, object settings pages, lean header (audit S1–S7, S16, T3, T4) `Priority: 🟠` `Complexity: L`
 
 - [ ] **[UX-656]** Calendar: channel identity, grouping by post, stable grid, linear axis, anchored preview (audit C1–C12) `Priority: 🔴` `Complexity: L`
 

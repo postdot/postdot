@@ -179,7 +179,7 @@ test('recovers a failed file across navigation only for its original author', as
         await waitForStoredUpload(page, data.owner.id)
         await page.getByRole('link', { name: 'Channels', exact: true }).click()
         await expect(page.getByRole('heading', { name: 'Channels', exact: true })).toBeVisible()
-        await page.getByRole('link', { name: 'New publication', exact: true }).click()
+        await page.getByRole('link', { name: 'New post', exact: true }).click()
         await expect(page.locator('[data-media-upload-recovery]')).toBeVisible()
         await page.request.post('/api/auth/sign-out')
         await page.request.post('/api/auth/sign-in/email', {
@@ -247,7 +247,7 @@ test('leaving during finalization requires explicit resume and keeps one ready a
         await page.getByRole('link', { name: 'Channels', exact: true }).click()
         await expect(page.getByRole('heading', { name: 'Channels', exact: true })).toBeVisible()
         release()
-        await page.getByRole('link', { name: 'New publication', exact: true }).click()
+        await page.getByRole('link', { name: 'New post', exact: true }).click()
         const recovery = page.locator('[data-media-upload-recovery]')
         await expect(recovery).toBeVisible()
         await expect(

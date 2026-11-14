@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 
 import { expect, test, type Page } from '@playwright/test'
 
-import { frenchTranslation } from './locale'
+import { frenchTranslation, openLanguageMenu, switchTheme } from './locale'
 
 test('keeps publication detail actions aligned with the scheduled lifecycle', async ({
     page,
@@ -19,13 +19,13 @@ test('keeps publication detail actions aligned with the scheduled lifecycle', as
     await expect(addChannelButton).toBeEnabled()
     await addChannelButton.click()
     await expect(page.getByRole('dialog')).toBeVisible()
-    await page.getByRole('radio', { name: 'Manual message', exact: true }).click()
+    await page.getByRole('radio', { name: 'Other (publish by hand)', exact: true }).click()
     await page.getByLabel('Channel name').fill(channelName)
-    await page.getByRole('button', { name: 'Configure content', exact: true }).click()
+    await page.getByRole('button', { name: 'Content rules', exact: true }).click()
     await page.getByRole('button', { name: 'Create channel', exact: true }).click()
     await expect(page.getByRole('paragraph').filter({ hasText: channelName }).first()).toBeVisible()
 
-    await page.getByRole('link', { name: 'New publication', exact: true }).click()
+    await page.getByRole('link', { name: 'New post', exact: true }).click()
     await expect(page.locator('[data-new-publication-form="true"]')).toHaveAttribute(
         'aria-busy',
         'false'
@@ -170,7 +170,7 @@ test('keeps publication detail actions aligned with the scheduled lifecycle', as
     await expect(editorNotice).toContainText('The publication changed in the background.')
     await expect(editorNotice).not.toContainText('Editor status')
     await expect(page.locator('[data-publication-lifecycle="true"]')).toContainText(
-        'To publish manually'
+        'Publish by hand'
     )
 
     await page.screenshot({
@@ -540,13 +540,13 @@ test('adapts a draft explicitly without changing its source or selecting a publi
         await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)
     ).toBe(true)
     await page.screenshot({ path: testInfo.outputPath('adoption-mobile.png'), fullPage: true })
-    await page.getByRole('button', { name: 'Switch to light theme', exact: true }).click()
+    await switchTheme(page, 'light')
     await page.screenshot({
         path: testInfo.outputPath('adoption-mobile-light.png'),
         fullPage: true,
     })
-    await page.locator('[data-slot="language-switcher-trigger"]').click()
-    await page.getByRole('menuitem', { name: 'French', exact: true }).click()
+    await openLanguageMenu(page)
+    await page.getByRole('menuitem', { name: 'Français', exact: true }).click()
     const frenchAdaptation = page.getByRole('region', {
         name: frenchTranslation('profile_adoption_title'),
         exact: true,
@@ -567,10 +567,8 @@ test('adapts a draft explicitly without changing its source or selecting a publi
         path: testInfo.outputPath('adoption-mobile-french.png'),
         fullPage: true,
     })
-    await page.locator('[data-slot="language-switcher-trigger"]').click()
-    await page
-        .getByRole('menuitem', { name: frenchTranslation('language_english'), exact: true })
-        .click()
+    await openLanguageMenu(page)
+    await page.getByRole('menuitem', { name: 'English', exact: true }).click()
     await adaptation.getByRole('button', { name: 'Cancel', exact: true }).click()
     expect((await (await page.request.get(`${apiUrl}/editor`)).json()).editor).toEqual(before)
     await page.getByRole('button', { name: 'Adapt to current profile', exact: true }).click()
@@ -678,12 +676,12 @@ async function createAccountAndProject(page: Page, suffix: string) {
     await page.getByRole('combobox', { name: 'Select project', exact: true }).click()
     await page.getByRole('button', { name: 'Create project', exact: true }).last().click()
     await page
-        .getByRole('textbox', { name: 'New project', exact: true })
+        .getByRole('textbox', { name: 'Name', exact: true })
         .fill(`E2E detail project ${suffix}`)
     await page
         .locator('form')
-        .filter({ has: page.getByRole('textbox', { name: 'New project', exact: true }) })
-        .getByRole('button', { name: 'Add project', exact: true })
+        .filter({ has: page.getByRole('textbox', { name: 'Name', exact: true }) })
+        .getByRole('button', { name: 'Create project', exact: true })
         .click()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/overview$/)
     await expect(page.getByRole('heading', { name: 'Overview', exact: true })).toBeVisible()
@@ -788,8 +786,8 @@ test('requires destination confirmation after reconnecting while retaining the s
     expect(
         await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)
     ).toBe(true)
-    await page.locator('[data-slot="language-switcher-trigger"]').click()
-    await page.getByRole('menuitem', { name: 'French', exact: true }).click()
+    await openLanguageMenu(page)
+    await page.getByRole('menuitem', { name: 'Français', exact: true }).click()
     await expect(
         section.getByRole('button', { name: frenchTranslation('destination_confirm'), exact: true })
     ).toBeEnabled()

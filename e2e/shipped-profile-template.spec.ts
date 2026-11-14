@@ -48,7 +48,7 @@ test('loads a shipped template locally and preserves explicit impact and activat
     })
     await page.goto(`/dashboard/projects/${project.id}/channels`)
     await page.getByRole('button', { name: 'Manage Bluesky updates', exact: true }).click()
-    await page.getByRole('menuitem', { name: 'Edit profile', exact: true }).click()
+    await page.getByRole('menuitem', { name: 'Content rules', exact: true }).click()
     const dialog = page.getByRole('dialog')
     await dialog.getByRole('button', { name: 'Load shipped template', exact: true }).click()
     let state = await (await page.request.get(profileUrl)).json()
@@ -62,7 +62,7 @@ test('loads a shipped template locally and preserves explicit impact and activat
     await page.keyboard.press('Escape')
     await expect(dialog).toHaveCount(0)
     await page.getByRole('button', { name: 'Manage Bluesky updates', exact: true }).click()
-    await page.getByRole('menuitem', { name: 'Edit profile', exact: true }).click()
+    await page.getByRole('menuitem', { name: 'Content rules', exact: true }).click()
     await expect(dialog.getByRole('button', { name: 'Preview impact', exact: true })).toBeEnabled()
     await expect(
         dialog.getByRole('button', { name: 'Load shipped template', exact: true })

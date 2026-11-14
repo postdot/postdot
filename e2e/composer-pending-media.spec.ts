@@ -159,10 +159,10 @@ for (const recovered of [false, true]) {
                 await expect(
                     page.getByRole('heading', { name: 'Channels', exact: true })
                 ).toBeVisible()
-                await page.getByRole('link', { name: 'New publication', exact: true }).click()
+                await page.getByRole('link', { name: 'New post', exact: true }).click()
                 await expect(page.locator('[data-media-upload-recovery]')).toBeVisible()
             }
-            const create = page.getByRole('button', { name: 'Create draft', exact: true })
+            const create = page.getByRole('button', { name: 'Save as draft', exact: true })
             await expect(create).toBeDisabled()
             if (recovered)
                 await page
@@ -273,7 +273,7 @@ for (const resolution of ['dismiss', 'reselect'] as const) {
             )
             await page.getByRole('link', { name: 'Channels', exact: true }).click()
             await expect(page.getByRole('heading', { name: 'Channels', exact: true })).toBeVisible()
-            await page.getByRole('link', { name: 'New publication', exact: true }).click()
+            await page.getByRole('link', { name: 'New post', exact: true }).click()
             const recovery = page.locator('[data-media-upload-recovery]')
             await expect(recovery).toContainText('1 file must be selected again.')
             cut = false
@@ -281,7 +281,7 @@ for (const resolution of ['dismiss', 'reselect'] as const) {
             await expect(
                 page.getByRole('button', { name: `Remove ${available.name}`, exact: true })
             ).toBeVisible()
-            const create = page.getByRole('button', { name: 'Create draft', exact: true })
+            const create = page.getByRole('button', { name: 'Save as draft', exact: true })
             await expect(create).toBeDisabled()
             await expect(recovery).toContainText('1 file must be selected again.')
             const chooser = page.waitForEvent('filechooser')
@@ -345,7 +345,7 @@ test('creation waiting for autosave uses the media that finished during that wai
                 new URL(response.url()).pathname === `/api/projects/${data.project.id}/posts` &&
                 response.request().method() === 'POST'
         )
-        await page.getByRole('button', { name: 'Create draft', exact: true }).click()
+        await page.getByRole('button', { name: 'Save as draft', exact: true }).click()
         await page.locator('input[type=file]').setInputFiles(file)
         await expect(
             page.getByRole('button', { name: `Remove ${file.name}`, exact: true })

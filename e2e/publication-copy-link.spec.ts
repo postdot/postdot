@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test'
 
 import { accounts } from './composer-account-fixture'
+import { openLanguageMenu } from './locale'
 
 test('copies a canonical internal link from Queue and publication details', async ({ page }) => {
     const fixture = await accounts(page)
@@ -104,8 +105,8 @@ test('readers can copy manually when clipboard permission is denied, in French',
         const reader = await fixture.member.newPage()
         const path = `/dashboard/projects/${fixture.project.id}/publications/${publications[0].id}`
         await reader.goto(path)
-        await reader.getByRole('button', { name: 'Language', exact: true }).click()
-        await reader.getByRole('menuitem', { name: 'French', exact: true }).click()
+        await openLanguageMenu(reader)
+        await reader.getByRole('menuitem', { name: 'Français', exact: true }).click()
         await reader
             .getByRole('button', { name: 'Copier le lien de la publication', exact: true })
             .click()

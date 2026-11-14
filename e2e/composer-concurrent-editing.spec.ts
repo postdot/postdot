@@ -232,7 +232,7 @@ test('creating a post from an older tab does not delete the newer recovery draft
             })
         ).status()
     ).toBe(200)
-    await page.getByRole('button', { name: 'Create draft', exact: true }).click()
+    await page.getByRole('button', { name: 'Save as draft', exact: true }).click()
     await expect(page).toHaveURL(/\/posts\/[^/]+$/)
     expect((await (await page.request.get(endpoint)).json()).draft.content.postContent).toBe(
         'Newer recovery from another tab'
@@ -321,7 +321,7 @@ test('returning from channel setup keeps the same-tab draft without a false conf
             response.request().method() === 'GET' &&
             response.ok()
     )
-    await page.getByRole('link', { name: 'New publication', exact: true }).click()
+    await page.getByRole('link', { name: 'New post', exact: true }).click()
     await loaded
     const form = page.locator('[data-new-publication-form]')
     await expect(form).toHaveAttribute('aria-busy', 'false')
@@ -373,7 +373,7 @@ test('resumes after a save committed during channel navigation without a false c
     releaseResponse()
     await responseFinished
     await page.unroute(matcher)
-    await page.getByRole('link', { name: 'New publication', exact: true }).click()
+    await page.getByRole('link', { name: 'New post', exact: true }).click()
     const form = page.locator('[data-new-publication-form]')
     await expect(form).toHaveAttribute('aria-busy', 'false')
     await expect(form).not.toHaveAttribute('inert', '')

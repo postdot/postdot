@@ -19,7 +19,7 @@ test('makes a revoked publisher connection actionable', async ({ page }) => {
     await addChannelButton.click()
     await expect(page.getByRole('dialog')).toBeVisible()
     await page.getByLabel('Channel name').fill(channelName)
-    await page.getByRole('radio', { name: 'DEV.to article', exact: true }).click()
+    await page.getByRole('radio', { name: 'DEV.to', exact: true }).click()
 
     const channelResponse = page.waitForResponse(
         response =>
@@ -272,9 +272,9 @@ test('uses active execution for custom channel readiness and connection actions'
     await page.goto(`/dashboard/projects/${projectId}/channels`)
     await page.getByRole('button', { name: 'Add channel', exact: true }).click()
     const creation = page.getByRole('dialog')
-    await creation.getByRole('radio', { name: 'Custom runtime profile', exact: true }).click()
+    await creation.getByRole('radio', { name: 'Custom', exact: true }).click()
     await creation.getByLabel('Channel name').fill('custom-manual')
-    await creation.getByRole('button', { name: 'Configure content', exact: true }).click()
+    await creation.getByRole('button', { name: 'Content rules', exact: true }).click()
     const created = page.waitForResponse(
         response => response.url().endsWith(path) && response.request().method() === 'POST'
     )
@@ -341,7 +341,7 @@ test('uses active execution for custom channel readiness and connection actions'
     const future = page.locator(`#publisher-connection-${ids['custom-future']}`)
     await expect(manual.getByText('Manual', { exact: true })).toBeVisible()
     await expect(manual.getByRole('button', { name: /Connect|Reconnect/ })).toHaveCount(0)
-    await expect(manual).not.toContainText('Needs connection')
+    await expect(manual).not.toContainText('Not connected')
     await expect(manual).not.toContainText('declarative HTTP')
     await expect(webhook.getByRole('button', { name: 'Connect HTTP', exact: true })).toBeVisible()
     await expect(native.getByRole('button', { name: 'Connect DEV.to', exact: true })).toBeVisible()
@@ -456,7 +456,7 @@ test('uses active execution for custom channel readiness and connection actions'
         .getByRole('option', { name: en.publication_new_manual_publication, exact: true })
         .click()
     await expect(page.getByRole('listbox')).toHaveCount(0)
-    await page.getByRole('button', { name: 'Common', exact: true }).click()
+    await page.getByRole('button', { name: 'All channels', exact: true }).click()
     await expect(content).toHaveText('Preserve this composition while checking delivery choices.')
 })
 
@@ -479,12 +479,12 @@ async function createAccountAndProject(page: Page, suffix: string): Promise<stri
     await page.getByRole('combobox', { name: 'Select project', exact: true }).click()
     await page.getByRole('button', { name: 'Create project', exact: true }).last().click()
     await page
-        .getByRole('textbox', { name: 'New project', exact: true })
+        .getByRole('textbox', { name: 'Name', exact: true })
         .fill(`E2E recovery project ${suffix}`)
     await page
         .locator('form')
-        .filter({ has: page.getByRole('textbox', { name: 'New project', exact: true }) })
-        .getByRole('button', { name: 'Add project', exact: true })
+        .filter({ has: page.getByRole('textbox', { name: 'Name', exact: true }) })
+        .getByRole('button', { name: 'Create project', exact: true })
         .click()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/overview$/)
     await expect(page.getByRole('heading', { name: 'Overview', exact: true })).toBeVisible()

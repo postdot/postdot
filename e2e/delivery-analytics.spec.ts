@@ -100,7 +100,7 @@ test('reports real manual outcomes, filters periods and destinations, and preser
     await page.getByRole('option', { name: 'Last 7 days', exact: true }).click()
     await expect(page).toHaveURL(/days=7/)
     await expect(dashboard.locator('[data-delivery-counter="published"]')).toHaveText('2')
-    await dashboard.getByRole('combobox', { name: 'Destination', exact: true }).click()
+    await dashboard.getByRole('combobox', { name: 'Channel', exact: true }).click()
     await page.getByRole('option', { name: 'Manual desk', exact: true }).click()
     await expect(dashboard.locator('[data-delivery-counter="published"]')).toHaveText('1')
     await expect(page).toHaveURL(new RegExp(`deliveryChannel=${channels[0]!.id}`))
@@ -132,7 +132,7 @@ test('reports real manual outcomes, filters periods and destinations, and preser
             json: { error: { code: 'unavailable', message: 'Unavailable' } },
         })
     )
-    await dashboard.getByRole('button', { name: 'Reload saved data', exact: true }).click()
+    await dashboard.getByRole('button', { name: 'Refresh', exact: true }).click()
     await expect(dashboard.getByRole('button', { name: 'Retry', exact: true })).toBeVisible()
     await expect(dashboard.locator('[data-delivery-counter="published"]')).toHaveText('1')
     expect(collectCalls).toBe(0)
@@ -153,7 +153,7 @@ test('shows an empty delivery period and keeps comparison failures separate from
     await page.goto(`/dashboard/projects/${project.id}/performance`)
     const dashboard = page.locator('[data-delivery-dashboard]')
     await expect(
-        dashboard.getByText('No recorded delivery outcomes in this period.', { exact: true })
+        dashboard.getByText('Nothing was published in this period.', { exact: true })
     ).toBeVisible()
     await expect(dashboard.locator('[data-delivery-counter="published"]')).toHaveText('0')
     await expect(dashboard.getByText('Comparison unavailable', { exact: true })).toHaveCount(4)

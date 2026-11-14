@@ -4,6 +4,7 @@ import AxeBuilder from '@axe-core/playwright'
 import { expect, test, type Page } from '@playwright/test'
 
 import fr from '../apps/web/messages/fr.json' with { type: 'json' }
+import { openLanguageMenu } from './locale'
 
 test('shows X weighted text feedback in the publication composer', async ({ page }) => {
     test.setTimeout(60_000)
@@ -100,15 +101,15 @@ test('inserts emojis at the cursor and keeps destination changes separate', asyn
     )
     releaseSave()
     await saveFinished
-    await expect(page.getByText('Composition saved', { exact: true })).toBeVisible()
+    await expect(page.getByText('Draft saved', { exact: true })).toBeVisible()
     expect(await focusedEmoji!.evaluate(node => node.isConnected)).toBe(true)
     await expect(emoji).toBeFocused()
     await page.keyboard.press('Enter')
     await expect(target).toHaveText('Custom 😀')
-    await page.getByRole('button', { name: 'Common', exact: true }).click()
+    await page.getByRole('button', { name: 'All channels', exact: true }).click()
     await expect(source).toHaveText('Hello world')
-    await page.getByRole('button', { name: 'Language', exact: true }).click()
-    await page.getByRole('menuitem', { name: 'French', exact: true }).click()
+    await openLanguageMenu(page)
+    await page.getByRole('menuitem', { name: 'Français', exact: true }).click()
     const frenchData = page.waitForResponse(
         response => response.url().endsWith('/emoji-data/17.0.0/fr/data.json') && response.ok()
     )
@@ -145,9 +146,9 @@ async function createAccountAndProject(page: Page, suffix: string): Promise<stri
     await page.getByRole('button', { name: 'Create project', exact: true }).last().click()
     const projectDialog = page.getByRole('dialog')
     await projectDialog
-        .getByRole('textbox', { name: 'New project', exact: true })
+        .getByRole('textbox', { name: 'Name', exact: true })
         .fill(`E2E X project ${suffix}`)
-    await projectDialog.getByRole('button', { name: 'Add project', exact: true }).click()
+    await projectDialog.getByRole('button', { name: 'Create project', exact: true }).click()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/overview$/)
 
     const match = new URL(page.url()).pathname.match(/^\/dashboard\/projects\/([^/]+)/)

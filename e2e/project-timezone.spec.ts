@@ -62,7 +62,7 @@ test('sets project scheduling timezone on creation and updates it in project acc
     const projectId = match[1]
 
     // 2. Check Project configuration -> Access displays America/New_York and allows updating.
-    await page.goto(`/dashboard/projects/${projectId}/access`)
+    await page.goto(`/dashboard/projects/${projectId}/settings`)
     await expect(
         page.getByRole('heading', { name: en.project_timezone_title, exact: true })
     ).toBeVisible()

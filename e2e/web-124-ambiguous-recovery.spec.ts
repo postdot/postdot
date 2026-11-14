@@ -15,14 +15,14 @@ test('resolves an ambiguous publication without retrying the provider', async ({
     await expect(addChannelButton).toBeEnabled()
     await addChannelButton.click()
     await expect(page.getByRole('dialog')).toBeVisible()
-    await page.getByRole('radio', { name: 'Manual message', exact: true }).click()
+    await page.getByRole('radio', { name: 'Other (publish by hand)', exact: true }).click()
     await page.getByLabel('Channel name').fill(channelName)
     // Exercise optional manual content configuration before creation.
-    await page.getByRole('button', { name: 'Configure content', exact: true }).click()
+    await page.getByRole('button', { name: 'Content rules', exact: true }).click()
     await page.getByRole('button', { name: 'Create channel', exact: true }).click()
     await expect(page.getByRole('paragraph').filter({ hasText: channelName }).first()).toBeVisible()
 
-    await page.getByRole('link', { name: 'New publication', exact: true }).click()
+    await page.getByRole('link', { name: 'New post', exact: true }).click()
     await expect(page.locator('[data-new-publication-form="true"]')).toHaveAttribute(
         'aria-busy',
         'false'
@@ -133,9 +133,7 @@ test('resolves an ambiguous publication without retrying the provider', async ({
 
     try {
         await publicationLink.click()
-        await expect(page.getByRole('alert')).toContainText(
-            'Publication outcome needs your decision'
-        )
+        await expect(page.getByRole('alert')).toContainText('Did this get published?')
         await expect(
             page.getByRole('button', { name: 'Mark as published', exact: true })
         ).toBeVisible()
@@ -144,7 +142,9 @@ test('resolves an ambiguous publication without retrying the provider', async ({
         ).toBeVisible()
 
         await page.getByRole('button', { name: 'Mark as failed', exact: true }).click()
-        await expect(page.getByRole('alert')).toContainText('The request could not be completed.')
+        await expect(page.getByRole('alert')).toContainText(
+            'Something went wrong. Check your connection and try again.'
+        )
         await expect(
             page.getByRole('button', { name: 'Mark as published', exact: true })
         ).toBeVisible()
@@ -182,12 +182,12 @@ async function createAccountAndProject(page: Page, suffix: string): Promise<stri
     await page.getByRole('combobox', { name: 'Select project', exact: true }).click()
     await page.getByRole('button', { name: 'Create project', exact: true }).last().click()
     await page
-        .getByRole('textbox', { name: 'New project', exact: true })
+        .getByRole('textbox', { name: 'Name', exact: true })
         .fill(`E2E-124 recovery project ${suffix}`)
     await page
         .locator('form')
-        .filter({ has: page.getByRole('textbox', { name: 'New project', exact: true }) })
-        .getByRole('button', { name: 'Add project', exact: true })
+        .filter({ has: page.getByRole('textbox', { name: 'Name', exact: true }) })
+        .getByRole('button', { name: 'Create project', exact: true })
         .click()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/overview$/)
     await expect(page.getByRole('heading', { name: 'Overview', exact: true })).toBeVisible()

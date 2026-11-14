@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test'
 
 import { accounts, login } from './composer-account-fixture'
+import { signOut } from './locale'
 
 test('separates local recovery for two authors sharing a project and restores the original author', async ({
     page,
@@ -30,7 +31,7 @@ test('separates local recovery for two authors sharing a project and restores th
             .fill('Private local text from the original author')
         expect((await refused).status()).toBe(503)
         await page.unroute(matcher)
-        await page.getByRole('button', { name: 'Sign out', exact: true }).click()
+        await signOut(page)
         await expect(page).toHaveURL(/\/login/)
         await login(page, data.memberEmail, data.password)
         await page.goto(data.url)
@@ -50,7 +51,7 @@ test('separates local recovery for two authors sharing a project and restores th
             .fill('Independent text from the second author')
         await saved
         expect((await (await data.admin.request.get(data.endpoint)).json()).draft).toBeNull()
-        await page.getByRole('button', { name: 'Sign out', exact: true }).click()
+        await signOut(page)
         await expect(page).toHaveURL(/\/login/)
         await login(page, data.ownerEmail, data.password)
         await page.goto(data.url)
@@ -226,7 +227,7 @@ test('a tab left on the previous account cannot create a publication for the sig
                 new URL(response.url()).pathname === `/api/projects/${data.project.id}/posts` &&
                 response.request().method() === 'POST'
         )
-        await page.getByRole('button', { name: 'Create draft', exact: true }).click()
+        await page.getByRole('button', { name: 'Save as draft', exact: true }).click()
         expect((await created).status()).toBe(409)
         await expect(page).toHaveURL(/\/publications\/new/)
         await expect(page.getByRole('textbox', { name: 'Content', exact: true })).toHaveValue(

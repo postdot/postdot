@@ -7,15 +7,15 @@ test('keeps failed publication feedback on its originating navigation entry', as
     await createAccountAndProject(page, suffix)
     await page.getByRole('link', { name: 'Channels', exact: true }).click()
     await createChannel(page, `Feedback test ${suffix}`)
-    await page.getByRole('link', { name: 'New publication', exact: true }).click()
-    await page.getByRole('button', { name: 'Create draft', exact: true }).click()
+    await page.getByRole('link', { name: 'New post', exact: true }).click()
+    await page.getByRole('button', { name: 'Save as draft', exact: true }).click()
     const message = page.getByText('Add content or at least one media attachment.', { exact: true })
     await expect(message).toBeVisible()
     await page.getByRole('link', { name: 'Channels', exact: true }).click()
     await expect(page.getByRole('heading', { name: 'Channels', exact: true })).toBeVisible()
     await expect(message).toHaveCount(0)
-    await page.getByRole('link', { name: 'New publication', exact: true }).click()
-    await expect(page.getByRole('heading', { name: 'New publication', exact: true })).toBeVisible()
+    await page.getByRole('link', { name: 'New post', exact: true }).click()
+    await expect(page.getByRole('heading', { name: 'New post', exact: true })).toBeVisible()
     await expect(message).toHaveCount(0)
 })
 
@@ -24,7 +24,7 @@ test('resolves an interrupted composition before a new one can replace it', asyn
     await createAccountAndProject(page, suffix)
     await page.getByRole('link', { name: 'Channels', exact: true }).click()
     await createChannel(page, `Recovery destination ${suffix}`)
-    await page.getByRole('link', { name: 'New publication', exact: true }).click()
+    await page.getByRole('link', { name: 'New post', exact: true }).click()
 
     const editor = page.getByRole('textbox', { name: 'Content', exact: true })
     await expect(page.locator('[data-new-publication-form="true"]')).not.toHaveAttribute(
@@ -88,7 +88,7 @@ test('offers local recovery when composition autosave is unavailable', async ({ 
             body: JSON.stringify({ error: { code: 'unavailable', message: 'Unavailable' } }),
         })
     })
-    await page.getByRole('link', { name: 'New publication', exact: true }).click()
+    await page.getByRole('link', { name: 'New post', exact: true }).click()
     const form = page.locator('[data-new-publication-form="true"]')
     await expect(form).not.toHaveAttribute('inert', '')
     const editor = page.getByRole('textbox', { name: 'Content', exact: true })
@@ -127,9 +127,9 @@ test('keeps narrow new-publication flow and queue usable with long channel names
     await createChannel(page, firstChannelName)
     await createChannel(page, secondChannelName)
 
-    await page.getByRole('link', { name: 'New publication', exact: true }).click()
+    await page.getByRole('link', { name: 'New post', exact: true }).click()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/publications\/new(?:\?.*)?$/)
-    await expect(page.getByRole('link', { name: 'New publication', exact: true })).toHaveAttribute(
+    await expect(page.getByRole('link', { name: 'New post', exact: true })).toHaveAttribute(
         'aria-current',
         'page'
     )
@@ -158,7 +158,7 @@ test('keeps narrow new-publication flow and queue usable with long channel names
     await page.getByRole('combobox', { name: 'Select project' }).click()
     await expect(page.getByRole('combobox', { name: 'Find a project...' })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Create project' })).toBeVisible()
-    await expect(page.getByRole('link', { name: 'Project configuration' })).toBeVisible()
+    await expect(page.getByRole('link', { name: 'Project settings' })).toBeVisible()
     await page.keyboard.press('Escape')
     await expect(page.getByRole('combobox', { name: 'Find a project...' })).toBeHidden()
     await page.setViewportSize({ width: 320, height: 700 })
@@ -174,26 +174,26 @@ test('keeps narrow new-publication flow and queue usable with long channel names
     })
     expect(scopeOverlap).toBeLessThanOrEqual(0)
     await page.getByRole('combobox', { name: 'Select project' }).click()
-    await page.getByRole('link', { name: 'Project configuration' }).click()
+    await page.getByRole('link', { name: 'Project settings' }).click()
     await expect(page.getByRole('combobox', { name: 'Find a project...' })).toBeHidden()
     await expectNoHorizontalOverflow(page)
     await expect(page.locator('[data-header-context="true"]')).toBeVisible()
-    await page.getByRole('button', { name: 'Back to project' }).click()
-    await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/overview$/)
-    await page.getByRole('button', { name: 'New publication', exact: true }).click()
+    await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/settings$/)
+    await page.goto(page.url().replace(/\/settings$/, '/overview'))
+    await page.getByRole('button', { name: 'New post', exact: true }).click()
     await page.setViewportSize({ width: 390, height: 844 })
 
     await expect(page.locator('[data-new-publication-workspace="true"]')).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Content', exact: true })).toHaveCount(0)
     await expect(page.getByRole('heading', { name: 'Publish to', exact: true })).toHaveCount(0)
     await expect(page.getByRole('heading', { name: 'Source', exact: true })).toHaveCount(0)
-    await expect(page.getByRole('heading', { name: 'Destinations', exact: true })).toHaveCount(0)
+    await expect(page.getByRole('heading', { name: 'Channels', exact: true })).toHaveCount(0)
     await expect(
         page.locator('[data-new-publication-workspace="true"] [data-publication-channel-selection]')
     ).toBeVisible()
     const scheduleDetails = page.locator('[data-publication-schedule-disclosure="true"]')
     await expect(scheduleDetails).not.toHaveAttribute('open')
-    await expect(scheduleDetails).toContainText('Manual publication')
+    await expect(scheduleDetails).toContainText('Publish by hand')
     const workspaceOrder = await page
         .locator('[data-new-publication-workspace="true"]')
         .evaluate(element =>
@@ -226,11 +226,11 @@ test('keeps narrow new-publication flow and queue usable with long channel names
     await availableDestination.press('Enter')
     await expect(secondDestination).toBeVisible()
 
-    await page.getByRole('button', { name: 'Common', exact: true }).click()
+    await page.getByRole('button', { name: 'All channels', exact: true }).click()
     const preview = page.locator('[data-publication-draft-preview="true"]')
     await expect(preview).toBeVisible()
     await expect(preview).toContainText(firstChannelName)
-    await expect(page.getByRole('button', { name: 'Common', exact: true })).toHaveAttribute(
+    await expect(page.getByRole('button', { name: 'All channels', exact: true })).toHaveAttribute(
         'aria-pressed',
         'true'
     )
@@ -266,7 +266,7 @@ test('keeps narrow new-publication flow and queue usable with long channel names
 
     await page.getByRole('link', { name: 'Overview', exact: true }).click()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/overview$/)
-    await page.getByRole('button', { name: 'New publication', exact: true }).click()
+    await page.getByRole('button', { name: 'New post', exact: true }).click()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/publications\/new(?:\?.*)?$/)
     await expect(secondDestination).toHaveAttribute('aria-pressed', 'true')
     await expect(page.locator('[data-publication-preview-content="true"]')).toHaveText(
@@ -298,7 +298,7 @@ test('keeps narrow new-publication flow and queue usable with long channel names
     await expect(
         page.getByRole('heading', { level: 1, name: sharedContent, exact: true })
     ).toBeVisible()
-    const destinations = page.getByRole('region', { name: 'Destinations', exact: true })
+    const destinations = page.getByRole('region', { name: 'Channels', exact: true })
     await expect(destinations.locator('a[data-publication-edit-link]')).toHaveCount(2)
     expect(
         created.publications.every((item: { state: string }) => item.state === 'scheduled')
@@ -325,13 +325,11 @@ async function createChannel(page: Page, name: string): Promise<void> {
     await addChannelButton.click()
     const dialog = page.getByRole('dialog')
     await expect(dialog).toBeVisible()
-    await dialog.getByRole('radio', { name: 'Manual message', exact: true }).click()
+    await dialog.getByRole('radio', { name: 'Other (publish by hand)', exact: true }).click()
     await dialog.getByLabel('Channel name').fill(name)
     // Content configuration remains available as an optional step.
-    await dialog.getByRole('button', { name: 'Configure content', exact: true }).click()
-    await expect(
-        dialog.getByRole('heading', { name: 'Configure content', exact: true })
-    ).toBeVisible()
+    await dialog.getByRole('button', { name: 'Content rules', exact: true }).click()
+    await expect(dialog.getByRole('heading', { name: 'Content rules', exact: true })).toBeVisible()
     await dialog.getByRole('button', { name: 'Create channel', exact: true }).click()
     await expect(page.getByRole('paragraph').filter({ hasText: name }).first()).toBeVisible()
 }
@@ -354,13 +352,11 @@ async function createAccountAndProject(page: Page, suffix: string): Promise<void
 
     await page.getByRole('combobox', { name: 'Select project', exact: true }).click()
     await page.getByRole('button', { name: 'Create project', exact: true }).last().click()
-    await page
-        .getByRole('textbox', { name: 'New project', exact: true })
-        .fill(`E2E-121 project ${suffix}`)
+    await page.getByRole('textbox', { name: 'Name', exact: true }).fill(`E2E-121 project ${suffix}`)
     await page
         .locator('form')
-        .filter({ has: page.getByRole('textbox', { name: 'New project', exact: true }) })
-        .getByRole('button', { name: 'Add project', exact: true })
+        .filter({ has: page.getByRole('textbox', { name: 'Name', exact: true }) })
+        .getByRole('button', { name: 'Create project', exact: true })
         .click()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/overview$/)
     await expect(page.getByRole('heading', { name: 'Overview', exact: true })).toBeVisible()

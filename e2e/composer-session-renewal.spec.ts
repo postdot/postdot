@@ -45,7 +45,7 @@ for (const sameAuthor of [false, true]) {
                     .getByText(sameAuthor ? 'Original author' : 'Second author', { exact: true })
                     .first()
             ).toBeVisible()
-            await page.getByRole('link', { name: 'New publication', exact: true }).click()
+            await page.getByRole('link', { name: 'New post', exact: true }).click()
             await expect(form).not.toHaveAttribute('inert', '')
             await expect(content).toHaveText(sameAuthor ? text : '')
             if (!sameAuthor) {

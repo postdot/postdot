@@ -5,7 +5,7 @@ import { expect, test, type Page } from '@playwright/test'
 
 import en from '../apps/web/messages/en.json' with { type: 'json' }
 import fr from '../apps/web/messages/fr.json' with { type: 'json' }
-import { frenchTranslation } from './locale'
+import { frenchTranslation, openLanguageMenu, switchTheme } from './locale'
 
 test('keeps failed and ambiguous publications legible across queue and overview', async ({
     page,
@@ -113,8 +113,8 @@ test('keeps failed and ambiguous publications legible across queue and overview'
         await expect(page.getByRole('link').filter({ hasText: ambiguousTitle })).toBeVisible()
     }
 
-    await page.getByRole('button', { name: 'Language', exact: true }).click()
-    await page.getByRole('menuitem', { name: 'French', exact: true }).click()
+    await openLanguageMenu(page)
+    await page.getByRole('menuitem', { name: 'Français', exact: true }).click()
     await expect(page.getByRole('link').filter({ hasText: failedTitle })).toContainText(
         frenchTranslation('publication_state_failed')
     )
@@ -317,8 +317,8 @@ test('reviews mixed operational work across responsive locale and theme combinat
         await expect(page.locator('[data-publication-selection-card]')).toHaveCount(7)
         await expect(page.locator('html')).toHaveClass(/\b(?:light|dark)\b/)
         if (variant.locale === 'fr' && (await page.locator('html').getAttribute('lang')) !== 'fr') {
-            await page.locator('[data-slot="language-switcher-trigger"]').click()
-            await page.getByRole('menuitem', { name: en.language_french, exact: true }).click()
+            await openLanguageMenu(page)
+            await page.getByRole('menuitem', { name: 'Français', exact: true }).click()
             await expect(page.getByRole('menu')).toHaveCount(0)
         }
         if (
@@ -327,12 +327,7 @@ test('reviews mixed operational work across responsive locale and theme combinat
                 .getAttribute('class')
                 .then(value => !value?.split(' ').includes(variant.theme))
         ) {
-            await page
-                .getByRole('button', {
-                    name: copy.theme_switch_to.replace('{theme}', copy[`theme_${variant.theme}`]),
-                    exact: true,
-                })
-                .click()
+            await switchTheme(page, variant.theme)
         }
         await page.setViewportSize({ width: variant.width, height: 900 })
         await page.emulateMedia({ reducedMotion: 'reduce' })
@@ -534,12 +529,7 @@ test('keeps draft content truthful in destination-specific preview compositions'
                 if (
                     !(await page.locator('html').getAttribute('class'))?.split(' ').includes(theme)
                 ) {
-                    await page
-                        .getByRole('button', {
-                            name: en.theme_switch_to.replace('{theme}', en[`theme_${theme}`]),
-                            exact: true,
-                        })
-                        .click()
+                    await switchTheme(page, theme)
                 }
                 await expect(page.locator('html')).toHaveClass(new RegExp(`\\b${theme}\\b`))
                 backgrounds.push(
@@ -584,12 +574,7 @@ test('keeps draft content truthful in destination-specific preview compositions'
             path: testInfo.outputPath(`preview-discord-rich-${width}.png`),
         })
     }
-    await page
-        .getByRole('button', {
-            name: en.theme_switch_to.replace('{theme}', en.theme_light),
-            exact: true,
-        })
-        .click()
+    await switchTheme(page, 'light')
     await expect(page.locator('html')).toHaveClass(/\blight\b/)
     expect(
         await messagePreview
@@ -615,12 +600,7 @@ test('keeps draft content truthful in destination-specific preview compositions'
     await expect(messagePreview.locator('blockquote u')).toHaveText('Quoted text')
     for (const theme of ['light', 'dark'] as const) {
         if (!(await page.locator('html').getAttribute('class'))?.split(' ').includes(theme)) {
-            await page
-                .getByRole('button', {
-                    name: en.theme_switch_to.replace('{theme}', en[`theme_${theme}`]),
-                    exact: true,
-                })
-                .click()
+            await switchTheme(page, theme)
         }
         for (const width of [1280, 390]) {
             await page.setViewportSize({ width, height: 900 })
@@ -797,12 +777,7 @@ test('keeps draft content truthful in destination-specific preview compositions'
     const socialBackgrounds: string[] = []
     for (const theme of ['light', 'dark'] as const) {
         if (!(await page.locator('html').getAttribute('class'))?.split(' ').includes(theme)) {
-            await page
-                .getByRole('button', {
-                    name: en.theme_switch_to.replace('{theme}', en[`theme_${theme}`]),
-                    exact: true,
-                })
-                .click()
+            await switchTheme(page, theme)
         }
         await expect(page.locator('html')).toHaveClass(new RegExp(`\\b${theme}\\b`))
         socialBackgrounds.push(
@@ -821,12 +796,7 @@ test('keeps draft content truthful in destination-specific preview compositions'
         const themeBackgrounds: string[] = []
         for (const theme of ['light', 'dark'] as const) {
             if (!(await page.locator('html').getAttribute('class'))?.split(' ').includes(theme)) {
-                await page
-                    .getByRole('button', {
-                        name: en.theme_switch_to.replace('{theme}', en[`theme_${theme}`]),
-                        exact: true,
-                    })
-                    .click()
+                await switchTheme(page, theme)
             }
             await expect(page.locator('html')).toHaveClass(new RegExp(`\\b${theme}\\b`))
             themeBackgrounds.push(
@@ -962,12 +932,7 @@ test('keeps performance refresh failures local and cached metrics truthful', asy
     await expect(first.getByText('123', { exact: true })).toBeVisible()
     for (const theme of ['light', 'dark'] as const) {
         if (!(await page.locator('html').getAttribute('class'))?.split(' ').includes(theme)) {
-            await page
-                .getByRole('button', {
-                    name: en.theme_switch_to.replace('{theme}', en[`theme_${theme}`]),
-                    exact: true,
-                })
-                .click()
+            await switchTheme(page, theme)
         }
         for (const width of [1280, 820, 390]) {
             await page.setViewportSize({ width, height: 844 })
@@ -990,8 +955,8 @@ test('keeps performance refresh failures local and cached metrics truthful', asy
             })
         }
     }
-    await page.locator('[data-slot="language-switcher-trigger"]').click()
-    await page.getByRole('menuitem', { name: en.language_french, exact: true }).click()
+    await openLanguageMenu(page)
+    await page.getByRole('menuitem', { name: 'Français', exact: true }).click()
     await expect(second.getByRole('alert')).toHaveText(fr.performance_refresh_failed)
 })
 
@@ -1013,13 +978,11 @@ async function createAccountAndProject(page: Page, suffix: string): Promise<stri
 
     await page.getByRole('combobox', { name: 'Select project', exact: true }).click()
     await page.getByRole('button', { name: 'Create project', exact: true }).last().click()
-    await page
-        .getByRole('textbox', { name: 'New project', exact: true })
-        .fill(`E2E-124 project ${suffix}`)
+    await page.getByRole('textbox', { name: 'Name', exact: true }).fill(`E2E-124 project ${suffix}`)
     await page
         .locator('form')
-        .filter({ has: page.getByRole('textbox', { name: 'New project', exact: true }) })
-        .getByRole('button', { name: 'Add project', exact: true })
+        .filter({ has: page.getByRole('textbox', { name: 'Name', exact: true }) })
+        .getByRole('button', { name: 'Create project', exact: true })
         .click()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/overview$/)
     await expect(page.getByRole('heading', { name: 'Overview', exact: true })).toBeVisible()

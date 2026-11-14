@@ -2,6 +2,8 @@ import { randomUUID } from 'node:crypto'
 
 import { expect, test, type Page } from '@playwright/test'
 
+import { switchTheme } from './locale'
+
 test('searches across projects, opens source posts and keeps failures inside the palette', async ({
     page,
 }) => {
@@ -89,7 +91,7 @@ test('searches across projects, opens source posts and keeps failures inside the
     await page.screenshot({ path: '/tmp/postdot-search-wide.png' })
     const darkSurface = await dialog.evaluate(element => getComputedStyle(element).backgroundColor)
     await page.keyboard.press('Escape')
-    await page.getByRole('button', { name: 'Switch to light theme', exact: true }).click()
+    await switchTheme(page, 'light')
     await page.keyboard.press('Control+k')
     await expect(dialog).toBeVisible()
     await expect
@@ -98,7 +100,7 @@ test('searches across projects, opens source posts and keeps failures inside the
     await expect(dialog.getByRole('option', { name: /searchable post/ })).toHaveCount(1)
     await page.screenshot({ path: '/tmp/postdot-search-light.png' })
     await page.keyboard.press('Escape')
-    await page.getByRole('button', { name: 'Switch to dark theme', exact: true }).click()
+    await switchTheme(page, 'dark')
     await page.keyboard.press('Control+k')
     await expect(dialog.getByRole('option', { name: /searchable post/ })).toHaveCount(1)
     await page.setViewportSize({ width: 390, height: 844 })

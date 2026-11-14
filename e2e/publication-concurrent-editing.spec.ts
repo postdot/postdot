@@ -4,6 +4,8 @@ import AxeBuilder from '@axe-core/playwright'
 import { expect, test, type Page, type Request } from '@playwright/test'
 import type { PublicationEditorState } from '@postdot/client'
 
+import { switchTheme } from './locale'
+
 test('rebases a stale sibling draft without replacing destination text or attachments', async ({
     page,
     browser,
@@ -48,7 +50,7 @@ test('rebases a stale sibling draft without replacing destination text or attach
                 fullPage: true,
             })
         }
-        await other.getByRole('button', { name: 'Switch to light theme', exact: true }).click()
+        await switchTheme(other, 'light')
         await other.setViewportSize({ width: 820, height: 900 })
         await conflict.scrollIntoViewIfNeeded()
         expect((await new AxeBuilder({ page: other }).analyze()).violations).toEqual([])
@@ -497,7 +499,7 @@ for (const scheduled of [false, true]) {
             const action = page.locator('[data-publication-promotion-action]')
             await expect(action).toBeEnabled()
             await expect(action.locator('span').first()).toHaveText(
-                scheduled ? 'Update scheduled publication' : 'Use this version'
+                scheduled ? 'Save changes' : 'Save changes'
             )
             await action.dblclick()
             await expect(action).toBeDisabled()
@@ -527,7 +529,7 @@ for (const scheduled of [false, true]) {
                 await page.locator('[data-publication-delivery-disclosure] > summary').click()
                 await page.locator('#deliver-at').click()
                 await page.getByRole('button', { name: 'Clear', exact: true }).click()
-                await expect(action.locator('span').first()).toHaveText('Return to draft')
+                await expect(action.locator('span').first()).toHaveText('Unschedule')
                 await page.screenshot({
                     path: info.outputPath('return-to-draft-before-confirming.png'),
                     fullPage: true,
@@ -539,7 +541,7 @@ for (const scheduled of [false, true]) {
                 const unscheduled = await pair.read(page, pair.first)
                 expect(unscheduled.publication.scheduledAt).toBeNull()
                 expect(unscheduled.selectedTarget?.content).toEqual(after.selectedTarget?.content)
-                await expect(action.locator('span').first()).toHaveText('Use this version')
+                await expect(action.locator('span').first()).toHaveText('Save changes')
             }
         } finally {
             release?.()
@@ -679,7 +681,7 @@ for (const outcome of ['rejected', 'lost_response'] as const) {
         expect(final.publication.scheduledAt).toBe(after.publication.scheduledAt)
         await expect(page.locator('#deliver-at')).toContainText('Choose a date')
         await expect(action.locator('span').first()).toHaveText(
-            outcome === 'rejected' ? 'Return to draft' : 'Use this version'
+            outcome === 'rejected' ? 'Unschedule' : 'Save changes'
         )
         expect((await pair.read(page, pair.second)).selectedTarget).toBeNull()
     })
@@ -702,10 +704,8 @@ async function createDraftPair(page: Page) {
     await page.getByRole('combobox', { name: 'Select project', exact: true }).click()
     await page.getByRole('button', { name: 'Create project', exact: true }).last().click()
     const dialog = page.getByRole('dialog')
-    await dialog
-        .getByRole('textbox', { name: 'New project', exact: true })
-        .fill('Concurrent project')
-    await dialog.getByRole('button', { name: 'Add project', exact: true }).click()
+    await dialog.getByRole('textbox', { name: 'Name', exact: true }).fill('Concurrent project')
+    await dialog.getByRole('button', { name: 'Create project', exact: true }).click()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/overview$/)
     const id = new URL(page.url()).pathname.split('/')[3]!
     const channels: string[] = []
@@ -796,13 +796,13 @@ test('reviews sibling source changes and explicitly keeps or replaces destinatio
     )
     expect(changed.status()).toBe(200)
     await page.goto(pair.pageUrl(pair.first))
-    await page.getByRole('button', { name: 'Review destinations', exact: true }).click()
-    const dialog = page.getByRole('dialog', { name: 'Review destinations', exact: true })
+    await page.getByRole('button', { name: 'Update channel versions', exact: true }).click()
+    const dialog = page.getByRole('dialog', { name: 'Update channel versions', exact: true })
     const second = dialog.getByRole('region', { name: 'Second channel', exact: true })
-    await expect(second).toContainText('Source changed')
-    await second.getByText('Compare and choose', { exact: true }).click()
+    await expect(second).toContainText('Out of date')
+    await second.getByText('Compare', { exact: true }).click()
     await expect(
-        second.getByRole('radio', { name: 'Keep my adaptation', exact: true })
+        second.getByRole('radio', { name: 'Keep this channel’s version', exact: true })
     ).toBeChecked()
     await expect(second).toContainText('Second destination')
     await expect(second).toContainText('Revised source for destination review')
@@ -813,9 +813,9 @@ test('reviews sibling source changes and explicitly keeps or replaces destinatio
     expect(kept.selectedTarget).toEqual(secondBefore.selectedTarget)
     expect(kept.publication).toEqual(secondBefore.publication)
     const first = dialog.getByRole('region', { name: 'First channel', exact: true })
-    await first.getByText('Compare and choose', { exact: true }).click()
+    await first.getByText('Compare', { exact: true }).click()
     await first
-        .getByRole('radio', { name: 'Use source text, title and media', exact: true })
+        .getByRole('radio', { name: 'Use the post’s text, title and media', exact: true })
         .check()
     await expect(first).toContainText('Replaces those fields in this saved draft')
     await page.setViewportSize({ width: 390, height: 900 })
@@ -851,10 +851,10 @@ test('opens the shared post from queue and keeps every destination reachable', a
         'aria-current',
         'page'
     )
-    await expect(page.getByRole('region', { name: 'Current source', exact: true })).toContainText(
+    await expect(page.getByRole('region', { name: 'Post', exact: true })).toContainText(
         'Initial common source'
     )
-    const destinations = page.getByRole('region', { name: 'Destinations', exact: true })
+    const destinations = page.getByRole('region', { name: 'Channels', exact: true })
     await expect(destinations.getByRole('link', { name: /First channel/ }).first()).toBeVisible()
     await expect(destinations.getByRole('link', { name: /Second channel/ }).first()).toBeVisible()
     await page.reload()
@@ -867,8 +867,8 @@ test('opens the shared post from queue and keeps every destination reachable', a
         )
         await page.screenshot({ path: info.outputPath(`shared-post-${width}.png`) })
     }
-    await page.getByRole('button', { name: 'Review destinations', exact: true }).click()
-    const review = page.getByRole('dialog', { name: 'Review destinations', exact: true })
+    await page.getByRole('button', { name: 'Update channel versions', exact: true }).click()
+    const review = page.getByRole('dialog', { name: 'Update channel versions', exact: true })
     await expect(review.getByRole('region', { name: 'First channel', exact: true })).toBeVisible()
     await expect(review.getByRole('region', { name: 'Second channel', exact: true })).toBeVisible()
     await page.keyboard.press('Escape')
@@ -890,23 +890,23 @@ test('saves the post source explicitly and preserves local text on a concurrent 
     const second = await pair.read(page, pair.second)
     const postUrl = `/api/projects/${pair.id}/posts/${first.post.id}`
     await page.goto(`/dashboard/projects/${pair.id}/posts/${first.post.id}`)
-    await page.getByRole('button', { name: 'Edit source', exact: true }).click()
+    await page.getByRole('button', { name: 'Edit text', exact: true }).click()
     await page.locator('#source-body').fill('Independent shared source')
     expect((await pair.read(page, pair.first)).post.sourceRevision).toBe(1)
     await expect(
-        page.getByRole('button', { name: 'Review destinations', exact: true })
+        page.getByRole('button', { name: 'Update channel versions', exact: true })
     ).toHaveCount(0)
     const saved = page.waitForResponse(
         response => response.url().endsWith(postUrl) && response.request().method() === 'PATCH'
     )
     await page.getByRole('button', { name: 'Save', exact: true }).click()
     expect((await saved).status()).toBe(200)
-    await expect(page.getByRole('region', { name: 'Current source', exact: true })).toContainText(
+    await expect(page.getByRole('region', { name: 'Post', exact: true })).toContainText(
         'Independent shared source'
     )
     expect((await pair.read(page, pair.first)).draft).toEqual(first.draft)
     expect((await pair.read(page, pair.second)).draft).toEqual(second.draft)
-    await page.getByRole('button', { name: 'Edit source', exact: true }).click()
+    await page.getByRole('button', { name: 'Edit text', exact: true }).click()
     await page.locator('#source-body').fill('My unsaved source')
     const external = await page.request.patch(postUrl, {
         data: {
@@ -932,11 +932,11 @@ test('saves the post source explicitly and preserves local text on a concurrent 
     }
     await page.getByRole('button', { name: 'Cancel', exact: true }).click()
     await page.getByRole('dialog').getByRole('button', { name: 'Discard', exact: true }).click()
-    await page.getByRole('button', { name: 'Edit source', exact: true }).click()
+    await page.getByRole('button', { name: 'Edit text', exact: true }).click()
     await expect(page.locator('#source-body')).toHaveText('Concurrent shared source')
     await page.getByRole('button', { name: 'Cancel', exact: true }).click()
-    await expect(page.getByRole('button', { name: 'Add destination', exact: true })).toBeVisible()
-    await page.getByRole('button', { name: 'Add destination', exact: true }).click()
+    await expect(page.getByRole('button', { name: 'Add a channel', exact: true })).toBeVisible()
+    await page.getByRole('button', { name: 'Add a channel', exact: true }).click()
     const addition = page.getByRole('dialog')
     await addition.getByRole('combobox', { name: 'Channel', exact: true }).click()
     await page.getByRole('option', { name: 'Second channel', exact: true }).click()
@@ -945,7 +945,7 @@ test('saves the post source explicitly and preserves local text on a concurrent 
     await expect(addition).toHaveCount(0)
     await expect(
         page
-            .getByRole('region', { name: 'Destinations', exact: true })
+            .getByRole('region', { name: 'Channels', exact: true })
             .locator('[data-publication-selection-card="true"]')
     ).toHaveCount(3)
     expect((await pair.read(page, pair.second)).draft).toEqual(second.draft)
