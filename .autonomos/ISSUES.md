@@ -98,3 +98,14 @@
 - Tasks: none
 
 - Remaining scope (ALPHA-578, 2026-10-24): Run a time-boxed real project workflow and prioritize from observed friction. This is product validation, not additional provider breadth.
+
+## [ISSUE-197] Enable 100% agentic deployment onboarding and full privileged-agent administration
+
+- Type: proposal
+- Status: open
+- Evidence: Fresh Postdot installations currently require a human to open Studio and register the first administrator account before issuing an API key for an AI agent, creating both a human bottleneck and a brief unauthenticated first-user registration window on newly deployed instances. In addition, instance administration, user management, and token/API-key management remain restricted to human sessions even when an operator intends to grant an agent full privileges (raised during 2026-11-14 GitHub #35 triage).
+- Impact: AI agents deploying or operating Postdot autonomously cannot self-bootstrap securely or administer an instance end-to-end without human intervention, weakening Postdot's agent-first positioning.
+- Desired outcome: An AI agent with authorized deployment or operator privileges can securely bootstrap a fresh Postdot installation without leaving an open first-user takeover window, take immediate programmatic control, and perform instance, user, and API-key administration with explicit privilege boundaries.
+- Related: GH #35, ADR-075, ADR-096
+- Tasks: none — recorded for future specification and design; not authorized for immediate implementation
+
