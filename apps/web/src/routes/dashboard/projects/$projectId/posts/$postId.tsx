@@ -17,7 +17,7 @@ import { useProjectDashboard } from '@/lib/dashboard-context'
 import { useLanguage } from '@/lib/i18n'
 import { loadPostPublications } from '@/lib/post-publications'
 import { projectQueryKeys, subscribeProjectAccessRevocation } from '@/lib/project-realtime'
-import { publicationIdentityLabel } from '@/lib/publication-identity'
+import { publicationIdentityLabel, shortExcerpt } from '@/lib/publication-identity'
 import * as m from '@/paraglide/messages.js'
 
 export const Route = createFileRoute('/dashboard/projects/$projectId/posts/$postId')({
@@ -87,14 +87,11 @@ function PostRoute() {
                     query.data && !suspended && !query.isError
                         ? publicationIdentityLabel({
                               postTitle: query.data.post.title,
-                              sourceExcerpt: (
+                              sourceExcerpt: shortExcerpt(
                                   query.data.post.sourceContent.headline ||
-                                  query.data.post.sourceContent.body?.text ||
-                                  ''
-                              )
-                                  .replace(/\s+/g, ' ')
-                                  .trim()
-                                  .slice(0, 96),
+                                      query.data.post.sourceContent.body?.text ||
+                                      ''
+                              ),
                               mediaCount: query.data.post.sourceContent.media.length,
                           })
                         : m.post_title()
@@ -170,6 +167,7 @@ function PostRoute() {
                             <PublicationList
                                 publications={query.data.publications}
                                 readOnly={!canReview}
+                                showIdentity={false}
                                 timeZone={project.timeZone}
                             />
                         </section>

@@ -20,6 +20,7 @@ import { AddIcon } from '@solar-icons/react/linear/add'
 import { CheckIcon } from '@solar-icons/react/linear/check'
 import { CodeFileIcon } from '@solar-icons/react/linear/code-file'
 import { useQuery } from '@tanstack/react-query'
+import { Link } from '@tanstack/react-router'
 import { useMemo, useState } from 'react'
 
 import { ChannelContentBuilder } from '@/components/channel-content-builder'
@@ -44,6 +45,7 @@ import {
     manualBuilderStarter,
     templatesFromPresets,
 } from '@/lib/channel-profile-presets'
+import { useDashboardGlobal } from '@/lib/dashboard-context'
 import { useLanguage } from '@/lib/i18n'
 import { profileIssueMessage } from '@/lib/profile-validation-feedback'
 import * as m from '@/paraglide/messages.js'
@@ -307,11 +309,7 @@ export function ChannelCreationDialog({
                                         {m.channel_manual_creation_help()}
                                     </p>
                                 ) : choice !== null && choice !== 'custom' ? (
-                                    <p className="text-sm text-muted-foreground">
-                                        {providerRegistry.get(choice)?.applicationProvider
-                                            ? m.channel_provider_application_help()
-                                            : m.channel_provider_connection_help()}
-                                    </p>
+                                    <PlatformReadiness profile={choice} />
                                 ) : null}
                                 <Field className="gap-1.5">
                                     <FieldLabel htmlFor="new-channel-name">
@@ -541,4 +539,49 @@ function templateDescription(templateId: string) {
     if (templateId.startsWith(builtInChannelProfileTemplatePrefix))
         return m.channel_custom_profile_starter_description()
     return m.channel_custom_profile_fallback()
+}
+
+/**
+ * Audit F2: say before creation, in plain words, whether the platform can connect yet.
+ * Only installation administrators can read platform setup; others get the general rule.
+ */
+function PlatformReadiness({ profile }: { readonly profile: string }) {
+    const { isInstanceAdmin } = useDashboardGlobal()
+    const applicationProvider = providerRegistry.get(profile)?.applicationProvider
+    const applications = useQuery({
+        enabled: isInstanceAdmin && applicationProvider !== undefined,
+        queryFn: () => api.listProviderApplications(),
+        queryKey: ['provider-applications'],
+        staleTime: 30_000,
+    })
+    if (applicationProvider === undefined) {
+        return (
+            <p className="text-sm text-muted-foreground">{m.channel_provider_connection_help()}</p>
+        )
+    }
+    const ready = applications.data?.applications.some(
+        application =>
+            application.providerId === applicationProvider && application.state === 'active'
+    )
+    if (!isInstanceAdmin || applications.data === undefined) {
+        return (
+            <p className="text-sm text-muted-foreground">{m.channel_provider_application_help()}</p>
+        )
+    }
+    if (ready) {
+        return (
+            <p className="text-sm text-muted-foreground">{m.channel_provider_connection_help()}</p>
+        )
+    }
+    return (
+        <p className="text-sm text-state-attention" data-platform-setup-missing="true">
+            {m.channel_platform_setup_missing()}{' '}
+            <Link
+                className="font-medium text-primary underline-offset-4 hover:underline"
+                search={{ projectId: undefined, workspaceId: undefined }}
+                to="/dashboard/settings/provider-applications">
+                {m.provider_apps_title()}
+            </Link>
+        </p>
+    )
 }

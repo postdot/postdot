@@ -18,13 +18,14 @@ export function ConfigurationSettingsPage() {
                 <PageColumn
                     className="[&>section:first-child]:mt-0 [&>section:first-child]:border-t-0 [&>section:first-child]:pt-0"
                     variant="reading">
-                    <ReleaseSettings />
                     {isInstanceAdmin && (
                         <>
                             <RecoverySettings />
                             <EmailSettingsForm />
                         </>
                     )}
+                    {/* T2: build identity is reference information, so it closes the page. */}
+                    <ReleaseSettings />
                 </PageColumn>
             </div>
         </main>

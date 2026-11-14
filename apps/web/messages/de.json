@@ -2728,5 +2728,6 @@
     "auth_invalid_credentials": "E-Mail oder Passwort ist falsch.",
     "channel_new_ellipsis": "Neuer Kanal…",
     "publication_new_recovery_restored": "Dein Entwurf wurde wiederhergestellt.",
-    "publication_new_recovery_start_over": "Neu beginnen"
+    "publication_new_recovery_start_over": "Neu beginnen",
+    "channel_platform_setup_missing": "Diese Plattform ist in dieser Installation noch nicht eingerichtet; der Kanal kann sich erst danach verbinden."
 }

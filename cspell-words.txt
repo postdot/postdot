@@ -95,6 +95,7 @@ prevalidated
 previewable
 privkey
 pyyaml
+quicktime
 reblog
 reblogs
 rebuildable

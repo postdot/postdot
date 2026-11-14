@@ -2728,5 +2728,6 @@
     "auth_invalid_credentials": "El correo o la contraseña no son correctos.",
     "channel_new_ellipsis": "Nuevo canal…",
     "publication_new_recovery_restored": "Se restauró tu borrador.",
-    "publication_new_recovery_start_over": "Empezar de nuevo"
+    "publication_new_recovery_start_over": "Empezar de nuevo",
+    "channel_platform_setup_missing": "Esta plataforma aún no está configurada en esta instalación, así que el canal no podrá conectarse hasta entonces."
 }

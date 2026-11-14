@@ -131,7 +131,9 @@ export function PublicationLifecyclePanel({
                                 disabled={pending || cancelDisabled}
                                 onClick={onCancel}
                                 size="sm"
-                                variant="destructive">
+                                // D4 / ADR-103 §5: a destructive action is never the most prominent.
+                                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                variant="ghost">
                                 <TrashBinMinimalisticIcon aria-hidden="true" />
                                 {m.publication_cancel_submit()}
                             </Button>

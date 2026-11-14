@@ -20,7 +20,7 @@ import { useState } from 'react'
 
 import { ActionTooltip } from '@/components/action-tooltip'
 import { api, type MediaReference } from '@/lib/api'
-import { formatBytes, formatNumber } from '@/lib/format'
+import { formatBytes } from '@/lib/format'
 import { useLanguage } from '@/lib/i18n'
 import { formatMediaDeletionDeadline } from '@/lib/media-retention'
 import type { MediaSelection } from '@/lib/target-media'
@@ -520,7 +520,12 @@ function mediaSummary(
     representation: ReturnType<typeof readyRepresentation>,
     locale: string
 ) {
-    const details = [representation?.detectedContentType ?? representation?.declaredContentType]
+    // M2: a person reads "WebP", not "image/webp".
+    const details = [
+        mediaFormatLabel(
+            representation?.detectedContentType ?? representation?.declaredContentType
+        ),
+    ]
     if (representation?.byteSize !== null && representation?.byteSize !== undefined) {
         details.push(formatBytes(representation.byteSize, locale))
     }
@@ -529,9 +534,7 @@ function mediaSummary(
         representation.width !== null &&
         representation.height !== null
     ) {
-        details.push(
-            `${formatNumber(representation.width, locale)}×${formatNumber(representation.height, locale)}`
-        )
+        details.push(`${representation.width} × ${representation.height}`)
     }
     if (asset.asset.state !== 'ready') details.push(mediaStateLabel(asset.asset.state))
     return details
@@ -703,4 +706,21 @@ function MediaPreviewImage({
             className={className ?? 'size-12 rounded-md object-cover shadow-field'}
         />
     )
+}
+
+const mediaFormatNames: Record<string, string> = {
+    'image/gif': 'GIF',
+    'image/jpeg': 'JPEG',
+    'image/png': 'PNG',
+    'image/svg+xml': 'SVG',
+    'image/webp': 'WebP',
+    'video/mp4': 'MP4',
+    'video/quicktime': 'MOV',
+    'video/webm': 'WebM',
+}
+
+function mediaFormatLabel(contentType: string | null | undefined) {
+    if (!contentType) return undefined
+    const base = contentType.split(';')[0]!.trim().toLowerCase()
+    return mediaFormatNames[base] ?? base.split('/').pop()?.toUpperCase()
 }
