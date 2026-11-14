@@ -419,11 +419,13 @@ preview. For permanent deletion with unresolved outcomes, also pass
 `--acknowledge-uncertain`. The CLI sends a single action request and reports the
 returned state; it does not silently retry a write or poll cleanup completion.
 
-Workspace commands use `workspaces impact|archive|restore|delete --workspace ID`
-with the same confirmation options and require a human session through
-`POSTDOT_SESSION_COOKIE`. To retire the default workspace, also pass
-`--replacement-workspace OTHER_WORKSPACE_ID`. The replacement must be active and
-manageable by the current user.
+Use `postdot workspaces ...` (`@postdot/cli`) or `bun run postdot workspaces ...`
+with `list`, `show`, `create`, `impact`, `archive`, `restore`, and `delete`, passing
+the same confirmation options. Workspace mutations authenticate with a scoped
+`POSTDOT_API_KEY` carrying `workspace:manage` across **All projects** (the
+source-checkout script also accepts `POSTDOT_SESSION_COOKIE`). To retire the default
+workspace, pass `--replacement-workspace OTHER_WORKSPACE_ID`; the replacement must
+be active and manageable by the caller.
 
 HTTP clients use `GET /api/projects/{id}/lifecycle`,
 `POST /api/projects/{id}/lifecycle/archive`,
@@ -431,5 +433,27 @@ HTTP clients use `GET /api/projects/{id}/lifecycle`,
 `DELETE /api/projects/{id}/lifecycle`. Workspace paths replace `projects` with
 `workspaces`. Action bodies carry `fingerprint` and any required confirmation
 fields. A `409` response means the client must resolve the stated conflict and
-review the impact again. Session users can inspect their pending retirements at
-`GET /api/resource-removals`.
+review the impact again. Session users and authorized keys can inspect pending
+retirements at `GET /api/resource-removals`.
+
+## Administer instances, access, keys, and settings
+
+Both `@postdot/cli` (`postdot`) and the source-checkout script (`bun run postdot`)
+expose administrative command groups governed by your API key's capability ceiling
+and live roles:
+
+| Command group                                                                 | Purpose & required capability                                                                                                                                                   |
+| ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `instance status \| bootstrap`                                                | Check setup readiness (`bootstrapMode`) or claim an unclaimed instance with optional `--issue-api-key`                                                                          |
+| `api-keys list \| create \| update \| revoke`                                 | List, mint, update (`--projects` / `--all-projects`, `--actions` / `--all-actions`, `--no-expiry`), and revoke your API keys (`api_key:manage`)                                 |
+| `access summary \| members \| invitations`                                    | Inspect membership, provision user or agent accounts (`members create --issue-api-key`), update roles/state, list/revoke member keys, and manage invitations (`instance:admin`) |
+| `workspaces list \| show \| create \| impact \| archive \| restore \| delete` | Create, inspect, and retire workspaces (`workspace:manage` with **All projects** scope)                                                                                         |
+| `settings email \| recovery \| provider-applications`                         | Configure SMTP (`--password-file` / `--password-stdin`), clear post-restore dispatch holds (`recovery resume --confirm`), and manage runtime OAuth apps (`instance:admin`)      |
+
+For `instance bootstrap`, supply the bootstrap token via `--bootstrap-token-file`,
+`--bootstrap-token-stdin`, `POSTDOT_BOOTSTRAP_TOKEN`, or
+`POSTDOT_BOOTSTRAP_TOKEN_FILE`, and supply the administrator password via
+`--password-file` or `--password-stdin` (avoid passing secrets on shared command
+lines). For `settings recovery resume`, `@postdot/cli` takes `--token <token>`
+while `bun run postdot` accepts `--recovery-token <token>` so it does not collide
+with its global `--token` API-key flag.

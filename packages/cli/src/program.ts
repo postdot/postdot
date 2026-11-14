@@ -1,6 +1,7 @@
 import { Command } from 'commander'
 
 import manifest from '../../../integrations/cli/package.json'
+import { registerAdminCommands } from './admin-commands'
 import { registerCompletionCommands } from './completion'
 import { registerConfigurationCommands } from './configuration-commands'
 import { positiveInteger } from './context'
@@ -36,6 +37,7 @@ export function createProgram({
     registerPublicationCommands(program)
     registerMediaCommands(program)
     registerConfigurationCommands(program)
+    registerAdminCommands(program)
     registerCompletionCommands(program, writeOut)
     return program
 }

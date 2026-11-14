@@ -44,33 +44,51 @@ no longer needs it; the next call fails immediately.
 
 ## What the agent can do
 
-The tool list follows the key. An agent only sees the tools its key may use.
+The tool list follows the key. An agent only sees the tools permitted by the
+key's capabilities and its owner's live roles; project-scoped keys never see
+workspace or instance administration tools.
 
 | Area                   | Examples                                                                                                                    |
 | ---------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| Projects               | List workspaces and projects, create projects, update project timezone, inspect lifecycle impact, archive or restore        |
-| Channels               | List channels and connections, create or rename a channel, share it with another project, inspect cadence and occupied time |
-| Posts and publications | Create posts and drafts, edit drafts, review and adopt profile changes, move pending work, cancel, reschedule               |
+| Workspaces             | List, inspect, create, archive/restore/delete workspaces, manage workspace teams and workspace invitations                  |
+| Projects and access    | List and create projects, update timezone, archive or restore, manage project members, user/team grants, and invitations    |
+| Channels & connections | List channels and connections, attach non-OAuth credentials (`custom-http`, `devto`, `discord`, `telegram`), share, cadence |
+| Posts and publications | Create posts and drafts, edit drafts, adopt profile changes, move pending work, cancel, reschedule, approve or reject       |
 | Delivery               | Promote drafts, publish or retry, reconcile an ambiguous outcome                                                            |
 | Tags and media         | Tags, media library, import from a URL, request deletion, restore                                                           |
 | Analytics              | Read stored analytics, refresh provider analytics                                                                           |
+| API keys & instance    | List, mint, update, and revoke your API keys; manage instance members, invitations, SMTP email, recovery, and OAuth apps    |
 
 Every tool declares whether it only reads, whether it can destroy data, and whether
 it reaches an external service.
 
-### Confirmation
+### Confirmation and secret handling
 
-Calls that can change what is published, when or where need `confirm: true`.
-Without it Postdot sends nothing and tells the agent to ask you first. Creating a
-post with automatic delivery or a time counts; creating drafts does not. A good
-assistant asks you, then repeats the call.
+Calls that can change what is published, when or where, as well as administrative,
+access, API-key, workspace, connection, approval, and instance-settings mutations
+require `confirm: true`. Without it Postdot executes nothing and tells the agent
+to ask you first. Creating a post with automatic delivery or a scheduled time
+counts; creating unscheduled drafts does not.
+
+<Callout title="Minted tokens appear in tool output" type="warn">
+    Tools that mint or invite credentials (`create_user_api_key`, `create_access_member`,
+    `create_access_invitation`, and `create_workspace_invitation`) return the generated secret or
+    invitation token once in the MCP response inside the assistant's conversation context. Grant
+    `api_key:manage` and `instance:admin` only to trusted operators and rotate or revoke issued
+    credentials if a transcript is shared.
+</Callout>
 
 ## What is not offered
 
-- Account, API-key, workspace and installation administration, provider connection
-  and the audit log stay in Studio.
 - Files cannot be sent through MCP. Import media from a public URL, or upload it
   in Studio or with the [CLI](/docs/cli-reference/).
+- Interactive third-party OAuth browser connections (such as LinkedIn, Bluesky, X,
+  Facebook, Instagram, or Mastodon) stay in Studio. MCP can configure runtime
+  OAuth application credentials (`create_provider_application_configuration`) and
+  connect non-OAuth credential channels (`custom-http`, `devto`, `discord`,
+  `telegram`).
+- The audit log (`GET /api/audit`) and session-only browser routes (password
+  change, invitation acceptance, and SSE streams) are not exposed on `/mcp`.
 - Hosted assistants that only connect through OAuth cannot use this endpoint yet.
   The server accepts API keys only, never a browser session.
 

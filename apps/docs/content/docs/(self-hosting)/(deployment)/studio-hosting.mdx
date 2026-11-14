@@ -36,27 +36,47 @@ Keep HTTPS, authentication and your existing network access rules.
 
 ## Provision an API key without Studio
 
-Create the first administrator using [offline provisioning](/docs/installation/#offline-administrator-provisioning).
-The existing initial-signup and invitation policies still apply. Start the server
-after provisioning; keep the public HTTPS URL in `BETTER_AUTH_URL`.
+On a fresh production instance (`NODE_ENV=production`), first-run bootstrap defaults
+to `token_required` mode so public signup never opens automatically. Postdot
+generates a one-time bootstrap token at `<dataDir>/bootstrap-token` unless you
+supply `POSTDOT_BOOTSTRAP_TOKEN`, `POSTDOT_BOOTSTRAP_TOKEN_FILE`, or
+`POSTDOT_BOOTSTRAP_TOKEN_HASH` (or explicitly opt into `POSTDOT_BOOTSTRAP_MODE=open`).
 
-The following commands use a human session to create a key. Work in a private
-directory outside version control, run `umask 077`, and prepare two private files:
+You can claim the instance and mint the initial API key atomically without opening
+Studio or signing into a cookie jar:
 
-- `credentials.json` with your administrator's `email` and `password`.
-- `key-request.json` with the desired name, scope and action ceiling. Replace the
-  project identifier below with a project you can currently access. You can list
-  projects with `GET /api/projects` or create one with `POST /api/projects` using
-  the same cookie jar. Set `expiresAt` to a future Unix timestamp in milliseconds
-  to give the key an expiry; it must be at least one day in the future.
+1. **Online token-gated bootstrap (`@postdot/cli` or `POST /api/instance/bootstrap`):**
+   Keep the server running and pass the one-time token via
+   `--bootstrap-token-file` (or `X-Postdot-Bootstrap-Token` / `Authorization: Bearer`)
+   alongside `--issue-api-key`:
 
-```json title="key-request.json"
-{
-    "name": "Reporting script",
-    "projectIds": ["replace-with-project-id"],
-    "actionAccess": ["project:read"]
-}
-```
+    ```sh
+    postdot --url https://postdot.example.com instance bootstrap \
+      --name "Administrator" \
+      --email "admin@example.com" \
+      --password-file /run/secrets/admin-password \
+      --bootstrap-token-file /data/bootstrap-token \
+      --issue-api-key \
+      --api-key-name "Bootstrap admin key" \
+      --json
+    ```
+
+2. **Offline provisioning with key issuance:** Stop Postdot and run [offline
+   provisioning](/docs/installation/#offline-administrator-provisioning) with
+   `--issue-api-key` and `--api-key-output <path>` to write the minted key directly
+   to a private file with restricted permissions:
+
+    ```sh
+    bun /app/postdot.js account bootstrap \
+      --database /data/postdot.sqlite \
+      --input /run/secrets/bootstrap.json \
+      --issue-api-key \
+      --api-key-name "Bootstrap admin key" \
+      --api-key-output /run/secrets/initial-api-key.json
+    ```
+
+For an already claimed instance without Studio, you can also sign in through a
+private curl cookie jar in a `umask 077` directory to mint an initial key:
 
 ```sh
 umask 077
@@ -84,17 +104,20 @@ curl --fail --silent --show-error \
   https://postdot.example.com/api/auth/sign-out
 ```
 
-`created-key.json` contains the plaintext key once. Transfer it to your script's
-secret storage, then remove the credential, session and response files. A key
-cannot manage other keys or replace a human session for installation, access or
-provider-connection administration. See [authentication](/docs/reference/authentication/)
-for the current boundary and [the CLI](/docs/cli-reference/) for using a saved key.
+The minted token is returned once. Transfer it to your tool's secret storage,
+then delete any temporary credentials or response files. Once provisioned, an API
+key granted `api_key:manage`, `workspace:manage`, `project:access_manage`, or
+`instance:admin` can administer keys, members, invitations, workspaces, and
+settings over the API, CLI, or MCP without a browser session. See
+[authentication](/docs/reference/authentication/) for the remaining session-only
+operations (such as interactive provider OAuth callbacks and password changes) and
+[the CLI](/docs/cli-reference/) for administrative commands.
 
-Without a Studio destination, invitation pages, notification links and publisher
-OAuth return pages have no interface to display. Use human-session APIs where
-available and [offline account recovery](/docs/operations/#recover-an-existing-account-password)
-when needed. The file-serving flag does not provide a complete command-line
-replacement for these browser workflows.
+Without a Studio destination, invitation pages, notification links and interactive
+publisher OAuth return pages have no interface to display. Use non-OAuth provider
+connections or API-key workflows where available, and [offline account
+recovery](/docs/operations/#recover-an-existing-account-password) when an
+administrator password is lost.
 
 ## Serve Studio separately
 

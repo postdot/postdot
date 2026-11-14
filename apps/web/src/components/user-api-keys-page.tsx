@@ -39,17 +39,17 @@ import { CopyIcon } from '@solar-icons/react/linear/copy'
 import { KeyMinimalisticIcon } from '@solar-icons/react/linear/key-minimalistic'
 import { RefreshIcon } from '@solar-icons/react/linear/refresh'
 import { TrashBinMinimalisticIcon } from '@solar-icons/react/linear/trash-bin-minimalistic'
-import {
-    useEffect,
-    useMemo,
-    useState,
-    type Dispatch,
-    type FormEvent,
-    type SetStateAction,
-} from 'react'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
 
 import { DashboardPageHeader } from '@/components/dashboard-page-header'
 import { EmptyState } from '@/components/empty-state'
+import {
+    ApiKeyActionAccessFieldset,
+    capabilityLabel,
+    elevatedCapabilities,
+    type ActionScope,
+    type KeyScope,
+} from '@/components/user-api-keys-actions'
 import {
     api,
     formatApiError,
@@ -65,12 +65,9 @@ import * as m from '@/paraglide/messages.js'
 const keyExpirationDays = [30, 90, 180, 365] as const
 const millisecondsPerDay = 24 * 60 * 60 * 1_000
 
-type KeyScope = 'all' | 'selected'
-type ActionScope = 'all' | 'selected'
-
 export function UserApiKeysPage() {
     const { locale } = useLanguage()
-    const { projects } = useDashboardGlobal()
+    const { projects, isInstanceAdmin } = useDashboardGlobal()
     const [reloadVersion, setReloadVersion] = useState(0)
     const [keys, setKeys] = useState<UserApiKey[] | null>(null)
     const [name, setName] = useState('')
@@ -303,13 +300,21 @@ export function UserApiKeysPage() {
                                             />
                                         </span>
                                         <div className="min-w-0 flex-1">
-                                            <div className="flex min-w-0 items-center gap-2">
+                                            <div className="flex min-w-0 flex-wrap items-center gap-2">
                                                 <span className="truncate text-sm font-medium">
                                                     {key.name}
                                                 </span>
                                                 <Badge variant="secondary">
                                                     {m.api_keys_active()}
                                                 </Badge>
+                                                {key.actionAccess === 'all' ||
+                                                key.actionAccess.some(cap =>
+                                                    elevatedCapabilities.has(cap)
+                                                ) ? (
+                                                    <Badge variant="outline">
+                                                        {m.api_keys_elevated_badge()}
+                                                    </Badge>
+                                                ) : null}
                                             </div>
                                             <p className="mt-1 break-words font-mono text-xs text-muted-foreground">
                                                 {key.tokenPrefix} ·{' '}
@@ -515,7 +520,9 @@ export function UserApiKeysPage() {
                         ) : null}
 
                         <ApiKeyActionAccessFieldset
+                            isInstanceAdmin={isInstanceAdmin}
                             name="create"
+                            projectScope={scope}
                             scope={actionScope}
                             selectedCapabilities={selectedCapabilities}
                             onScopeChange={setActionScope}
@@ -586,7 +593,11 @@ export function UserApiKeysPage() {
                     ) : null}
                     <form className="grid gap-4" onSubmit={handleUpdateActions}>
                         <ApiKeyActionAccessFieldset
+                            isInstanceAdmin={isInstanceAdmin}
                             name="edit"
+                            projectScope={
+                                keyToEditActions?.projectAccess === 'all' ? 'all' : 'selected'
+                            }
                             scope={actionScope}
                             selectedCapabilities={selectedCapabilities}
                             onScopeChange={setActionScope}
@@ -646,116 +657,6 @@ export function UserApiKeysPage() {
                 </DialogContent>
             </Dialog>
         </main>
-    )
-}
-
-const editableCapabilities: readonly UserApiKeyCapability[] = [
-    'project:read',
-    'project:manage',
-    'project:permanently_delete',
-    'publication:manage',
-    'publication:dispatch',
-    'channel:manage',
-    'channel:share',
-    'media:manage',
-    'analytics:refresh',
-    'media:permanently_delete',
-]
-
-function capabilityLabel(capability: UserApiKeyCapability) {
-    switch (capability) {
-        case 'project:manage':
-            return m.lifecycle_api_manage()
-        case 'project:permanently_delete':
-            return m.lifecycle_api_delete()
-        case 'project:read':
-            return m.api_keys_action_read_project()
-        case 'publication:manage':
-            return m.api_keys_action_manage_publications()
-        case 'publication:dispatch':
-            return m.api_keys_action_dispatch_publications()
-        case 'channel:manage':
-            return m.api_keys_action_manage_channels()
-        case 'channel:share':
-            return m.api_keys_action_share_channels()
-        case 'media:manage':
-            return m.api_keys_action_manage_media()
-        case 'analytics:refresh':
-            return m.api_keys_action_refresh_analytics()
-        case 'media:permanently_delete':
-            return m.api_keys_action_delete_media()
-    }
-}
-
-function ApiKeyActionAccessFieldset({
-    name,
-    scope,
-    selectedCapabilities,
-    onScopeChange,
-    onCapabilitiesChange,
-}: {
-    readonly name: string
-    readonly scope: ActionScope
-    readonly selectedCapabilities: readonly UserApiKeyCapability[]
-    readonly onScopeChange: (scope: ActionScope) => void
-    readonly onCapabilitiesChange: Dispatch<SetStateAction<UserApiKeyCapability[]>>
-}) {
-    return (
-        <fieldset className="grid gap-2">
-            <legend className="text-sm font-medium">{m.api_keys_action_access()}</legend>
-            <label
-                className={`flex cursor-pointer items-center gap-3 rounded-md px-3 py-2.5 text-sm transition-colors focus-within:ring-3 focus-within:ring-ring/50 ${scope === 'all' ? 'bg-secondary' : 'bg-surface-control hover:bg-muted'}`}>
-                <input
-                    checked={scope === 'all'}
-                    className="size-4 accent-primary"
-                    name={`user-api-key-actions-${name}`}
-                    onChange={() => onScopeChange('all')}
-                    type="radio"
-                    value="all"
-                />
-                <span className="min-w-0 truncate font-medium">
-                    {m.api_keys_action_access_all()}
-                </span>
-            </label>
-            <label
-                className={`flex cursor-pointer items-center gap-3 rounded-md px-3 py-2.5 text-sm transition-colors focus-within:ring-3 focus-within:ring-ring/50 ${scope === 'selected' ? 'bg-secondary' : 'bg-surface-control hover:bg-muted'}`}>
-                <input
-                    checked={scope === 'selected'}
-                    className="size-4 accent-primary"
-                    name={`user-api-key-actions-${name}`}
-                    onChange={() => onScopeChange('selected')}
-                    type="radio"
-                    value="selected"
-                />
-                <span className="min-w-0 truncate font-medium">
-                    {m.api_keys_action_access_selected()}
-                </span>
-            </label>
-            {scope === 'selected' ? (
-                <div className="grid max-h-48 gap-1 overflow-y-auto rounded-md bg-surface-inset/45 p-1">
-                    {editableCapabilities.map(capability => (
-                        <label
-                            className="flex cursor-pointer items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors hover:bg-muted focus-within:ring-3 focus-within:ring-ring/50"
-                            key={capability}>
-                            <input
-                                checked={selectedCapabilities.includes(capability)}
-                                className="size-4 shrink-0 accent-primary"
-                                onChange={() =>
-                                    onCapabilitiesChange(current =>
-                                        current.includes(capability)
-                                            ? current.filter(item => item !== capability)
-                                            : [...current, capability]
-                                    )
-                                }
-                                type="checkbox"
-                                value={capability}
-                            />
-                            <span className="min-w-0">{capabilityLabel(capability)}</span>
-                        </label>
-                    ))}
-                </div>
-            ) : null}
-        </fieldset>
     )
 }
 

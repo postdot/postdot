@@ -1,9 +1,11 @@
+import { closeSync, constants, fstatSync, lstatSync, openSync, readFileSync } from 'node:fs'
 import { stat } from 'node:fs/promises'
 import { basename } from 'node:path'
 
 import {
     createPostdotClient,
     type PostdotClient,
+    type UserApiKeyCapability,
     type Post,
     type Publication,
     type MediaReservation,
@@ -17,6 +19,8 @@ export interface PostdotCliEnvironment {
     readonly POSTDOT_API_KEY?: string
     readonly POSTDOT_SESSION_COOKIE?: string
     readonly POSTDOT_URL?: string
+    readonly POSTDOT_BOOTSTRAP_TOKEN?: string
+    readonly POSTDOT_BOOTSTRAP_TOKEN_FILE?: string
     /** Deprecated names still read for scripts written before the Postdot rename. */
     readonly POSTBOT_API_KEY?: string
     readonly POSTBOT_SESSION_COOKIE?: string
@@ -121,17 +125,367 @@ export async function runCli(
         return
     }
 
-    if (resource === 'api-keys') {
-        requireSession(sessionCookie)
-    } else {
-        requireAuthenticated(sessionCookie, apiKey)
+    if (resource === 'instance' && action === 'status') {
+        const body = await typedCall(client.api.instance.status.get())
+        write(body, `Setup available: ${body.setupAvailable} (mode: ${body.bootstrapMode}).`)
+        return
+    }
+
+    if (resource === 'instance' && action === 'bootstrap') {
+        const passwordStdin = args.includes('--password-stdin')
+        const bootstrapTokenStdin = args.includes('--bootstrap-token-stdin')
+        if (passwordStdin && bootstrapTokenStdin) {
+            throw new CliError(
+                'Cannot read both --password-stdin and --bootstrap-token-stdin from stdin',
+                2,
+                'invalid_input'
+            )
+        }
+        const bootstrapToken = await resolveCliSecret(
+            'bootstrap token',
+            optionValue(args, '--bootstrap-token'),
+            bootstrapTokenStdin,
+            optionValue(args, '--bootstrap-token-file'),
+            environment.POSTDOT_BOOTSTRAP_TOKEN,
+            environment.POSTDOT_BOOTSTRAP_TOKEN_FILE
+        )
+        const password = await resolveCliSecret(
+            'administrator password',
+            optionValue(args, '--password'),
+            passwordStdin,
+            optionValue(args, '--password-file'),
+            undefined,
+            undefined
+        )
+        if (!password) {
+            throw new CliError(
+                'Provide an administrator password via --password-stdin, --password-file, or --password',
+                2,
+                'invalid_input'
+            )
+        }
+        const apiKeyActions = parseActionsOption(optionValue(args, '--actions'))
+        const apiKeyProjects = optionValue(args, '--projects')
+            ? parseProjectIds(optionValue(args, '--projects'))
+            : undefined
+        const apiKeyExpiresAt = parseExpiresAt(optionValue(args, '--expires-at'))
+        const apiKeyName = optionValue(args, '--api-key-name')
+        const includeKey =
+            args.includes('--issue-api-key') ||
+            apiKeyName !== undefined ||
+            apiKeyActions !== undefined ||
+            apiKeyProjects !== undefined ||
+            apiKeyExpiresAt !== undefined
+        const body = await typedCall(
+            client.api.instance.bootstrap.post(
+                {
+                    name: requiredOption(args, '--name'),
+                    email: requiredOption(args, '--email'),
+                    password,
+                    ...(includeKey
+                        ? {
+                              apiKey: {
+                                  ...(apiKeyName ? { name: apiKeyName } : {}),
+                                  ...(apiKeyProjects ? { projectIds: apiKeyProjects } : {}),
+                                  ...(apiKeyActions ? { actionAccess: apiKeyActions } : {}),
+                                  ...(apiKeyExpiresAt !== undefined
+                                      ? { expiresAt: apiKeyExpiresAt }
+                                      : {}),
+                              },
+                          }
+                        : {}),
+                },
+                bootstrapToken
+                    ? { headers: { 'x-postdot-bootstrap-token': bootstrapToken } }
+                    : undefined
+            )
+        )
+        write(
+            body,
+            body.apiKey
+                ? `Bootstrapped ${body.user.email}. API key "${body.apiKey.key.name}" issued:\n\n${body.apiKey.token}`
+                : `Bootstrapped ${body.user.email}.`
+        )
+        return
+    }
+
+    requireAuthenticated(sessionCookie, apiKey)
+
+    if (resource === 'access') {
+        const subAction = args[2]
+        if (action === 'summary') {
+            const body = await typedCall(client.api.access.get())
+            write(
+                body,
+                `Instance ${body.instance.state}; role=${body.membership?.role ?? 'none'}; admin=${body.isAdmin}.`
+            )
+            return
+        }
+        if (action === 'members' && subAction === 'list') {
+            const body = await typedCall(client.api.access.members.get())
+            write(
+                body,
+                body.members
+                    .map(m => `${m.userId}\t${m.email ?? m.name}\t${m.role}\t${m.state}`)
+                    .join('\n')
+            )
+            return
+        }
+        if (action === 'members' && subAction === 'create') {
+            const password = await resolveCliSecret(
+                'member password',
+                optionValue(args, '--password'),
+                args.includes('--password-stdin'),
+                optionValue(args, '--password-file'),
+                undefined,
+                undefined
+            )
+            const roleOption = optionValue(args, '--role')
+            if (roleOption !== undefined && roleOption !== 'admin' && roleOption !== 'member') {
+                throw new CliError('--role must be admin or member', 2, 'invalid_input')
+            }
+            const apiKeyActions = parseActionsOption(optionValue(args, '--actions'))
+            const apiKeyProjects = optionValue(args, '--projects')
+                ? parseProjectIds(optionValue(args, '--projects'))
+                : undefined
+            const apiKeyExpiresAt = parseExpiresAt(optionValue(args, '--expires-at'))
+            const apiKeyName = optionValue(args, '--api-key-name')
+            const includeKey =
+                args.includes('--issue-api-key') ||
+                apiKeyName !== undefined ||
+                apiKeyActions !== undefined ||
+                apiKeyProjects !== undefined ||
+                apiKeyExpiresAt !== undefined
+            const body = await typedCall(
+                client.api.access.members.post({
+                    email: requiredOption(args, '--email'),
+                    name: requiredOption(args, '--name'),
+                    ...(roleOption ? { role: roleOption } : {}),
+                    ...(password ? { password } : {}),
+                    ...(args.includes('--no-default-workspace')
+                        ? { joinDefaultWorkspace: false }
+                        : {}),
+                    ...(includeKey
+                        ? {
+                              apiKey: {
+                                  ...(apiKeyName ? { name: apiKeyName } : {}),
+                                  ...(apiKeyProjects ? { projectIds: apiKeyProjects } : {}),
+                                  ...(apiKeyActions ? { actionAccess: apiKeyActions } : {}),
+                                  ...(apiKeyExpiresAt !== undefined
+                                      ? { expiresAt: apiKeyExpiresAt }
+                                      : {}),
+                              },
+                          }
+                        : {}),
+                })
+            )
+            write(
+                body,
+                body.apiKey
+                    ? `Created member ${body.membership.userId}. Token:\n\n${body.apiKey.token}`
+                    : `Created member ${body.membership.userId}.`
+            )
+            return
+        }
+        if (action === 'members' && subAction === 'update') {
+            const role = optionValue(args, '--role') as 'admin' | 'member' | undefined
+            const state = optionValue(args, '--state') as 'enabled' | 'disabled' | undefined
+            if (role !== undefined && role !== 'admin' && role !== 'member') {
+                throw new CliError('--role must be admin or member', 2, 'invalid_input')
+            }
+            if (state !== undefined && state !== 'enabled' && state !== 'disabled') {
+                throw new CliError('--state must be enabled or disabled', 2, 'invalid_input')
+            }
+            if (!role && !state) {
+                throw new CliError('Provide --role and/or --state', 2, 'invalid_input')
+            }
+            const body = await typedCall(
+                client.api.access
+                    .members({ userId: requiredOption(args, '--user') })
+                    .patch({ ...(role ? { role } : {}), ...(state ? { state } : {}) })
+            )
+            write(body, `Updated member ${body.membership.userId}.`)
+            return
+        }
+        if (action === 'members' && subAction === 'api-keys') {
+            const body = await typedCall(
+                client.api.access
+                    .members({ userId: requiredOption(args, '--user') })
+                    ['api-keys'].get()
+            )
+            write(body, body.keys.map(k => `${k.id}\t${k.name}\t${k.tokenPrefix}`).join('\n'))
+            return
+        }
+        if (action === 'members' && subAction === 'revoke-key') {
+            const keyId = requiredOption(args, '--key')
+            const body = await typedCall(
+                client.api.access
+                    .members({ userId: requiredOption(args, '--user') })
+                    ['api-keys']({ keyId })
+                    .delete()
+            )
+            write(body, `Revoked API key ${keyId}.`)
+            return
+        }
+        if (action === 'invitations' && subAction === 'list') {
+            const body = await typedCall(client.api.access.invitations.get())
+            write(
+                body,
+                body.invitations
+                    .map(inv => `${inv.id}\t${inv.targetEmail}\t${inv.state}`)
+                    .join('\n')
+            )
+            return
+        }
+        if (action === 'invitations' && subAction === 'create') {
+            const expiresAt = parseExpiresAt(optionValue(args, '--expires-at'))
+            const body = await typedCall(
+                client.api.access.invitations.post({
+                    targetEmail: requiredOption(args, '--email'),
+                    ...(expiresAt !== undefined ? { expiresAt } : {}),
+                })
+            )
+            write(body, `Created invitation ${body.invitation.id}. Token:\n\n${body.token}`)
+            return
+        }
+        if (action === 'invitations' && subAction === 'revoke') {
+            const invitationId = requiredOption(args, '--invitation')
+            const headers: Record<string, string> = { accept: 'application/json' }
+            if (apiKey) headers.authorization = `Bearer ${apiKey}`
+            else if (sessionCookie) headers.cookie = sessionCookie
+            const response = await fetcher(
+                `${baseURL}/api/access/invitations/${encodeURIComponent(invitationId)}`,
+                { method: 'DELETE', headers }
+            )
+            const body = (await response.json().catch(() => null)) as ErrorResponse | null
+            if (!response.ok) {
+                throw new CliError(
+                    body?.error?.message ?? `Request failed with status ${response.status}`,
+                    1,
+                    body?.error?.code ?? 'http_error',
+                    response.status
+                )
+            }
+            write(body ?? { revoked: true }, `Revoked invitation ${invitationId}.`)
+            return
+        }
+    }
+
+    if (resource === 'settings') {
+        const subAction = args[2]
+        if (action === 'email' && subAction === 'get') {
+            const body = await typedCall(client.api.settings.email.get())
+            write(body, JSON.stringify(body, null, 2))
+            return
+        }
+        if (action === 'email' && subAction === 'save') {
+            const inputPath = requiredOption(args, '--input')
+            const passwordStdin = args.includes('--password-stdin')
+            if (inputPath === '-' && passwordStdin) {
+                throw new CliError(
+                    'Cannot read both --input and --password-stdin from stdin',
+                    2,
+                    'invalid_input'
+                )
+            }
+            type EmailPutInput = Parameters<PostdotClient['api']['settings']['email']['put']>[0]
+            const payload = await readJsonInput<EmailPutInput>(args, dependencies)
+            const password = await resolveCliSecret(
+                'SMTP password',
+                undefined,
+                passwordStdin,
+                optionValue(args, '--password-file'),
+                undefined,
+                undefined
+            )
+            const body = await typedCall(
+                client.api.settings.email.put(
+                    password !== undefined ? { ...payload, password } : payload
+                )
+            )
+            write(body, 'Email settings saved.')
+            return
+        }
+        if (action === 'email' && subAction === 'test') {
+            const body = await typedCall(client.api.settings.email.test.post())
+            write(body, 'Test email dispatched.')
+            return
+        }
+        if (action === 'recovery' && subAction === 'get') {
+            const body = await typedCall(client.api.settings.recovery.get())
+            write(body, JSON.stringify(body, null, 2))
+            return
+        }
+        if (action === 'recovery' && subAction === 'resume') {
+            if (!args.includes('--confirm')) {
+                throw new CliError('Pass --confirm to resume after restore', 2, 'invalid_input')
+            }
+            const body = await typedCall(
+                client.api.settings.recovery.resume.post({
+                    token: optionValue(args, '--recovery-token') ?? requiredOption(args, '--token'),
+                    confirm: true,
+                })
+            )
+            write(body, 'Restore recovery hold cleared.')
+            return
+        }
+        if (action === 'provider-applications' && subAction === 'list') {
+            const body = await typedCall(client.api.settings['provider-applications'].get())
+            write(body, JSON.stringify(body, null, 2))
+            return
+        }
+        if (action === 'provider-applications' && subAction === 'create') {
+            type AppPostInput = Parameters<
+                PostdotClient['api']['settings']['provider-applications']['post']
+            >[0]
+            const body = await typedCall(
+                client.api.settings['provider-applications'].post(
+                    await readJsonInput<AppPostInput>(args, dependencies)
+                )
+            )
+            write(body, `Created provider application ${body.application.id}.`)
+            return
+        }
+        if (action === 'provider-applications' && subAction === 'update') {
+            type AppPatchInput = Parameters<
+                ReturnType<PostdotClient['api']['settings']['provider-applications']>['patch']
+            >[0]
+            const body = await typedCall(
+                client.api.settings['provider-applications']({
+                    applicationId: requiredOption(args, '--application'),
+                }).patch(await readJsonInput<AppPatchInput>(args, dependencies))
+            )
+            write(body, `Updated provider application ${body.application.id}.`)
+            return
+        }
+    }
+
+    if (resource === 'workspaces' && action === 'list') {
+        const body = await typedCall(client.api.workspaces.get())
+        write(body, body.workspaces.map(w => `${w.id}\t${w.name}`).join('\n'))
+        return
+    }
+
+    if (resource === 'workspaces' && action === 'show') {
+        const body = await typedCall(
+            client.api.workspaces({ workspaceId: requiredOption(args, '--workspace') }).get()
+        )
+        write(body, JSON.stringify(body, null, 2))
+        return
+    }
+
+    if (resource === 'workspaces' && action === 'create') {
+        const body = await typedCall(
+            client.api.workspaces.post({ name: requiredOption(args, '--name') })
+        )
+        write(body, `Created workspace ${body.workspace.id}.`)
+        return
     }
 
     if (
         (resource === 'projects' || resource === 'workspaces') &&
         ['impact', 'archive', 'restore', 'delete'].includes(action ?? '')
     ) {
-        if (resource === 'workspaces') requireSession(sessionCookie)
         const id = requiredOption(args, resource === 'projects' ? '--project' : '--workspace')
         if (action === 'impact') {
             const body =
@@ -185,38 +539,92 @@ export async function runCli(
     }
 
     if (resource === 'api-keys' && action === 'list') {
-        const body = await requestAuth<{ keys: UserApiKey[] }>('/api/api-keys')
-        write(body.body, body.body.keys.map(formatUserApiKey).join('\n'))
+        const body = await call<{ keys: UserApiKey[] }>(client.api['api-keys'].get())
+        write(body, body.keys.map(formatUserApiKey).join('\n'))
         return
     }
 
     if (resource === 'api-keys' && action === 'create') {
         const expiresAt = parseExpiresAt(optionValue(args, '--expires-at'))
-        const projectIds = parseProjectIds(optionValue(args, '--projects'))
-        const body = await requestAuth<CreatedUserApiKey>('/api/api-keys', {
-            method: 'POST',
-            body: JSON.stringify({
+        const projectIds = args.includes('--all-projects')
+            ? null
+            : parseProjectIds(optionValue(args, '--projects'))
+        if (args.includes('--all-projects') && optionValue(args, '--projects') !== undefined) {
+            throw new CliError('Use either --projects or --all-projects, not both', 2)
+        }
+        const actions = parseActionsOption(optionValue(args, '--actions'))
+        const allActions = args.includes('--all-actions')
+        if (actions !== undefined && allActions) {
+            throw new CliError('Use either --actions or --all-actions, not both', 2)
+        }
+        const body = await call<CreatedUserApiKey>(
+            client.api['api-keys'].post({
                 ...(optionValue(args, '--name') === undefined
                     ? {}
                     : { name: optionValue(args, '--name') }),
                 projectIds,
+                ...(actions !== undefined
+                    ? { actionAccess: actions }
+                    : allActions
+                      ? { actionAccess: null }
+                      : {}),
                 ...(expiresAt === undefined ? {} : { expiresAt }),
-            }),
-        })
-        write(
-            body.body,
-            `Created API key "${body.body.key.name}". Copy it now; it will not be shown again:\n\n${body.body.token}`
+            })
         )
+        write(
+            body,
+            `Created API key "${body.key.name}". Copy it now; it will not be shown again:\n\n${body.token}`
+        )
+        return
+    }
+
+    if (resource === 'api-keys' && action === 'update') {
+        const keyId = requiredOption(args, '--key-id')
+        const name = optionValue(args, '--name')
+        const projectsArg = optionValue(args, '--projects')
+        const allProjects = args.includes('--all-projects')
+        if (allProjects && projectsArg !== undefined) {
+            throw new CliError('Use either --projects or --all-projects, not both', 2)
+        }
+        const actions = parseActionsOption(optionValue(args, '--actions'))
+        const allActions = args.includes('--all-actions')
+        if (actions !== undefined && allActions) {
+            throw new CliError('Use either --actions or --all-actions, not both', 2)
+        }
+        const expiresAt = parseExpiresAt(optionValue(args, '--expires-at'))
+        const noExpiry = args.includes('--no-expiry')
+        if (expiresAt !== undefined && noExpiry) {
+            throw new CliError('Use either --expires-at or --no-expiry, not both', 2)
+        }
+        type ApiKeyPatch = NonNullable<
+            Parameters<ReturnType<PostdotClient['api']['api-keys']>['patch']>[0]
+        >
+        const patch: ApiKeyPatch = {
+            ...(name !== undefined ? { name } : {}),
+            ...(projectsArg !== undefined
+                ? { projectIds: parseProjectIds(projectsArg) }
+                : allProjects
+                  ? { projectIds: null }
+                  : {}),
+            ...(actions !== undefined
+                ? { actionAccess: actions }
+                : allActions
+                  ? { actionAccess: null }
+                  : {}),
+            ...(expiresAt !== undefined ? { expiresAt } : noExpiry ? { expiresAt: null } : {}),
+        }
+        if (Object.keys(patch).length === 0) {
+            throw new CliError('Specify at least one field to update', 2, 'invalid_input')
+        }
+        const body = await typedCall(client.api['api-keys']({ keyId }).patch(patch))
+        write(body, `Updated API key ${body.key.id}.`)
         return
     }
 
     if (resource === 'api-keys' && action === 'revoke') {
         const keyId = requiredOption(args, '--key-id')
-        const body = await requestAuth<{ deleted: true }>(
-            `/api/api-keys/${encodeURIComponent(keyId)}`,
-            { method: 'DELETE' }
-        )
-        write(body.body, 'API key revoked.')
+        const body = await call<{ deleted: true }>(client.api['api-keys']({ keyId }).delete())
+        write(body, 'API key revoked.')
         return
     }
 
@@ -760,6 +1168,24 @@ async function requestAuthenticated<T>(
     return { body: body as T, response }
 }
 
+function typedCall<T, E>(
+    request: Promise<{ data: T; error: E; status: number; response?: Response }>,
+    nullable?: false
+): Promise<NonNullable<T>>
+function typedCall<T, E>(
+    request: Promise<{ data: T; error: E; status: number; response?: Response }>,
+    nullable: true
+): Promise<NonNullable<T> | null>
+async function typedCall<T, E>(
+    request: Promise<{ data: T; error: E; status: number; response?: Response }>,
+    nullable = false
+) {
+    return call<NonNullable<T>>(
+        request as Promise<{ data: unknown; error: unknown; status: number; response?: Response }>,
+        nullable
+    )
+}
+
 async function call<T>(
     request: Promise<{ data: unknown; error: unknown; status: number; response?: Response }>,
     nullable = false
@@ -925,6 +1351,125 @@ function parseProjectIds(value: string | undefined): string[] | null {
     return projectIds
 }
 
+const allCapabilities = [
+    'project:read',
+    'project:manage',
+    'project:permanently_delete',
+    'publication:manage',
+    'publication:dispatch',
+    'channel:manage',
+    'channel:share',
+    'media:manage',
+    'analytics:refresh',
+    'media:permanently_delete',
+    'project:access_manage',
+    'publication:approve',
+    'workspace:manage',
+    'api_key:manage',
+    'instance:admin',
+] as const satisfies readonly UserApiKeyCapability[]
+
+const capabilitySet = new Set<string>(allCapabilities)
+
+function parseActionsOption(value: string | undefined): UserApiKeyCapability[] | undefined {
+    if (value === undefined) return undefined
+    const items = [
+        ...new Set(
+            value
+                .split(',')
+                .map(item => item.trim())
+                .filter(item => item.length > 0)
+        ),
+    ]
+    if (items.length === 0) {
+        throw new CliError('--actions must contain at least one capability', 2, 'invalid_input')
+    }
+    for (const item of items) {
+        if (!capabilitySet.has(item)) {
+            throw new CliError(
+                `Unknown capability "${item}". Valid capabilities: ${allCapabilities.join(', ')}`,
+                2,
+                'invalid_input'
+            )
+        }
+    }
+    return items as UserApiKeyCapability[]
+}
+
+const maximumSecretBytes = 16_384
+
+async function readSecretStream(label: string): Promise<string> {
+    const chunks: Buffer[] = []
+    let size = 0
+    for await (const chunk of process.stdin) {
+        const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)
+        size += bytes.length
+        if (size > maximumSecretBytes) {
+            throw new CliError(`The ${label} exceeds 16 KiB`, 2, 'invalid_input')
+        }
+        chunks.push(bytes)
+    }
+    const text = Buffer.concat(chunks).toString('utf8').trim()
+    if (!text) throw new CliError(`The ${label} from stdin was empty`, 2, 'invalid_input')
+    return text
+}
+
+function readSecretFile(path: string, label: string): string {
+    let descriptor: number | undefined
+    try {
+        const info = lstatSync(path)
+        if (!info.isFile() || info.isSymbolicLink() || info.size > maximumSecretBytes) {
+            throw new Error('Invalid file')
+        }
+        descriptor = openSync(path, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0))
+        const opened = fstatSync(descriptor)
+        if (!opened.isFile() || opened.size > maximumSecretBytes) throw new Error('Invalid file')
+        const value = readFileSync(descriptor, 'utf8').trim()
+        if (!value) throw new Error('Empty secret')
+        return value
+    } catch {
+        throw new CliError(
+            `Cannot read a non-empty ${label} file (maximum 16 KiB)`,
+            2,
+            'invalid_input'
+        )
+    } finally {
+        if (descriptor !== undefined) closeSync(descriptor)
+    }
+}
+
+async function resolveCliSecret(
+    label: string,
+    directValue: string | undefined,
+    fromStdin: boolean,
+    filePath: string | undefined,
+    envValue: string | undefined,
+    envFilePath: string | undefined
+): Promise<string | undefined> {
+    const sources = [directValue !== undefined, fromStdin, filePath !== undefined].filter(
+        Boolean
+    ).length
+    if (sources > 1) {
+        throw new CliError(
+            `Specify at most one direct, file, or stdin option for ${label}`,
+            2,
+            'invalid_input'
+        )
+    }
+    if (directValue !== undefined) {
+        const trimmed = directValue.trim()
+        if (!trimmed) throw new CliError(`The ${label} must not be empty`, 2, 'invalid_input')
+        return trimmed
+    }
+    if (fromStdin) return readSecretStream(label)
+    if (filePath !== undefined) return readSecretFile(filePath, label)
+    if (envValue !== undefined && envValue.trim().length > 0) return envValue.trim()
+    if (envFilePath !== undefined && envFilePath.trim().length > 0) {
+        return readSecretFile(envFilePath.trim(), label)
+    }
+    return undefined
+}
+
 function printCliHelp(output: (message: string) => void) {
     output(`Postdot CLI
 
@@ -933,17 +1478,42 @@ Usage:
 
 Resources:
   auth login                         Sign in and print a session cookie
+  instance status                    Inspect public installation bootstrap readiness
+  instance bootstrap --name <name> --email <email> (--password-stdin|--password-file <path>|--password <pw>)
+    [--bootstrap-token <token>|--bootstrap-token-stdin|--bootstrap-token-file <path>]
+    [--issue-api-key] [--api-key-name <name>] [--projects <ids>] [--actions <caps>] [--expires-at <epoch-ms>]
+  access summary                     Inspect instance membership and admin status
+  access members list                List instance members
+  access members create --email <email> --name <name> [--role admin|member]
+    [--password <pw>|--password-stdin|--password-file <path>] [--no-default-workspace]
+    [--issue-api-key] [--api-key-name <name>] [--projects <ids>] [--actions <caps>] [--expires-at <epoch-ms>]
+  access members update --user <id> [--role admin|member] [--state enabled|disabled]
+  access members api-keys --user <id>
+  access members revoke-key --user <id> --key <id>
+  access invitations list
+  access invitations create --email <email> [--expires-at <epoch-ms>]
+  access invitations revoke --invitation <id>
   projects list [--include-archived] List projects
   projects impact --project <id>      Preview archive/delete impact
   projects archive|restore|delete --project <id> --fingerprint <value>
     [--cancel-pending] [--confirm-name <name>] [--acknowledge-uncertain]
+  workspaces list                    List accessible workspaces
+  workspaces show --workspace <id>   Inspect workspace details, members and teams
+  workspaces create --name <name>    Create a workspace
   workspaces impact --workspace <id>  Preview combined workspace impact
   workspaces archive|restore|delete --workspace <id> --fingerprint <value>
     [--cancel-pending] [--confirm-name <name>] [--replacement-workspace <id>]
   projects create --name <name> [--workspace <id>] Create a project
   api-keys list                      List your API keys
-  api-keys create [--name <name>]    Create a user-owned API key
+  api-keys create [--name <name>] [--projects <ids>|--all-projects] [--actions <caps>|--all-actions] [--expires-at <epoch-ms>]
+                                    Create a user-owned API key
+  api-keys update --key-id <id> [--name <name>] [--projects <ids>|--all-projects] [--actions <caps>|--all-actions] [--expires-at <epoch-ms>|--no-expiry]
+                                    Update a user-owned API key
   api-keys revoke --key-id <id>      Revoke one of your API keys
+  settings email get|save|test       Inspect, save (--input <file|-> [--password-stdin|--password-file <path>]) or test SMTP
+  settings recovery get|resume       Inspect or clear post-restore hold (--recovery-token <token> --confirm)
+  settings provider-applications list|create|update
+                                    Manage OAuth provider apps (--input <file|->, --application <id>)
   publishers list --project <id>     Inspect connections and OAuth configuration
   channels list (--project <id> | --workspace <id>) [--include-archived]
                                     List scoped channels; archived inspection uses --workspace
@@ -995,7 +1565,11 @@ Options:
   --cookie <value>                   Session cookie for authenticated requests
   --token <value>                    Postdot API key for machine requests
   --projects <id,id,...>             Limit a new API key to selected projects
-  --expires-at <epoch-ms>            Expiration for a new token
+  --all-projects                     Grant API key access across all accessible projects
+  --actions <cap,cap,...>            Limit an API key to selected capabilities
+  --all-actions                      Allow all capabilities permitted for the caller
+  --expires-at <epoch-ms>            Expiration for a new token or invitation
+  --no-expiry                        Clear expiration when updating an API key
 
 Sharing grants publication use, not connection management. Attached projects can see
 anonymous occupied times. Inspect before writing; stale revisions require review.
@@ -1009,21 +1583,15 @@ Incompatible moved content remains an unscheduled review draft; requested time i
 Environment:
   POSTDOT_URL
   POSTDOT_SESSION_COOKIE
-  POSTDOT_API_KEY`)
+  POSTDOT_API_KEY
+  POSTDOT_BOOTSTRAP_TOKEN
+  POSTDOT_BOOTSTRAP_TOKEN_FILE`)
 }
 
 function requireAuthenticated(sessionCookie: string | undefined, apiKey: string | undefined) {
     if (!sessionCookie && !apiKey) {
         throw new CliError(
             'Authentication required. Set POSTDOT_SESSION_COOKIE or POSTDOT_API_KEY, or pass --cookie or --token.'
-        )
-    }
-}
-
-function requireSession(sessionCookie: string | undefined) {
-    if (!sessionCookie) {
-        throw new CliError(
-            'This command requires a human session. Set POSTDOT_SESSION_COOKIE or pass --cookie <value>.'
         )
     }
 }

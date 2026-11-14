@@ -27,28 +27,40 @@ in a shared prompt. You can change the limits or revoke the key from Studio.
 For a draft-only integration, select `project:read` and `publication:manage`.
 Leave `publication:dispatch` out to prevent scheduling and delivery actions.
 
-| Action                       | What the integration can request                                                     |
-| ---------------------------- | ------------------------------------------------------------------------------------ |
-| `project:read`               | Read supported workspaces and project resources, including channels and publications |
-| `project:manage`             | Create projects, update their scheduling timezone, and archive or restore them       |
-| `project:permanently_delete` | Request permanent project deletion with impact confirmation                          |
-| `publication:manage`         | Create/edit drafts and move eligible pending work                                    |
-| `publication:dispatch`       | Schedule publications and request delivery actions                                   |
-| `channel:manage`             | Manage supported channel configuration operations                                    |
-| `channel:share`              | Attach, withdraw and transfer management of shared channels                          |
-| `media:manage`               | Import, upload and manage media, including deletion requests and restoration         |
-| `media:permanently_delete`   | Request permanent deletion of eligible trashed media                                 |
-| `analytics:refresh`          | Request a refresh of supported provider analytics                                    |
+| Action                       | What the integration can request                                                                     |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `project:read`               | Read supported workspaces and project resources, including channels and publications                 |
+| `project:manage`             | Create projects, update their scheduling timezone, and archive or restore them                       |
+| `project:permanently_delete` | Request permanent project deletion with impact confirmation                                          |
+| `project:access_manage`      | Manage project membership, user and team grants, and project invitations                             |
+| `publication:manage`         | Create/edit drafts and move eligible pending work                                                    |
+| `publication:approve`        | Approve or reject pending publication approval requests                                              |
+| `publication:dispatch`       | Schedule publications and request delivery actions                                                   |
+| `channel:manage`             | Manage supported channel configuration and non-OAuth provider connections                            |
+| `channel:share`              | Attach, withdraw and transfer management of shared channels                                          |
+| `media:manage`               | Import, upload and manage media, including deletion requests and restoration                         |
+| `media:permanently_delete`   | Request permanent deletion of eligible trashed media                                                 |
+| `analytics:refresh`          | Request a refresh of supported provider analytics                                                    |
+| `workspace:manage`           | Create, configure, and archive/restore/delete workspaces, teams, and workspace access (All projects) |
+| `api_key:manage`             | Create, inspect, update, and revoke your own API keys (bounded by caller scope)                      |
+| `instance:admin`             | Administer instance members, invitations, SMTP, restore recovery, and provider apps (All projects)   |
 
 These limits allow requests; the server still checks project roles, resource state
 and operation-specific requirements. For example, media deletion remains subject
 to reference and retention checks, and creating a new project requires a key with
 access to all projects in addition to `project:manage` and workspace management rights.
 
-A key's effective access combines its project selection, action limits and the
-owner's current access. If the owner loses access to a project, the key loses it
-too. Selecting all actions does not grant administrator rights or access to
-session-only routes.
+- **All projects requirement:** `workspace:manage` and `instance:admin` are
+  rejected on project-scoped keys and require a key granted access to **All
+  projects**.
+- **Live role intersection:** A key's effective access combines its project
+  selection, action limits and the owner's live roles. If the owner loses access
+  to a project or loses the `admin` instance role, the key loses it immediately.
+  Selecting **All actions** inherits every capability permitted by the owner's
+  live roles.
+- **Anti-escalation on `api_key:manage`:** A key carrying `api_key:manage` can
+  mint or update sibling keys for the same owner, but cannot grant a wider
+  project scope or any capability outside the calling key's effective ceiling.
 
 Follow the [draft-only CLI walkthrough](/docs/automation/#create-a-draft-for-review)
 for a complete example with limited permissions.
@@ -86,11 +98,22 @@ project or channel authority.
 
 ## Operations that require a session
 
-API-key management, access administration and built-in provider account
-connections require a human session. Complete these through Studio or the
-corresponding session-authenticated API; an API key cannot perform them even if
-it has all available actions. For key provisioning with Studio files disabled,
-see [API-only administration](/docs/studio-hosting/#provision-an-api-key-without-studio).
+Scoped API keys can administer API keys (`api_key:manage`), project access
+(`project:access_manage`), workspaces (`workspace:manage`), non-OAuth provider
+connections (`custom-http`, `devto`, `discord`, `telegram` via `channel:manage`),
+publication approvals (`publication:approve`), and instance administration
+(`instance:admin`), subject to the owner's live roles.
+
+The following operations still require a human browser session:
+
+- **Interactive third-party provider OAuth flows** (`/oauth/*` and
+  `POST .../oauth/start` handshakes for LinkedIn, Bluesky, X, Facebook,
+  Instagram and Mastodon).
+- **Personal account password changes** and interactive **invitation acceptance**.
+- **Realtime Server-Sent Events (SSE) streams** and browser-specific session routes.
+
+For key provisioning with Studio files disabled or on a fresh instance, see
+[API-only administration](/docs/studio-hosting/#provision-an-api-key-without-studio).
 
 Provider credentials are separate from Postdot API keys. A Bluesky authorization
 or a Discord bot token connects a publishing destination; it does not authenticate
@@ -179,9 +202,14 @@ adding permissions until you know which requirement the request failed.
 
 A key with `publication:manage` can submit a publication approval request with
 `expectedDraftRevision` and `proposedScheduledAt` in Unix milliseconds. The proposal
-is inert: the publication remains a draft without an executable schedule. A human
-session must review it. API keys cannot approve/reject, and an overdue proposal
-does not automatically publish. Editing the draft supersedes pending review.
+is inert: the publication remains a draft without an executable schedule. Editing
+the draft supersedes pending review, and an overdue proposal does not
+automatically publish.
+
+Reviewing an approval request (approving or rejecting it) requires a separate
+`publication:approve` capability on an API key (or a human session with project
+approval authority). Leaving `publication:approve` out of a draft-preparation key
+prevents that integration from approving its own proposals.
 
 Direct scheduling requires `publication:dispatch` and the existing revision/state
 checks. An HTTP success confirms the requested operation, not provider delivery.

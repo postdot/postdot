@@ -40,7 +40,7 @@ interface OpenApiParameter {
 const confirmProperty = {
     type: 'boolean',
     description:
-        'Set to true to acknowledge that this call can change what is published, when, or where. Without it nothing is sent.',
+        'Set to true to acknowledge that this call can change publishing delivery, access, API keys, workspaces, connections, or instance settings. Without it nothing is changed.',
 } as const
 
 function snakeCase(value: string): string {
@@ -137,10 +137,7 @@ export function buildMcpTools(
         names.add(name)
 
         const summary = typeof found.operation.summary === 'string' ? found.operation.summary : name
-        const effect =
-            confirmation === undefined
-                ? ''
-                : ' Requires confirm:true when the call can change delivery.'
+        const effect = confirmation === undefined ? '' : ' Requires confirm:true.'
         return {
             name,
             description: [summary + '.', entry.guidance, effect.trim()].filter(Boolean).join(' '),

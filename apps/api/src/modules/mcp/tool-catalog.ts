@@ -40,8 +40,123 @@ const schedulesDelivery = (input: Arguments) =>
     )
 
 export const mcpToolCatalog: readonly McpToolEntry[] = [
-    // Workspaces, projects and lifecycle
+    // Instance access, members, invitations, and API keys
+    { operationId: 'getCurrentInstanceAccess' },
+    { operationId: 'listAccessMembers' },
+    {
+        operationId: 'createAccessMember',
+        confirm: true,
+        guidance:
+            'Creates an enabled user or agent service account directly. When apiKey is provided, the plaintext API key token is returned once in the tool output; handle and store it securely without logging.',
+    },
+    {
+        operationId: 'updateAccessMember',
+        confirm: true,
+        guidance: 'Updates an instance member role or enabled status.',
+    },
+    { operationId: 'listMemberApiKeys' },
+    {
+        operationId: 'revokeMemberApiKey',
+        destructive: true,
+        confirm: true,
+        guidance: 'Immediately revokes an instance member API key.',
+    },
+    { operationId: 'listAccessInvitations' },
+    {
+        operationId: 'createAccessInvitation',
+        confirm: true,
+        guidance:
+            'Creates an instance invitation whose returned token grants account registration and appears in tool output.',
+    },
+    { operationId: 'revokeAccessInvitation', destructive: true, confirm: true },
+    { operationId: 'listUserApiKeys' },
+    {
+        operationId: 'createUserApiKey',
+        confirm: true,
+        guidance:
+            'Mints an API key bounded by the caller scopes and capabilities. Security notice: the plaintext token is returned once in the tool output — transfer it securely and avoid exposing it in logs or prompts.',
+    },
+    {
+        operationId: 'updateUserApiKey',
+        confirm: true,
+        guidance: 'Updates API key name, expiry, or bounded project/action scopes.',
+    },
+    { operationId: 'deleteUserApiKey', destructive: true, confirm: true },
+
+    // Instance settings & recovery
+    { operationId: 'getEmailSettings' },
+    {
+        operationId: 'saveEmailSettings',
+        confirm: true,
+        guidance: 'Updates instance SMTP host, sender, and credentials.',
+    },
+    { operationId: 'testEmailSettings', openWorld: true, confirm: true },
+    { operationId: 'getRecoveryState' },
+    {
+        operationId: 'resumeAfterRestore',
+        rename: { confirm: 'acknowledgeRecovery' },
+        confirm: true,
+        guidance:
+            'Clears the restore hold and resumes scheduled dispatch. Pass confirm:true and acknowledgeRecovery:true with the hold token.',
+    },
+    { operationId: 'listProviderApplicationConfigurations' },
+    {
+        operationId: 'createProviderApplicationConfiguration',
+        confirm: true,
+        guidance:
+            'Stores OAuth client credentials for a provider. Keep client secrets confidential.',
+    },
+    {
+        operationId: 'updateProviderApplicationConfiguration',
+        confirm: true,
+        guidance: 'Updates or disables OAuth client credentials for a provider.',
+    },
+
+    // Search, retirements, and categories
+    { operationId: 'searchPostdot' },
+    { operationId: 'listResourceRetirements' },
+    { operationId: 'listProjectCategories' },
+    { operationId: 'createProjectCategory', confirm: true },
+    { operationId: 'renameProjectCategory', confirm: true },
+    { operationId: 'archiveProjectCategory', destructive: true, confirm: true },
+    { operationId: 'restoreProjectCategory', confirm: true },
+
+    // Workspaces, teams, projects, access, and lifecycle
     { operationId: 'listWorkspaces' },
+    { operationId: 'getWorkspace' },
+    { operationId: 'createWorkspace', confirm: true },
+    { operationId: 'getWorkspaceLifecycleImpact' },
+    {
+        operationId: 'archiveWorkspace',
+        destructive: true,
+        confirm: true,
+        guidance:
+            'Archiving stops scheduled work across every project in the workspace. Inspect lifecycle impact first.',
+    },
+    { operationId: 'restoreWorkspace', confirm: true },
+    {
+        operationId: 'deleteWorkspace',
+        destructive: true,
+        confirm: true,
+        guidance:
+            'Permanently deletes an archived workspace and all of its projects and channels. Inspect lifecycle impact first.',
+    },
+    { operationId: 'updateWorkspaceMemberRole', confirm: true },
+    { operationId: 'removeWorkspaceMember', destructive: true, confirm: true },
+    { operationId: 'createWorkspaceTeam', confirm: true },
+    { operationId: 'renameWorkspaceTeam', confirm: true },
+    { operationId: 'listWorkspaceTeamMembers' },
+    { operationId: 'addWorkspaceTeamMember', confirm: true },
+    { operationId: 'removeWorkspaceTeamMember', destructive: true, confirm: true },
+    { operationId: 'listWorkspaceInvitations' },
+    {
+        operationId: 'createWorkspaceInvitation',
+        confirm: true,
+        guidance:
+            'Creates a workspace invitation; handle any returned invitation token or link securely.',
+    },
+    { operationId: 'cancelWorkspaceInvitation', destructive: true, confirm: true },
+
     { operationId: 'listProjects' },
     {
         operationId: 'createProject',
@@ -53,6 +168,7 @@ export const mcpToolCatalog: readonly McpToolEntry[] = [
         guidance:
             'Updates how schedules are entered and displayed without moving existing scheduled publications.',
     },
+    { operationId: 'setProjectPrimaryCategory' },
     { operationId: 'getProjectLifecycleState' },
     { operationId: 'getProjectLifecycleImpact' },
     {
@@ -62,19 +178,72 @@ export const mcpToolCatalog: readonly McpToolEntry[] = [
         guidance: 'Archiving stops scheduled work. Inspect the lifecycle impact first.',
     },
     { operationId: 'restoreProject' },
+    {
+        operationId: 'deleteProject',
+        destructive: true,
+        confirm: true,
+        guidance:
+            'Permanently deletes an archived project and retains a minimal receipt. Inspect lifecycle impact first.',
+    },
 
-    // Channels, profiles and sharing
+    // Project membership, invitations, and grants
+    { operationId: 'getProjectMembership' },
+    { operationId: 'listProjectMembers' },
+    { operationId: 'updateProjectMemberRole', confirm: true },
+    { operationId: 'removeProjectMember', destructive: true, confirm: true },
+    { operationId: 'listProjectUserGrants' },
+    { operationId: 'createProjectUserGrant', confirm: true },
+    { operationId: 'updateProjectUserGrant', confirm: true },
+    { operationId: 'removeProjectUserGrant', destructive: true, confirm: true },
+    { operationId: 'listProjectTeamGrants' },
+    { operationId: 'createProjectTeamGrant', confirm: true },
+    { operationId: 'updateProjectTeamGrant', confirm: true },
+    { operationId: 'removeProjectTeamGrant', destructive: true, confirm: true },
+    { operationId: 'listProjectInvitations' },
+    { operationId: 'createProjectInvitation', confirm: true },
+    { operationId: 'cancelProjectInvitation', destructive: true, confirm: true },
+    { operationId: 'resendProjectInvitation', openWorld: true, confirm: true },
+
+    // Channels, non-OAuth connections, profiles and sharing
     { operationId: 'listProjectChannels' },
     { operationId: 'getChannelProfileState' },
     { operationId: 'listProjectPublishers' },
     {
         operationId: 'createProjectChannel',
         guidance:
-            'Creates an unconnected destination; it cannot publish until it is connected in Studio.',
+            'Creates an unconnected destination; it cannot publish until a provider connection is attached.',
     },
     { operationId: 'renameProjectChannel' },
     { operationId: 'archiveProjectChannel', destructive: true },
     { operationId: 'restoreProjectChannel' },
+    { operationId: 'deleteProjectChannel', destructive: true, confirm: true },
+    {
+        operationId: 'createCustomHttpPublisherConnection',
+        openWorld: true,
+        confirm: true,
+        guidance: 'Connects a custom HTTP webhook destination using supplied endpoint credentials.',
+    },
+    {
+        operationId: 'createDevtoPublisherConnection',
+        openWorld: true,
+        confirm: true,
+        guidance: 'Connects a DEV Community publisher using an API key stored encrypted at rest.',
+    },
+    {
+        operationId: 'createDiscordPublisherConnection',
+        rename: { channelId: 'discordChannelId' },
+        openWorld: true,
+        confirm: true,
+        guidance:
+            'Connects a Discord bot token and target Discord channel ID stored encrypted at rest.',
+    },
+    {
+        operationId: 'createTelegramPublisherConnection',
+        openWorld: true,
+        confirm: true,
+        guidance: 'Connects a Telegram bot token and chat ID stored encrypted at rest.',
+    },
+    { operationId: 'disconnectProjectPublisher', destructive: true, confirm: true },
     { operationId: 'getProjectChannelSharing' },
     { operationId: 'listProjectChannelOccupancy' },
     {
@@ -107,6 +276,7 @@ export const mcpToolCatalog: readonly McpToolEntry[] = [
     { operationId: 'savePostSource' },
     { operationId: 'addPostDestinationDrafts' },
     { operationId: 'listPublicationSummaries' },
+    { operationId: 'listPublicationApprovalRequests' },
     { operationId: 'getPublicationEditor' },
     { operationId: 'getPublicationDestination' },
     { operationId: 'getPublicationCadence' },
@@ -120,6 +290,12 @@ export const mcpToolCatalog: readonly McpToolEntry[] = [
     { operationId: 'assessPublicationDraftAdoption' },
     { operationId: 'adoptPublicationDraftProfile' },
     { operationId: 'submitPublicationForApproval' },
+    {
+        operationId: 'approvePublicationRequest',
+        confirm: true,
+        guidance: 'Approves a publication request so it can proceed to scheduling or dispatch.',
+    },
+    { operationId: 'rejectPublicationRequest', destructive: true, confirm: true },
     {
         operationId: 'movePublication',
         confirm: true,

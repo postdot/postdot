@@ -684,3 +684,347 @@ it('requires an explicit impact fingerprint and sends project retirement once th
     })
     expect(requests[0]!.headers.get('authorization')).toBe('Bearer postdot_pat_test')
 })
+
+describe('SPEC-012 admin parity in scripts/postdot.ts', () => {
+    it('supports API-key authentication on api-keys and workspaces commands with capability validation', async () => {
+        const requests: Array<{
+            method: string
+            path: string
+            auth: string | null
+            body: unknown
+        }> = []
+        const output: string[] = []
+        const fetcher = async (input: string | URL | Request, init?: RequestInit) => {
+            const request = requestFromInput(input, init)
+            const path = new URL(request.url).pathname
+            const body =
+                request.method === 'GET' || request.method === 'DELETE'
+                    ? null
+                    : await request
+                          .clone()
+                          .json()
+                          .catch(() => null)
+            requests.push({
+                method: request.method,
+                path,
+                auth: request.headers.get('authorization'),
+                body,
+            })
+            if (path === '/api/api-keys' && request.method === 'POST') {
+                return Response.json(
+                    {
+                        key: {
+                            id: 'key-2',
+                            name: 'Delegated',
+                            tokenPrefix: 'postdot_pat_del',
+                            projectAccess: 'all',
+                            actionAccess: ['api_key:manage', 'workspace:manage'],
+                            expiresAt: null,
+                            createdAt: 1,
+                            updatedAt: 1,
+                        },
+                        token: 'postdot_pat_secret_2',
+                    },
+                    { status: 201 }
+                )
+            }
+            if (path === '/api/api-keys/key-2' && request.method === 'PATCH') {
+                return Response.json({
+                    key: {
+                        id: 'key-2',
+                        name: 'Delegated v2',
+                        tokenPrefix: 'postdot_pat_del',
+                        projectAccess: 'all',
+                        actionAccess: 'all',
+                        expiresAt: null,
+                        createdAt: 1,
+                        updatedAt: 2,
+                    },
+                })
+            }
+            if (path === '/api/workspaces' && request.method === 'POST') {
+                return Response.json({ workspace: { id: 'ws-2', name: 'Agency' } }, { status: 201 })
+            }
+            if (path === '/api/workspaces' && request.method === 'GET') {
+                return Response.json({ workspaces: [{ id: 'ws-2', name: 'Agency' }] })
+            }
+            return Response.json({ deleted: true })
+        }
+
+        await expect(
+            runCli(
+                ['api-keys', 'create', '--actions', 'not:a_cap', '--token', 'postdot_pat_admin'],
+                {},
+                { fetcher }
+            )
+        ).rejects.toMatchObject({ exitCode: 2, code: 'invalid_input' })
+        expect(requests).toHaveLength(0)
+
+        await runCli(
+            [
+                'api-keys',
+                'create',
+                '--name',
+                'Delegated',
+                '--all-projects',
+                '--actions',
+                'api_key:manage,workspace:manage',
+                '--token',
+                'postdot_pat_admin',
+            ],
+            {},
+            { fetcher, output: line => output.push(line) }
+        )
+        await runCli(
+            [
+                'api-keys',
+                'update',
+                '--key-id',
+                'key-2',
+                '--name',
+                'Delegated v2',
+                '--all-actions',
+                '--no-expiry',
+            ],
+            { POSTDOT_API_KEY: 'postdot_pat_admin' },
+            { fetcher, output: line => output.push(line) }
+        )
+        await runCli(
+            ['workspaces', 'create', '--name', 'Agency', '--token', 'postdot_pat_admin'],
+            {},
+            { fetcher, output: line => output.push(line) }
+        )
+        await runCli(
+            ['workspaces', 'list', '--token', 'postdot_pat_admin'],
+            {},
+            { fetcher, output: line => output.push(line) }
+        )
+
+        expect(requests).toEqual([
+            {
+                method: 'POST',
+                path: '/api/api-keys',
+                auth: 'Bearer postdot_pat_admin',
+                body: {
+                    name: 'Delegated',
+                    projectIds: null,
+                    actionAccess: ['api_key:manage', 'workspace:manage'],
+                },
+            },
+            {
+                method: 'PATCH',
+                path: '/api/api-keys/key-2',
+                auth: 'Bearer postdot_pat_admin',
+                body: {
+                    name: 'Delegated v2',
+                    actionAccess: null,
+                    expiresAt: null,
+                },
+            },
+            {
+                method: 'POST',
+                path: '/api/workspaces',
+                auth: 'Bearer postdot_pat_admin',
+                body: { name: 'Agency' },
+            },
+            {
+                method: 'GET',
+                path: '/api/workspaces',
+                auth: 'Bearer postdot_pat_admin',
+                body: null,
+            },
+        ])
+        expect(output[0]).toContain('postdot_pat_secret_2')
+        expect(output[1]).toBe('Updated API key key-2.')
+        expect(output[2]).toBe('Created workspace ws-2.')
+        expect(output[3]).toBe('ws-2\tAgency')
+    })
+
+    it('supports instance status/bootstrap, access, and settings commands with file-based secrets', async () => {
+        const root = await mkdtemp(join(tmpdir(), 'postdot-cli-admin-'))
+        const bootstrapPath = join(root, 'bootstrap.token')
+        const passwordPath = join(root, 'admin.pass')
+        await Bun.write(bootstrapPath, 'boot-secret-123\n')
+        await Bun.write(passwordPath, 'super-secret-password\n')
+
+        const requests: Array<{
+            method: string
+            path: string
+            auth: string | null
+            bootstrapHeader: string | null
+            body: unknown
+        }> = []
+        const output: string[] = []
+        const fetcher = async (input: string | URL | Request, init?: RequestInit) => {
+            const request = requestFromInput(input, init)
+            const path = new URL(request.url).pathname
+            const body =
+                request.method === 'GET' || request.method === 'DELETE'
+                    ? null
+                    : await request
+                          .clone()
+                          .json()
+                          .catch(() => null)
+            requests.push({
+                method: request.method,
+                path,
+                auth: request.headers.get('authorization'),
+                bootstrapHeader: request.headers.get('x-postdot-bootstrap-token'),
+                body,
+            })
+            if (path === '/api/instance/status') {
+                return Response.json({ setupAvailable: true, bootstrapMode: 'token' })
+            }
+            if (path === '/api/instance/bootstrap') {
+                return Response.json(
+                    {
+                        user: { id: 'u1', email: 'admin@example.test' },
+                        apiKey: {
+                            key: { id: 'k1', name: 'Root CLI' },
+                            token: 'postdot_pat_root',
+                        },
+                    },
+                    { status: 201 }
+                )
+            }
+            if (path === '/api/access/members' && request.method === 'POST') {
+                return Response.json(
+                    { membership: { userId: 'u2', role: 'member' } },
+                    { status: 201 }
+                )
+            }
+            if (path === '/api/access/invitations/inv-1' && request.method === 'DELETE') {
+                return Response.json({ revoked: true })
+            }
+            if (path === '/api/settings/recovery/resume') {
+                return Response.json({ resumed: true })
+            }
+            return Response.json({ ok: true })
+        }
+
+        try {
+            await runCli(['instance', 'status'], {}, { fetcher, output: line => output.push(line) })
+            await runCli(
+                [
+                    'instance',
+                    'bootstrap',
+                    '--name',
+                    'Admin',
+                    '--email',
+                    'admin@example.test',
+                    '--password-file',
+                    passwordPath,
+                    '--bootstrap-token-file',
+                    bootstrapPath,
+                    '--issue-api-key',
+                    '--api-key-name',
+                    'Root CLI',
+                    '--actions',
+                    'instance:admin,api_key:manage',
+                ],
+                {},
+                { fetcher, output: line => output.push(line) }
+            )
+            await runCli(
+                [
+                    'access',
+                    'members',
+                    'create',
+                    '--email',
+                    'agent@example.test',
+                    '--name',
+                    'Agent',
+                    '--no-default-workspace',
+                    '--token',
+                    'postdot_pat_root',
+                ],
+                {},
+                { fetcher, output: line => output.push(line) }
+            )
+            await runCli(
+                [
+                    'access',
+                    'invitations',
+                    'revoke',
+                    '--invitation',
+                    'inv-1',
+                    '--token',
+                    'postdot_pat_root',
+                ],
+                {},
+                { fetcher, output: line => output.push(line) }
+            )
+            await runCli(
+                [
+                    'settings',
+                    'recovery',
+                    'resume',
+                    '--recovery-token',
+                    'rec-123',
+                    '--confirm',
+                    '--token',
+                    'postdot_pat_root',
+                ],
+                {},
+                { fetcher, output: line => output.push(line) }
+            )
+
+            expect(requests).toEqual([
+                {
+                    method: 'GET',
+                    path: '/api/instance/status',
+                    auth: null,
+                    bootstrapHeader: null,
+                    body: null,
+                },
+                {
+                    method: 'POST',
+                    path: '/api/instance/bootstrap',
+                    auth: null,
+                    bootstrapHeader: 'boot-secret-123',
+                    body: {
+                        name: 'Admin',
+                        email: 'admin@example.test',
+                        password: 'super-secret-password',
+                        apiKey: {
+                            name: 'Root CLI',
+                            actionAccess: ['instance:admin', 'api_key:manage'],
+                        },
+                    },
+                },
+                {
+                    method: 'POST',
+                    path: '/api/access/members',
+                    auth: 'Bearer postdot_pat_root',
+                    bootstrapHeader: null,
+                    body: {
+                        email: 'agent@example.test',
+                        name: 'Agent',
+                        joinDefaultWorkspace: false,
+                    },
+                },
+                {
+                    method: 'DELETE',
+                    path: '/api/access/invitations/inv-1',
+                    auth: 'Bearer postdot_pat_root',
+                    bootstrapHeader: null,
+                    body: null,
+                },
+                {
+                    method: 'POST',
+                    path: '/api/settings/recovery/resume',
+                    auth: 'Bearer postdot_pat_root',
+                    bootstrapHeader: null,
+                    body: { token: 'rec-123', confirm: true },
+                },
+            ])
+            expect(output[0]).toBe('Setup available: true (mode: token).')
+            expect(output[1]).toContain('postdot_pat_root')
+            expect(output[2]).toBe('Created member u2.')
+            expect(output[3]).toBe('Revoked invitation inv-1.')
+            expect(output[4]).toBe('Restore recovery hold cleared.')
+        } finally {
+            await rm(root, { recursive: true, force: true })
+        }
+    })
+})

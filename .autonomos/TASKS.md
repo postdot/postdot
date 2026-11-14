@@ -9,8 +9,6 @@
 
 - [/] **[PUB-627]** Complete GitHub profile, application releases and clean-install acceptance `Priority: 🟠` `Complexity: L`
 
-- [/] **[CLI-650]** Expose admin API-key parity across CLI, MCP catalog, Studio UI, and docs ([SPEC-012](specs/SPEC-012-agentic-bootstrap-and-privileged-api-access.md), [ADR-102](decisions/ADR-102-token-gated-bootstrap-and-admin-api-key-capabilities.md)) `Priority: 🟠` `Complexity: M`
-
 ## Current direction
 
 Shared-channel implementation follows [ADR-095](decisions/ADR-095-workspace-channels-and-project-attachments.md)

@@ -1962,3 +1962,16 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Source: owner request to measure when the durable worker becomes fragile, 2026-11-07.
 
 - Resolution evidence for ISSUE-196: [DB-616](../worklogs-format-1/2026-11-07-DB-616.md). PostgreSQL transaction conflicts recover; unknown and connection errors retain the existing terminal policy.
+
+## Closed 2026-11-14
+
+## [ISSUE-197] Enable 100% agentic deployment onboarding and full privileged-agent administration
+
+- Type: proposal
+- Status: resolved
+- Evidence: Fresh Postdot installations currently require a human to open Studio and register the first administrator account before issuing an API key for an AI agent, creating both a human bottleneck and a brief unauthenticated first-user registration window on newly deployed instances. In addition, instance administration, user management, and token/API-key management remain restricted to human sessions even when an operator intends to grant an agent full privileges (raised during 2026-11-14 GitHub #35 triage).
+- Impact: AI agents deploying or operating Postdot autonomously cannot self-bootstrap securely or administer an instance end-to-end without human intervention, weakening Postdot's agent-first positioning.
+- Desired outcome: An AI agent with authorized deployment or operator privileges can securely bootstrap a fresh Postdot installation without leaving an open first-user takeover window, take immediate programmatic control, and perform instance, user, and API-key administration with explicit privilege boundaries.
+- Related: GH #35, [SPEC-012](../../specs/SPEC-012-agentic-bootstrap-and-privileged-api-access.md), [ADR-102](../../decisions/ADR-102-token-gated-bootstrap-and-admin-api-key-capabilities.md), ADR-075, ADR-096
+- Tasks: AUTH-648, API-649, CLI-650
+- Resolution (2026-11-14): Token-gated bootstrap, admin API-key capabilities, and CLI/MCP/Studio/documentation parity implemented under SPEC-012 and ADR-102 across AUTH-648, API-649, and CLI-650.

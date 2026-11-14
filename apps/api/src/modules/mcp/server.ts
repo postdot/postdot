@@ -10,8 +10,8 @@ type JsonRpcId = string | number | null
 export interface McpServerContext {
     readonly tools: readonly McpTool[]
     readonly serverVersion: string
-    /** Keys without an action ceiling may use every capability. */
-    readonly allows: (capability: PostdotApiKeyCapability) => boolean
+    /** Keys without an action ceiling may use every capability allowed by their project scope. */
+    readonly allows: (capability: PostdotApiKeyCapability, tool?: McpTool) => boolean
     readonly call: (
         tool: McpTool,
         input: Json
@@ -75,7 +75,7 @@ export async function handleMcpMessage(
                 capabilities: { tools: { listChanged: false } },
                 serverInfo: { name: 'postdot', title: 'Postdot', version: context.serverVersion },
                 instructions:
-                    'Postdot publishes to social destinations. Tools act as the API key owner within the key’s projects and capabilities. Read before writing; calls that can change what is published, when or where need confirm:true after the user agrees.',
+                    'Postdot publishes to social destinations and administers workspaces, access, and API keys. Tools act as the API key owner within the key’s projects and capabilities. Read before writing; calls that can change delivery, access, API keys, workspaces, or instance settings need confirm:true after the user agrees.',
             })
         }
         case 'ping':
@@ -83,7 +83,7 @@ export async function handleMcpMessage(
         case 'tools/list':
             return success(id, {
                 tools: context.tools
-                    .filter(tool => context.allows(tool.capability))
+                    .filter(tool => context.allows(tool.capability, tool))
                     .map(tool => ({
                         name: tool.name,
                         title: tool.annotations.title,
@@ -101,7 +101,7 @@ export async function handleMcpMessage(
 
 async function callTool(id: JsonRpcId, params: Json, context: McpServerContext): Promise<McpReply> {
     const tool = context.tools.find(candidate => candidate.name === params.name)
-    if (tool === undefined || !context.allows(tool.capability))
+    if (tool === undefined || !context.allows(tool.capability, tool))
         return failure(id, errors.invalidParams, `Unknown tool ${String(params.name)}`)
     const input = params.arguments === undefined ? {} : params.arguments
     if (!isRecord(input)) return failure(id, errors.invalidParams, 'arguments must be an object')
@@ -118,7 +118,7 @@ async function callTool(id: JsonRpcId, params: Json, context: McpServerContext):
         return success(
             id,
             toolResult(
-                `Nothing was sent. ${tool.name} can change what is published, when or where. Ask the user to confirm, then call again with confirm:true.`,
+                `Nothing was changed. ${tool.name} can change publishing delivery, access, API keys, workspaces, connections, or instance settings. Ask the user to confirm, then call again with confirm:true.`,
                 true
             )
         )

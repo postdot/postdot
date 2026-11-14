@@ -99,15 +99,29 @@ describe('MCP endpoint', () => {
                     expect(tool.requiresConfirmation({})).toBe(false)
                 }
             }
-            // Session-only surfaces never become tools.
+            // Browser OAuth, invitation acceptance, binary streams, and audit logs stay outside MCP.
             const names = tools.map(tool => tool.name)
             for (const hidden of [
-                'create_user_api_key',
-                'list_access_members',
-                'save_email_settings',
                 'start_x_publisher_connection',
+                'start_bluesky_publisher_connection',
+                'accept_access_invitation',
+                'list_project_audit_events',
             ])
                 expect(names).not.toContain(hidden)
+
+            for (const adminTool of [
+                'list_access_members',
+                'create_access_member',
+                'create_user_api_key',
+                'create_workspace',
+                'create_provider_application_configuration',
+                'save_email_settings',
+                'resume_after_restore',
+                'create_devto_publisher_connection',
+                'create_discord_publisher_connection',
+                'approve_publication_request',
+            ])
+                expect(names).toContain(adminTool)
         } finally {
             await closeTestDatabase(database)
         }
@@ -344,6 +358,178 @@ describe('MCP endpoint', () => {
             })
             expect(draft.isError).toBe(false)
             await client.close()
+        } finally {
+            await closeTestDatabase(f.database)
+        }
+    })
+
+    it('exposes admin, access, workspace, API-key, provider-app, and non-OAuth connection tools with confirmation and anti-escalation', async () => {
+        const f = await setup()
+        try {
+            const project = await f.project('Ops')
+            const channel = (
+                (await (
+                    await f.json(`/api/projects/${project}/channels`, {
+                        name: 'Webhook',
+                        profile: {
+                            id: 'custom-webhook',
+                            version: 1,
+                            profileHash: 'sha256:custom-webhook-profile-v1',
+                            schemaHash: 'sha256:custom-webhook-schema-v1',
+                            origin: 'custom',
+                            contentSchema: {
+                                $schema: 'https://json-schema.org/draft/2020-12/schema',
+                                type: 'object',
+                                properties: {
+                                    body: { type: 'string', minLength: 1, maxLength: 1_000 },
+                                },
+                                required: ['body'],
+                                additionalProperties: false,
+                            },
+                            fieldBindings: [
+                                { id: 'body', semantic: 'primary_text', path: '/body' },
+                            ],
+                            capabilities: {
+                                revision: 'custom-webhook-v1',
+                                textFields: [
+                                    {
+                                        bindingId: 'body',
+                                        acceptedSourceFormats: ['plain_text'],
+                                        maxLength: 1_000,
+                                    },
+                                ],
+                                mediaFields: [],
+                                relations: [],
+                            },
+                            execution: {
+                                kind: 'declarative_http',
+                                contractId: 'custom-webhook',
+                                revision: '1',
+                                mode: 'postdot_webhook',
+                            },
+                        },
+                    })
+                ).json()) as { channel: { id: string } }
+            ).channel.id
+
+            const admin = await connect(
+                f.app,
+                await f.apiKey({ name: 'AdminAgent', projectIds: null, actionAccess: null })
+            )
+            await admin.connected
+
+            const listedAdmin = (await admin.client.listTools()).tools.map(t => t.name)
+            expect(listedAdmin).toContain('create_access_member')
+            expect(listedAdmin).toContain('create_user_api_key')
+            expect(listedAdmin).toContain('create_workspace')
+            expect(listedAdmin).toContain('create_custom_http_publisher_connection')
+
+            const unconfirmedMember = await admin.client.callTool({
+                name: 'create_access_member',
+                arguments: {
+                    name: 'Worker Bot',
+                    email: 'worker@postdot.local',
+                    role: 'member',
+                    apiKey: { name: 'Worker Key' },
+                },
+            })
+            expect(unconfirmedMember.isError).toBe(true)
+            expect(textOf(unconfirmedMember)).toContain('confirm:true')
+
+            const createdMember = await admin.client.callTool({
+                name: 'create_access_member',
+                arguments: {
+                    name: 'Worker Bot',
+                    email: 'worker@postdot.local',
+                    role: 'member',
+                    apiKey: { name: 'Worker Key' },
+                    confirm: true,
+                },
+            })
+            expect(createdMember.isError).toBe(false)
+            const createdMemberPayload = JSON.parse(textOf(createdMember)) as {
+                membership: { userId: string; role: string }
+                apiKey?: { token: string }
+            }
+            expect(createdMemberPayload.membership.role).toBe('member')
+            expect(createdMemberPayload.apiKey?.token).toMatch(/^postdot_pat_/)
+
+            const createdWorkspace = await admin.client.callTool({
+                name: 'create_workspace',
+                arguments: { name: 'Ops Team', confirm: true },
+            })
+            expect(createdWorkspace.isError).toBe(false)
+            expect(JSON.parse(textOf(createdWorkspace)).workspace.name).toBe('Ops Team')
+
+            const createdApp = await admin.client.callTool({
+                name: 'create_provider_application_configuration',
+                arguments: {
+                    providerId: 'linkedin',
+                    name: 'LinkedIn MCP App',
+                    clientId: 'mcp-client-id',
+                    clientSecret: 'mcp-client-secret',
+                    confirm: true,
+                },
+            })
+            expect(createdApp.isError).toBe(false)
+
+            const connectedWebhook = await admin.client.callTool({
+                name: 'create_custom_http_publisher_connection',
+                arguments: {
+                    projectId: project,
+                    channelId: channel,
+                    endpointUrl: 'https://hooks.example.test',
+                    authentication: { kind: 'bearer' },
+                    secret: 'webhook-signing-secret-with-at-least-32-chars',
+                    confirm: true,
+                },
+            })
+            expect(connectedWebhook.isError).toBe(false)
+
+            // Anti-escalation through MCP: a bounded key cannot mint a wider key.
+            const childKeyRes = await admin.client.callTool({
+                name: 'create_user_api_key',
+                arguments: {
+                    name: 'Scoped Key Manager',
+                    projectIds: [project],
+                    actionAccess: ['project:read', 'api_key:manage'],
+                    confirm: true,
+                },
+            })
+            expect(childKeyRes.isError).toBe(false)
+            const childToken = (JSON.parse(textOf(childKeyRes)) as { token: string }).token
+            await admin.client.close()
+
+            const bounded = await connect(f.app, childToken)
+            await bounded.connected
+            const boundedNames = (await bounded.client.listTools()).tools.map(t => t.name)
+            expect(boundedNames).toContain('create_user_api_key')
+            expect(boundedNames).not.toContain('list_access_members')
+            expect(boundedNames).not.toContain('create_workspace')
+
+            const escalated = await bounded.client.callTool({
+                name: 'create_user_api_key',
+                arguments: {
+                    name: 'Escalated',
+                    projectIds: null,
+                    actionAccess: null,
+                    confirm: true,
+                },
+            })
+            expect(escalated.isError).toBe(true)
+            await bounded.client.close()
+
+            // A key restricted to selected projects never sees instance/workspace admin tools even with actionAccess: null.
+            const selectedAll = await connect(
+                f.app,
+                await f.apiKey({ name: 'SelectedAll', projectIds: [project], actionAccess: null })
+            )
+            await selectedAll.connected
+            const selectedNames = (await selectedAll.client.listTools()).tools.map(t => t.name)
+            expect(selectedNames).not.toContain('list_access_members')
+            expect(selectedNames).not.toContain('create_workspace')
+            expect(selectedNames).not.toContain('get_workspace')
+            await selectedAll.client.close()
         } finally {
             await closeTestDatabase(f.database)
         }

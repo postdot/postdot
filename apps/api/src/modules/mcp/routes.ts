@@ -2,7 +2,11 @@ import type { PostdotAuth } from '@postdot/auth'
 import { Elysia } from 'elysia'
 
 import { createUserApiKeyAuthenticator } from '../access/user-api-key-authentication'
-import { apiKeyHasCapability, type PostdotApiKeyCapability } from '../projects/api-key-permissions'
+import {
+    apiKeyHasCapability,
+    canApiKeyAccessRequest,
+    type PostdotApiKeyCapability,
+} from '../projects/api-key-permissions'
 import { buildMcpTools, type McpTool } from './openapi-tools'
 import { handleMcpMessage, type McpServerContext } from './server'
 
@@ -73,8 +77,15 @@ export function createMcpRoutes(options: McpRoutesOptions) {
             const context: McpServerContext = {
                 tools: await loadTools(requestOrigin),
                 serverVersion: options.serverVersion ?? '0.1.0',
-                allows: (capability: PostdotApiKeyCapability) =>
-                    apiKeyHasCapability(key.permissions, capability),
+                allows: (capability: PostdotApiKeyCapability, tool?: McpTool) =>
+                    tool === undefined
+                        ? apiKeyHasCapability(key.permissions, capability)
+                        : canApiKeyAccessRequest(
+                              tool.method,
+                              tool.path.replace(/\{[^}]+\}/g, 'x'),
+                              key.permissions,
+                              key.projectIds
+                          ),
                 call: async (tool, input) => {
                     let path = tool.path
                     for (const name of tool.pathParameters)

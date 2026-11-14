@@ -174,11 +174,15 @@ draft-only key for preparation rather than expanding its access just to make an
 unrelated command succeed.
 
 The typed client is in `packages/client`; the REST API uses the same server-side
-project and action checks. Built-in publisher OAuth and access administration
-require a human session. Other clients do not bypass these boundaries.
+project and action checks. Interactive third-party OAuth browser flows (such as
+connecting Bluesky, LinkedIn, X, Facebook, Instagram, or Mastodon accounts) require
+a human session; non-OAuth channel connections, access administration, workspace
+lifecycle, API-key management, and instance settings can be automated with a key
+that holds the matching capabilities and live roles.
 
-See the [CLI reference](/docs/cli-reference/) for media, revision checks and lifecycle
-commands. Source-checkout administration also provides [shared-channel commands](/docs/cli-reference/#share-and-manage-channels),
+See the [CLI reference](/docs/cli-reference/) for media, revision checks, lifecycle
+and administrative commands. Source-checkout administration also provides
+[shared-channel commands](/docs/cli-reference/#share-and-manage-channels),
 including cadence confirmation and pending-publication moves. Sharing needs `channel:share` and live
 underlying authority; it does not expand a draft-only key's publication actions. API integrations can add unscheduled destinations to an existing source
 through the [API reference](/docs/reference/). Source revision checks and explicit

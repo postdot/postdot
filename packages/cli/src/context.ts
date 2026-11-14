@@ -17,9 +17,13 @@ export function positiveInteger(value: string) {
     return Number(value)
 }
 
-export function clientFor(origin: string, token: string, timeoutMs: number): PostdotClient {
+export function clientFor(
+    origin: string,
+    token: string | undefined,
+    timeoutMs: number
+): PostdotClient {
     return createPostdotClient(origin, {
-        token,
+        ...(token === undefined ? {} : { token }),
         parseDate: false,
         fetcher: (input, init) =>
             fetch(input, {
@@ -31,6 +35,10 @@ export function clientFor(origin: string, token: string, timeoutMs: number): Pos
                 redirect: 'error',
             }),
     })
+}
+export function publicClient(options: Options): PostdotClient {
+    const settings = resolveConnection(options)
+    return clientFor(settings.origin, undefined, options.timeoutMs)
 }
 function requireToken(token: string | undefined): string {
     if (!token)
