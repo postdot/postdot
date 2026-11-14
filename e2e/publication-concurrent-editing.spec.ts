@@ -6,6 +6,9 @@ import type { PublicationEditorState } from '@postdot/client'
 
 import { switchTheme } from './locale'
 
+// Seeded local copies are written in UTC; the project must share that time zone.
+test.use({ timezoneId: 'UTC' })
+
 test('rebases a stale sibling draft without replacing destination text or attachments', async ({
     page,
     browser,
@@ -66,9 +69,7 @@ test('rebases a stale sibling draft without replacing destination text or attach
             response =>
                 response.url().endsWith('/draft/rebase') && response.request().method() === 'POST'
         )
-        await conflict
-            .getByRole('button', { name: 'Rebase draft to current source', exact: true })
-            .click()
+        await conflict.getByRole('button', { name: 'Update to the new text', exact: true }).click()
         expect((await rebased).ok()).toBe(true)
         await expect(conflict).toHaveCount(0)
         await expect(other.locator('#source-body')).toHaveText('New common source')
@@ -147,7 +148,7 @@ test('recovers unsaved destination changes after another session saves a newer d
             other.getByRole('button', { name: /^Save changes(?:\s*(?:Ctrl|⌘)↵)?$/ })
         ).toBeDisabled()
         await other.unroute(draftUrl)
-        await conflict.getByRole('button', { name: 'Load server version', exact: true }).click()
+        await conflict.getByRole('button', { name: 'Load the saved version', exact: true }).click()
         const decision = other.locator('[data-publication-recovery-decision]')
         await expect(decision).toBeVisible()
         await expect(decision).toContainText('Local destination adaptation')
@@ -615,7 +616,7 @@ for (const outcome of ['rejected', 'lost_response'] as const) {
         const check = page.getByRole('button', { name: 'Check server status', exact: true })
         await expect(check).toBeVisible()
         await expect(action).toBeDisabled()
-        await expect(page.getByRole('status', { name: 'Saved', exact: true })).toBeVisible()
+        await expect(page.getByRole('status', { name: /^(Saved|Draft kept)$/ })).toBeVisible()
         await expect(content).toHaveText('Saved version awaiting application')
         const after = await pair.read(page, pair.first)
         if (outcome === 'rejected') expect(after.selectedTarget).toEqual(before.selectedTarget)
@@ -842,7 +843,13 @@ test('opens the shared post from queue and keeps every destination reachable', a
     const cards = page.locator('[data-publication-selection-card="true"]')
     await expect(cards).toHaveCount(2)
     const card = cards.filter({ hasText: 'First channel' })
-    await card.getByRole('link', { name: 'View post', exact: true }).click()
+    // Per post by default: the post link heads its group of channels.
+    await page
+        .locator('[data-queue-post-group]')
+        .filter({ has: card })
+        .getByRole('link', { name: 'View post', exact: true })
+        .first()
+        .click()
     await expect(page).toHaveURL(new RegExp(`/posts/${first.post.id}$`))
     await expect(
         page.getByRole('heading', { level: 1, name: 'Initial common source', exact: true })

@@ -199,7 +199,7 @@ test('edits and retains a Bluesky link card with a thumbnail and blocks credenti
                     .external.title
         )
         .toBe('Edited article title')
-    await expect(page.getByText('Saved', { exact: true })).toBeVisible()
+    await expect(page.getByText(/^(Saved|Draft kept)$/)).toBeVisible()
     await page.reload()
     await expect(card).toContainText('Edited article title')
     await page.screenshot({ path: info.outputPath('bluesky-card-desktop.png'), fullPage: true })
@@ -313,7 +313,7 @@ test('authors DEV.to article metadata without defaulting AI disclosure and rejec
             ai_disclosure_level: 'some_ai',
             published: false,
         })
-    await expect(page.getByText('Saved', { exact: true })).toBeVisible()
+    await expect(page.getByText(/^(Saved|Draft kept)$/)).toBeVisible()
 
     const preview = page.locator('[data-preview-platform="devto"]')
     await expect(preview).toContainText('DEV.to draft')

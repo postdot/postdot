@@ -27,7 +27,6 @@ import {
     PublicationEditorPromotionAction,
 } from '@/components/publication-editor-promotion-section'
 import {
-    type CapabilitySummary,
     PublicationEditorSidebar,
     type PublicationEditorSaveState,
 } from '@/components/publication-editor-sidebar'
@@ -74,6 +73,7 @@ import { refreshPublicationResources } from '@/lib/project-query-invalidation'
 import { projectQueryKeys } from '@/lib/project-realtime'
 import { mergeProjectTags } from '@/lib/project-tags'
 import type { PublicationCalendarView } from '@/lib/publication-calendar-events'
+import { shortExcerpt } from '@/lib/publication-identity'
 import { canEditPublication, isManualPublicationDue } from '@/lib/publication-lifecycle'
 import {
     getPreviewTarget,
@@ -93,7 +93,6 @@ import { PublicationCadenceStatus } from './publication-cadence-status'
 import { PublicationMoveDialog } from './publication-move-dialog'
 
 type SourceContent = PublicationEditorState['post']['sourceContent']
-type Profile = PublicationEditorState['profile']['profile']
 
 interface PublicationEditorProps {
     readonly destinationAction?: ReactNode
@@ -278,11 +277,10 @@ export function PublicationEditor({
     const editorMutationPending = promotionPending || serverReadPending || adoptionOpen || moveOpen
     const [cancelPending, setCancelPending] = useState(false)
     const [retryPending, setRetryPending] = useState(false)
-    const [technicalDetailsOpen, setTechnicalDetailsOpen] = useState(initialSourceConflict)
     const [targetCustomizationOpen, setTargetCustomizationOpen] = useState(
         initialEditor.draft.reviewState !== 'compatible'
     )
-    const technicalDetailsRef = useRef<HTMLDetailsElement>(null)
+    const conflictRef = useRef<HTMLDivElement>(null)
     const requestGeneration = useRef(0)
     const [pendingSaveGeneration, setPendingSaveGeneration] = useState<number | null>(null)
     const accessWritesBlocked = accessStatus !== 'confirmed'
@@ -305,7 +303,6 @@ export function PublicationEditor({
 
     const targetResult = useMemo(() => parseTargetText(targetText), [targetText])
     const sourceIssue = useMemo(() => sourceContentIssue(sourceContent), [sourceContent])
-    const capabilitySummary = useMemo(() => getCapabilitySummary(editor.profile.profile), [editor])
     const sourceConflict = editor.draft.sourceRevision !== editor.post.sourceRevision
     const draftRequiresReview = editor.draft.reviewState !== 'compatible'
     const draftDiffersFromTarget =
@@ -372,9 +369,6 @@ export function PublicationEditor({
         providerForProfile(editor.profile.profile)?.comments !== undefined &&
         editor.publication.deliveryMode === 'automatic'
 
-    useEffect(() => {
-        if (sourceConflict || saveState === 'conflict') setTechnicalDetailsOpen(true)
-    }, [saveState, sourceConflict])
     useEffect(() => {
         if (targetResult.error !== null || editor.draft.validationIssues.length > 0) {
             setTargetCustomizationOpen(true)
@@ -1274,12 +1268,10 @@ export function PublicationEditor({
                 isRebasing
             }
             onReviewConflict={() => {
-                setTechnicalDetailsOpen(true)
-                const details = technicalDetailsRef.current
-                if (details === null) return
-                details.open = true
-                details.querySelector('summary')?.focus()
-                details.scrollIntoView({ block: 'start' })
+                const conflict = conflictRef.current
+                if (conflict === null) return
+                conflict.scrollIntoView({ block: 'start' })
+                conflict.querySelector<HTMLElement>('button')?.focus()
             }}
         />
     )
@@ -1371,7 +1363,6 @@ export function PublicationEditor({
                 reviewState={editor.draft.reviewState}
                 validationIssues={editor.draft.validationIssues}
                 target={targetResult.value}
-                targetText={targetText}
                 disabled={
                     !publicationEditable ||
                     accessWritesBlocked ||
@@ -1383,10 +1374,6 @@ export function PublicationEditor({
                 onOpenChange={setTargetCustomizationOpen}
                 onTargetChange={next => {
                     setTargetText(formatJson(next))
-                    setDirty(true)
-                }}
-                onRawTextChange={value => {
-                    setTargetText(value)
                     setDirty(true)
                 }}
                 targetError={targetResult.error}
@@ -1515,7 +1502,8 @@ export function PublicationEditor({
                 </Dialog>
             ) : null}
             <div className="min-w-0" inert={recoveryAvailable}>
-                <header className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 pb-5 sm:gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)_minmax(0,1fr)]">
+                {/* ADR-103 §2: an object page names its parent above a left-aligned title. */}
+                <header className="min-w-0 pb-5" data-page-header>
                     <Link
                         aria-label={
                             backToCalendar === undefined
@@ -1524,9 +1512,9 @@ export function PublicationEditor({
                         }
                         className={buttonVariants({
                             variant: 'ghost',
-                            size: 'icon',
+                            size: 'sm',
                             className:
-                                'justify-self-start text-muted-foreground hover:text-foreground sm:w-auto sm:gap-1.5 sm:px-2.5',
+                                '-ms-2.5 mb-2 gap-1.5 text-muted-foreground hover:text-foreground',
                         })}
                         params={{ projectId }}
                         search={
@@ -1540,30 +1528,29 @@ export function PublicationEditor({
                                 : '/dashboard/projects/$projectId/overview'
                         }>
                         <AltArrowLeftIcon aria-hidden="true" />
-                        <span className="hidden sm:inline">
-                            {backToCalendar === undefined
-                                ? m.editor_back_to_queue()
-                                : m.editor_back_to_calendar()}
-                        </span>
+                        {backToCalendar === undefined
+                            ? m.editor_back_to_queue()
+                            : m.editor_back_to_calendar()}
                     </Link>
-                    <h1
-                        className="col-span-full row-start-2 min-w-0 line-clamp-2 break-words text-center font-heading text-xl font-semibold leading-tight sm:text-2xl lg:col-span-1 lg:col-start-2 lg:row-start-1 lg:line-clamp-1 lg:truncate xl:text-3xl"
-                        title={publicationEditorHeading(editor, sourceContent)}>
-                        {publicationEditorHeading(editor, sourceContent)}
-                    </h1>
-                    <div className="col-start-2 row-start-1 flex min-w-0 items-center gap-2 justify-self-end lg:col-start-3">
-                        {publicationEditable ? (
-                            <PublicationEditorSaveIndicator
-                                compactOnMobile
-                                state={saveState}
-                                revision={editor.draft.revision}
-                                showRevision={false}
+                    <div className="flex min-w-0 items-start justify-between gap-4">
+                        <h1
+                            className="min-w-0 line-clamp-2 break-words font-heading text-2xl font-semibold leading-tight"
+                            title={publicationEditorHeading(editor, sourceContent)}>
+                            {publicationEditorHeading(editor, sourceContent)}
+                        </h1>
+                        <div className="flex shrink-0 items-center gap-2 pt-1.5">
+                            {publicationEditable ? (
+                                <PublicationEditorSaveIndicator
+                                    compactOnMobile
+                                    state={saveState}
+                                    pendingApply={draftDiffersFromTarget}
+                                />
+                            ) : null}
+                            <CopyPublicationLink
+                                projectId={projectId}
+                                publicationId={editor.publication.id}
                             />
-                        ) : null}
-                        <CopyPublicationLink
-                            projectId={projectId}
-                            publicationId={editor.publication.id}
-                        />
+                        </div>
                     </div>
                 </header>
 
@@ -1875,29 +1862,16 @@ export function PublicationEditor({
 
                 <div
                     className={`mt-5 grid min-w-0 gap-3 ${publicationEditable ? '' : 'mx-auto max-w-2xl'}`}>
-                    <details
-                        className="group rounded-xl bg-surface-inset/35 p-1 shadow-surface"
-                        ref={technicalDetailsRef}
-                        open={technicalDetailsOpen}
-                        onToggle={event => setTechnicalDetailsOpen(event.currentTarget.open)}>
-                        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-sm [&::-webkit-details-marker]:hidden">
-                            <span className="min-w-0">
-                                <span className="font-medium">{m.editor_technical_details()}</span>
-                            </span>
-                            <AltArrowDownIcon
-                                aria-hidden="true"
-                                className="size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180"
-                            />
-                        </summary>
-                        <div className="space-y-3 px-2 pb-2 pt-2 sm:px-3">
-                            {!publicationEditable ? sourceSection : null}
-                            {!publicationEditable ? targetSection : null}
+                    {/* A locked publication still shows its content; a conflict is shown, not
+                        folded away (ADR-103 §1, audit D1/D3). */}
+                    {!publicationEditable ? sourceSection : null}
+                    {!publicationEditable ? targetSection : null}
+                    {sourceConflict || saveState === 'conflict' ? (
+                        <div ref={conflictRef}>
                             <PublicationEditorSidebar
                                 editor={editor}
                                 projectId={projectId}
                                 media={[...availableMedia, ...readOnlyMedia]}
-                                capabilitySummary={capabilitySummary}
-                                timeZone={timeZone}
                                 sourceConflict={sourceConflict}
                                 saveState={saveState}
                                 isRebasing={isRebasing || editorMutationPending}
@@ -1908,7 +1882,7 @@ export function PublicationEditor({
                                 onRestore={() => void restoreRecoveryAgainstLatestServer()}
                             />
                         </div>
-                    </details>
+                    ) : null}
 
                     <details className="group rounded-xl bg-surface-inset/35 p-1 shadow-surface">
                         <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-sm [&::-webkit-details-marker]:hidden">
@@ -1947,8 +1921,7 @@ function publicationEditorHeading(editor: PublicationEditorState, sourceContent:
             : m.publication_untitled()
     }
 
-    const normalized = candidate.replace(/\s+/g, ' ')
-    return normalized.length > 96 ? `${normalized.slice(0, 93)}…` : normalized
+    return shortExcerpt(candidate)
 }
 
 function createRecoveryKey(projectId: string, publicationId: string) {
@@ -2027,43 +2000,6 @@ function sourceContentIssue(source: SourceContent): string | null {
         return m.editor_headline_blank()
     }
     return null
-}
-
-function getCapabilitySummary(profile: Profile): CapabilitySummary {
-    if (!isRecord(profile.capabilities)) return { textFields: [], mediaFieldCount: 0 }
-    const legacyText = providerForProfile(profile)?.legacyText
-    const textFields = Array.isArray(profile.capabilities.textFields)
-        ? profile.capabilities.textFields.flatMap(value => {
-              if (!isRecord(value) || typeof value.bindingId !== 'string') return []
-              return [
-                  {
-                      bindingId: value.bindingId,
-                      maxLength:
-                          typeof value.maxWeightedLength === 'number' ||
-                          (legacyText && value.bindingId === legacyText.bindingId)
-                              ? null
-                              : typeof value.maxLength === 'number'
-                                ? value.maxLength
-                                : null,
-                      maxWeightedLength:
-                          typeof value.maxWeightedLength === 'number'
-                              ? value.maxWeightedLength
-                              : legacyText && value.bindingId === legacyText.bindingId
-                                ? legacyText.maxWeightedLength
-                                : null,
-                      acceptedSourceFormats: Array.isArray(value.acceptedSourceFormats)
-                          ? value.acceptedSourceFormats.filter(
-                                (format): format is string => typeof format === 'string'
-                            )
-                          : [],
-                  },
-              ]
-          })
-        : []
-    const mediaFieldCount = Array.isArray(profile.capabilities.mediaFields)
-        ? profile.capabilities.mediaFields.length
-        : 0
-    return { textFields, mediaFieldCount }
 }
 
 function issueCode(issue: Record<string, unknown>) {

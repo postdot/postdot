@@ -80,7 +80,8 @@ The owner's product values decide trade-offs the rules do not: **intuitiveness**
 
 ### Vocabulary, anatomy and identity (added 2026-11-14, ADR-103)
 
-- **VOC-01 — Studio shows the user vocabulary of ADR-103 §1.** No rendered string contains a term from its `Never show` column outside an explicit diagnostics disclosure. Verification: measure (catalog scan in both locales).
+- **VOC-01 — Studio shows the user vocabulary of ADR-103 §1.** No rendered string contains a term from its `Never show` column. Verification: measure (catalog scan in every locale).
+- **VOC-03 — No JSON in Studio.** No surface displays or accepts JSON, raw payloads, revision numbers or schema hashes; forms express the same choices. Verification: measure (no `JSON` in catalogs; no code textarea for content).
 - **VOC-02 — An error names what happened and the next step.** A generic failure sentence is not a final message. Verification: review.
 - **ANA-01 — One page header.** Title left-aligned, equal to the navigation label, action on the same row. Verification: measure.
 - **ANA-02 — Shared states.** Empty states, dialogs, status marks and buttons come from the shared primitives; dialogs dim without blur. Verification: review.

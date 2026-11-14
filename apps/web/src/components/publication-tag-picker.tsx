@@ -59,10 +59,11 @@ export function PublicationTagPicker({
     const selectedCount = selectedTags.length
     const visibleTags = catalogTags.filter(tag => tag.state === 'active' || selectedIds.has(tag.id))
     const pickerDisabled = disabled || (visibleTags.length === 0 && onCreateTag === undefined)
-    const triggerAriaLabel =
-        selectedCount === 0
-            ? (ariaLabel ?? label ?? emptyLabel ?? m.taxonomy_select_tags())
-            : (selectedLabel?.(selectedCount) ?? ariaLabel ?? label ?? m.taxonomy_select_tags())
+    const triggerAriaLabel = showSelectedTags
+        ? m.taxonomy_add_tag()
+        : selectedCount === 0
+          ? (ariaLabel ?? label ?? emptyLabel ?? m.taxonomy_select_tags())
+          : (selectedLabel?.(selectedCount) ?? ariaLabel ?? label ?? m.taxonomy_select_tags())
 
     function handleTagChange(tagId: string, checked: boolean) {
         if (checked) {
@@ -91,8 +92,16 @@ export function PublicationTagPicker({
                         size="sm"
                         variant="ghost"
                         className="gap-1.5 px-2">
-                        <TagIcon aria-hidden="true" />
-                        {label ? <span className="text-xs">{label}</span> : null}
+                        {showSelectedTags ? (
+                            <AddIcon aria-hidden="true" />
+                        ) : (
+                            <TagIcon aria-hidden="true" />
+                        )}
+                        {showSelectedTags ? (
+                            <span className="text-xs">{m.taxonomy_add_tag()}</span>
+                        ) : label ? (
+                            <span className="text-xs">{label}</span>
+                        ) : null}
                         {!showSelectedTags && selectedCount > 0 ? (
                             <Badge variant="secondary">{selectedCount}</Badge>
                         ) : null}
@@ -130,6 +139,18 @@ export function PublicationTagPicker({
                         </DropdownMenuItem>
                     </>
                 ) : null}
+                {manageTagsProjectId !== undefined ? (
+                    <DropdownMenuItem
+                        render={
+                            <Link
+                                params={{ projectId: manageTagsProjectId }}
+                                to="/dashboard/projects/$projectId/tags"
+                            />
+                        }>
+                        <TagIcon aria-hidden="true" />
+                        {m.taxonomy_manage_tags()}
+                    </DropdownMenuItem>
+                ) : null}
             </DropdownMenuContent>
         </DropdownMenu>
     )
@@ -140,7 +161,7 @@ export function PublicationTagPicker({
                 <div
                     data-publication-tag-picker="true"
                     className="flex min-w-0 flex-wrap items-center gap-1.5">
-                    {menu}
+                    {/* P8: chosen tags, then one control whose menu lists, creates and manages. */}
                     {showSelectedTags
                         ? selectedTags.map(tag => {
                               const tagLabel =
@@ -166,26 +187,7 @@ export function PublicationTagPicker({
                               )
                           })
                         : null}
-                    {showSelectedTags && onCreateTag !== undefined ? (
-                        <Button
-                            type="button"
-                            size="sm"
-                            variant="ghost"
-                            disabled={disabled}
-                            onClick={() => setCreateOpen(true)}
-                            className="h-7 gap-1 px-2 text-xs text-muted-foreground hover:text-foreground">
-                            <AddIcon aria-hidden="true" className="size-3.5" />
-                            {m.project_tags_create()}
-                        </Button>
-                    ) : null}
-                    {manageTagsProjectId !== undefined ? (
-                        <Link
-                            to="/dashboard/projects/$projectId/tags"
-                            params={{ projectId: manageTagsProjectId }}
-                            className="inline-flex h-7 items-center px-2 text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">
-                            {m.taxonomy_manage_tags()}
-                        </Link>
-                    ) : null}
+                    {menu}
                 </div>
             ) : (
                 menu

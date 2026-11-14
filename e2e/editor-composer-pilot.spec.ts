@@ -296,9 +296,9 @@ test('recovers composition text, target formatting and media through the existin
     expect(discordId).toBeDefined()
     await page.goto(`/dashboard/projects/${id}/publications/${discordId}?editor=tiptap`)
     await expect(
-        page.getByRole('button', { name: 'Reconcile before continuing', exact: true })
+        page.getByRole('button', { name: 'Someone saved a newer version', exact: true })
     ).toBeVisible()
-    await page.getByRole('button', { name: 'Rebase draft to current source', exact: true }).click()
+    await page.getByRole('button', { name: 'Update to the new text', exact: true }).click()
     const discordField = page.locator('[data-target-field="text"]')
     await openCustomization(page, discordField)
     await discordField.getByRole('button', { name: 'Source', exact: true }).click()
@@ -1588,7 +1588,7 @@ test('keeps partial tag-assignment feedback visible after reaching the created p
     await page
         .getByRole('textbox', { name: 'Content', exact: true })
         .fill('A created post with a tag warning')
-    await page.getByRole('button', { name: 'Select tags', exact: true }).click()
+    await page.getByRole('button', { name: 'Add tag', exact: true }).click()
     await page.getByRole('menuitemcheckbox', { name: 'Campaign', exact: true }).click()
     await page.keyboard.press('Escape')
     let creations = 0

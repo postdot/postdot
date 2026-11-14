@@ -104,9 +104,7 @@ export function PublicationDestination({
                                 readOnly
                                 profile={selectedProfile}
                                 target={selectedContent}
-                                rawText={JSON.stringify(selectedContent, null, 2)}
                                 onTargetChange={() => {}}
-                                onRawTextChange={() => {}}
                             />
                         </div>
                     ) : null}

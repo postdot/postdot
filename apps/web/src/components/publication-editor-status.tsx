@@ -80,19 +80,20 @@ export function PublicationEditorStatus({
 
 export function PublicationEditorSaveIndicator({
     state,
-    revision,
-    showRevision = true,
+    pendingApply = false,
     compactOnMobile = false,
 }: {
     readonly state: PublicationEditorSaveState
-    readonly revision: number
-    readonly showRevision?: boolean
+    /** The edits are kept but not yet applied to what will be published (audit D2). */
+    readonly pendingApply?: boolean
     readonly compactOnMobile?: boolean
 }) {
     useLanguage()
     const label =
         state === 'saved'
-            ? m.editor_saved()
+            ? pendingApply
+                ? m.editor_draft_kept()
+                : m.editor_saved()
             : state === 'saving'
               ? m.editor_saving()
               : state === 'rebasing'
@@ -111,7 +112,6 @@ export function PublicationEditorSaveIndicator({
             title={label}>
             <span className={compactOnMobile ? 'max-w-28 truncate sm:max-w-none' : undefined}>
                 {label}
-                {showRevision ? ` · ${m.editor_draft_revision({ revision })}` : null}
             </span>
         </div>
     )

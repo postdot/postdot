@@ -20,7 +20,8 @@ accepted in full. Read it before changing any surface. In short:
 
 - Speak the user's language: Post, Channel, Channel version, Content rules,
   Draft / Scheduled / Published / Failed / Needs attention. Never show target,
-  payload, contract, profile, promotion, revision, schema or JSON by default.
+  payload, contract, profile, promotion, revision or schema, and never show or
+  accept JSON anywhere: Studio is no-code, forms express the complexity.
 - One page anatomy: left-aligned title with its action on the same row; no
   return control on a sidebar destination; title equals navigation label; one
   empty state, one dialog, one status component, one button scale; dialogs dim

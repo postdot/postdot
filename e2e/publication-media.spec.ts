@@ -361,9 +361,10 @@ test('keeps dashboard and composer media journeys reliable', async ({ page, requ
     await expect(page).toHaveURL(
         /\/dashboard\/projects\/[^/]+\/publications\/new\?date=\d{4}-\d{2}-\d{2}&time=\d{2}%3A\d{2}$/
     )
+    // Today proposes nine o'clock, or the next full hour once nine has passed (ADR-103 §6).
     await expect(
         page.locator('[data-publication-schedule-disclosure="true"] > summary')
-    ).toContainText(/9:00 AM/)
+    ).toContainText(/\d{1,2}:00 (AM|PM)/)
     await page.goBack()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/overview$/)
     await page.getByRole('link', { name: 'Channels', exact: true }).click()
@@ -1519,7 +1520,7 @@ test('persists mixed and media-only publications through the dashboard', async (
         formatDisplayTime(promotedSchedule)
     )
 
-    const mixedTarget = parseTargetContent(await page.getByLabel('Target JSON').inputValue())
+    const mixedTarget = await savedTargetContent(page)
     expect(mixedTarget.body).toBe(targetText)
     expect(mixedTarget.media).toHaveLength(1)
     const assetId = mixedTarget.media[0]?.assetId
@@ -1531,7 +1532,7 @@ test('persists mixed and media-only publications through the dashboard', async (
     await expect(page.locator('[data-target-field="commentary"] textarea')).toHaveValue(
         secondTargetText
     )
-    const secondMixedTarget = parseTargetContent(await page.getByLabel('Target JSON').inputValue())
+    const secondMixedTarget = await savedTargetContent(page)
     expect(secondMixedTarget.commentary).toBe(secondTargetText)
     expect(secondMixedTarget.media).toHaveLength(1)
     expect(secondMixedTarget.media[0]?.assetId).toBe(assetId)
@@ -1549,11 +1550,7 @@ test('persists mixed and media-only publications through the dashboard', async (
     ).toHaveCount(1)
     for (const theme of ['light', 'dark']) {
         const dark = (await page.locator('html').getAttribute('class'))?.split(' ').includes('dark')
-        if (dark !== (theme === 'dark')) {
-            await page
-                .getByRole('button', { name: `Switch to ${theme} theme`, exact: true })
-                .click()
-        }
+        if (dark !== (theme === 'dark')) await switchTheme(page, theme as 'light' | 'dark')
         await expect(page.locator('html')).toHaveClass(new RegExp(`\\b${theme}\\b`))
         for (const width of [1280, 390]) {
             await page.setViewportSize({ width, height: 900 })
@@ -1594,7 +1591,7 @@ test('persists mixed and media-only publications through the dashboard', async (
         page.locator('[data-publication-source="true"] [data-media-selection-preview="true"]')
     ).toHaveCount(1)
 
-    const mediaOnlyTarget = parseTargetContent(await page.getByLabel('Target JSON').inputValue())
+    const mediaOnlyTarget = await savedTargetContent(page)
     expect(mediaOnlyTarget.body).toBeUndefined()
     expect(mediaOnlyTarget.media).toHaveLength(1)
     expect(mediaOnlyTarget.media[0]?.assetId).toBe(assetId)
@@ -1822,4 +1819,17 @@ function formatDisplayTime(value: string) {
     const hour = Number(hourValue)
     const displayHour = hour % 12 || 12
     return `${displayHour}:${minute} ${hour >= 12 ? 'PM' : 'AM'}`
+}
+
+/** The saved channel version, read through the API: Studio itself shows no JSON. */
+async function savedTargetContent(page: Page) {
+    const [, projectId, publicationId] =
+        /\/dashboard\/projects\/([^/]+)\/publications\/([^/?]+)/.exec(
+            new URL(page.url()).pathname
+        ) ?? []
+    const response = await page.request.get(
+        `/api/projects/${projectId}/publications/${publicationId}/editor`
+    )
+    const { editor } = (await response.json()) as { editor: { draft: { content: unknown } } }
+    return parseTargetContent(JSON.stringify(editor.draft.content))
 }

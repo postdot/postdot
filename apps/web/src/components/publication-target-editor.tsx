@@ -1,8 +1,5 @@
 import { Alert, AlertDescription, AlertTitle } from '@postdot/ui/components/alert'
-import { Field, FieldLabel } from '@postdot/ui/components/field'
-import { Textarea } from '@postdot/ui/components/textarea'
-import { AltArrowDownIcon } from '@solar-icons/react/linear/alt-arrow-down'
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 
 import { MediaAttachmentPicker } from '@/components/media-attachment-picker'
 import { TargetFieldControl } from '@/components/publication-target-field-control'
@@ -28,9 +25,7 @@ interface PublicationTargetEditorProps {
     readonly configuredEditor?: boolean
     readonly profile: unknown
     readonly target: Record<string, unknown> | null
-    readonly rawText: string
     readonly onTargetChange: (target: Record<string, unknown>) => void
-    readonly onRawTextChange: (value: string) => void
     readonly disabled?: boolean
     readonly readOnly?: boolean
     readonly compact?: boolean
@@ -45,9 +40,7 @@ export function PublicationTargetEditor({
     configuredEditor = true,
     profile,
     target,
-    rawText,
     onTargetChange,
-    onRawTextChange,
     disabled = false,
     readOnly = false,
     compact = false,
@@ -60,12 +53,6 @@ export function PublicationTargetEditor({
             ),
         [profile, locale, target, omitPaths]
     )
-    const [advancedOpen, setAdvancedOpen] = useState(target === null)
-
-    useEffect(() => {
-        if (target === null) setAdvancedOpen(true)
-    }, [target])
-
     function updateField(field: TargetEditorField, value: unknown | undefined) {
         if (target === null) return
         onTargetChange(updateTargetField(target, field.path, value))
@@ -93,12 +80,6 @@ export function PublicationTargetEditor({
                     {target !== null && fields.length > 0 ? (
                         <ReadOnlyTargetFields fields={fields} target={target} />
                     ) : null}
-                    <details data-target-advanced="true" className="group mt-4">
-                        <AdvancedSummary />
-                        <pre className="mt-3 max-h-72 max-w-full overflow-auto rounded-md bg-surface-field p-3 font-mono text-xs leading-5">
-                            {rawText}
-                        </pre>
-                    </details>
                 </>
             ) : fields.length === 0 ? (
                 <p className="text-sm leading-6 text-muted-foreground">
@@ -157,33 +138,6 @@ export function PublicationTargetEditor({
                     )}
                 </div>
             )}
-
-            {!readOnly && !previewOnly ? (
-                <details
-                    data-target-advanced="true"
-                    open={advancedOpen}
-                    onToggle={event => setAdvancedOpen(event.currentTarget.open)}
-                    className={compact ? 'group mt-4' : 'group mt-6'}>
-                    <AdvancedSummary />
-                    <div className="mt-3 grid gap-3">
-                        <p className="text-xs leading-5 text-muted-foreground">
-                            {m.editor_target_advanced_escape()}
-                        </p>
-                        <Field className="min-w-0 gap-1.5">
-                            <FieldLabel htmlFor="target-json">{m.editor_target_json()}</FieldLabel>
-                            <Textarea
-                                id="target-json"
-                                value={rawText}
-                                onChange={event => onRawTextChange(event.target.value)}
-                                disabled={disabled}
-                                spellCheck={false}
-                                rows={10}
-                                className="min-h-44 min-w-0 max-w-full resize-y bg-surface-field px-3 py-2 font-mono text-xs leading-6 text-foreground placeholder:text-muted-foreground focus-visible:border-primary"
-                            />
-                        </Field>
-                    </div>
-                </details>
-            ) : null}
         </div>
     )
 }
@@ -208,19 +162,6 @@ export function ReadOnlyTargetFields({
                 </div>
             ))}
         </dl>
-    )
-}
-
-function AdvancedSummary() {
-    return (
-        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 text-sm font-medium text-foreground [&::-webkit-details-marker]:hidden">
-            {m.editor_target_advanced()}
-            <AltArrowDownIcon
-                aria-hidden="true"
-                size={16}
-                className="shrink-0 transition-transform duration-200 group-open:rotate-180 motion-reduce:transition-none"
-            />
-        </summary>
     )
 }
 

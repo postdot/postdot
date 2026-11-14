@@ -33,7 +33,7 @@ Studio uses the vocabulary of a person publishing content, never the vocabulary 
 | Could not confirm                                                           | ambiguous, uncertain outcome, reconciliation              |
 | characters                                                                  | graphemes, weighted characters                            |
 
-One concept has one word in each locale. Revision numbers, schema identifiers, hashes, JSON and execution internals stay out of the default interface; they belong to the API, the CLI and an explicit diagnostics disclosure.
+One concept has one word in each locale. Revision numbers, schema identifiers, hashes and execution internals stay out of Studio; they belong to the API, the CLI and MCP. Studio never shows or accepts JSON: Studio is a no-code interface for daily use, so any complexity is expressed through forms, choices and plain sentences, and a value the form cannot represent is shown as set by its content rules, not as raw data (owner decision, 2026-11-14).
 
 An error says what happened and what to do next. `The request could not be completed` and `… action failed` are not acceptable final messages.
 

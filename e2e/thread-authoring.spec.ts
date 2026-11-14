@@ -102,7 +102,7 @@ for (const profile of ['x', 'bluesky', 'mastodon']) {
                         .thread
             )
             .toEqual([{ text: 'The third message' }, { text: 'The second message' }])
-        await expect(page.getByText('Saved', { exact: true })).toBeVisible()
+        await expect(page.getByText(/^(Saved|Draft kept)$/)).toBeVisible()
         await page.reload()
         await expect(thread.getByLabel('Message 2', { exact: true })).toHaveValue(
             'The third message'

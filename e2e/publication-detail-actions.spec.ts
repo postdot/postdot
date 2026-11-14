@@ -4,6 +4,9 @@ import { expect, test, type Page } from '@playwright/test'
 
 import { frenchTranslation, openLanguageMenu, switchTheme } from './locale'
 
+// Seeded local copies are written in UTC; the project must share that time zone.
+test.use({ timezoneId: 'UTC' })
+
 test('keeps publication detail actions aligned with the scheduled lifecycle', async ({
     page,
 }, testInfo) => {
@@ -83,12 +86,8 @@ test('keeps publication detail actions aligned with the scheduled lifecycle', as
     await customization.locator(':scope > summary').focus()
     await page.keyboard.press('Enter')
     await expect(customization.locator('[data-target-editor]')).toBeVisible()
-    const advancedSummary = customization.locator('[data-target-advanced] > summary')
-    await advancedSummary.focus()
-    await page.keyboard.press('Enter')
-    await expect(customization.locator('#target-json')).toBeVisible()
-    await page.keyboard.press('Enter')
-    await expect(customization.locator('#target-json')).not.toBeVisible()
+    // Studio never exposes JSON: the channel version is edited through its fields only.
+    await expect(customization.locator('[data-target-advanced], #target-json')).toHaveCount(0)
     await customization.locator(':scope > summary').focus()
     await page.keyboard.press('Enter')
     await expect(customization.locator('[data-target-editor]')).not.toBeVisible()
@@ -211,9 +210,8 @@ test('keeps publication detail actions aligned with the scheduled lifecycle', as
     await expect(editorNotice).toContainText('Rebase it before saving or promoting.')
     await expect(editorNotice).not.toContainText('The latest server state is shown.')
     await editorNotice.getByRole('button').click()
-    await expect(
-        page.locator('details').filter({ has: conflict }).locator(':scope > summary')
-    ).toBeFocused()
+    // The conflict is shown in place, not folded away; its first action takes focus.
+    await expect(conflict.locator('button').first()).toBeFocused()
     await expect(conflict).toBeVisible()
     await expect(conflict).toHaveAttribute('role', 'alert')
     await expect(conflict.locator('button')).toHaveCount(2)
@@ -342,7 +340,7 @@ test('shows the active-profile refusal when promotion rejects a superseded draft
     await expect(action).toBeDisabled()
     const replacementBody = 'Active profile body two'
     await bodyField.fill(replacementBody)
-    await expect(page.getByRole('status', { name: 'Saved', exact: true })).toBeVisible()
+    await expect(page.getByRole('status', { name: /^(Saved|Draft kept)$/ })).toBeVisible()
     await expect(action).toBeEnabled()
     await action.click()
 

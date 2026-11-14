@@ -22,13 +22,11 @@ interface PublicationEditorTargetSectionProps {
     readonly reviewState: ReviewState
     readonly validationIssues: readonly Record<string, unknown>[]
     readonly target: Record<string, unknown> | null
-    readonly targetText: string
     readonly disabled: boolean
     readonly readOnly?: boolean
     readonly open?: boolean
     readonly onOpenChange?: (open: boolean) => void
     readonly onTargetChange: (target: Record<string, unknown>) => void
-    readonly onRawTextChange: (value: string) => void
     readonly targetError: string | null
     readonly issueCode: (issue: Record<string, unknown>) => string
     readonly issueMessage: (issue: Record<string, unknown>) => string
@@ -42,13 +40,11 @@ export function PublicationEditorTargetSection({
     reviewState,
     validationIssues,
     target,
-    targetText,
     disabled,
     readOnly = false,
     open,
     onOpenChange,
     onTargetChange,
-    onRawTextChange,
     targetError,
     issueCode,
     issueMessage,
@@ -139,9 +135,7 @@ export function PublicationEditorTargetSection({
                         configuredEditor={configuredEditor}
                         profile={profile}
                         target={target}
-                        rawText={targetText}
                         onTargetChange={onTargetChange}
-                        onRawTextChange={onRawTextChange}
                         disabled={disabled}
                         readOnly={readOnly}
                         compact

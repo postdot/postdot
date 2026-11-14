@@ -189,7 +189,7 @@ for (const [locale, copy, theme] of [
         await other.goto(path)
         await expect(other.locator('[data-new-publication-restored]')).toBeVisible()
         async function selectTag(tab: Page, name: string) {
-            await tab.getByRole('button', { name: copy.taxonomy_select_tags, exact: true }).click()
+            await tab.getByRole('button', { name: copy.taxonomy_add_tag, exact: true }).click()
             await tab.getByRole('menuitemcheckbox', { name, exact: true }).click()
             await tab.keyboard.press('Escape')
         }
