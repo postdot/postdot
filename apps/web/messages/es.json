@@ -2111,16 +2111,6 @@
     "queue_view_label": "Vista de cola",
     "queue_view_queue": "Por canal",
     "queue_view_posts": "Por publicación",
-    "queue_visible_destinations": [
-        {
-            "declarations": ["input count", "local countPlural = count: plural"],
-            "selectors": ["countPlural"],
-            "match": {
-                "countPlural=one": "{count} canal en estos resultados",
-                "countPlural=other": "{count} canales en estos resultados"
-            }
-        }
-    ],
     "search_open": "Buscar en Postdot",
     "search_placeholder": "Buscar…",
     "search_scope": "Ámbito de búsqueda",
@@ -2679,5 +2669,8 @@
     "publication_publish_undone": "De nuevo para publicar a mano.",
     "publication_undo_publish": "Al final no se publicó",
     "editor_draft_kept": "Borrador guardado",
-    "taxonomy_add_tag": "Añadir etiqueta"
+    "taxonomy_add_tag": "Añadir etiqueta",
+    "queue_published": "Publicadas",
+    "queue_no_published_title": "Aún no hay nada publicado",
+    "queue_no_published_description": "Lo publicado se queda aquí, de lo más reciente a lo más antiguo, para revisarlo o deshacerlo."
 }

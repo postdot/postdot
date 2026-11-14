@@ -14,6 +14,9 @@ test('wraps queue filters without introducing horizontal scrolling', async ({ pa
     const suffix = randomUUID().slice(0, 8)
     await createAccountAndProject(page, suffix)
     await page.goto(page.url().replace(/\/overview$/, '/queue'))
+    // Q5: an empty queue shows no tabs or filters.
+    await expect(page.getByRole('tablist')).toHaveCount(0)
+    await page.goto(`${page.url()}?filter=scheduled`)
     // ADR-103 §2: a sidebar destination has no return control.
     await expect(page.locator('main [data-page-header] a[aria-label^="Back to"]')).toHaveCount(0)
 
@@ -72,6 +75,7 @@ test('wraps queue filters without introducing horizontal scrolling', async ({ pa
 
     await page.getByRole('tab', { name: 'All (0)', exact: true }).click()
     await expect(page).toHaveURL(/\/queue$/)
+    await expect(page.getByRole('tablist')).toHaveCount(0)
 })
 
 async function createAccountAndProject(page: Page, suffix: string): Promise<void> {

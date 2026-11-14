@@ -2111,16 +2111,6 @@
     "queue_view_label": "Queue view",
     "queue_view_queue": "Per channel",
     "queue_view_posts": "Per post",
-    "queue_visible_destinations": [
-        {
-            "declarations": ["input count", "local countPlural = count: plural"],
-            "selectors": ["countPlural"],
-            "match": {
-                "countPlural=one": "{count} channel in these results",
-                "countPlural=other": "{count} channels in these results"
-            }
-        }
-    ],
     "search_open": "Search Postdot",
     "search_placeholder": "Search…",
     "search_scope": "Search scope",
@@ -2679,5 +2669,8 @@
     "publication_publish_undone": "Back to publish by hand.",
     "publication_undo_publish": "Not published after all",
     "editor_draft_kept": "Draft kept",
-    "taxonomy_add_tag": "Add tag"
+    "taxonomy_add_tag": "Add tag",
+    "queue_published": "Published",
+    "queue_no_published_title": "Nothing published yet",
+    "queue_no_published_description": "Published work stays here, newest first, so you can check or undo it."
 }

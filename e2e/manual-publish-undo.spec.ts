@@ -50,6 +50,15 @@ test('undoes a mistaken manual publication record from the queue and the publica
     await toastAction.click()
     await expect(page.getByRole('button', { name: 'Mark published', exact: true })).toBeVisible()
 
+    // The history tab lists published work, newest first, with undo for manual records.
+    await page.getByRole('button', { name: 'Mark published', exact: true }).click()
+    await page.getByRole('tab', { name: /^Published/ }).click()
+    await expect(page).toHaveURL(/filter=published/)
+    const historyUndo = page.locator('[data-publication-action="undo-publish"]')
+    await expect(historyUndo).toHaveText('Not published after all')
+    await historyUndo.click()
+    await expect(page.getByText('Nothing published yet', { exact: true })).toBeVisible()
+
     await page.goto(`/dashboard/projects/${project.id}/publications/${publicationId}`)
     await page.locator('[data-publication-action="record-published"]').click()
     const undo = page.locator('[data-publication-action="undo-publish"]')

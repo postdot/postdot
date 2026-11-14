@@ -85,7 +85,10 @@ export interface PublicationSummaryPageOptions {
     readonly to?: number | null
 }
 
-export type PublicationListState = Extract<Publication['state'], 'draft' | 'scheduled'>
+export type PublicationListState = Extract<
+    Publication['state'],
+    'draft' | 'scheduled' | 'published'
+>
 export type PublicationListSort =
     | 'queue'
     | 'updated_desc'
@@ -101,6 +104,7 @@ export interface PublicationSummaryCounts {
     readonly automatic: number
     readonly scheduled: number
     readonly draft: number
+    readonly published: number
 }
 
 export interface PublicationSummaryPage {
@@ -662,7 +666,8 @@ export function createPublicationReadStore(
                coalesce(sum(case when delivery_mode = 'manual' then 1 else 0 end), 0) as manual,
                coalesce(sum(case when delivery_mode = 'automatic' then 1 else 0 end), 0) as automatic,
                coalesce(sum(case when state = 'scheduled' then 1 else 0 end), 0) as scheduled,
-               coalesce(sum(case when state = 'draft' then 1 else 0 end), 0) as draft
+               coalesce(sum(case when state = 'draft' then 1 else 0 end), 0) as draft,
+               coalesce(sum(case when state = 'published' then 1 else 0 end), 0) as published
         from visible_publications
     `)
 

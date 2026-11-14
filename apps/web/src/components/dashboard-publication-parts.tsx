@@ -54,6 +54,7 @@ export function PublicationList({
     onDuplicateDraft,
     onPublish,
     onRetry,
+    onUndoPublish,
     onToggleAll,
     pending = false,
     onToggleSelection,
@@ -76,6 +77,7 @@ export function PublicationList({
     readonly publications: readonly PublicationSummary[]
     readonly duePublicationIds?: ReadonlySet<string>
     readonly onPublish?: (publicationId: string) => Promise<boolean>
+    readonly onUndoPublish?: (publicationId: string) => Promise<boolean>
     readonly onRetry?: (publicationId: string) => Promise<boolean>
     readonly onDeleteDraft?: (publication: PublicationSummary) => void
     readonly onDuplicateDraft?: (publicationId: string) => void
@@ -151,11 +153,6 @@ export function PublicationList({
                                     <h2 className="min-w-0 basis-full text-sm font-semibold sm:flex-1 sm:basis-auto">
                                         {publicationIdentityLabel(group.publications[0]!)}
                                     </h2>
-                                    <span className="text-xs text-muted-foreground">
-                                        {m.queue_visible_destinations({
-                                            count: group.publications.length,
-                                        })}
-                                    </span>
                                     <Link
                                         className="text-xs text-muted-foreground hover:text-foreground hover:underline"
                                         to="/dashboard/projects/$projectId/posts/$postId"
@@ -178,6 +175,7 @@ export function PublicationList({
                                         onDuplicateDraft={onDuplicateDraft}
                                         onPublish={onPublish}
                                         onRetry={onRetry}
+                                        onUndoPublish={onUndoPublish}
                                         onToggleSelection={
                                             selectionEnabled
                                                 ? () => onToggleSelection(publication)
@@ -253,6 +251,7 @@ function PublicationListItem({
     onDuplicateDraft,
     onPublish,
     onRetry,
+    onUndoPublish,
     onToggleSelection,
     pending,
     publication,
@@ -267,6 +266,7 @@ function PublicationListItem({
     readonly onDeleteDraft?: (publication: PublicationSummary) => void
     readonly onDuplicateDraft?: (publicationId: string) => void
     readonly onPublish?: (publicationId: string) => Promise<boolean>
+    readonly onUndoPublish?: (publicationId: string) => Promise<boolean>
     readonly onRetry?: (publicationId: string) => Promise<boolean>
     readonly onToggleSelection?: () => void
     readonly pending: boolean
@@ -285,6 +285,12 @@ function PublicationListItem({
         publication.deliveryMode === 'automatic' &&
         onRetry !== undefined
     const showReviewAction = publication.state === 'ambiguous'
+    // Q4: a mistaken manual record can be withdrawn from the history list.
+    const showUndoPublishAction =
+        publication.state === 'published' &&
+        publication.deliveryMode === 'manual' &&
+        !readOnly &&
+        onUndoPublish !== undefined
     const editable = !readOnly && canEditPublication(publication.state)
 
     return (
@@ -292,7 +298,7 @@ function PublicationListItem({
             data-publication-selection-card="true"
             data-publication-selection-active={selected || undefined}
             className={cn(
-                'min-w-0 rounded-md transition-[background-color,box-shadow] hover:bg-surface-field/55 lg:col-span-full lg:grid lg:grid-cols-subgrid lg:items-center lg:gap-x-2 lg:px-2 lg:py-3 sm:lg:px-3',
+                'min-w-0 rounded-md transition-[background-color,box-shadow] hover:bg-surface-field/55 lg:col-span-full lg:grid lg:grid-cols-subgrid lg:items-center lg:gap-x-2 lg:px-2 lg:py-1.5 sm:lg:px-3',
                 selected && 'bg-primary/[0.07]'
             )}>
             <div
@@ -356,6 +362,18 @@ function PublicationListItem({
                                     type="button">
                                     <CheckIcon aria-hidden="true" />
                                     {m.publication_record_published()}
+                                </Button>
+                            ) : showUndoPublishAction ? (
+                                <Button
+                                    className="text-muted-foreground hover:text-foreground"
+                                    data-publication-action="undo-publish"
+                                    disabled={pending}
+                                    onClick={() => void onUndoPublish(publication.id)}
+                                    size="sm"
+                                    type="button"
+                                    variant="ghost">
+                                    <RestartIcon aria-hidden="true" />
+                                    {m.publication_undo_publish()}
                                 </Button>
                             ) : showReviewAction ? (
                                 <Button
@@ -569,7 +587,8 @@ export function PublicationRow({
     return (
         <div
             className={cn(
-                'grid min-w-0 grid-cols-1 items-start gap-y-2 px-2 py-3 sm:px-3',
+                // Q2/Q6: one dense line on desktop, two at most on a phone with actions beside.
+                'grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 px-2 py-2 sm:px-3',
                 sharedColumns && 'lg:contents',
                 action && !sharedColumns
                     ? 'lg:grid-cols-[minmax(11rem,0.85fr)_minmax(0,1fr)_auto] lg:items-center lg:gap-7'
@@ -580,7 +599,7 @@ export function PublicationRow({
                 params={{ projectId: publication.projectId, publicationId: publication.id }}
                 data-publication-edit-link="true"
                 className={cn(
-                    'col-span-full row-start-1 group min-w-0',
+                    'col-start-1 row-start-1 group min-w-0',
                     sharedColumns && (selectionEnabled ? 'lg:col-start-2' : 'lg:col-start-1'),
                     sharedColumns
                         ? 'lg:col-span-2 lg:grid lg:grid-cols-subgrid lg:items-center lg:gap-7'
@@ -618,6 +637,11 @@ export function PublicationRow({
                         ) : (
                             <PublicationStatus state={publication.state} />
                         )}
+                        {!showCreationDate && publication.scheduledAt !== null ? (
+                            <span className="text-xs tabular-nums text-muted-foreground">
+                                {formatSchedule(publication.scheduledAt, timeZone, locale)}
+                            </span>
+                        ) : null}
                         {publication.draftReviewState === 'review_required' ? (
                             <span
                                 data-publication-review-required="true"
@@ -626,7 +650,7 @@ export function PublicationRow({
                             </span>
                         ) : null}
                     </div>
-                    {showCreationDate || publication.scheduledAt !== null ? (
+                    {showCreationDate ? (
                         <p
                             className={cn(
                                 'mt-1 text-xs leading-5 text-muted-foreground',
@@ -653,7 +677,7 @@ export function PublicationRow({
             {action ? (
                 <div
                     className={cn(
-                        'col-start-1 row-start-2 flex w-full min-w-0 items-center justify-end lg:col-start-3 lg:row-start-1 lg:w-auto',
+                        'col-start-2 row-start-1 flex min-w-0 items-center justify-end lg:col-start-3 lg:row-start-1 lg:w-auto',
                         sharedColumns && selectionEnabled && 'lg:col-start-4'
                     )}>
                     {action}

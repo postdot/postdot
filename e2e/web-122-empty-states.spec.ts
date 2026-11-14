@@ -32,7 +32,9 @@ test('keeps the empty project overview focused while Queue remains usable', asyn
         page.locator('main a[href*="/publications/new"]').filter({ hasText: 'New post' })
     ).toHaveCount(0)
 
-    await page.getByRole('tab', { name: 'Needs attention (0)', exact: true }).click()
+    // Q5: no tabs on an empty queue; a direct link to a filter still explains itself.
+    await expect(page.getByRole('tablist')).toHaveCount(0)
+    await page.goto(`${page.url()}?filter=attention`)
     await expect(page.getByText('Nothing needs attention', { exact: true })).toBeVisible()
     await expect(page.locator('[data-publication-empty-illustration="true"]')).toHaveCount(1)
     await expect(page.getByRole('button', { name: 'Show all', exact: true })).toBeVisible()

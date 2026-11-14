@@ -595,6 +595,7 @@ export const publicationSummaryPageSchema = Type.Object({
         automatic: Type.Integer({ minimum: 0 }),
         scheduled: Type.Integer({ minimum: 0 }),
         draft: Type.Integer({ minimum: 0 }),
+        published: Type.Integer({ minimum: 0 }),
     }),
 })
 
@@ -716,7 +717,9 @@ export const publicationListQuery = Type.Object({
     ),
     cursor: Type.Optional(Type.String({ minLength: 1, maxLength: 1_024 })),
     limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100 })),
-    state: Type.Optional(Type.Union([Type.Literal('draft'), Type.Literal('scheduled')])),
+    state: Type.Optional(
+        Type.Union([Type.Literal('draft'), Type.Literal('scheduled'), Type.Literal('published')])
+    ),
     sort: Type.Optional(
         Type.Union([
             Type.Literal('queue'),

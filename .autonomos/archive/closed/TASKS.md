@@ -639,3 +639,4 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] **[UX-656]** Calendar: channel identity, grouping by post, stable grid, linear axis, anchored preview (audit C1–C12) `Priority: 🔴` `Complexity: L` `Completed: 2026-11-14`
 - [x] **[UX-657]** Composer: labelled channels, explicit editing scope, honest preview, safe schedule (audit P1–P14) `Priority: 🔴` `Complexity: L` `Completed: 2026-11-14`
 - [x] **[UX-658]** Queue: grouped default, dense rows, history, undo (audit Q1–Q6) `Priority: 🟠` `Complexity: M` `Completed: 2026-11-14`
+- [x] **[UX-662]** Queue: Published history tab, hide filters when empty, two-line mobile rows (audit Q4–Q6; undo of Mark published done in Studio, API, MCP, CLI) `Priority: 🟠` `Complexity: M` `Completed: 2026-11-14`

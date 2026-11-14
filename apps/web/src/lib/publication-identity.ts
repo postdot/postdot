@@ -7,7 +7,7 @@ export function publicationIdentityLabel(
     const title = publication.postTitle?.trim()
     if (title) return title
     const excerpt = publication.sourceExcerpt?.trim()
-    if (excerpt) return excerpt
+    if (excerpt) return shortExcerpt(excerpt, 90)
     if (publication.mediaCount > 0) {
         return m.publication_media_count({ count: publication.mediaCount })
     }
@@ -23,6 +23,7 @@ export function shortExcerpt(text: string, maxLength = 60) {
         .replace(/https?:\/\/\S+/g, '')
         .replace(/\s+/g, ' ')
         .trim()
+        .replace(/[\s:,;–—-]+$/, '')
     if (clean.length <= maxLength) return clean
     const cut = clean.slice(0, maxLength)
     const boundary = cut.lastIndexOf(' ')

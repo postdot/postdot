@@ -392,14 +392,13 @@ test('reviews mixed operational work across responsive locale and theme combinat
                     const back = element.querySelector('a')!.getBoundingClientRect()
                     const bounds = element.getBoundingClientRect()
                     return {
-                        center: Math.abs(
-                            (title.left + title.right - bounds.left - bounds.right) / 2
-                        ),
+                        leftDelta: Math.abs(title.left - bounds.left),
                         titleBelow: title.top >= back.bottom,
                     }
                 })
-            expect(header.center).toBeLessThanOrEqual(1)
-            if (variant.width < 1024) expect(header.titleBelow).toBe(true)
+            // ADR-103 §2: the object page names its parent above a left-aligned title.
+            expect(header.leftDelta).toBeLessThanOrEqual(1)
+            expect(header.titleBelow).toBe(true)
             await assertNoOverflow(page)
             expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([])
             await page.screenshot({

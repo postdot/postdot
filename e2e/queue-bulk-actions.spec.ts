@@ -143,7 +143,6 @@ test('reschedules and cancels selected publications from Queue', async ({ page }
     await expect(page).not.toHaveURL(/view=/)
     const groups = page.locator('[data-queue-post-group]')
     await expect(groups).toHaveCount(2)
-    await expect(groups.first()).toContainText('2 channels in these results')
     await expect(groups.first().locator('[data-publication-selection-toggle="true"]')).toHaveCount(
         2
     )
@@ -162,7 +161,6 @@ test('reschedules and cancels selected publications from Queue', async ({ page }
     await expect(groups).toHaveCount(2)
     await page.getByRole('tab', { name: /^Drafts/ }).click()
     await expect(groups).toHaveCount(1)
-    await expect(groups.first()).toContainText('1 channel in these results')
     await expect(selectionToggles).toHaveCount(1)
     await page.getByRole('tab', { name: /^All / }).click()
     await expect(groups).toHaveCount(2)

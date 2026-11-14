@@ -2111,16 +2111,6 @@
     "queue_view_label": "Warteschlangenansicht",
     "queue_view_queue": "Pro Kanal",
     "queue_view_posts": "Pro Beitrag",
-    "queue_visible_destinations": [
-        {
-            "declarations": ["input count", "local countPlural = count: plural"],
-            "selectors": ["countPlural"],
-            "match": {
-                "countPlural=one": "{count} Kanal in diesen Ergebnissen",
-                "countPlural=other": "{count} Kanäle in diesen Ergebnissen"
-            }
-        }
-    ],
     "search_open": "Postdot durchsuchen",
     "search_placeholder": "Suchen…",
     "search_scope": "Suchbereich",
@@ -2679,5 +2669,8 @@
     "publication_publish_undone": "Wieder von Hand zu veröffentlichen.",
     "publication_undo_publish": "Doch nicht veröffentlicht",
     "editor_draft_kept": "Entwurf gesichert",
-    "taxonomy_add_tag": "Tag hinzufügen"
+    "taxonomy_add_tag": "Tag hinzufügen",
+    "queue_published": "Veröffentlicht",
+    "queue_no_published_title": "Noch nichts veröffentlicht",
+    "queue_no_published_description": "Veröffentlichtes bleibt hier, das Neueste zuerst, zum Prüfen oder Rückgängigmachen."
 }

@@ -1643,7 +1643,14 @@ describe('Postdot API', () => {
                     }),
                 ],
                 nextCursor: null,
-                summary: { total: 1, manual: 1, automatic: 0, scheduled: 0, draft: 1 },
+                summary: {
+                    total: 1,
+                    manual: 1,
+                    automatic: 0,
+                    scheduled: 0,
+                    draft: 1,
+                    published: 0,
+                },
             })
 
             const repeatedFilterResponse = await jsonRequest(
@@ -1696,7 +1703,14 @@ describe('Postdot API', () => {
             expect(await foreignFilterResponse.json()).toEqual({
                 publications: [],
                 nextCursor: null,
-                summary: { total: 0, manual: 0, automatic: 0, scheduled: 0, draft: 0 },
+                summary: {
+                    total: 0,
+                    manual: 0,
+                    automatic: 0,
+                    scheduled: 0,
+                    draft: 0,
+                    published: 0,
+                },
             })
 
             const firstTagsResponse = await jsonRequest(

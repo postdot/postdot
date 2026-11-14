@@ -50,13 +50,22 @@ export function registerPublicationCommands(program: Command) {
 
     scoped('list', 'List one publication page with its continuation cursor.')
         .option('--cursor <cursor>', 'Next-page cursor')
+        .addOption(
+            new Option('--state <state>', 'Only drafts, scheduled or published work').choices([
+                'draft',
+                'scheduled',
+                'published',
+            ])
+        )
         .action(async (_options, command: Command) => {
-            const options = command.optsWithGlobals<Options & { cursor?: string }>()
+            const options = command.optsWithGlobals<
+                Options & { cursor?: string; state?: 'draft' | 'scheduled' | 'published' }
+            >()
             const { client, projectId } = projectConnection(options)
             const body = await result(
-                client.api
-                    .projects({ projectId })
-                    .publications.get({ query: { limit: 100, cursor: options.cursor } })
+                client.api.projects({ projectId }).publications.get({
+                    query: { limit: 100, cursor: options.cursor, state: options.state },
+                })
             )
             output(body, JSON.stringify(body, null, 2), options)
         })

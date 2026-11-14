@@ -398,6 +398,15 @@ describe('manual workflow store', () => {
                 await store.listDueManualPublications(createdProject.project.id, 'user-1', now)
             ).toEqual([])
 
+            // Published work is listed on its own for the history view.
+            const history = await store.listPublicationSummaryPage(
+                createdProject.project.id,
+                'user-1',
+                { state: 'published' }
+            )
+            expect(history?.publications.map(item => item.id)).toEqual([published?.id ?? ''])
+            expect(history?.summary.published).toBe(1)
+
             // A mistaken "mark published" can be undone; the work is due by hand again.
             const undone = await store.undoManualPublication({
                 projectId: createdProject.project.id,
@@ -554,7 +563,7 @@ describe('manual workflow store', () => {
                         filter: { tagIds: [beta?.id ?? '', alpha?.id ?? ''] },
                     })
                 )?.summary
-            ).toEqual({ total: 1, manual: 1, automatic: 0, scheduled: 0, draft: 1 })
+            ).toEqual({ total: 1, manual: 1, automatic: 0, scheduled: 0, draft: 1, published: 0 })
             expect(
                 await store.listPublicationSummaries(project.project.id, 'user-1', {
                     tagIds: [foreignTag?.id ?? ''],
@@ -566,7 +575,7 @@ describe('manual workflow store', () => {
                         filter: { tagIds: [foreignTag?.id ?? ''] },
                     })
                 )?.summary
-            ).toEqual({ total: 0, manual: 0, automatic: 0, scheduled: 0, draft: 0 })
+            ).toEqual({ total: 0, manual: 0, automatic: 0, scheduled: 0, draft: 0, published: 0 })
         } finally {
             await closeTestDatabase(database)
         }
@@ -629,6 +638,7 @@ describe('manual workflow store', () => {
                 automatic: 1,
                 scheduled: 100,
                 draft: 1,
+                published: 0,
             })
 
             const secondPage = await store.listPublicationSummaryPage(
@@ -663,6 +673,7 @@ describe('manual workflow store', () => {
                 automatic: 0,
                 scheduled: 1,
                 draft: 0,
+                published: 0,
             })
 
             const drafts = await store.listPublicationSummaryPage(project.project.id, 'user-1', {

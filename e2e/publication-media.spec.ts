@@ -1433,7 +1433,8 @@ test('persists mixed and media-only publications through the dashboard', async (
             .getByText(editedCalendarSource, { exact: true })
     ).toBeVisible()
     await page.getByRole('button', { name: 'Close', exact: true }).click()
-    await page.getByRole('link', { name: 'Queue', exact: true }).click()
+    // This journey compares channel rows, so it reads the queue per channel.
+    await page.goto(page.url().replace(/\/overview(?:\?.*)?$/, '/queue?view=channels'))
     await expect(
         page.locator(
             `a[data-publication-edit-link="true"][href$="/publications/${mixedPublicationId}"]`
@@ -1441,8 +1442,9 @@ test('persists mixed and media-only publications through the dashboard', async (
     ).toBeVisible()
 
     await mixedPublications.filter({ hasText: channelName }).first().click()
-    await expect(page.getByRole('heading', { name: sourceText, level: 1 })).toBeVisible()
-    await expect(page.locator('#source-body')).toHaveText(sourceText)
+    // The edit made from the calendar is kept as this channel's draft (ADR-103 §6).
+    await expect(page.getByRole('heading', { name: editedCalendarSource, level: 1 })).toBeVisible()
+    await expect(page.locator('#source-body')).toHaveText(editedCalendarSource)
     await expect(page.locator('[data-target-field="body"] textarea')).toHaveValue(targetText)
     const publicationChannelRail = page.locator('[data-publication-channel-selection="true"]')
     await expect(publicationChannelRail).toBeVisible()
