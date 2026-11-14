@@ -1,6 +1,6 @@
 # SPEC-010 — Web experience standard
 
-- Status: accepted (2026-10-28, including the destination-colour revision after owner review)
+- Status: accepted (2026-10-28, including the destination-colour revision after owner review; revised 2026-11-14 by ADR-103)
 - Scope: authenticated web application journeys, navigation hierarchy, scope transitions, page width classes, wayfinding and cross-route coherence
 - Provenance: owner review after alpha.3 and owner decisions (2026-10-28), recorded below; COMM-016 review by the communications agent; baseline audit in [UX-389 worklog](../archive/worklogs-format-1/2026-10-28-UX-389.md)
 - Related issue: ISSUE-192
@@ -52,7 +52,7 @@ The owner's product values decide trade-offs the rules do not: **intuitiveness**
 - **NAV-01 — Choosing a destination does not drop the selected project unless the destination cannot use one.** Navigating from a project to a destination of another scope retains the project selector's value when that destination can show it, and states plainly when it cannot. Verification: measure (selector text before and after).
 - **NAV-02 — A destination inside the navigation group the person was using does not replace the navigation.** Entering an item that the sidebar presents beside the current items keeps the same sidebar. A shell change is announced by the destination name and a return that names where it leads. Verification: measure (shell before and after) and review.
 - **NAV-03 — Selected scope survives reload and direct links.** Reloading, or opening a link that omits optional context, restores the last selected workspace and project, or shows the scope it fell back to as the selected value. Verification: measure.
-- **NAV-04 — The return control names its destination and exists once.** A return leads to the previous place the person visited or the declared parent, never to a differently named area with a similar word. The returns placed beside page titles by UX-253 stay. Verification: measure and registry.
+- **NAV-04 — A return control exists only on object pages, once, and names its parent.** A sidebar destination has no return control: the sidebar already shows where the person is. A post or publication page has one return above its title that names the declared parent. Revised 2026-11-14 (ADR-103 §2); the returns added beside top-level titles by UX-253 are withdrawn. Verification: measure and registry.
 - **NAV-05 — A navigation item and the page it opens share their name.** The sidebar label, the page title and the search entry for one destination use one noun. Verification: measure.
 - **NAV-06 — A navigation item is not repeated as a card inside a page already framed by that navigation.** Verification: review.
 - **NAV-07 — Items of one scope live in one place.** If the sidebar lists a scope's destinations in the product shell, its other destinations of that scope do not live only in a second shell without a visible link between them. Verification: registry.
@@ -77,6 +77,16 @@ The owner's product values decide trade-offs the rules do not: **intuitiveness**
 - **COH-02 — A consequence is stated before the action that causes it.** Destructive or withdrawing actions state what happens to dependent work before confirmation (`DESIGN.md`, feedback rules, apply here to every scope).
 - **COH-03 — A choice that has a lasting effect explains itself where it is made.** A decision whose consequence is stated only elsewhere (for example the managing project of a channel) carries one short sentence at the point of choice. Verification: review.
 - **COH-04 — Time shows its zone where it is chosen.** A date or time control shows the zone it will be interpreted in. Verification: measure.
+
+### Vocabulary, anatomy and identity (added 2026-11-14, ADR-103)
+
+- **VOC-01 — Studio shows the user vocabulary of ADR-103 §1.** No rendered string contains a term from its `Never show` column outside an explicit diagnostics disclosure. Verification: measure (catalog scan in both locales).
+- **VOC-02 — An error names what happened and the next step.** A generic failure sentence is not a final message. Verification: review.
+- **ANA-01 — One page header.** Title left-aligned, equal to the navigation label, action on the same row. Verification: measure.
+- **ANA-02 — Shared states.** Empty states, dialogs, status marks and buttons come from the shared primitives; dialogs dim without blur. Verification: review.
+- **IDN-01 — A listed or drawn publication shows its channel mark.** A post is shown once with its channels unless the view is explicitly per channel. Verification: review.
+- **FGV-01 — Forgiving actions.** A one-click state change in a list offers undo; a default schedule is never in the past; restored work does not block on a question. Verification: review.
+- **FMT-01 — One time format per locale and a linear time axis.** Verification: measure.
 
 ## Acceptance for this specification
 

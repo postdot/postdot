@@ -15,6 +15,9 @@ meaning without an owner checkpoint.
 
 ## Before changing a surface
 
+Read `.autonomos/decisions/ADR-103-studio-experience-principles.md` first; it
+outranks the rules below wherever they differ.
+
 Read the root `DESIGN.md`, the target scope's `AGENT.md`, and the relevant
 accepted route or domain contract. Identify the surface's one operator job,
 the object being acted on, and the next meaningful action. Inspect the actual
@@ -58,15 +61,12 @@ hit areas and outcomes.
 - A calendar add control creates a publication for that date. The containing
   day cell must not silently perform the same create action when the add
   control is present.
-- Clicking a day background is an inspection action: expand the selected cell
-  and its week row to reveal the day's scheduled publications in the calendar
-  itself, or switch to an explicit day/agenda view. Do not open a separate
-  drawer just to repeat the current calendar context, and do not make the day
-  an accidental alias for creation.
-- Overflow is a density mechanism, not a second navigation maze. The first
-  interaction with “+N” should reveal the complete date context; avoid making
-  the operator open a list and then another redundant wrapper before they can
-  inspect a publication.
+- Clicking a day background is an inspection action: open a popover anchored
+  to that day listing its publications. The calendar grid never changes size
+  (ADR-103, replacing the earlier in-cell expansion). Do not make the day an
+  accidental alias for creation.
+- Overflow is a density mechanism, not a second navigation maze. “+N” opens
+  the same anchored day popover; a publication is one click from there.
 - A path to the full page is useful only when it is explicit and singular;
   label it with the object/action rather than a generic close or continue
   control.

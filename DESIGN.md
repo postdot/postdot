@@ -4,12 +4,39 @@ Status: accepted
 Scope: product-wide visual direction for the authenticated app and future
 public/documentation surfaces
 Owner: project owner
-Last accepted: 2026-10-13
+Last accepted: 2026-11-14 (experience principles); 2026-10-13 (visual foundations)
 
 This contract records the direction accepted after the H-06, H-08, H-09, and
 H-10 disposable calibration studies. It is a product direction, not a promise
 that every surface uses the same composition. Unresolved product decisions and
 future landing-page decisions remain explicit below.
+
+## Experience principles (2026-11-14)
+
+[ADR-103](.autonomos/decisions/ADR-103-studio-experience-principles.md) outranks
+every composition, vocabulary and interaction rule below. It followed a rendered
+audit (`.autonomos/reviews/2026-11-14-studio-experience-audit.md`) that the owner
+accepted in full. Read it before changing any surface. In short:
+
+- Speak the user's language: Post, Channel, Channel version, Content rules,
+  Draft / Scheduled / Published / Failed / Needs attention. Never show target,
+  payload, contract, profile, promotion, revision, schema or JSON by default.
+- One page anatomy: left-aligned title with its action on the same row; no
+  return control on a sidebar destination; title equals navigation label; one
+  empty state, one dialog, one status component, one button scale; dialogs dim
+  and never blur.
+- Channel identity (mark, then name) wherever a publication appears; a post is
+  shown once with its channels.
+- One sidebar; settings reachable from visible entries; destructive actions in
+  a danger zone on the object's settings page.
+- Weight follows frequency; destructive is never the most prominent control.
+- Forgiving actions: undo after one-click changes, silent restore, safe defaults.
+- One time format per locale; linear time axes.
+- Previews show the channel's identity and never invent people or engagement.
+
+The visual foundations below (palette, type, geometry, surface roles) stand.
+Where a later paragraph of this file disagrees with ADR-103, ADR-103 wins and
+the paragraph is to be corrected, not followed.
 
 ## Current visual foundations (2026-10-13)
 
@@ -102,10 +129,9 @@ below. It changes styling of existing surfaces, not page layouts or workflows.
   review. Operational sections default to one clear title with compact
   metadata or an action; an overline, icon, and explanatory paragraph are
   optional content, not a heading formula.
-  When a project page has a return control, place it at the left and center
-  the page title independently of the optional action at the right. At narrow
-  widths, keep the return and action controls on one row and give the centered
-  title its own row so controls cannot compress it.
+  The page title is left-aligned with its action at the right of the same
+  row. Sidebar destinations have no return control; an object page (post,
+  publication) has one above its title that names the parent (ADR-103 §2).
 - Configuration composition: use the compact centered content column established
   by General and Account for personal and installation settings. Keep the shared
   page heading independent of that body width. A wider body needs a concrete
@@ -148,11 +174,12 @@ below. It changes styling of existing surfaces, not page layouts or workflows.
   date grid. On narrow screens, replace the compressed seven-column grid with
   an agenda grouped by day. Manual and automatic destinations share the same
   calendar, while delivery state and due-human work remain visible as state.
-  In the experimental interaction model, an event opens an in-context
-  publication preview, the day add control is the create entry point, and a
-  day background or overflow affordance expands the selected cell and its week
-  row to reveal the complete date context in the calendar itself rather than
-  silently creating, opening a drawer, or nesting another inspection step.
+  An event opens an anchored preview (channel, time, state, excerpt and the
+  next actions), the day add control is the create entry point, and overflow
+  opens a popover anchored to the day listing every publication. The grid
+  itself never changes size: rows keep a stable height that fills the viewport
+  (ADR-103 §2, §7). Events carry their channel mark and time; a post going to
+  several channels at once is drawn once with its channel marks (ADR-103 §3).
   Month and agenda are distinct reading
   modes: month scans distribution, while agenda reads ordered work. The exact
   responsive transition remains provisional until it is reviewed with dense
@@ -185,10 +212,10 @@ below. It changes styling of existing surfaces, not page layouts or workflows.
   and scheduled creation open the shared post page, with every created destination
   reachable through its own publication link. Refused creation stays in Compose
   with the working content preserved.
-  When an interrupted composition blocks new editing pending a recovery choice,
-  present a modal decision with a draft excerpt and explicit restore/discard
-  actions. The background stays inert; dismissal must not silently choose an
-  outcome. Recovery errors remain visible inside that decision surface.
+  An interrupted composition is restored silently when the composer reopens,
+  with a visible `Start over` action; a blocking question is reserved for a
+  genuine conflict between two versions (ADR-103 §6). Recovery errors remain
+  visible beside the editor.
 - Publication detail candidate (UX-250, pending owner review): editing and
   inspection should have different first frames. An editable publication keeps
   source controls beside the destination preview; a locked publication leads

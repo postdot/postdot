@@ -1,7 +1,8 @@
 # AGENT: apps/web/src/routes
 
 - **Configuration context:** Personal settings and installation administration retain the current page when the workspace selector changes; record the workspace in search parameters and clear the previous project with `projectId=none`. Header context does not grant permissions or turn person-owned settings into workspace-owned state. Keep operational project selection consistent with the established project-navigation contract.
-- **Settings return controls:** When a settings page gains its own AccessPageHeader return, update DashboardShell hasPageBack for that destination. The shell must not render a second return beside the workspace/project selectors. Keep the navigation continuity test asserting one unambiguous return.
+- **Page header (ADR-103 §2):** every route renders the shared `PageHeader`: left-aligned title equal to its navigation label, action on the same row. Sidebar destinations pass no return; only object pages (post, publication) pass one, naming the parent. The shell never adds a second return.
+- **Vocabulary (ADR-103 §1):** new or edited strings use the user glossary in both catalogs; storage terms (target, payload, profile, contract, promotion, revision, schema) stay out of rendered text.
 - **Status presentation:** Do not prepend decorative dots to status labels or
   channel names. Preserve readable state text; calendars may use a thin color rule
   to retain event categorization. Unread indicators and timeline markers have

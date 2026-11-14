@@ -1,6 +1,7 @@
 # ADR-073 — Use In-Cell Calendar Actions and a Sticky Time Gutter
 
 - Status: accepted
+- Partly superseded by: [ADR-103](ADR-103-studio-experience-principles.md) (2026-11-14) — the calendar grid no longer expands a cell in place; overflow and day inspection use an anchored popover. The sticky time gutter stands.
 - Scope: ReUI Week/Day time grid and its local reading toolbar
 - Provenance: ISSUE-096, owner feedback on 2026-09-13
 - Supersedes: ADR-072 for the geometry and placement of the Week/Day create action; ADR-071 item 2 for the visible shortcut set
