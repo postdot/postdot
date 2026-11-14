@@ -194,6 +194,26 @@ export const env = {
             defaultValue: options.defaultValue,
         }
     },
+
+    optionalEnum<const Values extends readonly [string, ...string[]]>(
+        values: Values
+    ): EnvironmentVariable<Values[number] | undefined> {
+        const pattern = `^(?:${values.map(value => escapeRegExp(value)).join('|')})$`
+
+        return {
+            schema: Type.Union([Type.String({ pattern }), Type.Undefined()]),
+            optional: true,
+            parse: (rawValue, variableName) => {
+                const value = rawValue.trim()
+                if (value.length === 0) return undefined
+                if (!values.includes(value as Values[number])) {
+                    throw new Error(`${variableName} must be one of: ${values.join(', ')}`)
+                }
+
+                return value as Values[number]
+            },
+        }
+    },
 }
 
 /**

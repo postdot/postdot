@@ -90,6 +90,9 @@ describe('Postdot configuration', () => {
                 level: 'debug',
                 pretty: false,
             },
+            bootstrap: {
+                mode: 'open',
+            },
         })
     })
 
@@ -531,6 +534,76 @@ describe('Postdot configuration', () => {
                 POSTDOT_PUBLISHER_ENCRYPTION_KEY: 'not-a-hex-key',
             })
         ).toThrow('POSTDOT_PUBLISHER_ENCRYPTION_KEY')
+    })
+
+    it('defaults bootstrap mode to open outside production and token_required in production', () => {
+        const base = {
+            BETTER_AUTH_SECRET: secret,
+            POSTDOT_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
+            POSTDOT_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
+        }
+
+        expect(createPostdotConfig(base).bootstrap).toEqual({ mode: 'open' })
+        expect(createPostdotConfig({ ...base, NODE_ENV: 'production' }).bootstrap).toEqual({
+            mode: 'token_required',
+        })
+        expect(
+            createPostdotConfig({
+                ...base,
+                NODE_ENV: 'production',
+                POSTDOT_BOOTSTRAP_MODE: 'open',
+            }).bootstrap
+        ).toEqual({ mode: 'open' })
+        expect(
+            createPostdotConfig({
+                ...base,
+                POSTDOT_BOOTSTRAP_TOKEN: 'setup-token-with-enough-length',
+            }).bootstrap
+        ).toEqual({
+            mode: 'token_required',
+            token: 'setup-token-with-enough-length',
+        })
+        expect(
+            createPostdotConfig({
+                ...base,
+                POSTDOT_BOOTSTRAP_TOKEN_HASH: `SHA256:${'ab'.repeat(32)}`,
+            }).bootstrap
+        ).toEqual({
+            mode: 'token_required',
+            tokenHash: 'ab'.repeat(32),
+        })
+    })
+
+    it('rejects conflicting bootstrap token sources and open mode with a token', () => {
+        const base = {
+            BETTER_AUTH_SECRET: secret,
+            POSTDOT_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
+            POSTDOT_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
+        }
+
+        expect(() =>
+            createPostdotConfig({
+                ...base,
+                POSTDOT_BOOTSTRAP_TOKEN: 'setup-token-with-enough-length',
+                POSTDOT_BOOTSTRAP_TOKEN_FILE: '/run/secrets/bootstrap-token',
+            })
+        ).toThrow('Specify at most one')
+
+        expect(() =>
+            createPostdotConfig({
+                ...base,
+                POSTDOT_BOOTSTRAP_MODE: 'open',
+                POSTDOT_BOOTSTRAP_TOKEN: 'setup-token-with-enough-length',
+            })
+        ).toThrow('POSTDOT_BOOTSTRAP_MODE=open cannot be combined')
+
+        expect(() =>
+            createPostdotConfig({
+                ...base,
+                POSTDOT_BOOTSTRAP_TOKEN_HASH:
+                    'not-a-valid-sha256-digest-at-all-not-even-64-hex-characters-long',
+            })
+        ).toThrow('POSTDOT_BOOTSTRAP_TOKEN_HASH')
     })
 })
 

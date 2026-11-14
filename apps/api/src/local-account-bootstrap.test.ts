@@ -1,19 +1,23 @@
 import { describe, expect, it } from 'bun:test'
 import { existsSync } from 'node:fs'
-import { mkdtemp, rm, writeFile, symlink } from 'node:fs/promises'
+import { lstat, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { createAuth } from '@postdot/auth'
+import { createAuth, postdotUserApiKeyConfigId } from '@postdot/auth'
 import {
     acquireRuntimeQuiescenceLock,
     closeDatabase,
+    closePostgresDatabase,
     createAccessStore,
     createDatabase,
+    createPostgresDatabase,
     runMigrations,
 } from '@postdot/db'
 
 import { runLocalAccountBootstrap } from './local-account-bootstrap'
+
+const postgresTestUrl = process.env.POSTDOT_TEST_POSTGRES_URL
 
 const credentials = {
     name: 'Administrator',
@@ -136,4 +140,144 @@ describe('offline administrator bootstrap', () => {
             expect(existsSync(database)).toBe(false)
         })
     })
+    it('issues an unrestricted API key to a private 0600 file or inline JSON without leaving sessions', async () => {
+        await fixture(async (directory, filename, _input, args) => {
+            const keyOutput = join(directory, 'admin.pat')
+            const result = await runLocalAccountBootstrap([
+                ...args,
+                '--issue-api-key',
+                '--api-key-name',
+                'ci-deployer',
+                '--api-key-output',
+                keyOutput,
+                '--json',
+            ])
+            expect(result.user.role).toBe('admin')
+            expect(result.user.email).toBe(credentials.email)
+            expect(result.instanceState).toBe('claimed')
+            expect(result.apiKey?.name).toBe('ci-deployer')
+            expect(result.apiKey?.projectAccess).toBe('all')
+            expect(result.apiKey?.actionAccess).toBe('all')
+            expect(result.apiKey?.outputFile).toBe(keyOutput)
+            expect(result.apiKey?.token).toBeUndefined()
+
+            const fileStat = await lstat(keyOutput)
+            expect(fileStat.isFile()).toBe(true)
+            expect(fileStat.mode & 0o777).toBe(0o600)
+            const token = await readFile(keyOutput, 'utf8')
+            expect(token.startsWith('postdot_pat_')).toBe(true)
+
+            const database = createDatabase(filename)
+            try {
+                expect(
+                    await database.sql.statement('select count(*) as count from session').get()
+                ).toEqual({ count: 0 })
+                const access = createAccessStore(database)
+                const auth = createAuth(database, {
+                    baseURL: 'http://localhost:3000',
+                    secret: 'test-secret-at-least-thirty-two-characters',
+                    access,
+                    logger: { disabled: true },
+                })
+                const verified = await auth.api.verifyApiKey({
+                    body: { configId: postdotUserApiKeyConfigId, key: token },
+                })
+                expect(verified.valid).toBe(true)
+                expect(verified.key?.referenceId).toBe(result.user.id)
+            } finally {
+                closeDatabase(database)
+            }
+        })
+
+        await fixture(async (_directory, _filename, _input, args) => {
+            const result = await runLocalAccountBootstrap([...args, '--issue-api-key', '--json'])
+            expect(result.apiKey?.token?.startsWith('postdot_pat_')).toBe(true)
+            expect(result.apiKey?.outputFile).toBeUndefined()
+        })
+    })
+    it('rejects conflicting database targets, existing key output paths, and invalid options before changing state', async () => {
+        await fixture(async (directory, database, input, args) => {
+            const existingFile = join(directory, 'existing.pat')
+            await writeFile(existingFile, 'occupied', { mode: 0o600 })
+            await expect(
+                runLocalAccountBootstrap([
+                    ...args,
+                    '--issue-api-key',
+                    '--api-key-output',
+                    existingFile,
+                ])
+            ).rejects.toThrow('already exists')
+            expect(existsSync(database)).toBe(false)
+
+            await expect(
+                runLocalAccountBootstrap([
+                    ...args,
+                    '--database-url',
+                    'postgres://localhost/postdot',
+                ])
+            ).rejects.toThrow('either --database or --database-url')
+
+            await expect(
+                runLocalAccountBootstrap([
+                    'account',
+                    'bootstrap',
+                    '--database-url',
+                    'mysql://localhost/postdot',
+                    '--input',
+                    input,
+                ])
+            ).rejects.toThrow('postgres:// or postgresql://')
+
+            await expect(
+                runLocalAccountBootstrap([...args, '--api-key-name', 'orphan'])
+            ).rejects.toThrow('--issue-api-key')
+
+            expect(existsSync(database)).toBe(false)
+        })
+    })
+    it.skipIf(!postgresTestUrl)(
+        'bootstraps a clean PostgreSQL database via --database-url and issues an API key',
+        async () => {
+            const directory = await mkdtemp(join(tmpdir(), 'postdot-pg-bootstrap-'))
+            const input = join(directory, 'credentials.json')
+            await writeFile(input, JSON.stringify(credentials), { mode: 0o600 })
+            const schemaName = `bootstrap_test_${crypto.randomUUID().replaceAll('-', '_')}`
+            const adminDb = createPostgresDatabase(postgresTestUrl!, { max: 1 })
+            try {
+                await adminDb.sql.statement(`create schema if not exists "${schemaName}"`).run()
+                const pgUrl = new URL(postgresTestUrl!)
+                pgUrl.searchParams.set('options', `-c search_path=${schemaName}`)
+                const result = await runLocalAccountBootstrap([
+                    'account',
+                    'bootstrap',
+                    '--database-url',
+                    pgUrl.toString(),
+                    '--input',
+                    input,
+                    '--issue-api-key',
+                    '--api-key-name',
+                    'pg-bootstrap',
+                    '--json',
+                ])
+                expect(result.user.role).toBe('admin')
+                expect(result.instanceState).toBe('claimed')
+                expect(result.apiKey?.token?.startsWith('postdot_pat_')).toBe(true)
+
+                await expect(
+                    runLocalAccountBootstrap([
+                        'account',
+                        'bootstrap',
+                        '--database-url',
+                        pgUrl.toString(),
+                        '--input',
+                        input,
+                    ])
+                ).rejects.toThrow('already configured')
+            } finally {
+                await adminDb.sql.statement(`drop schema if exists "${schemaName}" cascade`).run()
+                await closePostgresDatabase(adminDb)
+                await rm(directory, { recursive: true, force: true })
+            }
+        }
+    )
 })

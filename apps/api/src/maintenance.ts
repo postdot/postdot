@@ -37,12 +37,13 @@ Offline resume requires --confirm after reviewing outstanding work.`,
 
 Generate missing image previews against an existing offline database.
 Stop the server first. --dry-run reports work without generating previews.`,
-    account: `Usage: bun /app/postdot.js account bootstrap --database <path> --input <private-json-file>
+    account: `Usage: bun /app/postdot.js account bootstrap (--database <path> | --database-url <postgres-url>) --input <private-json-file> [--issue-api-key] [--api-key-name <name>] [--api-key-output <path>] [--json]
        bun /app/postdot.js account recover-password --database <path>
        bun /app/postdot.js account recover-password --database-url <postgres-url>
 
 Bootstrap creates the first administrator offline from a private JSON file with
-name, email and password. Stop the server; existing installations are refused.
+name, email and password, and optionally issues an unrestricted API key.
+Stop the SQLite server before running; existing installations are refused.
 Password recovery changes an existing account and requires an interactive terminal.`,
 } as const
 

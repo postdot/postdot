@@ -1,5 +1,5 @@
 import { Button } from '@postdot/ui/components/button'
-import { Field, FieldLabel } from '@postdot/ui/components/field'
+import { Field, FieldDescription, FieldLabel } from '@postdot/ui/components/field'
 import { Input } from '@postdot/ui/components/input'
 import { EyeIcon } from '@solar-icons/react/linear/eye'
 import { EyeClosedIcon } from '@solar-icons/react/linear/eye-closed'
@@ -14,6 +14,7 @@ export interface AuthFormValues {
     readonly name?: string
     readonly email: string
     readonly password: string
+    readonly bootstrapToken?: string
 }
 
 interface AuthFormProps {
@@ -31,6 +32,7 @@ interface AuthFormProps {
     readonly onForgotPassword?: () => void
     readonly onSubmit: (values: AuthFormValues) => void | Promise<void>
     readonly pending?: boolean
+    readonly showBootstrapToken?: boolean
     readonly showSetupAction?: boolean
     readonly title?: string
 }
@@ -47,6 +49,7 @@ export function AuthForm({
     onForgotPassword,
     onSubmit,
     pending = false,
+    showBootstrapToken = false,
     showSetupAction = true,
     title,
 }: AuthFormProps) {
@@ -56,10 +59,13 @@ export function AuthForm({
     const [email, setEmail] = useState(initialEmail)
     const [password, setPassword] = useState('')
     const [passwordVisible, setPasswordVisible] = useState(false)
+    const [bootstrapToken, setBootstrapToken] = useState('')
+    const [bootstrapTokenVisible, setBootstrapTokenVisible] = useState(false)
     const isSignUp = mode === 'sign-up'
     const nameId = `auth-name-${formId}`
     const emailId = `auth-email-${formId}`
     const passwordId = `auth-password-${formId}`
+    const bootstrapTokenId = `auth-bootstrap-token-${formId}`
     const resolvedModeToggleLabels = modeToggleLabels ?? {
         signIn: m.auth_setup_postdot(),
         signUp: m.auth_back_to_sign_in(),
@@ -69,6 +75,8 @@ export function AuthForm({
         setName('')
         setPassword('')
         setPasswordVisible(false)
+        setBootstrapToken('')
+        setBootstrapTokenVisible(false)
     }, [mode])
 
     function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -77,11 +85,13 @@ export function AuthForm({
             ...(isSignUp ? { name } : {}),
             email,
             password,
+            ...(isSignUp && showBootstrapToken ? { bootstrapToken } : {}),
         })
     }
 
     function handleModeChange(nextMode: AuthMode) {
         setPasswordVisible(false)
+        setBootstrapTokenVisible(false)
         onModeChange?.(nextMode)
     }
 
@@ -156,6 +166,44 @@ export function AuthForm({
                         </Button>
                     </div>
                 </Field>
+
+                {isSignUp && showBootstrapToken ? (
+                    <Field>
+                        <FieldLabel htmlFor={bootstrapTokenId}>
+                            {m.auth_bootstrap_token()}
+                        </FieldLabel>
+                        <div className="relative">
+                            <Input
+                                aria-invalid={error !== null || undefined}
+                                autoComplete="one-time-code"
+                                className="h-11 bg-surface-raised px-3.5 pr-10"
+                                id={bootstrapTokenId}
+                                required
+                                type={bootstrapTokenVisible ? 'text' : 'password'}
+                                value={bootstrapToken}
+                                onChange={event => setBootstrapToken(event.target.value)}
+                            />
+                            <Button
+                                aria-label={
+                                    bootstrapTokenVisible
+                                        ? m.auth_hide_bootstrap_token()
+                                        : m.auth_show_bootstrap_token()
+                                }
+                                className="absolute top-1/2 right-1 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                                onClick={() => setBootstrapTokenVisible(value => !value)}
+                                size="icon-sm"
+                                type="button"
+                                variant="ghost">
+                                {bootstrapTokenVisible ? (
+                                    <EyeClosedIcon aria-hidden="true" />
+                                ) : (
+                                    <EyeIcon aria-hidden="true" />
+                                )}
+                            </Button>
+                        </div>
+                        <FieldDescription>{m.auth_bootstrap_token_hint()}</FieldDescription>
+                    </Field>
+                ) : null}
 
                 {!isSignUp && onForgotPassword ? (
                     <div className="-mt-3 flex justify-end">

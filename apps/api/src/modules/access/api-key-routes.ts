@@ -52,7 +52,7 @@ const userApiKeySchema = Type.Object({
     updatedAt: Type.Integer({ minimum: 0 }),
 })
 const userApiKeysSchema = Type.Object({ keys: Type.Array(userApiKeySchema) })
-const createUserApiKeyBody = Type.Object({
+export const createUserApiKeyBody = Type.Object({
     name: Type.Optional(Type.String({ maxLength: 100 })),
     projectIds: Type.Optional(
         Type.Union([Type.Array(Type.String({ minLength: 1 }), { minItems: 1 }), Type.Null()])
@@ -76,7 +76,7 @@ const updateUserApiKeyBody = Type.Object(
     { minProperties: 1 }
 )
 const userApiKeyParams = Type.Object({ keyId: Type.String({ minLength: 1 }) })
-const createdUserApiKeySchema = Type.Object({
+export const createdUserApiKeySchema = Type.Object({
     key: userApiKeySchema,
     token: Type.String({
         minLength: 1,
@@ -121,7 +121,7 @@ export function readUserApiKeyMetadata(value: unknown): UserApiKeyMetadata | nul
     }
 }
 
-function metadataForProjectAccess(projectIds: readonly string[] | null): UserApiKeyMetadata {
+export function metadataForProjectAccess(projectIds: readonly string[] | null): UserApiKeyMetadata {
     if (projectIds === null) {
         return {
             postdotApiKeyVersion: 2,
@@ -140,7 +140,7 @@ function projectAccessFromMetadata(metadata: unknown): 'all' | string[] {
     return parsed?.postdotProjectAccess === 'all' ? 'all' : [...(parsed?.postdotProjectIds ?? [])]
 }
 
-function toUserApiKey(key: PostdotApiKeyRecord) {
+export function toUserApiKey(key: PostdotApiKeyRecord) {
     return {
         id: key.id,
         name: key.name ?? 'Unnamed API key',
@@ -182,7 +182,7 @@ const apiKeyNameNouns = [
     'Willow',
 ] as const
 
-function generatedUserApiKeyName() {
+export function generatedUserApiKeyName() {
     const entropy = crypto.randomUUID().replaceAll('-', '')
     const adjective =
         apiKeyNameAdjectives[Number.parseInt(entropy.slice(0, 8), 16) % apiKeyNameAdjectives.length]
@@ -199,7 +199,10 @@ function invalidProjectAccessResponse() {
     }
 }
 
-function expiresInFrom(expiresAt: number | null | undefined, now: number): number | undefined {
+export function expiresInFrom(
+    expiresAt: number | null | undefined,
+    now: number
+): number | undefined {
     if (expiresAt === undefined || expiresAt === null) return undefined
     const expiresIn = Math.ceil((expiresAt - now) / 1_000)
     return expiresIn < 24 * 60 * 60 ? -1 : expiresIn

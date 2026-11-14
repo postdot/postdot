@@ -8,19 +8,26 @@ import { closeTestDatabase, openTestDatabase } from '@postdot/db/testing'
 import { createApp } from '../../app'
 import { requiredApiKeyCapability } from '../projects/api-key-permissions'
 import { createPublisherRuntime } from '../publishers/runtime'
+import type { PostdotBootstrapController } from './public-routes'
 
 const baseURL = 'http://localhost:3000'
 const secret = 'postdot-test-secret-with-at-least-32-characters'
 const now = 1_800_000_000_000
 const publisherEncryptionKey = new Uint8Array(32).fill(9)
 
-async function createFixture(options: { readonly allowAdditionalSignups?: boolean } = {}) {
+async function createFixture(
+    options: {
+        readonly allowAdditionalSignups?: boolean
+        readonly bootstrap?: PostdotBootstrapController
+    } = {}
+) {
     const database = (await openTestDatabase()).database
     const access = createAccessStore(database, { now: () => now })
     const auth = createAuth(database, {
         baseURL,
         secret,
         access,
+        isOpenSignupAllowed: () => (options.bootstrap?.mode ?? 'open') === 'open',
         allowAdditionalSignups: options.allowAdditionalSignups,
     })
     const publisher = createPublisherRuntime(database, {
@@ -40,6 +47,7 @@ async function createFixture(options: { readonly allowAdditionalSignups?: boolea
         publisher,
         manualStore: { now: () => now },
         taxonomy: createTaxonomyStore(database, { now: () => now }),
+        bootstrap: options.bootstrap,
         allowAdditionalSignups: options.allowAdditionalSignups,
     })
     return { access, app, auth, database }
@@ -686,12 +694,18 @@ describe('access HTTP routes', () => {
         try {
             const setupStatus = await app.handle(new Request(`${baseURL}/api/instance/status`))
             expect(setupStatus.status).toBe(200)
-            expect(await setupStatus.json()).toEqual({ setupAvailable: true })
+            expect(await setupStatus.json()).toEqual({
+                setupAvailable: true,
+                bootstrapMode: 'open',
+            })
 
             await signUp(app, 'bootstrap@postdot.local')
             const claimedStatus = await app.handle(new Request(`${baseURL}/api/instance/status`))
             expect(claimedStatus.status).toBe(200)
-            expect(await claimedStatus.json()).toEqual({ setupAvailable: false })
+            expect(await claimedStatus.json()).toEqual({
+                setupAvailable: false,
+                bootstrapMode: 'claimed',
+            })
 
             const response = await app.handle(new Request(`${baseURL}/openapi/json`))
             expect(response.status).toBe(200)
@@ -707,6 +721,7 @@ describe('access HTTP routes', () => {
             expect(Object.keys(specification.paths)).toEqual(
                 expect.arrayContaining([
                     '/api/instance/status',
+                    '/api/instance/bootstrap',
                     '/api/access/invitations/{token}',
                     '/api/access',
                     '/api/access/members',
@@ -717,6 +732,9 @@ describe('access HTTP routes', () => {
             )
             expect(specification.paths['/api/instance/status']?.get?.operationId).toBe(
                 'getInstanceSetupStatus'
+            )
+            expect(specification.paths['/api/instance/bootstrap']?.post?.operationId).toBe(
+                'bootstrapInstance'
             )
             expect(specification.paths['/api/access/invitations/{token}']?.get?.operationId).toBe(
                 'getAccessInvitationPreview'
@@ -773,7 +791,10 @@ describe('access HTTP routes', () => {
             const status = await app.handle(new Request(`${baseURL}/api/instance/status`))
 
             expect(status.status).toBe(200)
-            expect(await status.json()).toEqual({ setupAvailable: true })
+            expect(await status.json()).toEqual({
+                setupAvailable: true,
+                bootstrapMode: 'open',
+            })
         } finally {
             await closeTestDatabase(database)
         }
@@ -1491,6 +1512,198 @@ describe('access HTTP routes', () => {
                 workspaces: expect.arrayContaining([
                     expect.objectContaining({ id: created.workspace.id, role: 'owner' }),
                 ]),
+            })
+        } finally {
+            await closeTestDatabase(database)
+        }
+    })
+
+    it('closes public sign-up in token_required mode and bootstraps admin, workspace, session cookie, and API key atomically', async () => {
+        const expectedToken = 'bootstrap-secret-token-for-agentic-setup'
+        let claimedHookCount = 0
+        const { access, app, database } = await createFixture({
+            bootstrap: {
+                mode: 'token_required',
+                verifyToken: candidate => candidate === expectedToken,
+                onClaimed: () => {
+                    claimedHookCount += 1
+                },
+            },
+        })
+
+        try {
+            const initialStatus = await app.handle(new Request(`${baseURL}/api/instance/status`))
+            expect(initialStatus.status).toBe(200)
+            expect(await initialStatus.json()).toEqual({
+                setupAvailable: true,
+                bootstrapMode: 'token_required',
+            })
+
+            // Unauthenticated Better Auth public sign-up must fail closed in token_required mode.
+            const blockedPublicSignUp = await app.handle(
+                new Request(`${baseURL}/api/auth/sign-up/email`, {
+                    method: 'POST',
+                    headers: { 'content-type': 'application/json', origin: baseURL },
+                    body: JSON.stringify({
+                        name: 'Attacker',
+                        email: 'attacker@postdot.local',
+                        password: 'correct-horse-battery-staple',
+                    }),
+                })
+            )
+            expect(blockedPublicSignUp.ok).toBe(false)
+            expect((await access.getInstanceState()).state).toBe('claimable')
+
+            // Missing or wrong bootstrap token is rejected with 403 and creates nothing.
+            const missingToken = await app.handle(
+                new Request(`${baseURL}/api/instance/bootstrap`, {
+                    method: 'POST',
+                    headers: { 'content-type': 'application/json' },
+                    body: JSON.stringify({
+                        name: 'Operator',
+                        email: 'operator@postdot.local',
+                        password: 'correct-horse-battery-staple',
+                    }),
+                })
+            )
+            expect(missingToken.status).toBe(403)
+            expect(await missingToken.json()).toMatchObject({
+                error: { code: 'invalid_bootstrap_token' },
+            })
+
+            const wrongToken = await app.handle(
+                new Request(`${baseURL}/api/instance/bootstrap`, {
+                    method: 'POST',
+                    headers: {
+                        'content-type': 'application/json',
+                        'x-postdot-bootstrap-token': 'wrong-token-value-000',
+                    },
+                    body: JSON.stringify({
+                        name: 'Operator',
+                        email: 'operator@postdot.local',
+                        password: 'correct-horse-battery-staple',
+                    }),
+                })
+            )
+            expect(wrongToken.status).toBe(403)
+            expect((await access.getInstanceState()).state).toBe('claimable')
+
+            // Invalid apiKey expiry fails cleanly without claiming the instance.
+            const invalidKeyBootstrap = await app.handle(
+                new Request(`${baseURL}/api/instance/bootstrap`, {
+                    method: 'POST',
+                    headers: {
+                        'content-type': 'application/json',
+                        authorization: `Bearer ${expectedToken}`,
+                    },
+                    body: JSON.stringify({
+                        name: 'Operator',
+                        email: 'operator@postdot.local',
+                        password: 'correct-horse-battery-staple',
+                        apiKey: { expiresAt: now + 1_000 },
+                    }),
+                })
+            )
+            expect(invalidKeyBootstrap.status).toBe(400)
+            expect(await invalidKeyBootstrap.json()).toMatchObject({
+                error: { code: 'invalid_time' },
+            })
+            expect((await access.getInstanceState()).state).toBe('claimable')
+
+            // Valid bootstrap claims the instance, creates the admin, mints a PAT, and sets a session cookie.
+            const validBootstrap = await app.handle(
+                new Request(`${baseURL}/api/instance/bootstrap`, {
+                    method: 'POST',
+                    headers: {
+                        'content-type': 'application/json',
+                        'x-postdot-bootstrap-token': expectedToken,
+                    },
+                    body: JSON.stringify({
+                        name: 'Agent Admin',
+                        email: 'agent@postdot.local',
+                        password: 'correct-horse-battery-staple',
+                        apiKey: {
+                            name: 'Initial Agent Key',
+                            projectIds: null,
+                            actionAccess: null,
+                        },
+                    }),
+                })
+            )
+            expect(validBootstrap.status).toBe(201)
+            expect(claimedHookCount).toBe(1)
+
+            const bootstrapPayload = (await validBootstrap.json()) as {
+                user: { id: string; name: string; email: string; role: string }
+                instance: { state: string; claimedByUserId: string; claimedAt: number }
+                apiKey?: {
+                    key: { id: string; name: string; projectAccess: string; actionAccess: string }
+                    token: string
+                }
+            }
+            expect(bootstrapPayload.user).toMatchObject({
+                name: 'Agent Admin',
+                email: 'agent@postdot.local',
+                role: 'admin',
+            })
+            expect(bootstrapPayload.instance).toMatchObject({
+                state: 'claimed',
+                claimedByUserId: bootstrapPayload.user.id,
+            })
+            expect(bootstrapPayload.apiKey?.key).toMatchObject({
+                name: 'Initial Agent Key',
+                projectAccess: 'all',
+                actionAccess: 'all',
+            })
+            expect(bootstrapPayload.apiKey?.token).toStartWith('postdot_pat_')
+
+            // Session cookie works immediately on authenticated endpoints.
+            const sessionCookie = validBootstrap.headers.get('set-cookie')?.split(';', 1)[0] ?? ''
+            expect(sessionCookie.length).toBeGreaterThan(0)
+            const sessionAccess = await jsonRequest(app, '/api/access', sessionCookie)
+            expect(sessionAccess.status).toBe(200)
+            expect(await sessionAccess.json()).toMatchObject({
+                isAdmin: true,
+                instance: { state: 'claimed' },
+            })
+
+            // Minted API key works immediately for Bearer-authorized project creation.
+            const apiKeyProject = await app.handle(
+                new Request(`${baseURL}/api/projects`, {
+                    method: 'POST',
+                    headers: {
+                        'content-type': 'application/json',
+                        authorization: `Bearer ${bootstrapPayload.apiKey!.token}`,
+                    },
+                    body: JSON.stringify({ name: 'Bootstrapped Project' }),
+                })
+            )
+            expect(apiKeyProject.status).toBe(201)
+
+            // Status flips to claimed and replay with the same token is permanently rejected.
+            const claimedStatus = await app.handle(new Request(`${baseURL}/api/instance/status`))
+            expect(await claimedStatus.json()).toEqual({
+                setupAvailable: false,
+                bootstrapMode: 'claimed',
+            })
+
+            const replayBootstrap = await app.handle(
+                new Request(`${baseURL}/api/instance/bootstrap`, {
+                    method: 'POST',
+                    headers: {
+                        'content-type': 'application/json',
+                        authorization: `Bearer ${expectedToken}`,
+                    },
+                    body: JSON.stringify({
+                        name: 'Second Admin',
+                        email: 'second@postdot.local',
+                        password: 'correct-horse-battery-staple',
+                    }),
+                })
+            )
+            expect(replayBootstrap.status).toBe(409)
+            expect(await replayBootstrap.json()).toMatchObject({
+                error: { code: 'already_claimed' },
             })
         } finally {
             await closeTestDatabase(database)

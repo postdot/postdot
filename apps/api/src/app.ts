@@ -49,7 +49,10 @@ import * as typeboxType from 'typebox/type'
 import * as typeboxValue from 'typebox/value'
 
 import type { PostdotLoggingConfig } from './config'
-import { createPublicInstanceRoutes } from './modules/access/public-routes'
+import {
+    createPublicInstanceRoutes,
+    type PostdotBootstrapController,
+} from './modules/access/public-routes'
 import { createAccountRoutes } from './modules/account/routes'
 import type { EmailSettingsService } from './modules/email/settings'
 import { createHealthRoutes, type HealthRoutesOptions } from './modules/health/routes'
@@ -97,6 +100,8 @@ export interface PostdotAppOptions {
         readonly bearerToken: string
     }
     readonly onWorkScheduled?: () => void
+    /** Bootstrap guard controlling open vs token-gated initial instance claim. */
+    readonly bootstrap?: PostdotBootstrapController
     /** Test-only escape hatch for independent browser fixtures. */
     readonly allowAdditionalSignups?: boolean
     readonly discordFetcher?: DiscordFetcher
@@ -141,6 +146,7 @@ function createDomainApp({
     logging,
     metrics,
     onWorkScheduled,
+    bootstrap,
     allowAdditionalSignups,
     runtime,
     access,
@@ -321,7 +327,15 @@ function createDomainApp({
         .use(createHealthRoutes({ database, runtime }))
         .use(createAccountRoutes(auth, avatars, accountOrigins))
         .use(createMetricsRoutes(metrics))
-        .use(createPublicInstanceRoutes(accessStore, { allowAdditionalSignups }))
+        .use(
+            createPublicInstanceRoutes(accessStore, {
+                auth,
+                database,
+                allowAdditionalSignups,
+                bootstrap,
+                now: manualStoreOptions?.now,
+            })
+        )
         .use(
             createProjectModule({
                 resourceLifecycle: createResourceLifecycleStore(database),
@@ -387,6 +401,7 @@ export function createApp({
     logging,
     metrics,
     onWorkScheduled,
+    bootstrap,
     allowAdditionalSignups,
     runtime,
     access,
@@ -425,6 +440,7 @@ export function createApp({
         logging,
         metrics,
         onWorkScheduled,
+        bootstrap,
         allowAdditionalSignups,
         runtime,
         access,

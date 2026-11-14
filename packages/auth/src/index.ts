@@ -1,3 +1,5 @@
+import { AsyncLocalStorage } from 'node:async_hooks'
+
 import { createAccessStore, type AccessStore, type DatabaseHandle } from '@postdot/db'
 import { APIError, betterAuth, type Auth, type BetterAuthOptions } from 'better-auth'
 import { hashPassword } from 'better-auth/crypto'
@@ -12,6 +14,19 @@ import { postdotSqlAdapter } from './sql-adapter'
 
 export type { PostdotAuthInvitationOptions, PostdotOrganizationInvitationEmail } from './plugins'
 export { postdotUserApiKeyConfigId } from './plugins'
+
+const bootstrapAuthorizationContext = new AsyncLocalStorage<boolean>()
+
+/**
+ * Allows the server's verified `/api/instance/bootstrap` handler to create the
+ * first administrator through Better Auth even when open public signup is
+ * closed (`POSTDOT_BOOTSTRAP_MODE=token_required`).
+ */
+export function runWithAuthorizedBootstrap<Result>(
+    callback: () => Promise<Result>
+): Promise<Result> {
+    return bootstrapAuthorizationContext.run(true, callback)
+}
 
 /** Written only by Postdot's socket/proxy boundary; never trust it from the wire. */
 export const postdotClientIpHeader = 'x-postdot-client-ip'
@@ -53,6 +68,12 @@ export interface PostdotAuthRuntimeOptions
         PostdotAuthEmailOptions {
     /** Shared Postdot access state used by the Better Auth bootstrap hooks. */
     readonly access?: AccessStore
+    /**
+     * Governs whether unauthenticated `/api/auth/sign-up/email` can claim a
+     * fresh instance. When `false`, first-run bootstrap requires an authorized
+     * `/api/instance/bootstrap` request.
+     */
+    readonly isOpenSignupAllowed?: () => Promise<boolean> | boolean
     /**
      * Test-only escape hatch for parallel browser fixtures. Production callers
      * must leave this disabled so the first account remains the sole bootstrap
@@ -361,6 +382,7 @@ export function createAuth(
 ): PostdotAuth {
     const {
         access: accessOption,
+        isOpenSignupAllowed = () => true,
         allowAdditionalSignups = false,
         organizationInvitationURL,
         requireEmailVerificationOnInvitation,
@@ -553,11 +575,14 @@ export function createAuth(
                         const invited =
                             (await access.hasPendingInvitationForEmail(data.email)) ||
                             (await hasPendingBetterAuthInvitationForEmail(data.email))
-                        if (
-                            !allowAdditionalSignups &&
-                            !(await access.isSignupAllowed()) &&
-                            !invited
-                        ) {
+                        const instanceSignupAllowed = await access.isSignupAllowed()
+                        const authorizedBootstrap =
+                            bootstrapAuthorizationContext.getStore() === true &&
+                            instanceSignupAllowed
+                        const openSignupAllowed =
+                            authorizedBootstrap ||
+                            (instanceSignupAllowed && (await isOpenSignupAllowed()))
+                        if (!allowAdditionalSignups && !openSignupAllowed && !invited) {
                             return false
                         }
 

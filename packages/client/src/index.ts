@@ -108,6 +108,9 @@ type AccessRoute = PostdotClient['api']['access']
 export type InstanceSetupStatus = NonNullable<
     Awaited<ReturnType<PostdotClient['api']['instance']['status']['get']>>['data']
 >
+export type InstanceBootstrapResult = NonNullable<
+    Awaited<ReturnType<PostdotClient['api']['instance']['bootstrap']['post']>>['data']
+>
 export type AccessSummary = NonNullable<Awaited<ReturnType<AccessRoute['get']>>['data']>
 export type AccessInstanceStateRecord = AccessSummary['instance']
 export type AccessInstanceState = AccessInstanceStateRecord['state']

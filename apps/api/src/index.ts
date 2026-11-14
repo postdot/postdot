@@ -31,6 +31,7 @@ import {
 import { createMastodonThreadReader, createMastodonAnalyticsReader } from '@postdot/mastodon'
 
 import { createApp } from './app'
+import { initializeInstanceBootstrapGuard } from './bootstrap-token'
 import {
     createPostdotConfig,
     createPostdotMaintenanceConfig,
@@ -366,6 +367,12 @@ async function startServerWithRuntimeLock(
     })
     const allowAdditionalSignups =
         config.environment === 'test' && Bun.env.POSTDOT_E2E_ALLOW_ADDITIONAL_SIGNUPS === 'true'
+    const bootstrapGuard = await initializeInstanceBootstrapGuard({
+        bootstrap: config.bootstrap,
+        database: config.database,
+        mediaDirectory: config.media.directory,
+        instanceClaimable: (await access.getInstanceState()).state === 'claimable',
+    })
     const auth = createAuth(database, {
         baseURL: config.auth.baseURL,
         secret: config.auth.secret,
@@ -373,6 +380,7 @@ async function startServerWithRuntimeLock(
         requireEmailVerificationOnInvitation: config.auth.requireEmailVerificationOnInvitation,
         ...email,
         access,
+        isOpenSignupAllowed: () => bootstrapGuard.mode === 'open',
         allowAdditionalSignups,
     })
     const mastodonFetcher = createNetworkControlledFetcher({
@@ -463,6 +471,7 @@ async function startServerWithRuntimeLock(
                   },
               }),
         onWorkScheduled: () => coordination.publish({ kind: 'work' }),
+        bootstrap: bootstrapGuard,
         access,
         allowAdditionalSignups,
         notifications,

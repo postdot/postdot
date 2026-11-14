@@ -13,7 +13,7 @@ export const Route = createFileRoute('/login')({
         } catch {
             // Login remains usable if the discovery endpoint is temporarily
             // unavailable; setup simply stays hidden until it can be confirmed.
-            return { setupAvailable: false }
+            return { setupAvailable: false, bootstrapMode: 'claimed' as const }
         }
     },
     validateSearch: (search: Record<string, unknown>) => ({

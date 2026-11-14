@@ -1105,6 +1105,7 @@ describe('Postdot API', () => {
                 '/api/account/avatar',
                 '/api/account/avatars/{id}',
                 '/api/instance/status',
+                '/api/instance/bootstrap',
                 '/api/access/invitations/{token}',
                 '/api/settings/recovery',
                 '/api/settings/recovery/resume',

@@ -150,6 +150,30 @@ export const api = {
         return unwrap(await client.api.instance.status.get())
     },
 
+    async bootstrapInstance(input: {
+        readonly name: string
+        readonly email: string
+        readonly password: string
+        readonly bootstrapToken?: string
+    }) {
+        return unwrap(
+            await client.api.instance.bootstrap.post(
+                {
+                    name: input.name,
+                    email: input.email,
+                    password: input.password,
+                },
+                input.bootstrapToken !== undefined && input.bootstrapToken.trim().length > 0
+                    ? {
+                          headers: {
+                              'x-postdot-bootstrap-token': input.bootstrapToken.trim(),
+                          },
+                      }
+                    : undefined
+            )
+        )
+    },
+
     getSession() {
         return requestBoundary<Session | null>('/api/auth/get-session')
     },
@@ -1627,6 +1651,10 @@ function apiErrorMessage(code: string): string {
             return m.api_invalid_destination()
         case 'invalid_token':
             return m.api_invalid_token()
+        case 'invalid_bootstrap_token':
+            return m.auth_setup_invalid_bootstrap_token()
+        case 'already_claimed':
+            return m.auth_setup_unavailable()
         case 'invalid_api_key':
             return m.api_invalid_api_key()
         case 'invalid_instance':

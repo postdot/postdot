@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url'
 import { parsePrivateDestinationRules, type PrivateDestinationRule } from '@postdot/custom-http'
 import type { LevelWithSilent } from 'pino'
 
+import { normalizeBootstrapTokenHash } from './bootstrap-token'
 import { parseTrustedProxies } from './client-ip'
 import {
     createEnvironment,
@@ -102,6 +103,10 @@ const environmentDefinitions = {
     POSTDOT_METRICS_ENABLED: env.boolean({ defaultValue: false }),
     POSTDOT_MCP_ENABLED: env.boolean({ defaultValue: true }),
     POSTDOT_METRICS_TOKEN: env.optionalString(),
+    POSTDOT_BOOTSTRAP_MODE: env.optionalEnum(['open', 'token_required']),
+    POSTDOT_BOOTSTRAP_TOKEN: env.optionalString({ minLength: 16 }),
+    POSTDOT_BOOTSTRAP_TOKEN_FILE: env.optionalString({ minLength: 1 }),
+    POSTDOT_BOOTSTRAP_TOKEN_HASH: env.optionalString({ minLength: 64 }),
     LOG_LEVEL: env.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'], {
         defaultValue: values => (values.NODE_ENV === 'production' ? 'error' : 'info'),
     }),
@@ -240,6 +245,14 @@ export interface PostdotConfig {
         readonly assetsDirectory: string
     }
     readonly logging: PostdotLoggingConfig
+    readonly bootstrap: PostdotBootstrapConfig
+}
+
+export interface PostdotBootstrapConfig {
+    readonly mode: 'open' | 'token_required'
+    readonly token?: string
+    readonly tokenFile?: string
+    readonly tokenHash?: string
 }
 
 export interface PostdotMaintenanceConfig {
@@ -315,6 +328,8 @@ export function createPostdotBootstrapConfig(source: EnvironmentSource = Bun.env
     return createEnvironment(
         {
             POSTDOT_MIGRATIONS_DIR: environmentDefinitions.POSTDOT_MIGRATIONS_DIR,
+            POSTDOT_DATABASE_URL: environmentDefinitions.POSTDOT_DATABASE_URL,
+            POSTDOT_DATABASE_POOL_SIZE: environmentDefinitions.POSTDOT_DATABASE_POOL_SIZE,
         },
         source
     )
@@ -334,6 +349,40 @@ export function createPostdotMaintenanceConfig(
     return {
         databaseFileName: environment.DB_FILE_NAME,
         media: createMediaConfig(environment),
+    }
+}
+
+function createBootstrapConfig(environment: PostdotEnvironment): PostdotBootstrapConfig {
+    const token = environment.POSTDOT_BOOTSTRAP_TOKEN
+    const tokenFile = environment.POSTDOT_BOOTSTRAP_TOKEN_FILE
+    const rawTokenHash = environment.POSTDOT_BOOTSTRAP_TOKEN_HASH
+
+    const configuredSources = [token, tokenFile, rawTokenHash].filter(value => value !== undefined)
+    if (configuredSources.length > 1) {
+        throw new Error(
+            'Specify at most one of POSTDOT_BOOTSTRAP_TOKEN, POSTDOT_BOOTSTRAP_TOKEN_FILE, or POSTDOT_BOOTSTRAP_TOKEN_HASH'
+        )
+    }
+
+    const tokenHash =
+        rawTokenHash === undefined ? undefined : normalizeBootstrapTokenHash(rawTokenHash)
+    const hasTokenSource = configuredSources.length > 0
+
+    if (environment.POSTDOT_BOOTSTRAP_MODE === 'open' && hasTokenSource) {
+        throw new Error(
+            'POSTDOT_BOOTSTRAP_MODE=open cannot be combined with POSTDOT_BOOTSTRAP_TOKEN, POSTDOT_BOOTSTRAP_TOKEN_FILE, or POSTDOT_BOOTSTRAP_TOKEN_HASH'
+        )
+    }
+
+    const mode =
+        environment.POSTDOT_BOOTSTRAP_MODE ??
+        (hasTokenSource || environment.NODE_ENV === 'production' ? 'token_required' : 'open')
+
+    return {
+        mode,
+        ...(token === undefined ? {} : { token }),
+        ...(tokenFile === undefined ? {} : { tokenFile }),
+        ...(tokenHash === undefined ? {} : { tokenHash }),
     }
 }
 
@@ -453,6 +502,7 @@ export function createPostdotConfig(source: EnvironmentSource = Bun.env): Postdo
             ? { metrics: { bearerToken: environment.POSTDOT_METRICS_TOKEN! } }
             : {}),
         mcp: { enabled: environment.POSTDOT_MCP_ENABLED },
+        bootstrap: createBootstrapConfig(environment),
     }
 }
 

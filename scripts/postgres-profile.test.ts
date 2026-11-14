@@ -89,7 +89,7 @@ test.skipIf(serverUrl === undefined)(
             expect(applied.length).toBeGreaterThan(0)
             const status = () =>
                 fetch(`${origin}/api/instance/status`).then(response => response.json())
-            expect(await status()).toEqual({ setupAvailable: true })
+            expect(await status()).toEqual({ setupAvailable: true, bootstrapMode: 'open' })
             // The first account claims the instance through Better Auth on PostgreSQL.
             const signUp = await fetch(`${origin}/api/auth/sign-up/email`, {
                 method: 'POST',
@@ -101,7 +101,7 @@ test.skipIf(serverUrl === undefined)(
                 }),
             })
             expect(signUp.status).toBe(200)
-            expect(await status()).toEqual({ setupAvailable: false })
+            expect(await status()).toEqual({ setupAvailable: false, bootstrapMode: 'claimed' })
             expect(await database.unsafe('select role from "user"')).toEqual([{ role: 'admin' }])
         } finally {
             await database.close()

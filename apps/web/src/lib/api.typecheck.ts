@@ -18,6 +18,7 @@ import type {
     ProviderApplicationUpdateInput,
     UserApiKey,
     UserApiKeyCapability,
+    InstanceBootstrapResult,
     InstanceSetupStatus,
     AccessSummary,
     AccessInstanceState,
@@ -199,6 +200,8 @@ export type InferredProjectMembershipContracts = [
 /** Instance access remains server-owned across both Eden request interfaces. */
 export type InferredInstanceAccessContracts = [
     Assert<Equal<Awaited<ReturnType<typeof api.getInstanceSetupStatus>>, InstanceSetupStatus>>,
+    Assert<Equal<InstanceSetupStatus['bootstrapMode'], 'open' | 'token_required' | 'claimed'>>,
+    Assert<Equal<Awaited<ReturnType<typeof api.bootstrapInstance>>, InstanceBootstrapResult>>,
     Assert<Equal<Awaited<ReturnType<typeof api.getInstanceAccess>>, AccessSummary>>,
     Assert<
         Equal<

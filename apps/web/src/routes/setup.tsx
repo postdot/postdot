@@ -23,22 +23,39 @@ export const Route = createFileRoute('/setup')({
 
 function SetupPage() {
     const navigate = useNavigate()
+    const status = Route.useLoaderData()
+    const tokenRequired = status.bootstrapMode === 'token_required'
     const [error, setError] = useState<string | null>(null)
     const [pending, setPending] = useState(false)
 
-    async function handleSubmit({ name, email, password }: AuthFormValues) {
+    async function handleSubmit({ name, email, password, bootstrapToken }: AuthFormValues) {
         setError(null)
         setPending(true)
 
         try {
-            await api.signUp(name ?? '', email, password)
+            if (tokenRequired) {
+                await api.bootstrapInstance({
+                    name: name ?? '',
+                    email,
+                    password,
+                    bootstrapToken,
+                })
+            } else {
+                await api.signUp(name ?? '', email, password)
+            }
             await navigate({ to: '/dashboard', replace: true })
         } catch (caughtError) {
-            setError(
-                caughtError instanceof ApiError && caughtError.code === 'FAILED_TO_CREATE_USER'
-                    ? m.auth_setup_unavailable()
-                    : formatApiError(caughtError)
-            )
+            if (caughtError instanceof ApiError && caughtError.code === 'invalid_bootstrap_token') {
+                setError(m.auth_setup_invalid_bootstrap_token())
+            } else if (
+                caughtError instanceof ApiError &&
+                (caughtError.code === 'already_claimed' ||
+                    caughtError.code === 'FAILED_TO_CREATE_USER')
+            ) {
+                setError(m.auth_setup_unavailable())
+            } else {
+                setError(formatApiError(caughtError))
+            }
         } finally {
             setPending(false)
         }
@@ -69,6 +86,7 @@ function SetupPage() {
                 mode="sign-up"
                 onSubmit={handleSubmit}
                 pending={pending}
+                showBootstrapToken={tokenRequired}
                 showSetupAction={false}
                 error={error}
             />
