@@ -9,7 +9,7 @@
 
 - [/] **[PUB-627]** Complete GitHub profile, application releases and clean-install acceptance `Priority: 🟠` `Complexity: L`
 
-- [/] **[UX-651]** Studio experience overhaul from the 2026-11-14 audit (umbrella) `Priority: 🔴` `Complexity: XL` — [audit](reviews/2026-11-14-studio-experience-audit.md), [ADR-103](decisions/ADR-103-studio-experience-principles.md); children DESIGN-652 to UX-660.
+- [/] **[UX-651]** Studio experience overhaul from the 2026-11-14 audit (umbrella) `Priority: 🔴` `Complexity: XL` — [audit](reviews/2026-11-14-studio-experience-audit.md), [ADR-103](decisions/ADR-103-studio-experience-principles.md); children DESIGN-652 to UX-661.
 
 - [x] **[DESIGN-652]** Revise design direction, experience rules and agent guidance after the audit `Priority: 🔴` `Complexity: S`
 
@@ -19,7 +19,7 @@
 
 - [x] **[UX-655]** One navigation: single sidebar, object settings pages, lean header (audit S1–S7, S16, T3, T4) `Priority: 🟠` `Complexity: L`
 
-- [ ] **[UX-656]** Calendar: channel identity, grouping by post, stable grid, linear axis, anchored preview (audit C1–C12) `Priority: 🔴` `Complexity: L`
+- [x] **[UX-656]** Calendar: channel identity, grouping by post, stable grid, linear axis, anchored preview (audit C1–C12) `Priority: 🔴` `Complexity: L`
 
 - [ ] **[UX-657]** Composer: labelled channels, explicit editing scope, honest preview, safe schedule (audit P1–P14) `Priority: 🔴` `Complexity: L`
 
@@ -28,6 +28,8 @@
 - [ ] **[UX-659]** Publication and post pages: one save, no raw JSON, diagnostics aside (audit D1–D9) `Priority: 🟠` `Complexity: L`
 
 - [ ] **[UX-660]** Channels, media, performance, settings and first run (audit F2–F4, H, M, R, T) `Priority: 🔵` `Complexity: L`
+
+- [ ] **[UX-661]** Calendar filter by channel and state, and "Move by…" bulk reschedule (audit C10 remainder, C11) `Priority: ⚪` `Complexity: M`
 
 ## Current direction
 

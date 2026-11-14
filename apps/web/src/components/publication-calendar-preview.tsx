@@ -1,21 +1,20 @@
 import { Button } from '@postdot/ui/components/button'
 import {
-    Sheet,
-    SheetClose,
-    SheetContent,
-    SheetFooter,
-    SheetHeader,
-    SheetTitle,
-} from '@postdot/ui/components/sheet'
-import { CalendarMinimalisticIcon } from '@solar-icons/react/linear/calendar-minimalistic'
+    Dialog,
+    DialogClose,
+    DialogContent,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@postdot/ui/components/dialog'
 import { EyeIcon } from '@solar-icons/react/linear/eye'
-import { LinkIcon } from '@solar-icons/react/linear/link'
 import { PenIcon } from '@solar-icons/react/linear/pen'
 import { useQuery } from '@tanstack/react-query'
-import { useMemo, type ReactNode } from 'react'
+import { useMemo } from 'react'
 
 import { PublicationStatus, formatSchedule } from '@/components/dashboard-publication-parts'
-import { api, type PublicationSummary } from '@/lib/api'
+import { ChannelAvatar } from '@/components/identity-visuals'
+import { api, type Channel, type PublicationSummary } from '@/lib/api'
 import { projectQueryKeys } from '@/lib/project-realtime'
 import { publicationIdentityLabel } from '@/lib/publication-identity'
 import { canEditPublication } from '@/lib/publication-lifecycle'
@@ -23,30 +22,35 @@ import * as m from '@/paraglide/messages.js'
 
 import { PublicationCadenceStatus } from './publication-cadence-status'
 
-export function PublicationCalendarPreviewSheet({
+/**
+ * C8: a compact card for one calendar entry — the post, each of its channels with time and
+ * state, an excerpt, then the action. It dims the page without blurring it (ADR-103 §2).
+ */
+export function PublicationCalendarPreview({
+    channelsById,
+    duePublicationIds,
+    group,
     locale,
     onOpenChange,
     onOpenPublication,
     projectId,
-    publicationId,
-    publications,
     readOnly = false,
     timeZone,
 }: {
+    readonly channelsById: ReadonlyMap<string, Pick<Channel, 'id' | 'name' | 'profileId'>>
+    readonly duePublicationIds: ReadonlySet<string>
+    /** The publications of the entry, first one leading; empty when closed. */
+    readonly group: readonly PublicationSummary[]
     readonly locale: string
     readonly onOpenChange: (publicationId: string | null) => void
     readonly onOpenPublication: (publicationId: string) => void
     readonly projectId: string
-    readonly publicationId: string | null
-    readonly publications: readonly PublicationSummary[]
     /** Viewer mode: the action opens a read-only page, so it is named as consultation. */
     readonly readOnly?: boolean
     readonly timeZone: string
 }) {
-    const publication = useMemo(
-        () => publications.find(item => item.id === publicationId) ?? null,
-        [publicationId, publications]
-    )
+    const publication = group[0] ?? null
+    const publicationId = publication?.id ?? null
     const previewQuery = useQuery({
         enabled: publicationId !== null,
         queryKey: projectQueryKeys.publicationEditor(projectId, publicationId ?? ''),
@@ -59,7 +63,7 @@ export function PublicationCalendarPreviewSheet({
         staleTime: 30_000,
     })
     const editor = previewQuery.data?.editor
-    const copy = getPreviewCopy(locale)
+    const copy = useMemo(() => getPreviewCopy(locale), [locale])
     const title = publication === null ? copy.untitled : publicationIdentityLabel(publication)
     // The lifecycle decides whether editing is possible at all; the role decides
     // whether this operator may edit. A viewer is offered consultation even for
@@ -67,47 +71,54 @@ export function PublicationCalendarPreviewSheet({
     const editable = publication !== null && canEditPublication(publication.state) && !readOnly
 
     return (
-        <Sheet
-            open={publicationId !== null}
+        <Dialog
+            open={publication !== null}
             onOpenChange={open => {
                 if (!open) onOpenChange(null)
             }}>
-            <SheetContent
+            <DialogContent
                 aria-describedby={undefined}
-                className="w-[min(32rem,calc(100vw-1rem))] gap-0 bg-surface-raised p-0 sm:max-w-lg"
-                closeLabel={m.common_close({}, { locale: locale === 'fr' ? 'fr' : 'en' })}
-                side="right">
-                <SheetHeader className="px-5 py-5 sm:px-6">
-                    <SheetTitle className="pr-8 break-words text-xl leading-tight">
-                        {title}
-                    </SheetTitle>
-                </SheetHeader>
+                className="max-h-[min(40rem,calc(100dvh-2rem))] grid-rows-[auto_minmax(0,1fr)_auto] gap-4 sm:max-w-md"
+                data-calendar-preview="true"
+                showCloseButton={false}>
+                <DialogHeader>
+                    <DialogTitle className="break-words text-lg leading-snug">{title}</DialogTitle>
+                </DialogHeader>
 
-                <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6">
+                <div className="min-h-0 overflow-y-auto">
                     {publication === null ? (
                         <p className="text-sm text-muted-foreground">{copy.unavailable}</p>
                     ) : (
                         <>
-                            <div className="grid gap-2 rounded-md bg-surface-field p-3 shadow-field">
-                                <PreviewMetaRow
-                                    icon={<LinkIcon aria-hidden="true" />}
-                                    label={copy.channel}
-                                    value={publication.channelName}
-                                />
-                                <PreviewMetaRow
-                                    icon={<CalendarMinimalisticIcon aria-hidden="true" />}
-                                    label={copy.schedule}
-                                    value={formatSchedule(
-                                        publication.scheduledAt,
-                                        timeZone,
-                                        locale
-                                    )}
-                                />
-                                <div className="flex min-w-0 items-center justify-between gap-2 text-sm">
-                                    <span className="text-muted-foreground">{copy.status}</span>
-                                    <PublicationStatus state={publication.state} />
-                                </div>
-                            </div>
+                            <ul aria-label={copy.channel} className="grid gap-1">
+                                {group.map(item => (
+                                    <li
+                                        className="flex min-w-0 items-center gap-2.5 rounded-md bg-surface-field px-2.5 py-2 text-sm shadow-field"
+                                        data-calendar-preview-channel={item.channelId}
+                                        key={item.id}>
+                                        <ChannelAvatar
+                                            channel={
+                                                channelsById.get(item.channelId) ?? {
+                                                    id: item.channelId,
+                                                    name: item.channelName,
+                                                    profileId: '',
+                                                }
+                                            }
+                                            size="sm"
+                                        />
+                                        <span className="min-w-0 flex-1 truncate font-medium">
+                                            {item.channelName}
+                                        </span>
+                                        <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+                                            {formatSchedule(item.scheduledAt, timeZone, locale)}
+                                        </span>
+                                        <PublicationStatus
+                                            due={duePublicationIds.has(item.id)}
+                                            state={item.state}
+                                        />
+                                    </li>
+                                ))}
+                            </ul>
 
                             {['scheduled', 'ready'].includes(publication.state) ? (
                                 <PublicationCadenceStatus
@@ -118,15 +129,13 @@ export function PublicationCalendarPreviewSheet({
                                     readOnly={readOnly}
                                 />
                             ) : null}
-                            <section aria-label={copy.content} className="mt-6">
+                            <section aria-label={copy.content} className="mt-4">
                                 {previewQuery.isPending ? (
-                                    <div
-                                        aria-busy="true"
-                                        className="rounded-md bg-surface-field p-4 text-sm text-muted-foreground shadow-field">
+                                    <div aria-busy="true" className="text-sm text-muted-foreground">
                                         {copy.loading}
                                     </div>
                                 ) : previewQuery.isError ? (
-                                    <div className="rounded-md bg-state-attention/10 p-4 text-sm text-muted-foreground shadow-field">
+                                    <div className="rounded-md bg-state-attention/10 p-3 text-sm text-muted-foreground">
                                         {copy.loadError}
                                     </div>
                                 ) : (
@@ -137,9 +146,12 @@ export function PublicationCalendarPreviewSheet({
                     )}
                 </div>
 
-                <SheetFooter className="flex-row justify-end gap-3 border-0 px-5 py-4 sm:px-6">
+                <DialogFooter className="border-0">
+                    <DialogClose render={<Button size="sm" variant="ghost" />}>
+                        {copy.close}
+                    </DialogClose>
                     {publication === null ? null : (
-                        <SheetClose
+                        <DialogClose
                             render={
                                 <Button
                                     onClick={() => onOpenPublication(publication.id)}
@@ -152,31 +164,11 @@ export function PublicationCalendarPreviewSheet({
                                 <EyeIcon aria-hidden="true" />
                             )}
                             {editable ? copy.edit : copy.view}
-                        </SheetClose>
+                        </DialogClose>
                     )}
-                </SheetFooter>
-            </SheetContent>
-        </Sheet>
-    )
-}
-
-function PreviewMetaRow({
-    icon,
-    label,
-    value,
-}: {
-    readonly icon: ReactNode
-    readonly label: string
-    readonly value: string
-}) {
-    return (
-        <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm">
-            <span className="flex size-5 shrink-0 items-center justify-center text-muted-foreground [&_svg]:size-4">
-                {icon}
-            </span>
-            <span className="shrink-0 text-muted-foreground">{label}</span>
-            <span className="min-w-0 break-words font-medium">{value}</span>
-        </div>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     )
 }
 
@@ -193,17 +185,17 @@ function PublicationContentPreview({
 
     if (body === undefined && headline === undefined) {
         return (
-            <div className="mt-2 rounded-md bg-surface-field p-4 text-sm text-muted-foreground shadow-field">
+            <div className="text-sm text-muted-foreground">
                 {sourceContent?.media.length ? copy.mediaOnly : copy.noContent}
             </div>
         )
     }
 
     return (
-        <div className="mt-2 rounded-md bg-surface-field p-4 shadow-field">
+        <div>
             {headline ? <p className="font-medium">{headline}</p> : null}
             {body ? (
-                <p className="whitespace-pre-wrap break-words text-sm leading-6 text-foreground/85">
+                <p className="line-clamp-6 whitespace-pre-wrap break-words text-sm leading-6 text-foreground/85">
                     {body}
                 </p>
             ) : null}
@@ -213,6 +205,7 @@ function PublicationContentPreview({
 
 interface PreviewCopy {
     readonly channel: string
+    readonly close: string
     readonly content: string
     readonly loadError: string
     readonly loading: string
@@ -220,17 +213,17 @@ interface PreviewCopy {
     readonly noContent: string
     readonly edit: string
     readonly view: string
-    readonly schedule: string
-    readonly status: string
     readonly unavailable: string
     readonly untitled: string
 }
 
 function getPreviewCopy(locale: string): PreviewCopy {
-    const messageLocale = locale === 'fr' ? 'fr' : 'en'
+    const messageLocale =
+        locale === 'fr' || locale === 'es' || locale === 'de' ? locale : ('en' as const)
     const messageOptions = { locale: messageLocale } as const
     return {
         channel: m.calendar_preview_channel({}, messageOptions),
+        close: m.common_close({}, messageOptions),
         content: m.calendar_preview_content({}, messageOptions),
         loadError: m.calendar_preview_load_error({}, messageOptions),
         loading: m.calendar_preview_loading({}, messageOptions),
@@ -238,8 +231,6 @@ function getPreviewCopy(locale: string): PreviewCopy {
         noContent: m.calendar_preview_no_content({}, messageOptions),
         edit: m.calendar_preview_edit({}, messageOptions),
         view: m.calendar_preview_view({}, messageOptions),
-        schedule: m.calendar_preview_schedule({}, messageOptions),
-        status: m.calendar_preview_status({}, messageOptions),
         unavailable: m.calendar_preview_unavailable({}, messageOptions),
         untitled: m.calendar_preview_untitled({}, messageOptions),
     }

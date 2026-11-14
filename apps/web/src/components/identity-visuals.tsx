@@ -34,7 +34,7 @@ const channelIcons = {
 } as const
 
 type ChannelIdentity = Pick<Channel, 'id' | 'name' | 'profileId'>
-type ChannelAvatarSize = 'sm' | 'md' | 'lg'
+type ChannelAvatarSize = 'xs' | 'sm' | 'md' | 'lg'
 
 export function ResourceAvatar({
     kind,
@@ -133,11 +133,11 @@ export function ChannelAvatar({
             ) : (
                 <img alt="" className="size-full object-cover" src={generatedImage ?? undefined} />
             )}
-            {icon === undefined ? (
+            {icon === undefined && size !== 'xs' ? (
                 <span className="absolute inset-0 flex items-center justify-center bg-black/10 text-[11px] font-bold text-black drop-shadow-sm">
                     {initials}
                 </span>
-            ) : variant !== undefined ? (
+            ) : variant !== undefined && size !== 'xs' ? (
                 <span
                     data-channel-variant={variant}
                     className="absolute bottom-0 right-0 rounded-tl-sm bg-[#171717] px-1 text-[9px] font-semibold leading-3 text-white">
@@ -168,12 +168,14 @@ function createDiceBearImage(style: Style, seed: string) {
 }
 
 const channelAvatarSizeClass: Record<ChannelAvatarSize, string> = {
+    xs: 'size-4 rounded-[0.25rem]',
     sm: 'size-6',
     md: 'size-8',
     lg: 'size-10',
 }
 
 const channelLogoSizeClass: Record<ChannelAvatarSize, string> = {
+    xs: 'size-3',
     sm: 'size-4',
     md: 'size-5',
     lg: 'size-6',

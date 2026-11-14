@@ -433,7 +433,9 @@ building it; the current app contract must not silently decide those choices.
   duplicate dismissal affordances, and a second status marker. For the
   project calendar, day inspection must remain in the calendar flow: the
   selected cell grows with its week row and reveals all scheduled publications,
-  while the add control remains the singular create entry point. Mobile
+  while the add control remains the singular create entry point. _Superseded
+  2026-11-14 by ADR-103: the growing cell moved the grid; overflow now opens a
+  popover anchored to the day and the rows keep their height._ Mobile
   density and the final month/agenda transition remain open for the WEB-156
   checkpoint.
 - Owner review note: 2026-09-28 — the owner rejected an action-first Overview

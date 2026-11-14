@@ -513,7 +513,7 @@
     "queue_reschedule_submit": "Apply schedule",
     "queue_reschedule_required": "Choose a date and time.",
     "queue_reschedule_only_scheduled": "Only scheduled publications can be rescheduled.",
-    "queue_cancel": "Cancel",
+    "queue_cancel": "Cancel publications",
     "queue_cancel_title": [
         {
             "declarations": ["input count", "local countPlural = count: plural"],
@@ -1734,8 +1734,6 @@
     "calendar_preview_no_content": "No content to display",
     "calendar_preview_edit": "Edit publication",
     "calendar_preview_view": "View publication",
-    "calendar_preview_schedule": "Schedule",
-    "calendar_preview_status": "Status",
     "calendar_preview_unavailable": "This publication is no longer available.",
     "calendar_preview_untitled": "Untitled publication",
     "publication_new_title": "New post",

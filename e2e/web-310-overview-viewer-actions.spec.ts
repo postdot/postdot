@@ -34,7 +34,9 @@ test('Overview withholds viewer create and bulk actions while keeping consultati
     await expect(page.getByRole('link', { name: 'New post', exact: true })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Select', exact: true })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Reschedule', exact: true })).toHaveCount(0)
-    await expect(page.getByRole('button', { name: 'Cancel', exact: true })).toHaveCount(0)
+    await expect(
+        page.getByRole('button', { name: 'Cancel publications', exact: true })
+    ).toHaveCount(0)
 
     const viewerEmail = `e2e-310-viewer-${suffix}@postdot.local`
     const viewerInvitation = await createProjectInvitation(
@@ -75,7 +77,9 @@ test('Overview withholds viewer create and bulk actions while keeping consultati
         await expect(
             viewerPage.getByRole('button', { name: 'Reschedule', exact: true })
         ).toHaveCount(0)
-        await expect(viewerPage.getByRole('button', { name: 'Cancel', exact: true })).toHaveCount(0)
+        await expect(
+            viewerPage.getByRole('button', { name: 'Cancel publications', exact: true })
+        ).toHaveCount(0)
 
         // Every reading mode stays readable and offers no create entry.
         for (const view of ['month', 'week', 'day', 'agenda'] as const) {
@@ -97,7 +101,7 @@ test('Overview withholds viewer create and bulk actions while keeping consultati
                 viewerPage.getByRole('button', { name: 'Reschedule', exact: true })
             ).toHaveCount(0)
             await expect(
-                viewerPage.getByRole('button', { name: 'Cancel', exact: true })
+                viewerPage.getByRole('button', { name: 'Cancel publications', exact: true })
             ).toHaveCount(0)
 
             // Period navigation stays available.
@@ -205,7 +209,9 @@ test('Overview withholds viewer create and bulk actions while keeping consultati
         await expect(
             bulkActions.getByRole('button', { name: 'Reschedule', exact: true })
         ).toBeEnabled()
-        await expect(bulkActions.getByRole('button', { name: 'Cancel', exact: true })).toBeEnabled()
+        await expect(
+            bulkActions.getByRole('button', { name: 'Cancel publications', exact: true })
+        ).toBeEnabled()
 
         // The month day-add affordance creates for editors.
         await expect(

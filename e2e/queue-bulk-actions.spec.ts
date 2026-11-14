@@ -237,7 +237,7 @@ test('reschedules and cancels selected publications from Queue', async ({ page }
     ).toHaveCount(0)
 
     await selectionToggles.nth(0).click()
-    const cancelButton = page.getByRole('button', { name: 'Cancel', exact: true })
+    const cancelButton = page.getByRole('button', { name: 'Cancel publications', exact: true })
     await expect(cancelButton).toBeEnabled()
     await cancelButton.click()
     await expect(

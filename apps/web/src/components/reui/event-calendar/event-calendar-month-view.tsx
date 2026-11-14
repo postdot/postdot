@@ -773,9 +773,9 @@ function EventCalendarMonthCell({
         : autoFit && staticOverflow
           ? Math.max(0, timedSlots - 1)
           : timedSlots
-    const overflowSegments = expanded
-        ? []
-        : [...hiddenBarSegs, ...segments.timed.slice(staticShown)]
+    // The overflow popover lists the whole day, so the reader never pieces it together
+    // from the cell and the popover (Postdot DESIGN.md calendar contract).
+    const overflowSegments = expanded ? [] : [...hiddenBarSegs, ...segments.timed]
 
     // Live split: while a timed chip is dragged onto this day, render the day
     // exactly as it will look AFTER the drop. The dragged chip is a phantom in the
@@ -789,7 +789,7 @@ function EventCalendarMonthCell({
     let placeholderAtMore: boolean
     if (!inlineDrop) {
         visibleTimed = segments.timed.slice(0, staticShown)
-        overflowCount = overflowSegments.length
+        overflowCount = expanded ? 0 : hiddenBarSegs.length + segments.timed.length - staticShown
         placeholderIndex = -1
         placeholderAtMore = false
     } else {

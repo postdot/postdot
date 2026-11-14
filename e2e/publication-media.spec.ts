@@ -169,7 +169,8 @@ test('keeps dashboard and composer media journeys reliable', async ({ page, requ
             return { linkCount: links.length, topOffsetCount: topOffsets.size }
         })
     expect(workNavigationLayout).toEqual({ linkCount: 3, topOffsetCount: 3 })
-    expect(projectNavigationLayout).toEqual({ linkCount: 2, topOffsetCount: 2 })
+    // Channels, Media, Tags, People, Project settings (ADR-103 §4).
+    expect(projectNavigationLayout).toEqual({ linkCount: 5, topOffsetCount: 5 })
     await page.getByRole('button', { name: 'Close', exact: true }).click()
     await page.setViewportSize({ width: 1280, height: 720 })
 
@@ -358,7 +359,7 @@ test('keeps dashboard and composer media journeys reliable', async ({ page, requ
     await todayCell.hover()
     await todayCell.getByRole('button', { name: 'New post', exact: true }).click()
     await expect(page).toHaveURL(
-        /\/dashboard\/projects\/[^/]+\/publications\/new\?date=\d{4}-\d{2}-\d{2}$/
+        /\/dashboard\/projects\/[^/]+\/publications\/new\?date=\d{4}-\d{2}-\d{2}&time=\d{2}%3A\d{2}$/
     )
     await expect(
         page.locator('[data-publication-schedule-disclosure="true"] > summary')
@@ -407,7 +408,7 @@ test('keeps dashboard and composer media journeys reliable', async ({ page, requ
     await expect(page.locator('[data-publication-lifecycle="true"]')).toBeVisible()
     await expect(page.getByText('Draft', { exact: true })).toBeVisible()
     await expect(
-        page.getByRole('button', { name: /^Use this version(?:\s*(?:Ctrl|⌘)↵)?$/ })
+        page.getByRole('button', { name: /^Save changes(?:\s*(?:Ctrl|⌘)↵)?$/ })
     ).toBeVisible()
     await page.getByRole('link', { name: /Back to queue/ }).click()
     await page.getByRole('link', { name: 'New post', exact: true }).click()
@@ -1357,7 +1358,7 @@ test('persists mixed and media-only publications through the dashboard', async (
     await expect(emptyCalendarDay).toBeVisible()
     await emptyCalendarDay.click()
     await expect(page).toHaveURL(
-        /\/dashboard\/projects\/[^/]+\/publications\/new\?date=\d{4}-\d{2}-\d{2}$/
+        /\/dashboard\/projects\/[^/]+\/publications\/new\?date=\d{4}-\d{2}-\d{2}&time=\d{2}%3A\d{2}$/
     )
     await expect(
         page.locator('[data-publication-schedule-disclosure="true"] > summary')
@@ -1509,9 +1510,7 @@ test('persists mixed and media-only publications through the dashboard', async (
     const promotedSchedule = localDateTimeInHours(4)
     await page.locator('[data-publication-delivery-disclosure] > summary').click()
     await setDateTimePicker(page, 'Deliver at', promotedSchedule)
-    await page
-        .getByRole('button', { name: /^Update scheduled publication(?:\s*(?:Ctrl|⌘)↵)?$/ })
-        .click()
+    await page.getByRole('button', { name: /^Save changes(?:\s*(?:Ctrl|⌘)↵)?$/ }).click()
     await expect(page.getByLabel('Deliver at', { exact: true })).toContainText(
         formatDisplayTime(promotedSchedule)
     )

@@ -7,7 +7,10 @@ type PublicationCalendarView = 'month' | 'week' | 'day' | 'agenda'
 export interface PublicationEventData {
     readonly due: boolean
     readonly occupancy?: undefined
+    /** The first publication of the group, used for the title and the preview. */
     readonly publication: PublicationSummary
+    /** Every channel publication of the same post at the same minute (ADR-103 §3). */
+    readonly publications: readonly PublicationSummary[]
 }
 
 /** Read-only time taken on a shared channel by another project; it is never selectable. */
@@ -45,6 +48,7 @@ export function toPublicationCalendarEvents(
                 data: {
                     due: duePublicationIds.has(publication.id),
                     publication,
+                    publications: [publication],
                 },
                 end: start,
                 id: publication.id,
@@ -59,6 +63,52 @@ export function toPublicationCalendarEvents(
             if (startDifference !== 0) return startDifference
             return left.id.localeCompare(right.id)
         })
+}
+
+/**
+ * A post sent to several channels at the same minute is one calendar entry with its channels,
+ * not one line per channel. The group keeps the first publication's id so a single-channel
+ * entry is unchanged, and takes the most urgent state colour of its members.
+ */
+export function groupPublicationCalendarEvents(
+    events: readonly CalendarEvent<PublicationEventData>[]
+): CalendarEvent<PublicationEventData>[] {
+    const groups = new Map<string, CalendarEvent<PublicationEventData>>()
+    for (const event of events) {
+        const data = event.data
+        if (data === undefined) continue
+        const key = `${data.publication.postId}:${Math.floor(event.start.getTime() / 60_000)}`
+        const current = groups.get(key)
+        if (current?.data === undefined) {
+            groups.set(key, event)
+            continue
+        }
+        groups.set(key, {
+            ...current,
+            color: mostUrgentColor(current.color, event.color),
+            data: {
+                ...current.data,
+                due: current.data.due || data.due,
+                publications: [...current.data.publications, ...data.publications],
+            },
+        })
+    }
+    return [...groups.values()]
+}
+
+const colorUrgency = [
+    'var(--color-state-failed)',
+    'var(--color-state-attention)',
+    'var(--color-primary)',
+    'var(--color-state-published)',
+]
+
+function mostUrgentColor(left: string | undefined, right: string | undefined) {
+    const rank = (color: string | undefined) => {
+        const index = colorUrgency.indexOf(color ?? '')
+        return index < 0 ? colorUrgency.length : index
+    }
+    return rank(right) < rank(left) ? right : left
 }
 
 /**

@@ -45,7 +45,8 @@ import {
     getInitialTimeGridAnchor,
 } from '@/lib/event-calendar-time-anchor'
 
-const MIN_SLOT_HEIGHT = '2rem'
+// ADR-103 §7: a timeline's axis is linear, so every hour has the same height.
+const SLOT_HEIGHT = '3.5rem'
 const TIME_GUTTER_WIDTH = '3.5rem'
 const DAY_COLUMN_MIN_WIDTH = 152
 const DAY_COLUMN_MAX_WIDTH = 360
@@ -372,7 +373,7 @@ function EventCalendarTimeGrid<TData = unknown>({
                     {
                         '--ec-gutter-width': TIME_GUTTER_WIDTH,
                         '--ec-day-column-min-width': '9.5rem',
-                        '--ec-slot-min-height': MIN_SLOT_HEIGHT,
+                        '--ec-slot-min-height': SLOT_HEIGHT,
                     } as CSSProperties
                 }>
                 <div
@@ -583,7 +584,7 @@ function EventCalendarTimeGutterSlot<TData>({
     return (
         <div
             aria-hidden="true"
-            className="sticky start-0 z-30 flex min-h-[var(--ec-slot-min-height)] items-start justify-end bg-surface-inset pe-1.5 pt-1.5 text-[0.6875rem] tabular-nums text-muted-foreground"
+            className="sticky start-0 z-[25] flex h-[var(--ec-slot-min-height)] items-start justify-end bg-surface-inset pe-1.5 pt-1.5 text-[0.6875rem] tabular-nums text-muted-foreground"
             data-slot="event-calendar-time-gutter-slot">
             {viewConfig.renderTimeGutterSlot?.({
                 hour: Math.floor(slot.startMinute / 60),
@@ -673,18 +674,31 @@ function EventCalendarTimeGridSlot<TData>({
             onClick={handleAddClick}
         />
     ) : null
-    const publicationStack = (
-        <div className="pointer-events-none relative z-20 grid content-start gap-1">
-            {timedSegments.map(segment => (
-                <EventCalendarTimeGridEvent<TData> key={segment.occurrence.key} segment={segment} />
-            ))}
-        </div>
-    )
+    // Entries sit at their minute within the hour. Up to two share the width; more stack
+    // below the first row so every title stays readable.
+    const columns = Math.min(2, Math.max(1, timedSegments.length))
+    const publicationStack = timedSegments.map((segment, index) => {
+        const minute = (segment.startMin ?? slot.startMinute) - slot.startMinute
+        const span = Math.max(1, slot.endMinute - slot.startMinute)
+        const width = 100 / columns
+        const row = Math.floor(index / columns)
+        return (
+            <div
+                className="pointer-events-none absolute z-20 px-0.5"
+                key={segment.occurrence.key}
+                style={{
+                    insetInlineStart: `${(index % columns) * width}%`,
+                    top: `calc(${(minute / span) * 100}% + ${0.125 + row * 1.625}rem)`,
+                    width: `${width}%`,
+                }}>
+                <EventCalendarTimeGridEvent<TData> segment={segment} />
+            </div>
+        )
+    })
     return (
         <div
             className={[
-                'group/time-slot relative min-h-[var(--ec-slot-min-height)] min-w-0 cursor-pointer rounded-sm p-1 shadow-grid-cell transition-colors hover:bg-muted/70',
-                (slot.startMinute / 60) % 2 === 1 ? 'bg-surface-field/35' : 'bg-background',
+                'group/time-slot relative h-[var(--ec-slot-min-height)] min-w-0 cursor-pointer bg-background shadow-grid-cell transition-colors hover:bg-muted/50',
                 isOff ? offClassName : '',
                 isToday ? 'bg-primary/5' : '',
                 isOutside ? 'opacity-60' : '',
@@ -730,7 +744,7 @@ function EventCalendarTimeGridEvent<TData>({
 }) {
     return (
         <EventCalendarEvent
-            className="pointer-events-auto !min-h-10 !overflow-visible items-start rounded-md px-2 py-1.5"
+            className="pointer-events-auto !min-h-0 h-6 items-center overflow-hidden rounded-sm px-1.5 text-[0.6875rem] whitespace-nowrap"
             segment={segment}
         />
     )

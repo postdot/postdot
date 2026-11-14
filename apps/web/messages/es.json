@@ -513,7 +513,7 @@
     "queue_reschedule_submit": "Aplicar programación",
     "queue_reschedule_required": "Elige una fecha y hora.",
     "queue_reschedule_only_scheduled": "Solo se pueden reprogramar publicaciones programadas.",
-    "queue_cancel": "Cancelar",
+    "queue_cancel": "Cancelar publicaciones",
     "queue_cancel_title": [
         {
             "declarations": ["input count", "local countPlural = count: plural"],
@@ -1734,8 +1734,6 @@
     "calendar_preview_no_content": "No hay contenido para mostrar",
     "calendar_preview_edit": "Editar publicación",
     "calendar_preview_view": "Ver publicación",
-    "calendar_preview_schedule": "Programación",
-    "calendar_preview_status": "Estado",
     "calendar_preview_unavailable": "Esta publicación ya no está disponible.",
     "calendar_preview_untitled": "Publicación sin título",
     "publication_new_title": "Nueva publicación",

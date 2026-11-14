@@ -87,21 +87,18 @@ export function PublicationCalendarPage({
         retry: 1,
     })
     const occupancy = hasSharedChannel ? (occupancyQuery.data ?? []) : []
-    const channelNames = useMemo(
-        () => new Map(channels.map(channel => [channel.id, channel.name])),
-        [channels]
-    )
     const dueIds = useMemo(() => new Set(due.map(publication => publication.id)), [due])
     const nextScheduledPublication = useMemo(() => {
         const upcoming = calendarPublications.filter(
             publication =>
                 publication.state === 'scheduled' &&
                 publication.scheduledAt !== null &&
-                toDateKey(new Date(publication.scheduledAt), project.timeZone) >= calendarDateKey
+                // C9: "next" is strictly in the future.
+                publication.scheduledAt > Date.now()
         )
         upcoming.sort((left, right) => left.scheduledAt! - right.scheduledAt!)
         return upcoming[0] ?? null
-    }, [calendarDateKey, calendarPublications, project.timeZone])
+    }, [calendarPublications])
     const calendarPublicationIds = useMemo(
         () => toPublicationCalendarEvents(calendarPublications, dueIds).map(event => event.id),
         [calendarPublications, dueIds]
@@ -237,8 +234,11 @@ export function PublicationCalendarPage({
                         timeZone={project.timeZone}
                     />
 
+                    {/* C10: the selection bar floats above the calendar instead of pushing it down. */}
                     {!readOnly && selectedCount > 0 ? (
-                        <div className="mt-4">
+                        <div
+                            className="fixed bottom-5 left-1/2 z-40 w-[min(48rem,calc(100vw-2rem))] -translate-x-1/2"
+                            data-calendar-selection-bar="true">
                             <BulkActionBar
                                 actions={[
                                     {
@@ -261,6 +261,7 @@ export function PublicationCalendarPage({
                                 ]}
                                 allSelected={allVisibleSelected}
                                 ariaLabel={m.calendar_selection_actions()}
+                                className="static bg-popover shadow-overlay backdrop-blur-none"
                                 clearLabel={m.calendar_clear_selection()}
                                 onClear={clearPublicationSelection}
                                 onToggleAll={toggleAllVisiblePublications}
@@ -282,7 +283,7 @@ export function PublicationCalendarPage({
                         <>
                             <section aria-labelledby="calendar-title" className="mt-7 min-w-0">
                                 <PublicationCalendar
-                                    channelNames={channelNames}
+                                    channels={channels}
                                     occupancy={occupancy}
                                     duePublicationIds={dueIds}
                                     loading={calendarPublicationsQuery.isFetching}

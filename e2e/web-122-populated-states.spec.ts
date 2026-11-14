@@ -4,12 +4,17 @@ import { expect, test, type Locator, type Page } from '@playwright/test'
 
 import { openLanguageMenu } from './locale'
 
+// Fixtures are placed in UTC; the project and the browser must agree on the day.
+test.use({ timezoneId: 'UTC' })
+
 test('uses the calendar as the project overview and keeps Queue distinct', async ({ page }) => {
     test.setTimeout(30_000)
 
     const suffix = randomUUID().slice(0, 8)
     const projectId = await createAccountAndProject(page, suffix)
     const scheduledAt = currentMonthNoon()
+    // "Next publication" is strictly future (ADR-103): read the overview from the morning.
+    await page.clock.setFixedTime(new Date(currentMonthAt(9)))
     const publications = Array.from({ length: 8 }, (_, index) =>
         publicationFixture({
             channelName: index % 2 === 0 ? 'Editorial channel' : 'Community channel',
@@ -81,11 +86,11 @@ test('uses the calendar as the project overview and keeps Queue distinct', async
     await expect(overviewCalendar).toBeVisible()
     // JRN-04: desktop creation lives in the sidebar; the header supplies the mobile action.
     await expect(page.getByRole('link', { name: 'New post', exact: true })).toBeVisible()
-    await expect(
-        page.getByRole('main').getByRole('button', { name: 'New post', exact: true })
-    ).not.toBeVisible()
+    await expect(page.locator('main [data-page-header]').getByText('New post')).not.toBeVisible()
     await expect(overviewCalendar.locator('[data-calendar-view="month"]')).toBeVisible()
-    await expect(overviewCalendar.locator('[data-slot="event-calendar-event"]')).toHaveCount(4)
+    // Three entries per day, then a "+1 more" popover; the row height never changes.
+    await expect(overviewCalendar.locator('[data-slot="event-calendar-event"]')).toHaveCount(3)
+    await expect(overviewCalendar.getByText('+1 more', { exact: true })).toBeVisible()
 
     let cancelPayload: { publicationIds: string[] } | null = null
     await page.route(`**/api/projects/${projectId}/publications/cancel`, async route => {
@@ -121,9 +126,11 @@ test('uses the calendar as the project overview and keeps Queue distinct', async
         calendarBulkActionBar.getByRole('button', { name: 'Reschedule', exact: true })
     ).toBeEnabled()
     await expect(
-        calendarBulkActionBar.getByRole('button', { name: 'Cancel', exact: true })
+        calendarBulkActionBar.getByRole('button', { name: 'Cancel publications', exact: true })
     ).toBeEnabled()
-    await calendarBulkActionBar.getByRole('button', { name: 'Cancel', exact: true }).click()
+    await calendarBulkActionBar
+        .getByRole('button', { name: 'Cancel publications', exact: true })
+        .click()
     await expect(
         page.getByRole('heading', { name: 'Cancel 2 publications', exact: true })
     ).toBeVisible()
@@ -249,8 +256,8 @@ test('keeps the populated ReUI calendar responsive and keyboard navigable', asyn
             clientWidth: element.clientWidth,
             scrollWidth: element.scrollWidth,
             rows: Array.from(element.querySelectorAll('button')).map(button => {
-                const channel = button.children[2]
-                const channelStyle = channel === undefined ? null : getComputedStyle(channel)
+                const channel = button.querySelector('[data-agenda-channel]')
+                const channelStyle = channel === null ? null : getComputedStyle(channel)
                 return {
                     buttonClientWidth: button.clientWidth,
                     buttonScrollWidth: button.scrollWidth,
@@ -275,9 +282,10 @@ test('keeps the populated ReUI calendar responsive and keyboard navigable', asyn
         .locator('[data-slot="event-calendar-month-cell"][data-outside]')
         .first()
     await expect(outsideMonthCell).toBeVisible()
+    // C5: days outside the month are muted, never textured.
     await expect
         .poll(() => outsideMonthCell.evaluate(element => getComputedStyle(element).backgroundImage))
-        .toContain('repeating-linear-gradient')
+        .toBe('none')
 
     await calendar.getByRole('button', { name: 'Month', exact: true }).focus()
     await page.keyboard.press('W')
@@ -536,7 +544,8 @@ test('supports dense events and slot creation in the ReUI week view', async ({ p
     await emptyTimeSlot.hover()
     await expect(emptySlotAdd).toHaveCSS('opacity', '1')
     const emptyTimeSlotBox = await emptyTimeSlot.boundingBox()
-    expect(denseTimeSlotBox?.height).toBeGreaterThan(emptyTimeSlotBox?.height ?? 0)
+    // ADR-103 §7: the time axis is linear, so a busy hour is as tall as an empty one.
+    expect(denseTimeSlotBox?.height).toBe(emptyTimeSlotBox?.height)
 
     await emptySlotAdd.click()
     const newPublicationUrl = new URL(page.url())
@@ -553,7 +562,7 @@ test('supports dense events and slot creation in the ReUI week view', async ({ p
     )
 })
 
-test('preserves day view and expands dense ReUI month cells in place', async ({ page }) => {
+test('preserves day view and opens dense month days in an anchored popover', async ({ page }) => {
     const { calendar, suffix } = await createDenseCalendarProject(page)
 
     await calendar.getByRole('button', { name: 'Day', exact: true }).click()
@@ -613,33 +622,23 @@ test('preserves day view and expands dense ReUI month cells in place', async ({ 
         .filter({ hasText: `E2E-122 ReUI publication 1 ${suffix}` })
         .first()
     await expect(denseCell).toBeVisible()
-    await expect(denseCell.locator('[data-slot="event-calendar-event"]')).toHaveCount(5)
-    await expect(denseCell.getByText('+1 more', { exact: true })).toBeVisible()
+    await expect(denseCell.locator('[data-slot="event-calendar-event"]')).toHaveCount(3)
+    await expect(denseCell.getByText('+3 more', { exact: true })).toBeVisible()
 
+    // ADR-103: the overflow opens a popover anchored to the day; the grid never moves.
     const collapsedBox = await denseCell.boundingBox()
-    await denseCell.locator('[data-slot="event-calendar-month-day-number"]').click()
-    await expect(denseCell).toHaveAttribute('data-expanded', 'true')
-    await expect(denseCell.locator('[data-slot="event-calendar-event"]')).toHaveCount(6)
-    await expect(denseCell.locator('[data-slot="event-calendar-more"]')).toHaveCount(0)
-    await expect(page.locator('[data-slot="publication-calendar-day-details"]')).toHaveCount(0)
-    const expandedBox = await denseCell.boundingBox()
-    expect(expandedBox?.height).toBeGreaterThan(collapsedBox?.height ?? 0)
+    await denseCell.getByText('+3 more', { exact: true }).click()
+    const morePopover = page.locator('[data-slot="event-calendar-more-popover"]')
+    await expect(morePopover).toBeVisible()
+    await expect(morePopover.locator('[data-slot="event-calendar-event"]')).toHaveCount(6)
+    expect((await denseCell.boundingBox())?.height).toBe(collapsedBox?.height)
 
-    await denseCell.locator('[data-slot="event-calendar-month-day-number"]').click()
-    await expect(denseCell).not.toHaveAttribute('data-expanded', 'true')
-    await expect(denseCell.getByText('+1 more', { exact: true })).toBeVisible()
-
-    await denseCell.getByText('+1 more', { exact: true }).click()
-    await expect(denseCell).toHaveAttribute('data-expanded', 'true')
-    await expect(denseCell.locator('[data-slot="event-calendar-event"]')).toHaveCount(6)
-    await expect(calendar.locator('[data-slot="event-calendar-more-popover"]')).toHaveCount(0)
-
-    await denseCell.getByRole('button', { name: /E2E-122 ReUI publication 1/ }).click()
+    await morePopover.getByRole('button', { name: /E2E-122 ReUI publication 4/ }).click()
     await expect(
-        page.getByRole('heading', { name: `E2E-122 ReUI publication 1 ${suffix}`, exact: true })
+        page.getByRole('heading', { name: `E2E-122 ReUI publication 4 ${suffix}`, exact: true })
     ).toBeVisible()
     await page.getByRole('button', { name: 'Close', exact: true }).click()
-    await expect(denseCell).toHaveAttribute('data-expanded', 'true')
+    await expect(page.locator('[data-calendar-preview="true"]')).toHaveCount(0)
 })
 
 async function createDenseCalendarProject(page: Page): Promise<{

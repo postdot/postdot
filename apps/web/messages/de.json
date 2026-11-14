@@ -513,7 +513,7 @@
     "queue_reschedule_submit": "Zeitplan anwenden",
     "queue_reschedule_required": "Wähle ein Datum und eine Uhrzeit.",
     "queue_reschedule_only_scheduled": "Nur geplante Veröffentlichungen können neu geplant werden.",
-    "queue_cancel": "Abbrechen",
+    "queue_cancel": "Veröffentlichungen abbrechen",
     "queue_cancel_title": [
         {
             "declarations": ["input count", "local countPlural = count: plural"],
@@ -1734,8 +1734,6 @@
     "calendar_preview_no_content": "Kein Inhalt zum Anzeigen vorhanden",
     "calendar_preview_edit": "Veröffentlichung bearbeiten",
     "calendar_preview_view": "Veröffentlichung ansehen",
-    "calendar_preview_schedule": "Zeitplan",
-    "calendar_preview_status": "Status",
     "calendar_preview_unavailable": "Diese Veröffentlichung ist nicht mehr verfügbar.",
     "calendar_preview_untitled": "Unbenannte Veröffentlichung",
     "publication_new_title": "Neuer Beitrag",
