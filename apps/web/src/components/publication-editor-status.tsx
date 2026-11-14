@@ -69,7 +69,7 @@ export function PublicationEditorStatus({
                     ) : null}
                     {saveState === 'conflict' ? (
                         <Button size="sm" variant="secondary" onClick={onReviewConflict}>
-                            {m.editor_sidebar_reconcile_title()}
+                            {m.editor_review_conflict()}
                         </Button>
                     ) : null}
                 </div>

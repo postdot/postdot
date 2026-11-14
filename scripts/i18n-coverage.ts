@@ -28,6 +28,9 @@ const allowedUnchangedByLocale = new Map<string, ReadonlySet<string>>([
     [
         'fr',
         new Set([
+            'auth_board_source_label',
+            'media_info_usage_source',
+            'search_posts',
             'access_project_invitations_title',
             'channel_bluesky_profile',
             'channel_devto_profile',
@@ -171,6 +174,7 @@ const allowedUnchangedByLocale = new Map<string, ReadonlySet<string>>([
     [
         'de',
         new Set([
+            'editor_constraint_source',
             'channel_bluesky_profile',
             'channel_devto_profile',
             'channel_discord_profile',

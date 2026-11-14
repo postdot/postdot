@@ -219,7 +219,7 @@ test('reschedules and cancels selected publications from Queue', async ({ page }
     await expect(
         page.getByRole('heading', { name: 'Reschedule 2 publications', exact: true })
     ).toBeVisible()
-    await page.getByLabel('Deliver at', { exact: true }).click()
+    await page.getByLabel('Publish on', { exact: true }).click()
     await expect(page.getByLabel('Time', { exact: true })).toBeVisible()
     await page.keyboard.press('Escape')
     await page.getByRole('button', { name: 'Apply schedule', exact: true }).click()

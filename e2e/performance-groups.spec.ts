@@ -166,7 +166,7 @@ test('groups loaded destinations by source and distinguishes zero, missing, and 
     await expect(mastodon.getByText('0', { exact: true })).toBeVisible()
     await expect(mastodon).toContainText('Favourites')
     await expect(mastodon).toContainText('Boosts')
-    await mastodon.getByRole('button', { name: 'Refresh: Mastodon status', exact: true }).click()
+    await mastodon.getByRole('button', { name: 'Refresh: Mastodon', exact: true }).click()
     await expect(mastodon.getByText('8', { exact: true })).toBeVisible()
     expect(collectCalls).toBe(1)
     await page.screenshot({

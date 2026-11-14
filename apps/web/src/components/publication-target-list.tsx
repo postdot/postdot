@@ -7,7 +7,6 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@postdot/ui/components/select'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@postdot/ui/components/tooltip'
 import { cn } from '@postdot/ui/lib/utils'
 import { AddIcon } from '@solar-icons/react/linear/add'
 import { CloseIcon } from '@solar-icons/react/linear/close'
@@ -65,7 +64,7 @@ export function PublicationChannelRail({
             data-publication-channel-selection="true"
             className="flex min-w-0 flex-wrap items-center gap-2 rounded-xl bg-surface-inset/55 px-3 py-2 shadow-surface sm:px-4">
             <span className="shrink-0 text-xs font-semibold text-muted-foreground">
-                {m.publication_new_destinations()}
+                {m.publication_post_channels()}
             </span>
             {onSharedChange ? (
                 <Button
@@ -84,37 +83,37 @@ export function PublicationChannelRail({
             <div
                 className="flex min-w-0 flex-1 flex-wrap items-center gap-2 p-0.5"
                 role="group"
-                aria-label={m.publication_new_destinations()}>
+                aria-label={m.publication_post_channels()}>
                 {channels.map(channel => {
                     const selected = allChannelsSelected || selectedChannelIds.has(channel.id)
                     const active = channel.id === activeChannelId
+                    // D5: labelled chips; the current channel is pressed, unused ones dashed.
                     return (
-                        <Tooltip key={channel.id}>
-                            <TooltipTrigger
-                                render={
-                                    <Button
-                                        type="button"
-                                        variant="ghost"
-                                        aria-label={channel.name}
-                                        aria-pressed={selected}
-                                        data-active-channel={active || undefined}
-                                        disabled={disabled}
-                                        onClick={() => onActiveChannelChange(channel.id)}
-                                        className={`relative h-11 min-w-0 max-w-full shrink-0 gap-2 rounded-xl px-2 ${active ? 'bg-primary/10 text-foreground shadow-control' : selected ? '' : 'opacity-40 grayscale hover:opacity-80 hover:grayscale-0'}`}>
-                                        <ChannelAvatar channel={channel} size="md" />
-                                        {active ? (
-                                            <span className="min-w-0 max-w-32 truncate text-sm">
-                                                {channel.name}
-                                            </span>
-                                        ) : null}
-                                        {selected && !active ? (
-                                            <span className="absolute bottom-1 right-1 size-1.5 rounded-full bg-primary" />
-                                        ) : null}
-                                    </Button>
-                                }
+                        <Button
+                            key={channel.id}
+                            type="button"
+                            variant="ghost"
+                            aria-label={channel.name}
+                            aria-pressed={selected}
+                            aria-current={active ? 'page' : undefined}
+                            data-active-channel={active || undefined}
+                            disabled={disabled}
+                            onClick={() => onActiveChannelChange(channel.id)}
+                            className={cn(
+                                'h-9 min-w-0 max-w-56 shrink-0 gap-2 rounded-full ps-1.5 pe-3 text-sm',
+                                active
+                                    ? 'bg-primary/12 text-primary ring-2 ring-primary/70 hover:bg-primary/16'
+                                    : selected
+                                      ? 'bg-surface-control shadow-control hover:bg-surface-control-hover'
+                                      : 'border border-dashed border-border text-muted-foreground hover:border-solid hover:text-foreground'
+                            )}>
+                            <ChannelAvatar
+                                channel={channel}
+                                size="sm"
+                                className={cn('rounded-full', !selected && 'opacity-70')}
                             />
-                            <TooltipContent>{channel.name}</TooltipContent>
-                        </Tooltip>
+                            <span className="min-w-0 truncate">{channel.name}</span>
+                        </Button>
                     )
                 })}
             </div>

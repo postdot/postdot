@@ -1511,14 +1511,13 @@ test('persists mixed and media-only publications through the dashboard', async (
     await page.setViewportSize({ width: 1280, height: 720 })
 
     const promotedSchedule = localDateTimeInHours(4)
-    await page.locator('[data-publication-delivery-disclosure] > summary').click()
-    await setDateTimePicker(page, 'Deliver at', promotedSchedule)
+    await setDateTimePicker(page, 'Publish on', promotedSchedule)
     await page.getByRole('button', { name: /^Save changes(?:\s*(?:Ctrl|⌘)↵)?$/ }).click()
-    await expect(page.getByLabel('Deliver at', { exact: true })).toContainText(
+    await expect(page.getByLabel('Publish on', { exact: true })).toContainText(
         formatDisplayTime(promotedSchedule)
     )
     await page.reload()
-    await expect(page.getByLabel('Deliver at', { exact: true })).toContainText(
+    await expect(page.getByLabel('Publish on', { exact: true })).toContainText(
         formatDisplayTime(promotedSchedule)
     )
 

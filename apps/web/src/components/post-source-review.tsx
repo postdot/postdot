@@ -104,9 +104,7 @@ function Review({
         <div className="space-y-4">
             <p className="text-sm text-muted-foreground">{m.source_review_description()}</p>
             <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-sm">
-                    {m.editor_source_revision({ revision: query.data.post.sourceRevision })}
-                </p>
+                <span />
                 <Button variant="ghost" onClick={() => void query.refetch()}>
                     {m.source_review_refresh()}
                 </Button>

@@ -527,7 +527,6 @@ for (const scheduled of [false, true]) {
             expect(requests).toBe(1)
             await page.unroute(routeUrl)
             if (scheduled) {
-                await page.locator('[data-publication-delivery-disclosure] > summary').click()
                 await page.locator('#deliver-at').click()
                 await page.getByRole('button', { name: 'Clear', exact: true }).click()
                 await expect(action.locator('span').first()).toHaveText('Unschedule')
@@ -574,7 +573,6 @@ for (const outcome of ['rejected', 'lost_response'] as const) {
         expect(seeded.ok()).toBe(true)
         await page.reload()
         await openCustomization(page)
-        await page.locator('[data-publication-delivery-disclosure] > summary').click()
         await page.locator('#deliver-at').click()
         await page.getByRole('button', { name: 'Clear', exact: true }).click()
         const before = await pair.read(page, pair.first)
@@ -818,7 +816,7 @@ test('reviews sibling source changes and explicitly keeps or replaces destinatio
     await first
         .getByRole('radio', { name: 'Use the post’s text, title and media', exact: true })
         .check()
-    await expect(first).toContainText('Replaces those fields in this saved draft')
+    await expect(first).toContainText('Replaces these fields in this channel version')
     await page.setViewportSize({ width: 390, height: 900 })
     await expect(dialog).toBeVisible()
     expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false)
@@ -926,7 +924,7 @@ test('saves the post source explicitly and preserves local text on a concurrent 
     })
     expect(external.status()).toBe(200)
     await expect(
-        page.getByRole('alert').filter({ hasText: 'The source changed elsewhere.' })
+        page.getByRole('alert').filter({ hasText: 'The post changed elsewhere.' })
     ).toBeVisible()
     await expect(page.locator('#source-body')).toHaveText('My unsaved source')
     await expect(page.getByRole('button', { name: 'Save', exact: true })).toBeDisabled()

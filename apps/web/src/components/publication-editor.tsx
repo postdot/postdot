@@ -232,10 +232,7 @@ export function PublicationEditor({
             : recoveredContentDiffers || recoveredScheduleDiffers
               ? m.editor_recovered_ready()
               : initialSourceConflict
-                ? m.editor_initial_source_conflict({
-                      draftRevision: initialEditor.draft.sourceRevision,
-                      currentRevision: initialEditor.post.sourceRevision,
-                  })
+                ? m.editor_initial_source_conflict()
                 : initialRecovery === null
                   ? null
                   : m.editor_previous_local_newer()
@@ -496,10 +493,7 @@ export function PublicationEditor({
         setSaveState(incomingSourceConflict ? 'conflict' : 'saved')
         setMessage(
             incomingSourceConflict
-                ? m.editor_initial_source_conflict({
-                      draftRevision: initialEditor.draft.sourceRevision,
-                      currentRevision: initialEditor.post.sourceRevision,
-                  })
+                ? m.editor_initial_source_conflict()
                 : m.editor_background_update(),
             !incomingSourceConflict
         )
@@ -763,9 +757,7 @@ export function PublicationEditor({
             setSaveState(refreshedSourceConflict ? 'conflict' : 'saved')
             setMessage(
                 refreshedSourceConflict
-                    ? m.editor_server_loaded_conflict({
-                          revision: response.editor.draft.sourceRevision,
-                      })
+                    ? m.editor_server_loaded_conflict()
                     : m.editor_server_loaded()
             )
         } catch (caughtError) {
@@ -967,9 +959,7 @@ export function PublicationEditor({
                     setSaveState(refreshedSourceConflict ? 'conflict' : 'saved')
                     setMessage(
                         refreshedSourceConflict
-                            ? m.editor_server_loaded_conflict({
-                                  revision: response.editor.draft.sourceRevision,
-                              })
+                            ? m.editor_server_loaded_conflict()
                             : m.editor_server_loaded()
                     )
                 } else if (decision.conflict) {
@@ -1303,7 +1293,6 @@ export function PublicationEditor({
                 configuredEditor={configuredEditor}
                 projectId={projectId}
                 sourceContent={sourceContent}
-                sourceRevision={editor.post.sourceRevision}
                 disabled={
                     !publicationEditable ||
                     accessWritesBlocked ||

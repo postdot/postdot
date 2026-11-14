@@ -366,11 +366,6 @@ export function PublicationFirstCommentPanel({
                                 <span className="mt-1 block whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
                                     {edit.conflict.text}
                                 </span>
-                                <span className="mt-1 block text-xs">
-                                    {m.first_comment_conflict_revision({
-                                        revision: String(edit.conflict.revision),
-                                    })}
-                                </span>
                             </p>
                             <Button
                                 type="button"

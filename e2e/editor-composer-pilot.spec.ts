@@ -296,7 +296,7 @@ test('recovers composition text, target formatting and media through the existin
     expect(discordId).toBeDefined()
     await page.goto(`/dashboard/projects/${id}/publications/${discordId}?editor=tiptap`)
     await expect(
-        page.getByRole('button', { name: 'Someone saved a newer version', exact: true })
+        page.getByRole('button', { name: 'Review the changes', exact: true })
     ).toBeVisible()
     await page.getByRole('button', { name: 'Update to the new text', exact: true }).click()
     const discordField = page.locator('[data-target-field="text"]')
@@ -1136,7 +1136,7 @@ test('composer native presentation follows execution rather than profile identit
         await page
             .locator(`[data-channel-selected-button][data-channel-id="${channel.id}"]`)
             .click()
-        await expect(page.getByText('Loading destination limits…', { exact: true })).toHaveCount(0)
+        await expect(page.getByText('Loading channel limits…', { exact: true })).toHaveCount(0)
         const native = channel.kind !== 'manual'
         const article = native && channel.platform === 'devto'
         const discord = native && channel.platform === 'discord'

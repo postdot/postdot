@@ -30,7 +30,6 @@ interface PublicationEditorSourceSectionProps {
     readonly configuredEditor?: boolean
     readonly projectId: string
     readonly sourceContent: SourceContent
-    readonly sourceRevision: number
     readonly disabled: boolean
     readonly readOnly?: boolean
     readonly mediaDisabled: boolean
@@ -45,7 +44,6 @@ export function PublicationEditorSourceSection({
     configuredEditor = true,
     projectId,
     sourceContent,
-    sourceRevision,
     disabled,
     readOnly = false,
     mediaDisabled,
@@ -84,9 +82,6 @@ export function PublicationEditorSourceSection({
                         onAssetsChange={onAssetsChange}
                         disabled
                     />
-                    <p className="text-xs text-muted-foreground">
-                        {m.editor_source_revision({ revision: sourceRevision })}
-                    </p>
                 </div>
             </section>
         )
@@ -162,9 +157,6 @@ export function PublicationEditorSourceSection({
                             />
                         </summary>
                         <div className="mt-4 grid min-w-0 gap-4">
-                            <p className="text-xs text-muted-foreground">
-                                {m.editor_source_revision({ revision: sourceRevision })}
-                            </p>
                             <div className="grid min-w-0 gap-4 sm:grid-cols-2">
                                 <Field className="min-w-0 gap-1.5">
                                     <FieldLabel htmlFor="source-format">

@@ -72,9 +72,19 @@ export function PublicationLifecyclePanel({
                 <div className="min-w-0 flex-1">
                     <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
                         <PublicationStatus due={due} state={publication.state} />
-                        {publication.scheduledAt !== null ? (
+                        {/* D9: published work shows when it went out, not when it was planned. */}
+                        {(publication.state === 'published' && publication.publishedAt !== null
+                            ? publication.publishedAt
+                            : publication.scheduledAt) !== null ? (
                             <span className="text-xs text-muted-foreground">
-                                {formatSchedule(publication.scheduledAt, timeZone, locale)}
+                                {formatSchedule(
+                                    publication.state === 'published' &&
+                                        publication.publishedAt !== null
+                                        ? publication.publishedAt
+                                        : publication.scheduledAt,
+                                    timeZone,
+                                    locale
+                                )}
                             </span>
                         ) : null}
                     </div>

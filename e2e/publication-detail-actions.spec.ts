@@ -62,8 +62,9 @@ test('keeps publication detail actions aligned with the scheduled lifecycle', as
     )
     await expect(page.locator('[data-publication-action="cancel"]')).toBeVisible()
     const delivery = page.locator('[data-publication-delivery-disclosure="true"]')
-    await expect(delivery).not.toHaveAttribute('open', '')
-    await expect(page.locator('#deliver-at')).not.toBeVisible()
+    // D7: the schedule is one labelled field, not a fold around a picker.
+    await expect(page.locator('#deliver-at')).toBeVisible()
+    await expect(delivery.locator('summary')).toHaveCount(0)
     await expect(
         page.getByRole('button', { name: /^Save changes(?:\s*(?:Ctrl|⌘)↵)?$/ })
     ).toBeVisible()
@@ -92,11 +93,6 @@ test('keeps publication detail actions aligned with the scheduled lifecycle', as
     await page.keyboard.press('Enter')
     await expect(customization.locator('[data-target-editor]')).not.toBeVisible()
 
-    await delivery.locator('summary').focus()
-    await page.keyboard.press('Enter')
-    await expect(page.locator('#deliver-at')).toBeVisible()
-    await page.keyboard.press('Enter')
-    await expect(page.locator('#deliver-at')).not.toBeVisible()
     await expect(page.getByRole('button', { name: 'Mark published', exact: true })).toHaveCount(0)
 
     await page.setViewportSize({ width: 390, height: 844 })
@@ -207,8 +203,8 @@ test('keeps publication detail actions aligned with the scheduled lifecycle', as
             )
         })
     ).toBe(true)
-    await expect(editorNotice).toContainText('Rebase it before saving or promoting.')
-    await expect(editorNotice).not.toContainText('The latest server state is shown.')
+    await expect(editorNotice).toContainText('Update it to the new text or keep it as it is.')
+    await expect(editorNotice).not.toContainText('The saved version is loaded')
     await editorNotice.getByRole('button').click()
     // The conflict is shown in place, not folded away; its first action takes focus.
     await expect(conflict.locator('button').first()).toBeFocused()
@@ -767,7 +763,7 @@ test('requires destination confirmation after reconnecting while retaining the s
     await page.goto(`/dashboard/projects/${projectId}/publications/${publication.id}`)
     const section = page.locator('[data-publication-destination]')
     await expect(section).toContainText(
-        'Current destination: Replacement destination · replacement-account'
+        'Current account: Replacement destination · replacement-account'
     )
     await expect(section.locator('[data-target-readonly]')).toContainText(
         'Keep this target and schedule'
@@ -776,7 +772,7 @@ test('requires destination confirmation after reconnecting while retaining the s
         'Unapplied destination draft'
     )
     await expect(
-        section.getByRole('button', { name: 'Confirm current destination', exact: true })
+        section.getByRole('button', { name: 'Confirm this account', exact: true })
     ).toBeEnabled()
     await expect(section).toContainText('Any delivery already scheduled can resume')
     await page.screenshot({ path: testInfo.outputPath('destination-desktop.png'), fullPage: true })

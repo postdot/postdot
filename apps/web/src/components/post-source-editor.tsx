@@ -94,9 +94,6 @@ export function PostSourceEditor({
             <div className="flex flex-wrap items-center justify-between gap-3">
                 <h2 className="text-lg font-semibold">{m.source_review_source()}</h2>
                 <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-xs text-muted-foreground">
-                        {m.editor_source_revision({ revision: post.sourceRevision })}
-                    </span>
                     {working ? (
                         <>
                             <Button variant="ghost" disabled={saving} onClick={close}>
@@ -131,7 +128,6 @@ export function PostSourceEditor({
                 <PublicationEditorSourceSection
                     projectId={projectId}
                     sourceContent={working.sourceContent}
-                    sourceRevision={working.sourceRevision}
                     disabled={!canEdit || saving}
                     mediaDisabled={!canEdit || saving}
                     onTextChange={text =>

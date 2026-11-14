@@ -15,8 +15,6 @@
 
 - [/] **[UX-654]** One page anatomy: header, empty state, dialog, status, buttons, time format (audit S8–S15) `Priority: 🔴` `Complexity: L`
 
-- [/] **[UX-659]** Publication and post pages: one save, no raw JSON, diagnostics aside (audit D1–D9) `Priority: 🟠` `Complexity: L`
-
 - [/] **[UX-660]** Channels, media, performance, settings and first run (audit F2–F4, H, M, R, T) `Priority: 🔵` `Complexity: L`
 
 - [ ] **[UX-661]** Calendar filter by channel and state, and "Move by…" bulk reschedule (audit C10 remainder, C11) `Priority: ⚪` `Complexity: M`

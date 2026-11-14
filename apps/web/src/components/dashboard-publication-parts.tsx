@@ -637,9 +637,17 @@ export function PublicationRow({
                         ) : (
                             <PublicationStatus state={publication.state} />
                         )}
-                        {!showCreationDate && publication.scheduledAt !== null ? (
+                        {/* D9: published work shows when it went out, not when it was planned. */}
+                        {!showCreationDate &&
+                        (publication.publishedAt ?? publication.scheduledAt) !== null ? (
                             <span className="text-xs tabular-nums text-muted-foreground">
-                                {formatSchedule(publication.scheduledAt, timeZone, locale)}
+                                {formatSchedule(
+                                    publication.state === 'published'
+                                        ? (publication.publishedAt ?? publication.scheduledAt)
+                                        : publication.scheduledAt,
+                                    timeZone,
+                                    locale
+                                )}
                             </span>
                         ) : null}
                         {publication.draftReviewState === 'review_required' ? (
