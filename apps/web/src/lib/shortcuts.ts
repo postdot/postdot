@@ -74,7 +74,7 @@ export function getAppShortcuts(): readonly AppShortcut[] {
             id: 'new_publication',
             category: 'composer',
             title: m.shortcut_new_publication,
-            keys: [mod, 'N'],
+            keys: ['N'],
             keywords: 'new create publication post article nouveau creer rediger draft composer',
             getHref: ({ projectId }) =>
                 projectId

@@ -95,7 +95,14 @@ export function DashboardSearch({
             if (hasMod && event.key.toLowerCase() === 'k') {
                 event.preventDefault()
                 setOpen(value => !value)
-            } else if (hasMod && event.key.toLowerCase() === 'n' && projectId !== null) {
+            } else if (
+                // S15: browsers reserve Ctrl/⌘+N for a new window; a plain N starts a post.
+                !hasMod &&
+                !event.altKey &&
+                !event.shiftKey &&
+                event.key.toLowerCase() === 'n' &&
+                projectId !== null
+            ) {
                 if (!isEditableTarget(event.target)) {
                     event.preventDefault()
                     setOpen(false)
