@@ -88,7 +88,8 @@ export function DateTimePicker({
     function updateDate(date: Date | undefined) {
         if (date === undefined) return
         const parts = getZonedDateTimeParts(date.getTime(), timeZone)
-        const nextTime = draftTime || '09:00'
+        // ADR-103 §6: a schedule never defaults to a time already past.
+        const nextTime = futureTimeOn(parts, draftTime || '09:00', timeZone)
         onChange(formatCivilDateTime(parts.year, parts.month, parts.day, nextTime))
     }
 
@@ -159,6 +160,8 @@ export function DateTimePicker({
                     month={visibleMonth}
                     onMonthChange={setVisibleMonth}
                     locale={calendarLocale}
+                    // One week start everywhere, like the project calendar (ADR-103 §7).
+                    weekStartsOn={1}
                     timeZone={timeZone}
                     today={today}
                     startMonth={today}
@@ -269,6 +272,20 @@ function formatDisplayValue(value: string, parts: CivilDateTime | null, locale: 
         timeStyle: 'short',
         timeZone: 'UTC',
     }).format(date)
+}
+
+/** Keeps `time` unless it is already past on the chosen day, then takes the next full hour. */
+function futureTimeOn(
+    day: { readonly year: number; readonly month: number; readonly day: number },
+    time: string,
+    timeZone: string
+) {
+    const now = getZonedDateTimeParts(Date.now(), timeZone)
+    const sameDay = now.year === day.year && now.month === day.month && now.day === day.day
+    const [hour = 0, minute = 0] = time.split(':').map(Number)
+    if (!sameDay || hour * 60 + minute > now.hour * 60 + now.minute) return time
+    const nextHour = Math.min(23, now.hour + 1)
+    return `${String(nextHour).padStart(2, '0')}:${nextHour === now.hour ? '59' : '00'}`
 }
 
 function todayInTimeZone(timeZone: string) {

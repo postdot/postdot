@@ -16,7 +16,6 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@postdot/ui/components/select'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@postdot/ui/components/tooltip'
 import { AddIcon } from '@solar-icons/react/linear/add'
 import { CheckIcon } from '@solar-icons/react/linear/check'
 import { CodeFileIcon } from '@solar-icons/react/linear/code-file'
@@ -245,22 +244,18 @@ export function ChannelCreationDialog({
     return (
         <>
             {compact ? (
-                <Tooltip>
-                    <TooltipTrigger
-                        render={
-                            <Button
-                                type="button"
-                                size="icon-sm"
-                                variant="ghost"
-                                className="size-11 rounded-md bg-surface-control p-0 shadow-control hover:bg-surface-control-hover"
-                                aria-label={m.channel_add()}
-                                onClick={openDialog}>
-                                <AddIcon aria-hidden="true" />
-                            </Button>
-                        }
-                    />
-                    <TooltipContent>{m.channel_add()}</TooltipContent>
-                </Tooltip>
+                // P2: in the composer, creating a channel is the last, quiet item of the
+                // channel list, never a "+" that reads as "add a channel to this post".
+                <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="h-8 rounded-full px-2.5 text-xs text-muted-foreground hover:text-foreground"
+                    aria-label={m.channel_add()}
+                    onClick={openDialog}>
+                    <AddIcon aria-hidden="true" className="size-3.5" />
+                    {m.channel_new_ellipsis()}
+                </Button>
             ) : (
                 <Button type="button" onClick={openDialog}>
                     <AddIcon aria-hidden="true" />

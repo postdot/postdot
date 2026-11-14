@@ -4,6 +4,8 @@ import { readFile } from 'node:fs/promises'
 import AxeBuilder from '@axe-core/playwright'
 import { expect, test, type Page } from '@playwright/test'
 
+import { switchTheme } from './locale'
+
 test('recovers composition text, target formatting and media through the existing draft contract', async ({
     page,
 }, info) => {
@@ -89,9 +91,8 @@ test('recovers composition text, target formatting and media through the existin
         .toEqual({ common: 'Shared 👋 draft', target: '__Shared 👋 draft__', media: 1 })
 
     await page.reload()
-    const recovery = page.locator('[data-new-publication-recovery="true"]')
-    await expect(recovery).toBeVisible()
-    await recovery.getByRole('button', { name: 'Restore', exact: true }).click()
+    // ADR-103 §6: the draft is restored without a question.
+    await expect(page.locator('[data-new-publication-restored="true"]')).toBeVisible()
     await expect(target.locator('u')).toHaveText('Shared 👋 draft')
     await expect(page.locator('[data-media-selection-preview="true"]')).toHaveCount(1)
     await page
@@ -109,9 +110,7 @@ test('recovers composition text, target formatting and media through the existin
     await page.getByRole('button', { name: 'Pilot X', exact: true }).click()
     await target.fill('日'.repeat(141))
     await expect(target).toHaveAttribute('aria-invalid', 'true')
-    await expect(page.locator('[data-weighted-count="true"]')).toHaveText(
-        '282 / 280 weighted characters'
-    )
+    await expect(page.locator('[data-weighted-count="true"]')).toHaveText('282 / 280 characters')
     await page.getByRole('button', { name: 'All channels', exact: true }).click()
     await expect(common).toHaveText('Shared 👋 draft')
     await common.press('End')
@@ -132,7 +131,7 @@ test('recovers composition text, target formatting and media through the existin
     const createdResponse = page.waitForResponse(
         response => response.url().endsWith('/posts') && response.request().method() === 'POST'
     )
-    await page.getByRole('button', { name: 'Create draft', exact: true }).click()
+    await page.getByRole('button', { name: 'Save as draft', exact: true }).click()
     const response = await createdResponse
     expect(response.status()).toBe(201)
     const created = await response.json()
@@ -348,10 +347,7 @@ test('keeps a native editor draft byte-for-byte when restored into the configure
     await page.getByRole('textbox', { name: 'Content', exact: true }).fill(text)
     await saved
     await page.goto(`${base}?editor=tiptap`)
-    await page
-        .locator('[data-new-publication-recovery="true"]')
-        .getByRole('button', { name: 'Restore', exact: true })
-        .click()
+    await expect(page.locator('[data-new-publication-restored="true"]')).toBeVisible()
     await expect(page.getByRole('textbox', { name: 'Content', exact: true })).toHaveAttribute(
         'contenteditable',
         'true'
@@ -359,15 +355,9 @@ test('keeps a native editor draft byte-for-byte when restored into the configure
     const draft = await page.request.get(`/api/projects/${id}/publication-composer-draft`)
     expect((await draft.json()).draft.content.postContent).toBe(text)
     await page.reload()
-    await page
-        .locator('[data-new-publication-recovery="true"]')
-        .getByRole('button', { name: 'Restore', exact: true })
-        .click()
+    await expect(page.locator('[data-new-publication-restored="true"]')).toBeVisible()
     await page.goto(`${base}?editor=legacy`)
-    await page
-        .locator('[data-new-publication-recovery="true"]')
-        .getByRole('button', { name: 'Restore', exact: true })
-        .click()
+    await expect(page.locator('[data-new-publication-restored="true"]')).toBeVisible()
     await expect(page.getByRole('textbox', { name: 'Content', exact: true })).toHaveValue(text)
 })
 
@@ -391,9 +381,8 @@ test('preserves a title-only article across autosave and recovery', async ({ pag
         })
         .toBe('A title worth preserving')
     await page.reload()
-    const recovery = page.locator('[data-new-publication-recovery="true"]')
-    await expect(recovery).toBeVisible()
-    await recovery.getByRole('button', { name: 'Restore', exact: true }).click()
+    // ADR-103 §6: the draft is restored without a question.
+    await expect(page.locator('[data-new-publication-restored="true"]')).toBeVisible()
     await expect(title).toHaveValue('A title worth preserving')
     await expect(page.getByRole('textbox', { name: 'Channel content', exact: true })).toHaveText('')
 })
@@ -436,7 +425,7 @@ test('corrects destination attachments without changing shared media or another 
     const createdResponse = page.waitForResponse(
         response => response.url().endsWith('/posts') && response.request().method() === 'POST'
     )
-    await page.getByRole('button', { name: 'Create draft', exact: true }).click()
+    await page.getByRole('button', { name: 'Save as draft', exact: true }).click()
     const created = await (await createdResponse).json()
     const publication = created.publications.find(
         (item: { channelId: string }) => item.channelId === channelIds[0]
@@ -470,9 +459,9 @@ test('corrects destination attachments without changing shared media or another 
     await page.reload()
     await openCustomization(page, mediaField)
     await expect(mediaField.locator('[data-media-selection-preview="true"]')).toHaveCount(1)
-    for (const theme of ['light', 'dark']) {
-        const toggle = page.getByRole('button', { name: `Switch to ${theme} theme`, exact: true })
-        if (await toggle.isVisible()) await toggle.click()
+    for (const theme of ['light', 'dark'] as const) {
+        if (!(await page.locator('html').getAttribute('class'))?.split(' ').includes(theme))
+            await switchTheme(page, theme)
         await expect(page.locator('html')).toHaveClass(new RegExp(`\\b${theme}\\b`))
         for (const width of [1280, 820, 390]) {
             await page.setViewportSize({ width, height: 900 })
@@ -496,7 +485,7 @@ test('corrects destination attachments without changing shared media or another 
             response.url().endsWith(`/publications/${publication.id}/draft/promote`) &&
             response.request().method() === 'POST'
     )
-    await page.getByRole('button', { name: /^Use this version(?:\s*(?:Ctrl|⌘)↵)?$/ }).click()
+    await page.getByRole('button', { name: /^Save changes(?:\s*(?:Ctrl|⌘)↵)?$/ }).click()
     const appliedResponse = await applied
     expect(appliedResponse.ok()).toBe(true)
     const { editor: appliedEditor } = await appliedResponse.json()
@@ -740,7 +729,7 @@ test('projects custom destination text and ordered media through active nested b
     const refusedProfile = page.waitForResponse(
         response => response.status() === 503 && response.url().endsWith('/profile')
     )
-    await page.getByRole('button', { name: 'Create draft', exact: true }).click()
+    await page.getByRole('button', { name: 'Save as draft', exact: true }).click()
     await refusedProfile
     await expect(page.locator('[data-new-publication-form]')).toHaveAttribute('aria-busy', 'false')
     expect(posts).toBe(0)
@@ -750,7 +739,7 @@ test('projects custom destination text and ordered media through active nested b
     const createdResponse = page.waitForResponse(
         response => response.url().endsWith('/posts') && response.request().method() === 'POST'
     )
-    await page.getByRole('button', { name: 'Create draft', exact: true }).click()
+    await page.getByRole('button', { name: 'Save as draft', exact: true }).click()
     const response = await createdResponse
     expect(response.status()).toBe(201)
     expect(posts).toBe(1)
@@ -894,7 +883,7 @@ test('shows custom headline and length feedback without blocking invalid drafts'
     const created = page.waitForResponse(
         response => response.url().endsWith('/posts') && response.request().method() === 'POST'
     )
-    await page.getByRole('button', { name: 'Create draft', exact: true }).click()
+    await page.getByRole('button', { name: 'Save as draft', exact: true }).click()
     const response = await created
     expect(response.status()).toBe(201)
     const result = await response.json()
@@ -1355,7 +1344,7 @@ test('upgrades LinkedIn explicitly and composes multiple images without changing
     const saving = page.waitForResponse(
         response => response.url().endsWith('/posts') && response.request().method() === 'POST'
     )
-    await page.getByRole('button', { name: 'Create draft', exact: true }).click()
+    await page.getByRole('button', { name: 'Save as draft', exact: true }).click()
     const result = await saving
     expect(result.status()).toBe(201)
     const post = await result.json()
@@ -1469,7 +1458,7 @@ for (const [platform, revision] of [
         const saving = page.waitForResponse(
             response => response.url().endsWith('/posts') && response.request().method() === 'POST'
         )
-        await page.getByRole('button', { name: 'Create draft', exact: true }).click()
+        await page.getByRole('button', { name: 'Save as draft', exact: true }).click()
         const saved = await saving
         expect(saved.status()).toBe(201)
         const publication = (await saved.json()).publications[0]
@@ -1618,7 +1607,7 @@ test('keeps partial tag-assignment feedback visible after reaching the created p
     const creation = page.waitForResponse(
         response => response.url().endsWith('/posts') && response.request().method() === 'POST'
     )
-    await page.getByRole('button', { name: 'Create draft', exact: true }).click()
+    await page.getByRole('button', { name: 'Save as draft', exact: true }).click()
     const response = await creation
     expect(response.status()).toBe(201)
     const created = await response.json()

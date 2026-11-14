@@ -2,7 +2,6 @@ import * as m from '@/paraglide/messages.js'
 
 import type { ProviderDefinition } from '../contract'
 import { application } from './application'
-import SampleEngagement from './preview-engagement'
 import Footer from './preview-footer'
 import Glyph from './preview-glyph'
 
@@ -29,9 +28,7 @@ export const linkedinProvider = {
     preview: {
         layout: 'professional',
         accountDriven: true,
-        sampleIdentity: true,
         Footer,
-        SampleEngagement,
         footerClassName: 'gap-1 px-3 pb-2 pt-2 text-[11px] text-[#61666b]',
     },
 } as const satisfies ProviderDefinition

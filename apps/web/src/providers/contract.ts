@@ -45,7 +45,6 @@ export interface ProviderDefinition {
     readonly preview: {
         readonly layout: 'professional' | 'article' | 'message' | 'social'
         readonly accountDriven: boolean
-        readonly sampleIdentity: boolean
         readonly Media?: ComponentType<{
             readonly target?: Readonly<Record<string, unknown>>
             readonly renderFallback: () => ReactNode
@@ -53,9 +52,7 @@ export interface ProviderDefinition {
             readonly mediaSelections?: readonly MediaSelection[]
         }>
         readonly mosaic?: 'tight' | 'spaced'
-        readonly handle?: string
         readonly Footer?: ComponentType
-        readonly SampleEngagement?: ComponentType
         readonly Poll?: ComponentType<{ readonly poll: unknown }>
         readonly footerClassName?: string
     }

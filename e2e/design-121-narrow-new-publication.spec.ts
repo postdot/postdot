@@ -42,19 +42,18 @@ test('resolves an interrupted composition before a new one can replace it', asyn
     await firstSave
     await page.reload()
 
-    const recovery = page.locator('[data-new-publication-recovery="true"]')
-    await expect(recovery).toBeVisible()
-    await expect(recovery).toContainText(original)
-    await expect(recovery).toHaveAttribute('role', 'dialog')
-    await expect(recovery).toHaveAccessibleName('Previous draft')
-    await page.keyboard.press('Escape')
-    await expect(recovery).toBeVisible()
-    await expect(page.locator('[data-new-publication-form="true"]')).toHaveAttribute('inert', '')
+    // ADR-103 §6: the draft comes back without a question, with a way to start over.
+    const restored = page.locator('[data-new-publication-restored="true"]')
+    await expect(restored).toBeVisible()
+    await expect(restored).toHaveAttribute('role', 'status')
+    await expect(page.getByRole('dialog')).toHaveCount(0)
+    await expect(editor).toHaveText(original)
+    await expect(page.locator('[data-new-publication-form="true"]')).not.toHaveAttribute(
+        'inert',
+        ''
+    )
     await page.setViewportSize({ width: 390, height: 844 })
     await expectNoHorizontalOverflow(page)
-    await recovery.getByRole('button', { name: 'Restore', exact: true }).click()
-    await expect(recovery).toHaveCount(0)
-    await expect(editor).toHaveText(original)
 
     const secondSave = page.waitForResponse(
         response =>
@@ -65,9 +64,9 @@ test('resolves an interrupted composition before a new one can replace it', asyn
     await editor.fill(`Current composition ${suffix}`)
     await secondSave
     await page.reload()
-    await expect(recovery).toContainText(`Current composition ${suffix}`)
-    await recovery.getByRole('button', { name: 'Discard', exact: true }).click()
-    await expect(recovery).toHaveCount(0)
+    await expect(editor).toHaveText(`Current composition ${suffix}`)
+    await restored.getByRole('button', { name: 'Start over', exact: true }).click()
+    await expect(restored).toHaveCount(0)
     await expect(editor).toHaveText('')
     await expect(page.locator('[data-new-publication-form="true"]')).not.toHaveAttribute(
         'inert',
@@ -104,11 +103,9 @@ test('offers local recovery when composition autosave is unavailable', async ({ 
         )
         .toBe(true)
     await page.reload()
-    const recovery = page.locator('[data-new-publication-recovery="true"]')
-    await expect(recovery).toContainText(text)
-    await expect(form).toHaveAttribute('inert', '')
-    await recovery.getByRole('button', { name: 'Restore', exact: true }).click()
+    await expect(page.locator('[data-new-publication-restored="true"]')).toBeVisible()
     await expect(editor).toHaveText(text)
+    await expect(form).not.toHaveAttribute('inert', '')
 })
 
 test('keeps narrow new-publication flow and queue usable with long channel names', async ({
@@ -264,7 +261,8 @@ test('keeps narrow new-publication flow and queue usable with long channel names
     )
     await expect(preview).toContainText(secondChannelName)
 
-    await page.getByRole('link', { name: 'Overview', exact: true }).click()
+    // "New post" is a sidebar destination without a return control (ADR-103 §2).
+    await page.goto(page.url().replace(/\/publications\/new(?:\?.*)?$/, '/overview'))
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/overview$/)
     await page.getByRole('button', { name: 'New post', exact: true }).click()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/publications\/new(?:\?.*)?$/)
@@ -290,7 +288,7 @@ test('keeps narrow new-publication flow and queue usable with long channel names
             response => response.url().includes('/posts') && response.request().method() === 'POST',
             { timeout: 10_000 }
         ),
-        page.getByRole('button', { name: /^Schedule 2 publications(?:\s*(?:Ctrl|⌘)↵)?$/ }).click(),
+        page.getByRole('button', { name: /^Schedule on 2 channels(?:\s*(?:Ctrl|⌘)↵)?$/ }).click(),
     ]).then(([response]) => response)
     expect(createResponse.status(), await createResponse.text()).toBe(201)
     const created = await createResponse.json()

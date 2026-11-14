@@ -1737,11 +1737,7 @@
     "calendar_preview_unavailable": "Cette publication n’est plus disponible.",
     "calendar_preview_untitled": "Publication sans titre",
     "publication_new_title": "Nouveau post",
-    "publication_new_back_overview": "Vue d’ensemble",
     "publication_new_action_failed": "Impossible de créer le post",
-    "publication_new_recovery_title": "Rédaction précédente",
-    "publication_new_recovery_choice": "Reprenez cette rédaction ou commencez une nouvelle publication.",
-    "publication_new_recovery_restore": "Récupérer",
     "publication_new_recovery_discard": "Ignorer",
     "publication_new_autosave_saving": "Enregistrement…",
     "publication_new_autosave_saved": "Brouillon enregistré",
@@ -1771,11 +1767,6 @@
     "publication_preview_comment": "Commenter",
     "publication_preview_repost": "Republier",
     "publication_preview_share": "Partager",
-    "publication_preview_sample_author": "Alexandre Martin",
-    "publication_preview_sample_headline": "Designer produit",
-    "publication_preview_sample_age": "2 h",
-    "publication_preview_sample_activity": "1 commentaire",
-    "publication_preview_sample_engagement_a11y": "Interactions fictives : 2 réactions et 1 commentaire",
     "publication_new_preview_empty": "Écrivez quelque chose ou ajoutez un média pour voir le résultat ici.",
     "publication_new_target_count": [
         {
@@ -1797,8 +1788,8 @@
             "declarations": ["input count", "local countPlural = count: plural"],
             "selectors": ["countPlural"],
             "match": {
-                "countPlural=one": "Planifier {count} publication",
-                "countPlural=other": "Planifier {count} publications"
+                "countPlural=one": "Planifier",
+                "countPlural=other": "Planifier sur {count} canaux"
             }
         }
     ],
@@ -2080,7 +2071,6 @@
     "profile_issue_general": "Vérifiez le schéma, les liaisons, les capacités et le contrat d’exécution.",
     "profile_issue_more": "{count} autres erreurs de validation.",
     "composer_character_count": "{count} / {limit} caractères",
-    "composer_grapheme_count": "{count} / {limit} caractères",
     "composer_constraints_loading": "Chargement des limites de la destination…",
     "composer_constraints_unavailable": "Les limites de la destination n’ont pas pu être vérifiées.",
     "profile_load_latest_linkedin_template": "Charger le dernier modèle LinkedIn",
@@ -2349,7 +2339,6 @@
     "provider_apps_https_required": "Facebook exige une URL de rappel HTTPS.",
     "provider_facebook_app_id": "ID de l’application",
     "provider_facebook_app_secret": "Secret de l’application",
-    "composer_character_count_unknown": "{count} caractères",
     "performance_read_failed": "Impossible de charger les statistiques enregistrées.",
     "performance_read_incomplete": "Certaines mesures enregistrées manquent dans cette réponse.",
     "performance_grouped_description": "Résultats par publication source et destination pour les publications chargées. Les mesures sont des observations cumulées des plateformes, sans total combiné.",
@@ -2736,5 +2725,8 @@
     "project_timezone_viewer_note": "Un accès éditeur ou propriétaire est requis pour modifier le fuseau horaire du projet.",
     "theme_option_light": "Clair",
     "theme_option_dark": "Sombre",
-    "auth_invalid_credentials": "E-mail ou mot de passe incorrect."
+    "auth_invalid_credentials": "E-mail ou mot de passe incorrect.",
+    "channel_new_ellipsis": "Nouveau canal…",
+    "publication_new_recovery_restored": "Votre brouillon a été restauré.",
+    "publication_new_recovery_start_over": "Recommencer"
 }

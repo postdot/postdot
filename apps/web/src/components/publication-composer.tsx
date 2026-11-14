@@ -35,7 +35,10 @@ export function PublicationComposer({
             {channelNavigation ? (
                 <div className="min-w-0 lg:col-span-full">{channelNavigation}</div>
             ) : null}
-            <div data-composer-editor="true" className="min-w-0">
+            {/* P4: the writing area is a defined surface with its toolbar attached. */}
+            <div
+                data-composer-editor="true"
+                className="min-w-0 rounded-lg bg-surface-field shadow-field">
                 {editor}
             </div>
             {settings ? (

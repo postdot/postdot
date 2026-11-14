@@ -52,7 +52,6 @@ export const telegramProvider = {
     preview: {
         layout: 'social',
         accountDriven: false,
-        sampleIdentity: false,
         Poll: TelegramPollPreview,
     },
 } as const satisfies ProviderDefinition

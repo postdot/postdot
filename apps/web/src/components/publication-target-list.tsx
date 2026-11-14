@@ -9,6 +9,7 @@ import {
 } from '@postdot/ui/components/select'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@postdot/ui/components/tooltip'
 import { cn } from '@postdot/ui/lib/utils'
+import { AddIcon } from '@solar-icons/react/linear/add'
 import { CloseIcon } from '@solar-icons/react/linear/close'
 import { LayersMinimalisticIcon } from '@solar-icons/react/linear/layers-minimalistic'
 import { Link } from '@tanstack/react-router'
@@ -34,8 +35,6 @@ import {
     type PublicationTargetDraft,
 } from '@/lib/publication-authoring'
 import * as m from '@/paraglide/messages.js'
-
-import { ActionTooltip } from './action-tooltip'
 
 export const publicationSharedTabId = 'shared'
 
@@ -223,141 +222,124 @@ export function PublicationChannelTabs({
 
     return (
         <LayoutGroup id="new-publication-channels">
+            {/* P1–P3: labelled chips. The pressed chip is what the editor edits; "All channels"
+                edits the text every channel shares. Channels not yet chosen follow, then
+                channel creation closes the list. */}
             <div
                 ref={railRef}
                 data-publication-channel-selection="true"
-                className="flex min-w-0 flex-wrap items-start gap-x-4 gap-y-2">
+                className="flex min-w-0 flex-col gap-2 py-1">
                 <div
-                    className="flex min-w-0 flex-1 flex-wrap items-center gap-3 py-2"
+                    className="flex min-w-0 flex-wrap items-center gap-2"
                     role="group"
                     aria-label={m.publication_new_editing_scope()}>
-                    <Tooltip>
-                        <TooltipTrigger
-                            render={
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    aria-label={m.publication_new_common_tab()}
-                                    className={`size-11 shrink-0 gap-2 rounded-md p-0 text-sm shadow-control ${activeTabId === publicationSharedTabId ? 'bg-primary/12 text-primary ring-2 ring-primary ring-offset-2 ring-offset-background hover:bg-primary/16' : 'bg-surface-control text-muted-foreground hover:bg-surface-control-hover'}`}
-                                    aria-pressed={activeTabId === publicationSharedTabId}
-                                    disabled={disabled}
-                                    onClick={() => onActiveTabChange(publicationSharedTabId)}>
-                                    <LayersMinimalisticIcon aria-hidden="true" className="size-4" />
-                                    <span className="sr-only">
-                                        {m.publication_new_common_tab()}
-                                    </span>
-                                </Button>
-                            }
-                        />
-                        <TooltipContent>{m.publication_new_common_tab()}</TooltipContent>
-                    </Tooltip>
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        aria-label={m.publication_new_common_tab()}
+                        className={cn(
+                            'h-9 shrink-0 gap-2 rounded-full px-3 text-sm',
+                            activeTabId === publicationSharedTabId
+                                ? 'bg-primary/12 text-primary ring-2 ring-primary/70 hover:bg-primary/16'
+                                : 'bg-surface-control text-foreground shadow-control hover:bg-surface-control-hover'
+                        )}
+                        aria-pressed={activeTabId === publicationSharedTabId}
+                        disabled={disabled}
+                        onClick={() => onActiveTabChange(publicationSharedTabId)}>
+                        <LayersMinimalisticIcon aria-hidden="true" className="size-4" />
+                        {m.publication_new_common_tab()}
+                    </Button>
                     {selectedTargets.map(target => {
                         const channel = channels.find(item => item.id === target.channelId)
                         if (channel === undefined) return null
+                        const active = activeTabId === target.id
                         return (
                             <motion.div
                                 key={target.id}
                                 layoutId={`channel-${channel.id}`}
                                 transition={movement}
                                 data-channel-selected="true"
-                                className={`relative flex size-11 shrink-0 items-stretch rounded-md shadow-control ${activeTabId === target.id ? 'bg-primary/12 text-primary ring-2 ring-primary ring-offset-2 ring-offset-background' : 'bg-surface-control'}`}>
-                                <Tooltip>
-                                    <TooltipTrigger
-                                        render={
-                                            <Button
-                                                type="button"
-                                                variant="ghost"
-                                                className="size-11 min-w-0 justify-center overflow-hidden rounded-md border-0 p-0 hover:bg-primary/8"
-                                                aria-label={channelLabel(channel)}
-                                                aria-pressed={activeTabId === target.id}
-                                                data-channel-selected-button="true"
-                                                data-channel-id={channel.id}
-                                                disabled={disabled}
-                                                onClick={() => onActiveTabChange(target.id)}>
-                                                <ChannelAvatar
-                                                    channel={channel}
-                                                    size="md"
-                                                    className="!h-full !w-11 !rounded-none"
-                                                />
-                                                <span className="sr-only">
-                                                    {channelLabel(channel)}
-                                                </span>
-                                            </Button>
-                                        }
+                                className={cn(
+                                    'flex h-9 min-w-0 max-w-64 items-center overflow-hidden rounded-full',
+                                    active
+                                        ? 'bg-primary/12 text-primary ring-2 ring-primary/70'
+                                        : 'bg-surface-control shadow-control'
+                                )}>
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    className="h-9 min-w-0 shrink justify-start gap-2 rounded-full rounded-e-none border-0 ps-1.5 pe-1 text-sm hover:bg-transparent"
+                                    aria-label={channelLabel(channel)}
+                                    aria-pressed={active}
+                                    data-channel-selected-button="true"
+                                    data-channel-id={channel.id}
+                                    disabled={disabled}
+                                    onClick={() => onActiveTabChange(target.id)}>
+                                    <ChannelAvatar
+                                        channel={channel}
+                                        size="sm"
+                                        className="rounded-full"
                                     />
-                                    <TooltipContent>{channelLabel(channel)}</TooltipContent>
-                                </Tooltip>
-                                <ActionTooltip
-                                    label={m.publication_new_remove_channel({
+                                    <span className="min-w-0 truncate">
+                                        {channelLabel(channel)}
+                                    </span>
+                                </Button>
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon-sm"
+                                    className={cn(
+                                        'me-1 size-7 shrink-0 rounded-full text-muted-foreground hover:bg-foreground/8 hover:text-foreground',
+                                        // On touch and narrow screens only the active chip offers removal.
+                                        !active && 'max-sm:hidden [@media(pointer:coarse)]:hidden'
+                                    )}
+                                    aria-label={m.publication_new_remove_channel({
                                         channel: channelLabel(channel),
-                                    })}>
-                                    <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="icon-xs"
-                                        className={cn(
-                                            'absolute -right-2 -top-2 z-10 size-6 rounded-full border-0 bg-surface-control p-0 text-muted-foreground shadow-control hover:bg-surface-control-hover hover:text-foreground [&_svg]:size-3',
-                                            activeTabId !== target.id &&
-                                                'max-sm:hidden [@media(pointer:coarse)]:hidden'
-                                        )}
-                                        aria-label={m.publication_new_remove_channel({
-                                            channel: channelLabel(channel),
-                                        })}
-                                        disabled={disabled}
-                                        onClick={() => removeChannel(target)}>
-                                        <CloseIcon aria-hidden="true" />
-                                    </Button>
-                                </ActionTooltip>
+                                    })}
+                                    disabled={disabled}
+                                    onClick={() => removeChannel(target)}>
+                                    <CloseIcon aria-hidden="true" className="size-3.5" />
+                                </Button>
                             </motion.div>
                         )
                     })}
                 </div>
-                {createChannel !== undefined ? <div className="py-2">{createChannel}</div> : null}
-                {availableChannels.length > 0 ? (
-                    <>
-                        <div
-                            className="ml-auto flex min-w-0 max-w-full flex-wrap items-center justify-end gap-3 py-2"
-                            role="group"
-                            aria-label={m.publication_new_destinations()}>
-                            {availableChannels.map(channel => (
-                                <motion.div
-                                    key={channel.id}
-                                    layoutId={`channel-${channel.id}`}
-                                    transition={movement}
-                                    className="shrink-0">
-                                    <Tooltip>
-                                        <TooltipTrigger
-                                            render={
-                                                <Button
-                                                    type="button"
-                                                    variant="ghost"
-                                                    disabled={disabled}
-                                                    data-channel-available="true"
-                                                    data-channel-id={channel.id}
-                                                    aria-label={m.publication_new_add_channel_named(
-                                                        {
-                                                            channel: channelLabel(channel),
-                                                        }
-                                                    )}
-                                                    onClick={() => addChannel(channel.id)}
-                                                    className="size-11 overflow-hidden rounded-md bg-surface-inset/55 p-0 text-muted-foreground shadow-control grayscale transition-[filter,background-color,color] hover:bg-surface-control-hover hover:text-foreground hover:grayscale-0 focus-visible:text-foreground focus-visible:grayscale-0">
-                                                    <ChannelAvatar
-                                                        channel={channel}
-                                                        size="md"
-                                                        className="!h-full !w-11 !rounded-none opacity-65"
-                                                    />
-                                                    <span className="sr-only">
-                                                        {channelLabel(channel)}
-                                                    </span>
-                                                </Button>
-                                            }
-                                        />
-                                        <TooltipContent>{channelLabel(channel)}</TooltipContent>
-                                    </Tooltip>
-                                </motion.div>
-                            ))}
-                        </div>
-                    </>
+                {availableChannels.length > 0 || createChannel !== undefined ? (
+                    <div
+                        className="flex min-w-0 flex-wrap items-center gap-2"
+                        role="group"
+                        aria-label={m.publication_new_destinations()}>
+                        {availableChannels.map(channel => (
+                            <motion.div
+                                key={channel.id}
+                                layoutId={`channel-${channel.id}`}
+                                transition={movement}
+                                className="min-w-0 shrink-0">
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    disabled={disabled}
+                                    data-channel-available="true"
+                                    data-channel-id={channel.id}
+                                    aria-label={m.publication_new_add_channel_named({
+                                        channel: channelLabel(channel),
+                                    })}
+                                    onClick={() => addChannel(channel.id)}
+                                    className="h-8 max-w-56 gap-1.5 rounded-full border border-dashed border-border ps-1 pe-2.5 text-xs text-muted-foreground hover:border-solid hover:bg-surface-control-hover hover:text-foreground">
+                                    <ChannelAvatar
+                                        channel={channel}
+                                        size="xs"
+                                        className="size-6 rounded-full opacity-80"
+                                    />
+                                    <span className="min-w-0 truncate">
+                                        {channelLabel(channel)}
+                                    </span>
+                                    <AddIcon aria-hidden="true" className="size-3.5 shrink-0" />
+                                </Button>
+                            </motion.div>
+                        ))}
+                        {createChannel}
+                    </div>
                 ) : null}
             </div>
         </LayoutGroup>

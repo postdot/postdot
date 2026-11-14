@@ -633,14 +633,8 @@ test('resumes composition from channel setup and after an OAuth callback reload'
         ).toHaveCount(0)
         await page.screenshot({ path: info.outputPath(`resume-${result}.png`) })
         await resume.click()
-        const recovery = page.getByRole('dialog', {
-            name: en.publication_new_recovery_title,
-            exact: true,
-        })
-        await expect(recovery).toContainText(body)
-        await recovery
-            .getByRole('button', { name: en.publication_new_recovery_restore, exact: true })
-            .click()
+        // ADR-103 §6: the composition comes back without a question.
+        await expect(page.locator('[data-new-publication-restored]')).toBeVisible()
         await expect(content).toHaveText(body)
         await expect(page.locator('[data-channel-selected-button]')).toHaveCount(1)
         await expect(page.locator('[data-channel-selected-button]')).toContainText(

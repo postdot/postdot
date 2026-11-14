@@ -1737,11 +1737,7 @@
     "calendar_preview_unavailable": "Diese Veröffentlichung ist nicht mehr verfügbar.",
     "calendar_preview_untitled": "Unbenannte Veröffentlichung",
     "publication_new_title": "Neuer Beitrag",
-    "publication_new_back_overview": "Übersicht",
     "publication_new_action_failed": "Beitrag konnte nicht erstellt werden",
-    "publication_new_recovery_title": "Vorheriger Entwurf",
-    "publication_new_recovery_choice": "Diesen Entwurf fortsetzen oder eine neue Veröffentlichung starten.",
-    "publication_new_recovery_restore": "Wiederherstellen",
     "publication_new_recovery_discard": "Verwerfen",
     "publication_new_autosave_saving": "Speichern…",
     "publication_new_autosave_saved": "Entwurf gespeichert",
@@ -1771,11 +1767,6 @@
     "publication_preview_comment": "Kommentieren",
     "publication_preview_repost": "Reposten",
     "publication_preview_share": "Teilen",
-    "publication_preview_sample_author": "Alex Martin",
-    "publication_preview_sample_headline": "Produktdesigner",
-    "publication_preview_sample_age": "2 Std.",
-    "publication_preview_sample_activity": "1 Kommentar",
-    "publication_preview_sample_engagement_a11y": "Beispielhafte Interaktion: 2 Reaktionen und 1 Kommentar",
     "publication_new_preview_empty": "Schreiben Sie etwas oder fügen Sie Medien hinzu, um das Ergebnis hier zu sehen.",
     "publication_new_target_count": [
         {
@@ -1797,8 +1788,8 @@
             "declarations": ["input count", "local countPlural = count: plural"],
             "selectors": ["countPlural"],
             "match": {
-                "countPlural=one": "{count} Veröffentlichung planen",
-                "countPlural=other": "{count} Veröffentlichungen planen"
+                "countPlural=one": "Planen",
+                "countPlural=other": "Auf {count} Kanälen planen"
             }
         }
     ],
@@ -2080,7 +2071,6 @@
     "profile_issue_general": "Überprüfen Sie das Schema, die Verknüpfungen, Fähigkeiten und die Ausführungsdefinition.",
     "profile_issue_more": "{count} weitere Validierungsprobleme.",
     "composer_character_count": "{count} / {limit} Zeichen",
-    "composer_grapheme_count": "{count} / {limit} Zeichen",
     "composer_constraints_loading": "Ziellimits werden geladen…",
     "composer_constraints_unavailable": "Ziellimits konnten nicht überprüft werden.",
     "profile_load_latest_linkedin_template": "Neueste LinkedIn-Vorlage laden",
@@ -2349,7 +2339,6 @@
     "provider_apps_https_required": "Facebook erfordert eine HTTPS-Callback-URL.",
     "provider_facebook_app_id": "App-ID",
     "provider_facebook_app_secret": "App-Secret",
-    "composer_character_count_unknown": "{count} Zeichen",
     "performance_read_failed": "Gespeicherte Statistiken konnten nicht geladen werden.",
     "performance_read_incomplete": "Einige gespeicherte Beobachtungen sind unvollständig.",
     "performance_grouped_description": "Zusammengefasste Metriken für Veröffentlichungen mit denselben Tags.",
@@ -2736,5 +2725,8 @@
     "project_timezone_viewer_note": "Zum Ändern der Projektzeitzone ist Bearbeiter- oder Eigentümerzugriff erforderlich.",
     "theme_option_light": "Hell",
     "theme_option_dark": "Dunkel",
-    "auth_invalid_credentials": "E-Mail oder Passwort ist falsch."
+    "auth_invalid_credentials": "E-Mail oder Passwort ist falsch.",
+    "channel_new_ellipsis": "Neuer Kanal…",
+    "publication_new_recovery_restored": "Dein Entwurf wurde wiederhergestellt.",
+    "publication_new_recovery_start_over": "Neu beginnen"
 }

@@ -1,5 +1,5 @@
 import { Alert, AlertDescription, AlertTitle } from '@postdot/ui/components/alert'
-import { Button, buttonVariants } from '@postdot/ui/components/button'
+import { Button } from '@postdot/ui/components/button'
 import {
     Dialog,
     DialogContent,
@@ -11,13 +11,13 @@ import { Input } from '@postdot/ui/components/input'
 import { Kbd } from '@postdot/ui/components/kbd'
 import { cn } from '@postdot/ui/lib/utils'
 import { AltArrowDownIcon } from '@solar-icons/react/linear/alt-arrow-down'
-import { AltArrowLeftIcon } from '@solar-icons/react/linear/alt-arrow-left'
 import { CalendarAddIcon } from '@solar-icons/react/linear/calendar-add'
 import { CalendarMinimalisticIcon } from '@solar-icons/react/linear/calendar-minimalistic'
+import { CloseIcon } from '@solar-icons/react/linear/close'
 import { FileTextIcon } from '@solar-icons/react/linear/file-text'
 import { RestartIcon } from '@solar-icons/react/linear/restart'
 import { useQuery } from '@tanstack/react-query'
-import { Link, useNavigate } from '@tanstack/react-router'
+import { useNavigate } from '@tanstack/react-router'
 import {
     lazy,
     Suspense,
@@ -32,6 +32,7 @@ import {
 import { ChannelCreationDialog } from '@/components/channel-creation-dialog'
 import { ComposerDraftConflict } from '@/components/composer-draft-conflict'
 import { DashboardFormField } from '@/components/dashboard-form-field'
+import { DashboardPageHeader } from '@/components/dashboard-page-header'
 import { MediaAttachmentPicker } from '@/components/media-attachment-picker'
 import { PublicationComposer } from '@/components/publication-composer'
 import { PublicationDraftPreview } from '@/components/publication-draft-preview'
@@ -206,6 +207,9 @@ export function NewPublicationPage({
     const [conflictBusy, setConflictBusy] = useState(false)
     const [conflictVersionKnown, setConflictVersionKnown] = useState(false)
     const recoveryPromptOpen = useRef(recovery !== null)
+    // ADR-103 §6: work comes back without a question; this is what "Start over" returns to.
+    const [restoredNotice, setRestoredNotice] = useState(false)
+    const blankComposerContent = useRef<PublicationComposerDraftContent | null>(null)
     const currentComposerHasContent = useRef(hasCurrentComposerContent)
     const serverDraftRef = useRef<PublicationComposerDraft | null>(null)
     const autosaveQueue = useRef(Promise.resolve())
@@ -285,18 +289,11 @@ export function NewPublicationPage({
     const previewMedia = sourceMedia
         .map(selection => availableMedia.find(asset => asset.asset.id === selection.assetId))
         .filter((asset): asset is MediaReference => asset !== undefined)
-    const recoveryExcerpt = recovery
-        ? (
-              recovery.postTitle.trim() ||
-              recovery.postContent.trim() ||
-              recovery.publicationTargets
-                  .find(target => target.content.trim() !== '')
-                  ?.content.trim() ||
-              ''
-          ).replace(/\s+/g, ' ')
-        : ''
 
     currentComposerHasContent.current = hasCurrentComposerContent
+    if (blankComposerContent.current === null && recovery === null) {
+        blankComposerContent.current = composerDraftContent()
+    }
     serverDraftRef.current = serverDraft
 
     async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -368,20 +365,6 @@ export function NewPublicationPage({
         setActiveContentScopeId(restoredScope)
     }
 
-    async function discardRecovery() {
-        if (!serverDraftReady || discardingRecovery) return
-
-        setDiscardingRecovery(true)
-        try {
-            if (!(await discardServerDraft())) return
-            clearPublicationRecovery(project.id, userId)
-            recoveryPromptOpen.current = false
-            setRecovery(null)
-        } finally {
-            setDiscardingRecovery(false)
-        }
-    }
-
     /** A refused session cannot keep using the mounted author's composition. */
     function pauseForSessionError(error: unknown): boolean {
         if (!(error instanceof ApiError)) return false
@@ -423,6 +406,21 @@ export function NewPublicationPage({
                 setAutosaveState('conflict')
             } else setAutosaveState('error')
             return false
+        }
+    }
+
+    async function startOver() {
+        if (!serverDraftReady || discardingRecovery) return
+        setDiscardingRecovery(true)
+        try {
+            if (!(await discardServerDraft())) return
+            clearPublicationRecovery(project.id, userId)
+            if (blankComposerContent.current !== null) {
+                applyComposerContent(blankComposerContent.current)
+            }
+            setRestoredNotice(false)
+        } finally {
+            setDiscardingRecovery(false)
         }
     }
 
@@ -993,26 +991,29 @@ export function NewPublicationPage({
         editScopeText(resolvedActiveContentScopeId, content)
     }
 
+    useEffect(() => {
+        if (
+            recovery === null ||
+            autosaveState === 'conflict' ||
+            !serverDraftReady ||
+            serverDraftLoadFailed ||
+            discardingRecovery
+        )
+            return
+        if (blankComposerContent.current === null) {
+            blankComposerContent.current = composerDraftContent()
+        }
+        restoreRecovery()
+        setRestoredNotice(true)
+        // restoreRecovery reads the same state this effect depends on.
+    }, [recovery, autosaveState, serverDraftReady, serverDraftLoadFailed, discardingRecovery])
+
     return (
         <main className="min-w-0 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-            <header className="mx-auto mb-6 grid max-w-6xl min-w-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 sm:gap-3">
-                <Link
-                    aria-label={m.publication_new_back_overview()}
-                    className={buttonVariants({
-                        variant: 'ghost',
-                        size: 'icon',
-                        className:
-                            'justify-self-start text-muted-foreground hover:text-foreground sm:w-auto sm:gap-1.5 sm:px-2.5',
-                    })}
-                    params={{ projectId: project.id }}
-                    to="/dashboard/projects/$projectId/overview">
-                    <AltArrowLeftIcon aria-hidden="true" />
-                    <span className="hidden sm:inline">{m.publication_new_back_overview()}</span>
-                </Link>
-                <h1 className="min-w-0 truncate text-center font-heading text-xl font-semibold leading-tight sm:text-2xl xl:text-3xl">
-                    {m.publication_new_title()}
-                </h1>
-            </header>
+            {/* ADR-103 §2: "New post" is a sidebar destination, so it has no return control. */}
+            <div className="mx-auto mb-6 max-w-6xl">
+                <DashboardPageHeader title={m.publication_new_title()} />
+            </div>
 
             {recovery !== null && autosaveState === 'conflict' ? (
                 <ComposerDraftConflict
@@ -1035,59 +1036,50 @@ export function NewPublicationPage({
                     }}
                 />
             ) : null}
-            {recovery !== null && autosaveState !== 'conflict' ? (
-                <Dialog open onOpenChange={() => {}}>
-                    <DialogContent
-                        showCloseButton={false}
-                        data-new-publication-recovery="true"
-                        className="sm:max-w-md">
-                        <div className="flex items-start gap-3">
-                            <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-                                <FileTextIcon aria-hidden="true" className="size-5" />
-                            </span>
-                            <div className="min-w-0 space-y-1.5">
-                                <DialogTitle>{m.publication_new_recovery_title()}</DialogTitle>
-                                <DialogDescription>
-                                    {m.publication_new_recovery_choice()}
-                                </DialogDescription>
-                            </div>
-                        </div>
-                        {recoveryExcerpt ? (
-                            <p className="line-clamp-3 break-words rounded-md bg-surface-inset/50 p-3 text-sm text-muted-foreground">
-                                {recoveryExcerpt}
-                            </p>
-                        ) : null}
-                        {serverDraftLoadFailed ? (
-                            <QueryErrorState
-                                title={m.publication_new_draft_read_failed()}
-                                description={m.publication_new_draft_read_retry()}
-                                onRetry={() => setServerDraftLoadAttempt(attempt => attempt + 1)}
-                            />
-                        ) : null}
-                        {error || autosaveError ? (
-                            <p role="alert" className="break-words text-sm text-state-failed">
-                                {error ?? autosaveError}
-                            </p>
-                        ) : null}
-                        <DialogFooter>
-                            <Button
-                                disabled={!serverDraftReady || discardingRecovery}
-                                onClick={() => void discardRecovery()}
-                                type="button"
-                                variant="secondary">
-                                {discardingRecovery
-                                    ? m.common_loading()
-                                    : m.publication_new_recovery_discard()}
-                            </Button>
-                            <Button
-                                disabled={!serverDraftReady || discardingRecovery}
-                                onClick={restoreRecovery}
-                                type="button">
-                                {m.publication_new_recovery_restore()}
-                            </Button>
-                        </DialogFooter>
-                    </DialogContent>
-                </Dialog>
+            {recovery !== null && autosaveState !== 'conflict' && serverDraftLoadFailed ? (
+                <div className="mx-auto mb-4 max-w-6xl" data-new-publication-recovery="true">
+                    <QueryErrorState
+                        title={m.publication_new_draft_read_failed()}
+                        description={m.publication_new_draft_read_retry()}
+                        onRetry={() => setServerDraftLoadAttempt(attempt => attempt + 1)}
+                    />
+                </div>
+            ) : null}
+            {restoredNotice ? (
+                <div
+                    className="mx-auto mb-4 flex max-w-6xl flex-wrap items-center justify-between gap-2 rounded-md bg-surface-inset px-3 py-2 text-sm"
+                    data-new-publication-restored="true"
+                    role="status">
+                    <span className="flex min-w-0 items-center gap-2 text-muted-foreground">
+                        <FileTextIcon aria-hidden="true" className="size-4 shrink-0" />
+                        {m.publication_new_recovery_restored()}
+                    </span>
+                    <span className="flex items-center gap-1">
+                        <Button
+                            disabled={discardingRecovery}
+                            onClick={() => void startOver()}
+                            size="sm"
+                            type="button"
+                            variant="ghost">
+                            {discardingRecovery
+                                ? m.common_loading()
+                                : m.publication_new_recovery_start_over()}
+                        </Button>
+                        <Button
+                            aria-label={m.common_close()}
+                            onClick={() => setRestoredNotice(false)}
+                            size="icon-sm"
+                            type="button"
+                            variant="ghost">
+                            <CloseIcon aria-hidden="true" />
+                        </Button>
+                    </span>
+                    {error || autosaveError ? (
+                        <p role="alert" className="w-full break-words text-sm text-state-failed">
+                            {error ?? autosaveError}
+                        </p>
+                    ) : null}
+                </div>
             ) : null}
             {autosaveState === 'account' || autosaveState === 'session' ? (
                 <Alert className="mb-6" role="alert">
@@ -1229,7 +1221,12 @@ export function NewPublicationPage({
                                         />
                                         {textFields?.headline &&
                                         textFields.headline.field.maxLength !== null &&
-                                        headlineCount ? (
+                                        headlineCount &&
+                                        // Like the body: a long limit appears only when it is near.
+                                        (headlineCount.invalid ||
+                                            textFields.headline.field.maxLength <= 500 ||
+                                            headlineCount.characters >=
+                                                textFields.headline.field.maxLength * 0.8) ? (
                                             <p
                                                 id="new-post-title-count"
                                                 className={cn(

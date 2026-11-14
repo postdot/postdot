@@ -86,7 +86,9 @@ The owner's product values decide trade-offs the rules do not: **intuitiveness**
 - **ANA-02 — Shared states.** Empty states, dialogs, status marks and buttons come from the shared primitives; dialogs dim without blur. Verification: review.
 - **IDN-01 — A listed or drawn publication shows its channel mark.** A post is shown once with its channels unless the view is explicitly per channel. Verification: review.
 - **FGV-01 — Forgiving actions.** A one-click state change in a list offers undo; a default schedule is never in the past; restored work does not block on a question. Verification: review.
-- **FMT-01 — One time format per locale and a linear time axis.** Verification: measure.
+- **FMT-01 — One time format per locale and a linear time axis.** The current year is omitted; week starts agree between calendars. Verification: measure.
+- **PRV-01 — A preview speaks as the channel.** It shows the channel's own name and mark and never a sample person, age or engagement. Verification: review.
+- **CNT-01 — One counter per text field.** It counts against the strictest limit and appears only when that limit is short or near; it never says "graphemes". Verification: measure.
 
 ## Acceptance for this specification
 

@@ -49,5 +49,5 @@ export const devtoProvider = {
                 connection.externalAccountName ??
                 connection.externalAccountId,
         }),
-    preview: { layout: 'article', accountDriven: true, sampleIdentity: true },
+    preview: { layout: 'article', accountDriven: true },
 } as const satisfies ProviderDefinition

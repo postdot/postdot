@@ -99,9 +99,7 @@ export const mastodonProvider = {
     preview: {
         layout: 'social',
         accountDriven: true,
-        sampleIdentity: true,
         mosaic: 'tight',
-        handle: '@alex@example.social',
         Poll: MastodonPollPreview,
     },
     comments: {

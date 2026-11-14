@@ -139,14 +139,8 @@ for (const [locale, copy, theme] of [
                     submit: copy.auth_sign_in_button,
                 })
                 await expect(page).toHaveURL(data.url)
-                const recovery = page.locator('[data-new-publication-recovery]')
-                await expect(recovery).toContainText(text)
-                await recovery
-                    .getByRole('button', {
-                        name: copy.publication_new_recovery_restore,
-                        exact: true,
-                    })
-                    .click()
+                // ADR-103 §6: the draft is restored without a question.
+                await expect(page.locator('[data-new-publication-restored]')).toBeVisible()
                 await expect(content).toHaveValue(text)
             } finally {
                 await data.close()

@@ -37,7 +37,7 @@ test('separates local recovery for two authors sharing a project and restores th
         await page.goto(data.url)
         await expect(form).toHaveAttribute('aria-busy', 'false')
         await page.screenshot({ path: info.outputPath('second-author-composer.png') })
-        await expect(page.locator('[data-new-publication-recovery]')).toHaveCount(0)
+        await expect(page.locator('[data-new-publication-restored]')).toHaveCount(0)
         await expect(page.locator('[data-composer-conflict]')).toHaveCount(0)
         await expect(page.getByRole('textbox', { name: 'Content', exact: true })).toHaveValue('')
         const saved = page.waitForResponse(
@@ -55,9 +55,8 @@ test('separates local recovery for two authors sharing a project and restores th
         await expect(page).toHaveURL(/\/login/)
         await login(page, data.ownerEmail, data.password)
         await page.goto(data.url)
-        const recovery = page.locator('[data-new-publication-recovery]')
-        await expect(recovery).toContainText('Private local text from the original author')
-        await recovery.getByRole('button', { name: 'Restore', exact: true }).click()
+        // ADR-103 §6: the original author's draft is restored without a question.
+        await expect(page.locator('[data-new-publication-restored]')).toBeVisible()
         await expect(page.getByRole('textbox', { name: 'Content', exact: true })).toHaveValue(
             'Private local text from the original author'
         )
@@ -341,9 +340,10 @@ test('keeps a pending local recovery when discard detects an account change', as
         expect((await refusedSave).status()).toBe(503)
         await page.unroute(matcher)
         await page.reload()
-        const recovery = page.locator('[data-new-publication-recovery]')
-        await expect(recovery).toContainText(local)
-        await expect(recovery.getByRole('button', { name: 'Discard', exact: true })).toBeEnabled()
+        const recovery = page.locator('[data-new-publication-restored]')
+        await expect(content).toHaveValue(local)
+        const startOver = recovery.getByRole('button', { name: 'Start over', exact: true })
+        await expect(startOver).toBeEnabled()
         // Cookie changes are shared with this tab; the pending recovery still belongs to A.
         const other = await page.context().newPage()
         await other.request.post('/api/auth/sign-out')
@@ -354,7 +354,7 @@ test('keeps a pending local recovery when discard detects an account change', as
                 new URL(response.url()).pathname === data.endpoint &&
                 response.request().method() === 'DELETE'
         )
-        await recovery.getByRole('button', { name: 'Discard', exact: true }).click()
+        await startOver.click()
         expect((await refusedDiscard).status()).toBe(409)
         await expect(page.getByText('Your account changed in another tab')).toBeVisible()
         await expect(form).toHaveAttribute('inert', '')
@@ -378,8 +378,7 @@ test('keeps a pending local recovery when discard detects an account change', as
         await page.goto('/login')
         await login(page, data.ownerEmail, data.password)
         await page.goto(data.url)
-        await expect(recovery).toContainText(local)
-        await recovery.getByRole('button', { name: 'Restore', exact: true }).click()
+        await expect(recovery).toBeVisible()
         await expect(content).toHaveValue(local)
         await other.close()
     } finally {

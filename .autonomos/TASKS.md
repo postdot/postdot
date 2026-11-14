@@ -21,7 +21,7 @@
 
 - [x] **[UX-656]** Calendar: channel identity, grouping by post, stable grid, linear axis, anchored preview (audit C1–C12) `Priority: 🔴` `Complexity: L`
 
-- [ ] **[UX-657]** Composer: labelled channels, explicit editing scope, honest preview, safe schedule (audit P1–P14) `Priority: 🔴` `Complexity: L`
+- [x] **[UX-657]** Composer: labelled channels, explicit editing scope, honest preview, safe schedule (audit P1–P14) `Priority: 🔴` `Complexity: L`
 
 - [ ] **[UX-658]** Queue: grouped default, dense rows, history, undo (audit Q1–Q6) `Priority: 🟠` `Complexity: M`
 

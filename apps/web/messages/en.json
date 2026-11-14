@@ -1737,11 +1737,7 @@
     "calendar_preview_unavailable": "This publication is no longer available.",
     "calendar_preview_untitled": "Untitled publication",
     "publication_new_title": "New post",
-    "publication_new_back_overview": "Overview",
     "publication_new_action_failed": "Couldn’t create the post",
-    "publication_new_recovery_title": "Previous draft",
-    "publication_new_recovery_choice": "Resume this draft or start a new publication.",
-    "publication_new_recovery_restore": "Restore",
     "publication_new_recovery_discard": "Discard",
     "publication_new_autosave_saving": "Saving…",
     "publication_new_autosave_saved": "Draft saved",
@@ -1771,11 +1767,6 @@
     "publication_preview_comment": "Comment",
     "publication_preview_repost": "Repost",
     "publication_preview_share": "Share",
-    "publication_preview_sample_author": "Alex Martin",
-    "publication_preview_sample_headline": "Product designer",
-    "publication_preview_sample_age": "2h",
-    "publication_preview_sample_activity": "1 comment",
-    "publication_preview_sample_engagement_a11y": "Illustrative engagement: 2 reactions and 1 comment",
     "publication_new_preview_empty": "Write something or add media to see the result here.",
     "publication_new_target_count": [
         {
@@ -1797,8 +1788,8 @@
             "declarations": ["input count", "local countPlural = count: plural"],
             "selectors": ["countPlural"],
             "match": {
-                "countPlural=one": "Schedule {count} publication",
-                "countPlural=other": "Schedule {count} publications"
+                "countPlural=one": "Schedule",
+                "countPlural=other": "Schedule on {count} channels"
             }
         }
     ],
@@ -2080,7 +2071,6 @@
     "profile_issue_general": "Check the schema, bindings, capabilities and execution definition.",
     "profile_issue_more": "{count} additional validation issues.",
     "composer_character_count": "{count} / {limit} characters",
-    "composer_grapheme_count": "{count} / {limit} characters",
     "composer_constraints_loading": "Loading destination limits…",
     "composer_constraints_unavailable": "Destination limits could not be checked.",
     "profile_load_latest_linkedin_template": "Load latest LinkedIn template",
@@ -2349,7 +2339,6 @@
     "provider_apps_https_required": "Facebook requires an HTTPS callback URL.",
     "provider_facebook_app_id": "App ID",
     "provider_facebook_app_secret": "App secret",
-    "composer_character_count_unknown": "{count} characters",
     "performance_read_failed": "Stored statistics could not be loaded.",
     "performance_read_incomplete": "Some stored metrics are missing from this response.",
     "performance_grouped_description": "Results by source post and destination for loaded publications. Metrics are cumulative provider observations, not combined totals.",
@@ -2736,5 +2725,8 @@
     "project_timezone_viewer_note": "Editor or owner access is required to change the project timezone.",
     "theme_option_light": "Light",
     "theme_option_dark": "Dark",
-    "auth_invalid_credentials": "Email or password is incorrect."
+    "auth_invalid_credentials": "Email or password is incorrect.",
+    "channel_new_ellipsis": "New channel…",
+    "publication_new_recovery_restored": "Your draft was restored.",
+    "publication_new_recovery_start_over": "Start over"
 }

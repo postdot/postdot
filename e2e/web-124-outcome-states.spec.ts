@@ -515,7 +515,8 @@ test('keeps draft content truthful in destination-specific preview compositions'
         }
         await selected.click()
         const preview = page.locator(`[data-preview-platform="${profileId}"]`)
-        await expect(preview).toContainText(en.publication_preview_sample_author)
+        // ADR-103 §8: the preview speaks as the channel itself.
+        await expect(preview).toContainText(name)
         await expect(preview.locator('[data-publication-preview-content]')).toHaveText(body)
         if (profileId === 'devto') {
             await page

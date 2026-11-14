@@ -25,7 +25,8 @@ export function createPublicationTarget(
         deliveryMode: 'manual',
         scheduledAt:
             calendarDateTimeLocal(calendarDate) ??
-            toDateTimeLocal(Date.now() + 60 * 60 * 1000, timeZone),
+            // A round hour at least one hour ahead: never past, easy to read (ADR-103 §6).
+            toDateTimeLocal(Math.ceil((Date.now() + 3_600_000) / 3_600_000) * 3_600_000, timeZone),
     }
 }
 

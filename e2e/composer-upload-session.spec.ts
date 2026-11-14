@@ -36,9 +36,8 @@ test('a session refusal during an upload keeps the file and text and resumes aft
         await login(page, data.ownerEmail, data.password)
         await expect(page).toHaveURL(data.url)
 
-        const recovery = page.locator('[data-new-publication-recovery]')
-        await expect(recovery).toContainText(text)
-        await recovery.getByRole('button', { name: 'Restore', exact: true }).click()
+        // ADR-103 §6: the draft is restored without a question.
+        await expect(page.locator('[data-new-publication-restored]')).toBeVisible()
         await expect(page.getByRole('textbox', { name: 'Content', exact: true })).toHaveValue(text)
         const files = page.locator('[data-media-upload-recovery]')
         await expect(files).toBeVisible()
@@ -105,8 +104,8 @@ test('a session that ends mid-upload offers sign-in without losing the held crea
         await login(page, data.ownerEmail, data.password)
         await recoveredDraft
         await expect(page).toHaveURL(data.url)
-        const recovery = page.locator('[data-new-publication-recovery]')
-        await expect(recovery).toContainText(text)
+        await expect(page.locator('[data-new-publication-restored]')).toBeVisible()
+        await expect(page.getByRole('textbox', { name: 'Content', exact: true })).toHaveValue(text)
     } finally {
         release()
         await data.close()

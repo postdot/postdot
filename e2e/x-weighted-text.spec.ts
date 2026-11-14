@@ -21,19 +21,19 @@ test('shows X weighted text feedback in the publication composer', async ({ page
     const source = page.getByRole('textbox', { name: 'Content', exact: true })
     const count = page.locator('[data-weighted-count="true"]')
     await expect(source).toBeVisible()
-    await expect(count).toHaveText('0 / 280 weighted characters')
+    await expect(count).toHaveText('0 / 280 characters')
 
     await source.fill(`https://example.com/${'a'.repeat(300)}`)
-    await expect(count).toHaveText('23 / 280 weighted characters')
+    await expect(count).toHaveText('23 / 280 characters')
 
     await source.fill('日'.repeat(141))
-    await expect(count).toHaveText('282 / 280 weighted characters')
+    await expect(count).toHaveText('282 / 280 characters')
     await expect(source).toHaveAttribute('aria-invalid', 'true')
 
     await page.getByRole('button', { name: channelName, exact: true }).click()
     const targetContent = page.getByRole('textbox', { name: 'Channel content', exact: true })
     await targetContent.fill('日'.repeat(140))
-    await expect(count).toHaveText('280 / 280 weighted characters')
+    await expect(count).toHaveText('280 / 280 characters')
     await expect(targetContent).not.toHaveAttribute('aria-invalid', 'true')
 })
 

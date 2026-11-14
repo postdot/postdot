@@ -1073,7 +1073,7 @@ test('persists mixed and media-only publications through the dashboard', async (
     const mixedResponse = page.waitForResponse(
         response => response.url().endsWith('/posts') && response.request().method() === 'POST'
     )
-    await page.getByRole('button', { name: /^Schedule 2 publications(?:\s*(?:Ctrl|⌘)↵)?$/ }).click()
+    await page.getByRole('button', { name: /^Schedule on 2 channels(?:\s*(?:Ctrl|⌘)↵)?$/ }).click()
     const mixedResult = (await (await mixedResponse).json()) as { publications: { id: string }[] }
     const mixedPublicationId = mixedResult.publications[0]?.id
     if (mixedPublicationId === undefined) throw new Error('Expected a mixed publication')
