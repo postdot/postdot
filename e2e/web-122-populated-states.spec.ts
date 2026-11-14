@@ -158,7 +158,7 @@ test('uses the calendar as the project overview and keeps Queue distinct', async
     await expect(page.locator('a[data-publication-edit-link="true"]')).toHaveCount(8)
     await expect(page.locator('[data-queue-publication-list="true"]')).toHaveCount(1)
     const publicationTable = page.locator('[data-publication-table-header="true"]')
-    await expect(publicationTable).toContainText('Post')
+    // Per post by default (ADR-103 §3): the post heads each group, rows name the channel.
     await expect(publicationTable).toContainText('Channel')
     await expect(publicationTable).toContainText('Action')
     await expect(
@@ -321,13 +321,14 @@ test('keeps the populated ReUI calendar responsive and keyboard navigable', asyn
 
     await page.setViewportSize({ width: 1280, height: 900 })
     await expect(calendar.locator('[data-slot="event-calendar-month-view"]')).toBeVisible()
+    // C5: one hairline grid (1px gaps over the border colour) instead of separate tiles.
     await expect(calendar.locator('[data-slot="event-calendar-month-header"]').first()).toHaveCSS(
         'column-gap',
-        '2px'
+        '1px'
     )
     await expect(calendar.locator('[data-slot="event-calendar-month-row"]').first()).toHaveCSS(
         'column-gap',
-        '2px'
+        '1px'
     )
     await expect(calendar.locator('[data-slot="event-calendar-month-cell"]').first()).toHaveCSS(
         'border-right-width',

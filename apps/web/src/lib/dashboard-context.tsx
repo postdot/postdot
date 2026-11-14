@@ -132,6 +132,11 @@ export function ProjectDashboardProvider({
     )
 }
 
+/** For shared parts that may render outside a project route; null there. */
+export function useOptionalProjectDashboard() {
+    return useContext(ProjectDashboardContext)
+}
+
 export function useProjectDashboard() {
     const context = useContext(ProjectDashboardContext)
     if (context === null)

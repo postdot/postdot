@@ -91,7 +91,11 @@ export function formatProjectDateTime(
     if (timestamp === null || !Number.isFinite(timestamp)) return unscheduledLabel
     const date = new Date(timestamp)
     if (!Number.isFinite(date.getTime())) return unscheduledLabel
-    return getDisplayFormatter(timeZone, locale).format(date)
+    // ADR-103 §7: the current year goes without saying.
+    const sameYear =
+        getZonedDateTimeParts(timestamp, timeZone).year ===
+        getZonedDateTimeParts(Date.now(), timeZone).year
+    return getDisplayFormatter(timeZone, locale, sameYear).format(date)
 }
 
 export function dateTimeLocalErrorMessage(error: DateTimeLocalError): string {
@@ -154,16 +158,17 @@ function getPartsFormatter(timeZone: string) {
     return formatter
 }
 
-function getDisplayFormatter(timeZone: string, locale: string) {
-    const key = `${locale}:${timeZone}`
+function getDisplayFormatter(timeZone: string, locale: string, omitYear = false) {
+    const key = `${locale}:${timeZone}:${omitYear ? 'short' : 'full'}`
     const cached = displayFormatters.get(key)
     if (cached !== undefined) return cached
 
-    const formatter = new Intl.DateTimeFormat(locale, {
-        dateStyle: 'medium',
-        timeStyle: 'short',
-        timeZone,
-    })
+    const formatter = new Intl.DateTimeFormat(
+        locale,
+        omitYear
+            ? { day: 'numeric', hour: 'numeric', minute: '2-digit', month: 'short', timeZone }
+            : { dateStyle: 'medium', timeStyle: 'short', timeZone }
+    )
     displayFormatters.set(key, formatter)
     return formatter
 }

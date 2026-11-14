@@ -51,7 +51,7 @@ export function PublicationQueuePage({
     initialFilter = 'all',
     initialSort,
     initialTagIds = [],
-    initialView = 'queue',
+    initialView = 'posts',
 }: {
     readonly initialView?: 'queue' | 'posts'
     readonly initialFilter?: QueueFilter
@@ -385,31 +385,38 @@ export function PublicationQueuePage({
                 clearLabel={m.queue_clear_selection()}
                 leadingContent={
                     <div className="flex min-w-0 flex-wrap items-center gap-2">
-                        <Select
-                            value={view}
-                            onValueChange={value => {
-                                if (value !== 'queue' && value !== 'posts') return
-                                setView(value)
-                                void navigate({
-                                    search: current => ({
-                                        ...current,
-                                        view: value === 'posts' ? 'posts' : undefined,
-                                    }),
-                                })
-                            }}>
-                            <SelectTrigger
-                                aria-label={m.queue_view_label()}
-                                className="w-fit"
-                                size="sm">
-                                <SelectValue>
-                                    {view === 'posts' ? m.queue_view_posts() : m.queue_view_queue()}
-                                </SelectValue>
-                            </SelectTrigger>
-                            <SelectContent align="start">
-                                <SelectItem value="queue">{m.queue_view_queue()}</SelectItem>
-                                <SelectItem value="posts">{m.queue_view_posts()}</SelectItem>
-                            </SelectContent>
-                        </Select>
+                        {/* Q1: a visible two-state switch instead of an unlabelled menu. */}
+                        <div
+                            aria-label={m.queue_view_label()}
+                            className="flex items-center rounded-md bg-muted p-0.5"
+                            role="group">
+                            {(['posts', 'queue'] as const).map(option => (
+                                <Button
+                                    aria-pressed={view === option}
+                                    className={
+                                        view === option
+                                            ? 'bg-surface-raised font-semibold text-foreground shadow-none hover:bg-surface-raised'
+                                            : 'text-muted-foreground'
+                                    }
+                                    key={option}
+                                    onClick={() => {
+                                        setView(option)
+                                        void navigate({
+                                            search: current => ({
+                                                ...current,
+                                                view: option === 'queue' ? 'channels' : undefined,
+                                            }),
+                                        })
+                                    }}
+                                    size="sm"
+                                    type="button"
+                                    variant="ghost">
+                                    {option === 'posts'
+                                        ? m.queue_view_posts()
+                                        : m.queue_view_queue()}
+                                </Button>
+                            ))}
+                        </div>
                         <Select
                             value={filter === 'manual' ? 'manual' : 'all'}
                             onValueChange={value => {

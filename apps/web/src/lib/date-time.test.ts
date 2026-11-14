@@ -26,8 +26,19 @@ describe('local date-time helpers', () => {
 
         expect(toDateTimeLocal(timestamp, 'America/New_York')).toBe('2026-01-02T00:34')
         expect(parseDateTimeLocal('2026-01-02T00:34', 'America/New_York')).toBe(timestamp)
-        expect(formatProjectDateTime(timestamp, 'America/New_York')).toContain('Jan 2, 2026')
+        const thisYear = new Date().getUTCFullYear() === 2026
+        expect(formatProjectDateTime(timestamp, 'America/New_York')).toContain(
+            thisYear ? 'Jan 2' : 'Jan 2, 2026'
+        )
         expect(formatProjectDateTime(timestamp, 'America/New_York')).toContain('12:34 AM')
+    })
+
+    it('omits the current year and keeps other years', () => {
+        const now = new Date()
+        const current = Date.UTC(now.getUTCFullYear(), 5, 15, 12)
+        const previous = Date.UTC(now.getUTCFullYear() - 1, 5, 15, 12)
+        expect(formatProjectDateTime(current, 'UTC')).not.toContain(String(now.getUTCFullYear()))
+        expect(formatProjectDateTime(previous, 'UTC')).toContain(String(now.getUTCFullYear() - 1))
     })
 
     it('uses the project timezone when a timestamp crosses UTC midnight', () => {

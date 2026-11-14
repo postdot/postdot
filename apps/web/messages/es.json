@@ -2172,8 +2172,8 @@
             "declarations": ["input count", "local countPlural = count: plural"],
             "selectors": ["countPlural"],
             "match": {
-                "countPlural=one": "{count} destino en estos resultados",
-                "countPlural=other": "{count} destinos en estos resultados"
+                "countPlural=one": "{count} canal en estos resultados",
+                "countPlural=other": "{count} canales en estos resultados"
             }
         }
     ],

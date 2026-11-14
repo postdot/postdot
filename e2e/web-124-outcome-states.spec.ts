@@ -313,7 +313,8 @@ test('reviews mixed operational work across responsive locale and theme combinat
     ] as const
     for (const variant of matrix) {
         const copy = variant.locale === 'fr' ? fr : en
-        await page.goto(`/dashboard/projects/${projectId}/queue`)
+        // Column alignment is a per-channel table property.
+        await page.goto(`/dashboard/projects/${projectId}/queue?view=channels`)
         await expect(page.locator('[data-publication-selection-card]')).toHaveCount(7)
         await expect(page.locator('html')).toHaveClass(/\b(?:light|dark)\b/)
         if (variant.locale === 'fr' && (await page.locator('html').getAttribute('lang')) !== 'fr') {

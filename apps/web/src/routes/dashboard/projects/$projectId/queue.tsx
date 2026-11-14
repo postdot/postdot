@@ -10,7 +10,8 @@ import {
 
 export const Route = createFileRoute('/dashboard/projects/$projectId/queue')({
     validateSearch: (search: Record<string, unknown>) => ({
-        ...(search.view === 'posts' ? { view: 'posts' as const } : {}),
+        // ADR-103 §3: a post is listed once with its channels unless the reader asks per channel.
+        ...(search.view === 'channels' ? { view: 'channels' as const } : {}),
         filter: parseQueueFilter(search.filter),
         sort: parseQueueSort(search.sort),
         tagIds: parseTagIds(search.tagIds),
@@ -22,7 +23,7 @@ function QueueRoute() {
     const { filter, sort, tagIds, view } = Route.useSearch()
     return (
         <PublicationQueuePage
-            initialView={view}
+            initialView={view === 'channels' ? 'queue' : 'posts'}
             initialFilter={filter}
             initialSort={sort}
             initialTagIds={tagIds}

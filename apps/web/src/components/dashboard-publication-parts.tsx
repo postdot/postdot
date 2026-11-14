@@ -27,6 +27,7 @@ import { useEffect, useRef, type ReactNode } from 'react'
 
 import { CopyPublicationLink } from '@/components/copy-publication-link'
 import { api, type PublicationSummary } from '@/lib/api'
+import { useOptionalProjectDashboard } from '@/lib/dashboard-context'
 import { formatProjectDateTime } from '@/lib/date-time'
 import { useLanguage } from '@/lib/i18n'
 import { publicationIdentityLabel } from '@/lib/publication-identity'
@@ -36,6 +37,7 @@ import * as m from '@/paraglide/messages.js'
 import { providerRegistry } from '@/providers/registry'
 
 import { EmptyState, type EmptyStateIllustration, type EmptyStateLayout } from './empty-state'
+import { ChannelAvatar } from './identity-visuals'
 
 export type PublicationState = PublicationSummary['state']
 
@@ -59,9 +61,12 @@ export function PublicationList({
     selectedPublicationIds,
     showCreationDate = false,
     showPostLink = false,
+    showIdentity = true,
     groupByPost = false,
     timeZone,
 }: {
+    /** False when every row belongs to the same post, as on the post page (audit P10). */
+    readonly showIdentity?: boolean
     readonly emptyDescription?: string | null
     readonly emptyAction?: ReactNode
     readonly emptyIllustration?: EmptyStateIllustration
@@ -184,7 +189,7 @@ export function PublicationList({
                                         selected={selected}
                                         showCreationDate={showCreationDate}
                                         showPostLink={showPostLink && !groupByPost}
-                                        showIdentity={!groupByPost}
+                                        showIdentity={showIdentity && !groupByPost}
                                         timeZone={timeZone}
                                     />
                                 )
@@ -551,6 +556,10 @@ export function PublicationRow({
     readonly timeZone: string
 }) {
     const { locale } = useLanguage()
+    // ADR-103 §3: every listed publication shows its channel's mark.
+    const channel = useOptionalProjectDashboard()?.channels.find(
+        item => item.id === publication.channelId
+    ) ?? { id: publication.channelId, name: publication.channelName, profileId: '' }
     const identityLabel = publicationIdentityLabel(publication)
     const createdAt = normalizePublicationTimestamp(publication.createdAt)
     const lastEditedAt =
@@ -590,10 +599,14 @@ export function PublicationRow({
                             </h2>
                         </div>
                     </div>
-                ) : null}
+                ) : (
+                    // The group or page already shows the post; assistive tech still needs it.
+                    <span className="sr-only">{identityLabel} — </span>
+                )}
                 <div className={cn('min-w-0', !showIdentity && 'lg:col-span-2')}>
                     <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
                         <span className="inline-flex min-w-0 max-w-full items-center gap-2">
+                            <ChannelAvatar channel={channel} size="xs" className="size-5" />
                             <span
                                 className="min-w-0 truncate text-sm font-medium"
                                 title={publication.channelName}>
