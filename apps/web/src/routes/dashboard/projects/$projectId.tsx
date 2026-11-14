@@ -1,4 +1,4 @@
-import { createFileRoute, Outlet, redirect, useMatches } from '@tanstack/react-router'
+import { createFileRoute, Outlet, redirect, useMatches, useRouter } from '@tanstack/react-router'
 import { Suspense } from 'react'
 
 import { DashboardShell } from '@/components/dashboard-shell'
@@ -45,11 +45,17 @@ export const Route = createFileRoute('/dashboard/projects/$projectId')({
 })
 
 function ProjectDashboardRoute() {
+    const router = useRouter()
     const routeData = Route.useLoaderData()
     const { project, ...initialData } = routeData
 
     return (
-        <ProjectRealtimeProvider key={project.id} projectId={project.id}>
+        <ProjectRealtimeProvider
+            key={project.id}
+            onProjectUpdated={() => {
+                void router.invalidate()
+            }}
+            projectId={project.id}>
             <ProjectDashboardProvider initialData={initialData} project={project}>
                 <PublicationComposerProvider>
                     <ProjectDashboardFrame />

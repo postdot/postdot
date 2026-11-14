@@ -17,7 +17,7 @@ import { DashboardShell } from '@/components/dashboard-shell'
 import { EmptyState } from '@/components/empty-state'
 import { ResourceAvatar } from '@/components/identity-visuals'
 import { PageColumn } from '@/components/page-column'
-import { ResourceCreationDialog } from '@/components/resource-creation-dialog'
+import { ProjectCreationDialog } from '@/components/project-creation-dialog'
 import { api, formatApiError, type Project } from '@/lib/api'
 import {
     DashboardGlobalProvider,
@@ -29,6 +29,7 @@ import {
     rememberDashboardScope,
     resolveDashboardScope,
 } from '@/lib/dashboard-scope'
+import { detectDefaultProjectTimeZone } from '@/lib/date-time'
 import { useLanguage } from '@/lib/i18n'
 import { ProjectRealtimeProvider } from '@/lib/project-realtime'
 import { useActionError } from '@/lib/use-action-error'
@@ -177,6 +178,7 @@ function DashboardSession() {
     const [workspaces, setWorkspaces] = useState(initialData.workspaces)
     const categories = initialData.categories
     const [projectName, setProjectName] = useState('')
+    const [projectTimeZone, setProjectTimeZone] = useState(detectDefaultProjectTimeZone)
     const [workspaceName, setWorkspaceName] = useState('')
     const [pending, setPending] = useState(false)
     const [error, setError] = useActionError()
@@ -213,11 +215,12 @@ function DashboardSession() {
         await runAction(async () => {
             const response = await api.createProject(
                 projectName,
-                undefined,
+                projectTimeZone,
                 selectedWorkspaceId ?? undefined
             )
             setProjects(current => [...current, response.project])
             setProjectName('')
+            setProjectTimeZone(detectDefaultProjectTimeZone())
             await navigate({
                 to: '/dashboard/projects/$projectId/overview',
                 params: { projectId: response.project.id },
@@ -324,11 +327,13 @@ function DashboardSession() {
         onProjectCategoryChange: (projectId, categoryId) =>
             void handleProjectCategoryChange(projectId, categoryId),
         onProjectNameChange: setProjectName,
+        onProjectTimeZoneChange: setProjectTimeZone,
         onWorkspaceChange: workspaceId => void handleWorkspaceChange(workspaceId),
         onWorkspaceNameChange: setWorkspaceName,
         onSignOut: () => void handleSignOut(),
         pending,
         projectName,
+        projectTimeZone,
         workspaceName,
         projects,
         selectedWorkspaceId,
@@ -479,22 +484,22 @@ function EmptyProjectShell({ global }: { readonly global: DashboardGlobalContext
                             layout="compact"
                             title={m.overview_no_projects()}
                         />
-                        <ResourceCreationDialog
+                        <ProjectCreationDialog
                             id="empty-state-new-project"
-                            label={m.nav_new_project()}
-                            maxLength={120}
+                            name={global.projectName}
+                            onNameChange={global.onProjectNameChange}
                             onOpenChange={open => {
                                 setCreateProjectOpen(open)
-                                if (!open) global.onProjectNameChange('')
+                                if (!open) {
+                                    global.onProjectNameChange('')
+                                    global.onProjectTimeZoneChange(detectDefaultProjectTimeZone())
+                                }
                             }}
                             onSubmit={global.onCreateProject}
-                            onValueChange={global.onProjectNameChange}
+                            onTimeZoneChange={global.onProjectTimeZoneChange}
                             open={createProjectOpen}
                             pending={global.pending}
-                            placeholder={m.nav_project_name()}
-                            submitLabel={m.nav_add_project()}
-                            title={m.nav_create_project()}
-                            value={global.projectName}
+                            timeZone={global.projectTimeZone}
                         />
                     </div>
                 </main>
@@ -580,22 +585,22 @@ function ProjectSelectionShell() {
                                 title={m.overview_no_projects()}
                             />
                         )}
-                        <ResourceCreationDialog
+                        <ProjectCreationDialog
                             id="project-selection-new-project"
-                            label={m.nav_new_project()}
-                            maxLength={120}
+                            name={global.projectName}
+                            onNameChange={global.onProjectNameChange}
                             onOpenChange={open => {
                                 setCreateProjectOpen(open)
-                                if (!open) global.onProjectNameChange('')
+                                if (!open) {
+                                    global.onProjectNameChange('')
+                                    global.onProjectTimeZoneChange(detectDefaultProjectTimeZone())
+                                }
                             }}
                             onSubmit={global.onCreateProject}
-                            onValueChange={global.onProjectNameChange}
+                            onTimeZoneChange={global.onProjectTimeZoneChange}
                             open={createProjectOpen}
                             pending={global.pending}
-                            placeholder={m.nav_project_name()}
-                            submitLabel={m.nav_add_project()}
-                            title={m.nav_create_project()}
-                            value={global.projectName}
+                            timeZone={global.projectTimeZone}
                         />
                     </div>
                 </main>

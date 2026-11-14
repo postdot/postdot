@@ -2494,7 +2494,7 @@
     "lifecycle_count_members": "Direct project grants",
     "lifecycle_count_groups": "Group grants",
     "lifecycle_count_bytes": "Stored bytes",
-    "lifecycle_api_manage": "Archive and restore projects",
+    "lifecycle_api_manage": "Create projects, update timezones, and archive or restore projects",
     "lifecycle_api_delete": "Permanently delete projects",
     "lifecycle_empty": "No archived resources you can manage.",
     "lifecycle_manage": "Manage archive or deletion",
@@ -2706,5 +2706,13 @@
     "release_match": "Studio and API identify the same build.",
     "release_unknown": "The build identity is incomplete. A version comparison is unavailable.",
     "release_mismatch_title": "Studio and API builds differ",
-    "release_mismatch_help": "Open a new tab to reload Studio. If the difference remains, have an administrator deploy Studio and API from the same release."
+    "release_mismatch_help": "Open a new tab to reload Studio. If the difference remains, have an administrator deploy Studio and API from the same release.",
+    "project_timezone_label": "Scheduling timezone",
+    "project_timezone_title": "Scheduling timezone",
+    "project_timezone_description": "Schedules are entered and displayed in this timezone. Changing it updates how times appear without moving existing scheduled publications.",
+    "project_timezone_search": "Search timezones…",
+    "project_timezone_empty": "No matching timezone",
+    "project_timezone_save": "Save timezone",
+    "project_timezone_saved": "Project timezone updated",
+    "project_timezone_viewer_note": "Editor or owner access is required to change the project timezone."
 }

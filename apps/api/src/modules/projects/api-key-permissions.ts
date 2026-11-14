@@ -75,32 +75,39 @@ export function requiredApiKeyCapability(method: string, requestPath: string) {
     const normalizedMethod = method.toUpperCase()
     const segments = requestPath.split('?')[0]?.split('/').filter(Boolean) ?? []
 
-    if (segments[0] === 'api' && segments[1] === 'workspaces' && segments[3] === 'channels') {
-        if (segments.length === 4 && normalizedMethod === 'GET') return 'project:read'
-        if (segments.length !== 6) return null
-        if (segments[5] === 'cadence')
-            return normalizedMethod === 'GET'
-                ? 'project:read'
-                : normalizedMethod === 'PUT'
-                  ? 'channel:manage'
-                  : null
-        if (
-            ['attachments', 'withdraw', 'management'].includes(segments[5]!) &&
-            normalizedMethod === 'POST'
-        )
-            return 'channel:share'
+    if (segments[0] === 'api' && segments[1] === 'workspaces') {
+        if (segments.length === 2 && normalizedMethod === 'GET') return 'project:read'
+        if (segments[3] === 'channels') {
+            if (segments.length === 4 && normalizedMethod === 'GET') return 'project:read'
+            if (segments.length !== 6) return null
+            if (segments[5] === 'cadence')
+                return normalizedMethod === 'GET'
+                    ? 'project:read'
+                    : normalizedMethod === 'PUT'
+                      ? 'channel:manage'
+                      : null
+            if (
+                ['attachments', 'withdraw', 'management'].includes(segments[5]!) &&
+                normalizedMethod === 'POST'
+            )
+                return 'channel:share'
+        }
         return null
     }
     if (segments[0] !== 'api' || segments[1] !== 'projects') return null
     if (segments.length === 2) {
-        return normalizedMethod === 'GET' ? 'project:read' : null
+        if (normalizedMethod === 'GET') return 'project:read'
+        if (normalizedMethod === 'POST') return 'project:manage'
+        return null
     }
     if (segments.length < 3) return null
 
     const resource = segments[3]
     const detail = segments.slice(4)
 
-    if (resource === undefined) return null
+    if (resource === undefined) {
+        return normalizedMethod === 'PATCH' ? 'project:manage' : null
+    }
 
     if (resource === 'lifecycle') {
         if (

@@ -123,12 +123,14 @@ export function DashboardShell({
                         onCreateWorkspace={global.onCreateWorkspace}
                         onProjectChange={onProjectChange}
                         onProjectNameChange={onProjectNameChange}
+                        onProjectTimeZoneChange={global.onProjectTimeZoneChange}
                         onWorkspaceChange={global.onWorkspaceChange}
                         onWorkspaceNameChange={global.onWorkspaceNameChange}
                         onSignOut={onSignOut}
                         pending={pending}
                         projectId={selectedProjectId}
                         projectName={projectName}
+                        projectTimeZone={global.projectTimeZone}
                         projects={shellProjects}
                         session={session}
                         workspaceId={selectedWorkspaceId}

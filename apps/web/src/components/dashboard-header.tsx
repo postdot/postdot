@@ -36,12 +36,14 @@ interface DashboardHeaderProps {
     readonly onCreateWorkspace: (event: FormEvent<HTMLFormElement>) => void
     readonly onProjectChange: (projectId: string | null) => void
     readonly onProjectNameChange: (value: string) => void
+    readonly onProjectTimeZoneChange: (timeZone: string) => void
     readonly onWorkspaceChange: (workspaceId: string) => void
     readonly onWorkspaceNameChange: (value: string) => void
     readonly onSignOut: () => void
     readonly pending: boolean
     readonly projectId: string | null
     readonly projectName: string
+    readonly projectTimeZone: string
     readonly projects: readonly Project[]
     readonly session: Session
     readonly workspaceId: string | null
@@ -61,12 +63,14 @@ export function DashboardHeader({
     onCreateWorkspace,
     onProjectChange,
     onProjectNameChange,
+    onProjectTimeZoneChange,
     onWorkspaceChange,
     onWorkspaceNameChange,
     onSignOut,
     pending,
     projectId,
     projectName,
+    projectTimeZone,
     projects,
     session,
     workspaceId,
@@ -116,10 +120,12 @@ export function DashboardHeader({
                     onCreateWorkspace={onCreateWorkspace}
                     onProjectChange={onProjectChange}
                     onProjectNameChange={onProjectNameChange}
+                    onProjectTimeZoneChange={onProjectTimeZoneChange}
                     onWorkspaceChange={onWorkspaceChange}
                     onWorkspaceNameChange={onWorkspaceNameChange}
                     pending={pending}
                     projectName={projectName}
+                    projectTimeZone={projectTimeZone}
                     projects={projects}
                     selectedProjectId={projectId}
                     selectedWorkspaceId={workspaceId}

@@ -2494,7 +2494,7 @@
     "lifecycle_count_members": "Direkte Projektberechtigungen",
     "lifecycle_count_groups": "Gruppenberechtigungen",
     "lifecycle_count_bytes": "Gespeicherte Bytes",
-    "lifecycle_api_manage": "Projekte archivieren und wiederherstellen",
+    "lifecycle_api_manage": "Projekte erstellen, Zeitzonen ändern sowie archivieren und wiederherstellen",
     "lifecycle_api_delete": "Projekte dauerhaft löschen",
     "lifecycle_empty": "Keine archivierten Ressourcen, die Sie verwalten können.",
     "lifecycle_manage": "Archivierung oder Löschung verwalten",
@@ -2706,5 +2706,13 @@
     "release_match": "Studio und API verwenden denselben Build.",
     "release_unknown": "Die Build-Identität ist unvollständig. Ein Versionsvergleich ist nicht möglich.",
     "release_mismatch_title": "Studio und API verwenden unterschiedliche Builds",
-    "release_mismatch_help": "Öffne einen neuen Tab, um Studio neu zu laden. Wenn der Unterschied bleibt, muss ein Administrator Studio und API aus demselben Release bereitstellen."
+    "release_mismatch_help": "Öffne einen neuen Tab, um Studio neu zu laden. Wenn der Unterschied bleibt, muss ein Administrator Studio und API aus demselben Release bereitstellen.",
+    "project_timezone_label": "Planungszeitzone",
+    "project_timezone_title": "Planungszeitzone",
+    "project_timezone_description": "Zeitpläne werden in dieser Zeitzone eingegeben und angezeigt. Eine Änderung passt die Darstellung an, ohne bestehende geplante Veröffentlichungen zu verschieben.",
+    "project_timezone_search": "Zeitzonen suchen…",
+    "project_timezone_empty": "Keine passende Zeitzone",
+    "project_timezone_save": "Zeitzone speichern",
+    "project_timezone_saved": "Projektzeitzone aktualisiert",
+    "project_timezone_viewer_note": "Zum Ändern der Projektzeitzone ist Bearbeiter- oder Eigentümerzugriff erforderlich."
 }

@@ -22,11 +22,13 @@ export interface DashboardGlobalContextValue {
     readonly onProjectChange: (projectId: string | null) => void
     readonly onProjectCategoryChange: (projectId: string, categoryId: string | null) => void
     readonly onProjectNameChange: (value: string) => void
+    readonly onProjectTimeZoneChange: (timeZone: string) => void
     readonly onWorkspaceChange: (workspaceId: string) => void
     readonly onWorkspaceNameChange: (value: string) => void
     readonly onSignOut: () => void
     readonly pending: boolean
     readonly projectName: string
+    readonly projectTimeZone: string
     readonly workspaceName: string
     readonly projects: readonly Project[]
     readonly selectedWorkspaceId: string | null

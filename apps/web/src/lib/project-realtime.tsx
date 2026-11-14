@@ -1,6 +1,6 @@
 import type { PublicationEditorState } from '@postdot/client'
 import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query'
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 
 import { projectRefreshKeys, projectEventRefreshScope } from './project-query-invalidation'
 import { projectQueryKeys } from './project-query-keys'
@@ -295,9 +295,11 @@ export function restartProjectRealtime(projectId: string) {
 
 export function ProjectRealtimeProvider({
     children,
+    onProjectUpdated,
     projectId,
 }: {
     readonly children: ReactNode
+    readonly onProjectUpdated?: () => void
     readonly projectId: string | null
 }) {
     const [queryClient] = useState(
@@ -321,7 +323,9 @@ export function ProjectRealtimeProvider({
     return (
         <QueryClientProvider client={queryClient}>
             <UserRealtimeBridge />
-            {projectId === null ? null : <ProjectRealtimeBridge projectId={projectId} />}
+            {projectId === null ? null : (
+                <ProjectRealtimeBridge onProjectUpdated={onProjectUpdated} projectId={projectId} />
+            )}
             {children}
         </QueryClientProvider>
     )
@@ -446,9 +450,17 @@ function UserRealtimeBridge() {
     return null
 }
 
-function ProjectRealtimeBridge({ projectId }: { readonly projectId: string }) {
+function ProjectRealtimeBridge({
+    onProjectUpdated,
+    projectId,
+}: {
+    readonly onProjectUpdated?: () => void
+    readonly projectId: string
+}) {
     const queryClient = useQueryClient()
     const [restart, setRestart] = useState(0)
+    const onProjectUpdatedRef = useRef(onProjectUpdated)
+    onProjectUpdatedRef.current = onProjectUpdated
     useEffect(
         () => subscribeProjectAccessRestoration(projectId, () => setRestart(value => value + 1)),
         [projectId]
@@ -556,6 +568,7 @@ function ProjectRealtimeBridge({ projectId }: { readonly projectId: string }) {
                     return
                 }
                 if (signal.kind === 'resync-required') {
+                    onProjectUpdatedRef.current?.()
                     void refresh('project', true, true)
                     void refresh('notifications', true)
                     return
@@ -570,6 +583,9 @@ function ProjectRealtimeBridge({ projectId }: { readonly projectId: string }) {
                 if (signal.event.type === 'project.media_previews.updated') {
                     for (const listener of mediaPreviewListeners.get(projectId) ?? []) listener()
                     return
+                }
+                if (signal.event.type === 'project.timezone_updated') {
+                    onProjectUpdatedRef.current?.()
                 }
                 const resource = eventResource(signal.event.type)
                 if (resource === 'project')

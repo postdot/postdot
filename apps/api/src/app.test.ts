@@ -2565,6 +2565,27 @@ describe('Postdot API', () => {
             })
             expect(disabledCreateResponse.status).toBe(403)
 
+            const readOnlyKeyResponse = await jsonRequest(app, '/api/api-keys', ownerCookie, {
+                method: 'POST',
+                body: JSON.stringify({
+                    name: 'Read-only API key',
+                    projectIds: [ownerProject.project.id],
+                    actionAccess: ['project:read'],
+                }),
+            })
+            expect(readOnlyKeyResponse.status).toBe(201)
+            const readOnlyTokenBody = (await readOnlyKeyResponse.json()) as { token: string }
+            const deniedBearerUpdateResponse = await bearerRequest(
+                app,
+                `/api/projects/${ownerProject.project.id}`,
+                readOnlyTokenBody.token,
+                {
+                    method: 'PATCH',
+                    body: JSON.stringify({ timeZone: 'America/New_York' }),
+                }
+            )
+            expect(deniedBearerUpdateResponse.status).toBe(403)
+
             const apiKeyResponse = await jsonRequest(app, '/api/api-keys', ownerCookie, {
                 method: 'POST',
                 body: JSON.stringify({
@@ -2583,7 +2604,11 @@ describe('Postdot API', () => {
                     body: JSON.stringify({ timeZone: 'America/New_York' }),
                 }
             )
-            expect(bearerUpdateResponse.status).toBe(403)
+            expect(bearerUpdateResponse.status).toBe(200)
+            expect(await bearerUpdateResponse.json()).toMatchObject({
+                id: ownerProject.project.id,
+                timeZone: 'America/New_York',
+            })
             const verifiedToken = await auth.api.verifyApiKey({ body: { key: tokenBody.token } })
             expect(verifiedToken.valid).toBe(true)
         } finally {
@@ -3099,6 +3124,44 @@ describe('Postdot API', () => {
                 }
             )
             expect(projectCreationResponse.status).toBe(403)
+
+            const allProjectsManageKeyResponse = await jsonRequest(app, '/api/api-keys', cookie, {
+                method: 'POST',
+                body: JSON.stringify({
+                    name: 'Project provisioning agent',
+                    projectIds: null,
+                    actionAccess: ['project:read', 'project:manage'],
+                }),
+            })
+            expect(allProjectsManageKeyResponse.status).toBe(201)
+            const allProjectsManageKey = (await allProjectsManageKeyResponse.json()) as {
+                token: string
+            }
+            const workspacesListResponse = await bearerRequest(
+                app,
+                '/api/workspaces',
+                allProjectsManageKey.token
+            )
+            expect(workspacesListResponse.status).toBe(200)
+            const createdByAgentResponse = await bearerRequest(
+                app,
+                '/api/projects',
+                allProjectsManageKey.token,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        name: 'Created by API key',
+                        timeZone: 'Europe/Paris',
+                    }),
+                }
+            )
+            expect(createdByAgentResponse.status).toBe(201)
+            expect(await createdByAgentResponse.json()).toMatchObject({
+                project: {
+                    name: 'Created by API key',
+                    timeZone: 'Europe/Paris',
+                },
+            })
 
             const invalidBearerHeaders = new Headers({
                 authorization: 'Bearer invalid-token',

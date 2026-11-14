@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'bun:test'
 
 import {
+    detectDefaultProjectTimeZone,
     formatCivilSchedule,
     formatProjectDateTime,
+    listSupportedProjectTimeZones,
     parseDateTimeLocal,
     toDateTimeLocal,
 } from './date-time'
@@ -44,6 +46,17 @@ describe('local date-time helpers', () => {
 
         expect(parseDateTimeLocal('2026-07-01T12:00', 'Europe/Paris')).toBe(timestamp)
         expect(toDateTimeLocal(timestamp, 'Europe/Paris')).toBe('2026-07-01T12:00')
+    })
+
+    it('detects a valid default project timezone and lists supported IANA zones with UTC first', () => {
+        const detected = detectDefaultProjectTimeZone()
+        expect(detected.length).toBeGreaterThan(0)
+        expect(() => Intl.DateTimeFormat('en-US', { timeZone: detected })).not.toThrow()
+
+        const zones = listSupportedProjectTimeZones('Europe/Paris')
+        expect(zones[0]).toBe('UTC')
+        expect(zones).toContain('Europe/Paris')
+        expect(zones).toContain('America/New_York')
     })
 })
 

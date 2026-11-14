@@ -627,3 +627,4 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 ## Closed 2026-11-14
 
 - [x] **[UX-643]** Identify tags and ordered media in composer draft conflicts with explicit unavailable metadata `Priority: 🔵` `Complexity: M` `Completed: 2026-11-14`
+- [x] **[PROJ-644]** Allow privileged API keys and MCP to create projects and manage project timezones in API and Studio (GH #35, #37) `Priority: 🟠` `Complexity: M` `Completed: 2026-11-14`

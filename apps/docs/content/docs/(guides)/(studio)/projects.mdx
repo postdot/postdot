@@ -59,6 +59,17 @@ Backups made before deletion still contain the old data. Their retention and
 off-machine copies remain the operator's responsibility; see
 [backup and recovery](/docs/operations/).
 
+## Scheduling timezone
+
+Open **Project configuration → Access → Scheduling timezone** to view or change
+the project's IANA timezone. New projects default to your browser timezone when
+created in Studio, and can override it during creation or later from project
+settings. Changing the timezone affects how upcoming scheduled times are entered
+and displayed without moving existing timestamps.
+
+Project owners and editors can update the project scheduling timezone in Studio
+or with a scoped API key that includes `project:manage`.
+
 ## Workspaces and permissions
 
 Project owners and workspace owners/administrators can retire projects. Workspace
@@ -72,6 +83,7 @@ same transaction. Workspace deletion also removes its local memberships, groups
 and invitations; the people's accounts and other workspaces remain.
 
 Project API keys require the owner's live role, permitted project scope and the
-appropriate action capability: `project:manage` for archive/restore,
-`project:permanently_delete` for deletion, and `project:read` for the preview.
+appropriate action capability: `project:manage` for project creation (with
+all-project key scope), scheduling timezone updates, and archive/restore;
+`project:permanently_delete` for deletion; and `project:read` for the preview.
 Workspace administration follows its existing human-session contract.

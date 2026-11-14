@@ -2494,7 +2494,7 @@
     "lifecycle_count_members": "Accès individuels au projet",
     "lifecycle_count_groups": "Accès de groupes",
     "lifecycle_count_bytes": "Octets stockés",
-    "lifecycle_api_manage": "Archiver et restaurer les projets",
+    "lifecycle_api_manage": "Créer des projets, modifier le fuseau horaire, archiver et restaurer les projets",
     "lifecycle_api_delete": "Supprimer définitivement les projets",
     "lifecycle_empty": "Aucune ressource archivée que vous pouvez gérer.",
     "lifecycle_manage": "Gérer l’archivage ou la suppression",
@@ -2706,5 +2706,13 @@
     "release_match": "Le Studio et l’API correspondent au même build.",
     "release_unknown": "L’identité du build est incomplète. La comparaison des versions est indisponible.",
     "release_mismatch_title": "Les builds du Studio et de l’API diffèrent",
-    "release_mismatch_help": "Ouvrez un nouvel onglet pour recharger le Studio. Si l’écart persiste, un administrateur doit déployer le Studio et l’API depuis la même release."
+    "release_mismatch_help": "Ouvrez un nouvel onglet pour recharger le Studio. Si l’écart persiste, un administrateur doit déployer le Studio et l’API depuis la même release.",
+    "project_timezone_label": "Fuseau horaire de planification",
+    "project_timezone_title": "Fuseau horaire de planification",
+    "project_timezone_description": "Les horaires sont saisis et affichés dans ce fuseau horaire. Le modifier change l’affichage sans déplacer les publications déjà planifiées.",
+    "project_timezone_search": "Rechercher un fuseau horaire…",
+    "project_timezone_empty": "Aucun fuseau horaire correspondant",
+    "project_timezone_save": "Enregistrer le fuseau horaire",
+    "project_timezone_saved": "Fuseau horaire du projet mis à jour",
+    "project_timezone_viewer_note": "Un accès éditeur ou propriétaire est requis pour modifier le fuseau horaire du projet."
 }

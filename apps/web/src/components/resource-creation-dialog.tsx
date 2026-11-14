@@ -9,12 +9,13 @@ import {
 import { Field, FieldLabel } from '@postdot/ui/components/field'
 import { Input } from '@postdot/ui/components/input'
 import { AddIcon } from '@solar-icons/react/linear/add'
-import type { FormEvent } from 'react'
+import type { FormEvent, ReactNode } from 'react'
 
 import { useLanguage } from '@/lib/i18n'
 import * as m from '@/paraglide/messages.js'
 
 interface ResourceCreationDialogProps {
+    readonly children?: ReactNode
     readonly id: string
     readonly label: string
     readonly maxLength: number
@@ -30,6 +31,7 @@ interface ResourceCreationDialogProps {
 }
 
 export function ResourceCreationDialog({
+    children,
     id,
     label,
     maxLength,
@@ -64,6 +66,7 @@ export function ResourceCreationDialog({
                             value={value}
                         />
                     </Field>
+                    {children}
                     <DialogFooter>
                         <Button
                             disabled={pending}

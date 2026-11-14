@@ -40,8 +40,19 @@ const schedulesDelivery = (input: Arguments) =>
     )
 
 export const mcpToolCatalog: readonly McpToolEntry[] = [
-    // Projects and lifecycle
+    // Workspaces, projects and lifecycle
+    { operationId: 'listWorkspaces' },
     { operationId: 'listProjects' },
+    {
+        operationId: 'createProject',
+        guidance:
+            'Creates a project in the specified workspace or the key owner default workspace. Requires an API key with access to all projects.',
+    },
+    {
+        operationId: 'updateProjectTimeZone',
+        guidance:
+            'Updates how schedules are entered and displayed without moving existing scheduled publications.',
+    },
     { operationId: 'getProjectLifecycleState' },
     { operationId: 'getProjectLifecycleImpact' },
     {

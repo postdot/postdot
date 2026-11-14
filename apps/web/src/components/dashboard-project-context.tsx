@@ -33,8 +33,10 @@ import { Link } from '@tanstack/react-router'
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
 
 import { ResourceAvatar } from '@/components/identity-visuals'
+import { ProjectCreationDialog } from '@/components/project-creation-dialog'
 import { ResourceCreationDialog } from '@/components/resource-creation-dialog'
 import type { Project, ProjectCategory, WorkspaceListItem } from '@/lib/api'
+import { detectDefaultProjectTimeZone } from '@/lib/date-time'
 import { useLanguage } from '@/lib/i18n'
 import * as m from '@/paraglide/messages.js'
 
@@ -231,10 +233,12 @@ interface DashboardProjectContextProps {
     readonly onCreateWorkspace: (event: FormEvent<HTMLFormElement>) => void
     readonly onProjectChange: (projectId: string | null) => void
     readonly onProjectNameChange: (value: string) => void
+    readonly onProjectTimeZoneChange: (value: string) => void
     readonly onWorkspaceChange: (workspaceId: string) => void
     readonly onWorkspaceNameChange: (value: string) => void
     readonly pending: boolean
     readonly projectName: string
+    readonly projectTimeZone: string
     readonly projects: readonly Project[]
     readonly selectedProjectId: string | null
     readonly selectedWorkspaceId: string | null
@@ -249,10 +253,12 @@ export function DashboardProjectContext({
     onCreateWorkspace,
     onProjectChange,
     onProjectNameChange,
+    onProjectTimeZoneChange,
     onWorkspaceChange,
     onWorkspaceNameChange,
     pending,
     projectName,
+    projectTimeZone,
     projects,
     selectedProjectId,
     selectedWorkspaceId,
@@ -302,7 +308,10 @@ export function DashboardProjectContext({
 
     function handleCreateProjectDialogChange(open: boolean) {
         setCreateProjectOpen(open)
-        if (!open) onProjectNameChange('')
+        if (!open) {
+            onProjectNameChange('')
+            onProjectTimeZoneChange(detectDefaultProjectTimeZone())
+        }
     }
 
     function handleCreateWorkspaceDialogChange(open: boolean) {
@@ -395,19 +404,16 @@ export function DashboardProjectContext({
                 value={selectedProjectId}
             />
 
-            <ResourceCreationDialog
+            <ProjectCreationDialog
                 id="new-project"
-                label={m.nav_new_project()}
-                maxLength={120}
+                name={projectName}
+                onNameChange={onProjectNameChange}
                 onOpenChange={handleCreateProjectDialogChange}
                 onSubmit={onCreateProject}
-                onValueChange={onProjectNameChange}
+                onTimeZoneChange={onProjectTimeZoneChange}
                 open={createProjectOpen}
                 pending={pending}
-                placeholder={m.nav_project_name()}
-                submitLabel={m.nav_add_project()}
-                title={m.nav_create_project()}
-                value={projectName}
+                timeZone={projectTimeZone}
             />
         </div>
     )

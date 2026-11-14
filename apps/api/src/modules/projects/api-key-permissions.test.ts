@@ -9,7 +9,10 @@ import {
 
 describe('user API-key capability policy', () => {
     it.each([
+        ['GET', '/api/workspaces', 'project:read'],
         ['GET', '/api/projects', 'project:read'],
+        ['POST', '/api/projects', 'project:manage'],
+        ['PATCH', '/api/projects/project-1', 'project:manage'],
         ['GET', '/api/projects/project-1/publications/publication-1/destination', 'project:read'],
         [
             'POST',
@@ -107,8 +110,9 @@ describe('user API-key capability policy', () => {
         ['PUT', '/api/projects/project-1/publications/publication-1/first-comment/extra'],
         ['POST', '/api/projects/project-1/publications/publication-1/first-comment'],
         ['POST', '/api/projects/project-1/publications/publication-1/first-comment/cancel/extra'],
-        ['POST', '/api/projects'],
-        ['PATCH', '/api/projects/project-1'],
+        ['POST', '/api/workspaces'],
+        ['DELETE', '/api/projects'],
+        ['DELETE', '/api/projects/project-1'],
         ['GET', '/api/projects/project-1/members'],
         ['GET', '/api/projects/project-1/notifications'],
         ['GET', '/api/projects/project-1/events'],

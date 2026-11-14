@@ -1,3 +1,5 @@
+import { defaultProjectTimeZone, isValidProjectTimeZone } from '@postdot/core'
+
 import * as m from '@/paraglide/messages.js'
 
 export type DateTimeLocalError = 'invalid' | 'nonexistent' | 'ambiguous' | 'past'
@@ -107,6 +109,30 @@ export function dateTimeLocalErrorMessage(error: DateTimeLocalError): string {
 
 export function getBrowserTimeZone(): string {
     return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
+}
+
+export function detectDefaultProjectTimeZone(): string {
+    const detected = getBrowserTimeZone()
+    return isValidProjectTimeZone(detected) ? detected : defaultProjectTimeZone
+}
+
+export function listSupportedProjectTimeZones(currentTimeZone?: string): readonly string[] {
+    const zones = new Set<string>([defaultProjectTimeZone])
+    try {
+        for (const zone of Intl.supportedValuesOf('timeZone')) {
+            if (isValidProjectTimeZone(zone)) zones.add(zone)
+        }
+    } catch {
+        // Fall back to UTC plus the active project timezone when Intl.supportedValuesOf is unavailable.
+    }
+    if (currentTimeZone !== undefined && isValidProjectTimeZone(currentTimeZone)) {
+        zones.add(currentTimeZone)
+    }
+    return [...zones].sort((left, right) => {
+        if (left === defaultProjectTimeZone) return -1
+        if (right === defaultProjectTimeZone) return 1
+        return left.localeCompare(right)
+    })
 }
 
 function getPartsFormatter(timeZone: string) {

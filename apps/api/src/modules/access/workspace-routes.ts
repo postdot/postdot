@@ -418,11 +418,9 @@ export function registerWorkspaceRoutes<const Routes extends Record<string, unkn
                     operationId: 'listWorkspaces',
                     summary: 'List workspaces available to the current user',
                     tags: ['Access'],
-                    security: sessionSecurity,
                 },
             },
-            async ({ authMethod, status, user, query }) => {
-                if (authMethod !== 'session') return status(403, sessionOnlyForbiddenResponse())
+            async ({ user, query }) => {
                 return {
                     canCreateWorkspace: await access.isInstanceAdmin(user.id),
                     workspaces: (

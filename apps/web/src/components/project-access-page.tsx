@@ -1,6 +1,7 @@
 import { AccessPageHeader } from '@/components/access-page-header'
 import { PageColumn } from '@/components/page-column'
 import { ProjectMembersSection } from '@/components/project-members-section'
+import { ProjectTimeZoneSection } from '@/components/project-time-zone-section'
 import { ResourceLifecycleSection } from '@/components/resource-lifecycle-section'
 import { useDashboardGlobal, useProjectDashboard } from '@/lib/dashboard-context'
 import { useLanguage } from '@/lib/i18n'
@@ -24,6 +25,7 @@ export function ProjectAccessPage() {
                         view="access"
                         workspaceId={project.workspaceId}
                     />
+                    <ProjectTimeZoneSection />
                     <ResourceLifecycleSection kind="project" id={project.id} />
                 </PageColumn>
             </div>

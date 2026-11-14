@@ -3,7 +3,6 @@ import type { AccessStore } from '@postdot/db'
 import { filterSequential } from '@postdot/db'
 import { Type } from 'typebox'
 
-import { sessionSecurity } from '../../plugins/auth'
 import {
     createProjectBody,
     errorResponse,
@@ -92,15 +91,19 @@ export function registerProjectRoutes<const Routes extends Record<string, unknow
                     operationId: 'createProject',
                     summary: 'Create a project',
                     tags: ['Projects'],
-                    security: sessionSecurity,
                 },
             },
-            async ({ authMethod, body, status, user }) => {
-                if (authMethod !== 'session') {
+            async ({ apiKeyProjectIds, authMethod, body, status, user }) => {
+                if (
+                    authMethod === 'user_api_key' &&
+                    apiKeyProjectIds !== undefined &&
+                    apiKeyProjectIds !== null
+                ) {
                     return status(403, {
                         error: {
-                            code: 'forbidden',
-                            message: 'Human authentication is required to create a project',
+                            code: 'insufficient_api_key_permissions',
+                            message:
+                                'An API key with access to all projects is required to create a project',
                         },
                     })
                 }
@@ -158,19 +161,9 @@ export function registerProjectRoutes<const Routes extends Record<string, unknow
                     operationId: 'updateProjectTimeZone',
                     summary: 'Update the project scheduling timezone',
                     tags: ['Projects'],
-                    security: sessionSecurity,
                 },
             },
-            async ({ authMethod, body, params, status, user }) => {
-                if (authMethod !== 'session') {
-                    return status(403, {
-                        error: {
-                            code: 'forbidden',
-                            message: 'Human authentication is required to update project settings',
-                        },
-                    })
-                }
-
+            async ({ body, params, status, user }) => {
                 if (!(await access.canAccessProject(params.projectId, user.id, 'editor'))) {
                     return status(403, {
                         error: {

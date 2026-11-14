@@ -212,6 +212,36 @@ describe('MCP endpoint', () => {
 
             const full = await connect(f.app, await f.apiKey({ name: 'Full', projectIds: null }))
             await full.connected
+            const workspaces = await full.client.callTool({
+                name: 'list_workspaces',
+                arguments: {},
+            })
+            expect(workspaces.isError).toBe(false)
+            expect(JSON.parse(textOf(workspaces)).workspaces.length).toBeGreaterThanOrEqual(1)
+
+            const createdProject = await full.client.callTool({
+                name: 'create_project',
+                arguments: { name: 'MCP Created', timeZone: 'Europe/Paris' },
+            })
+            expect(createdProject.isError).toBe(false)
+            const createdProjectId = (
+                JSON.parse(textOf(createdProject)) as { project: { id: string; timeZone: string } }
+            ).project.id
+            expect(JSON.parse(textOf(createdProject)).project.timeZone).toBe('Europe/Paris')
+
+            const updatedTz = await full.client.callTool({
+                name: 'update_project_time_zone',
+                arguments: { projectId: createdProjectId, timeZone: 'Asia/Tokyo' },
+            })
+            expect(updatedTz.isError).toBe(false)
+            expect(JSON.parse(textOf(updatedTz)).timeZone).toBe('Asia/Tokyo')
+
+            const invalidTz = await full.client.callTool({
+                name: 'update_project_time_zone',
+                arguments: { projectId: createdProjectId, timeZone: 'Mars/Olympus' },
+            })
+            expect(invalidTz.isError).toBe(true)
+
             const created = await full.client.callTool({
                 name: 'create_project_channel',
                 arguments: { projectId: second, name: 'Agent channel' },
@@ -229,6 +259,27 @@ describe('MCP endpoint', () => {
             })
             expect(unknown.isError).toBe(true)
             await full.client.close()
+
+            const scopedManage = await connect(
+                f.app,
+                await f.apiKey({
+                    name: 'ScopedManage',
+                    projectIds: [first],
+                    actionAccess: ['project:read', 'project:manage'],
+                })
+            )
+            await scopedManage.connected
+            const blockedCreate = await scopedManage.client.callTool({
+                name: 'create_project',
+                arguments: { name: 'Blocked' },
+            })
+            expect(blockedCreate.isError).toBe(true)
+            const allowedTz = await scopedManage.client.callTool({
+                name: 'update_project_time_zone',
+                arguments: { projectId: first, timeZone: 'America/New_York' },
+            })
+            expect(allowedTz.isError).toBe(false)
+            await scopedManage.client.close()
         } finally {
             await closeTestDatabase(f.database)
         }
