@@ -63,7 +63,10 @@ test('keeps personal and installation settings open when changing workspace cont
         await page.reload()
         await expect(workspaceSelector).toContainText(second!.name)
         expect(new URL(page.url()).pathname).toBe(path)
-        await expect(page.locator('[data-settings-return="true"]')).toBeVisible()
+        // The settings list opens with its return row; workspace channels is a product page.
+        await expect(page.locator('[data-settings-return="true"]')).toHaveCount(
+            path === '/dashboard/workspace/channels' ? 0 : 1
+        )
         // NAV-03: the same context survives a fresh link with optional context omitted.
         await page.goto(path)
         await expect(workspaceSelector).toContainText(second!.name)

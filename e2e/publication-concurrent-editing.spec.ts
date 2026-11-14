@@ -34,7 +34,7 @@ test('rebases a stale sibling draft without replacing destination text or attach
         await expect(conflict).toContainText('Initial common source')
         await expect(conflict).toContainText('New common source')
         await expect(
-            other.getByRole('button', { name: /^Use this version(?:\s*(?:Ctrl|⌘)↵)?$/ })
+            other.getByRole('button', { name: /^Save changes(?:\s*(?:Ctrl|⌘)↵)?$/ })
         ).toBeDisabled()
         await conflict.scrollIntoViewIfNeeded()
         await other.screenshot({
@@ -144,7 +144,7 @@ test('recovers unsaved destination changes after another session saves a newer d
         await expect(conflict).toBeVisible()
         await expect(local).toHaveText('Local destination adaptation')
         await expect(
-            other.getByRole('button', { name: /^Use this version(?:\s*(?:Ctrl|⌘)↵)?$/ })
+            other.getByRole('button', { name: /^Save changes(?:\s*(?:Ctrl|⌘)↵)?$/ })
         ).toBeDisabled()
         await other.unroute(draftUrl)
         await conflict.getByRole('button', { name: 'Load server version', exact: true }).click()
@@ -286,7 +286,7 @@ test('exposes reconciliation when a server refresh overtakes an in-flight autosa
         await expect(other.locator('[data-publication-conflict="true"]')).toBeVisible()
         await expect(local).toHaveText('In-flight local destination')
         await expect(
-            other.getByRole('button', { name: /^Use this version(?:\s*(?:Ctrl|⌘)↵)?$/ })
+            other.getByRole('button', { name: /^Save changes(?:\s*(?:Ctrl|⌘)↵)?$/ })
         ).toBeDisabled()
         expect((await pair.read(page, pair.first)).draft.content.text).toBe(
             'Concurrent saved destination'

@@ -1861,7 +1861,6 @@
     "editor_constraint_increments": "In Schritten von {count}",
     "editor_constraint_source": "Quelle: {formats}",
     "theme_switch": "Design wechseln",
-    "theme_switch_to": "Zu Design „{theme}“ wechseln",
     "theme_light": "hell",
     "theme_dark": "dunkel",
     "theme_system": "System",

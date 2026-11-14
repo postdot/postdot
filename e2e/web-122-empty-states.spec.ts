@@ -29,7 +29,7 @@ test('keeps the empty project overview focused while Queue remains usable', asyn
         page.getByText('Add a channel to choose where your publications go.', { exact: true })
     ).toBeVisible()
     await expect(
-        page.locator('a[href*="/publications/new"]').filter({ hasText: 'New post' })
+        page.locator('main a[href*="/publications/new"]').filter({ hasText: 'New post' })
     ).toHaveCount(0)
 
     await page.getByRole('tab', { name: 'Needs attention (0)', exact: true }).click()
@@ -37,7 +37,7 @@ test('keeps the empty project overview focused while Queue remains usable', asyn
     await expect(page.locator('[data-publication-empty-illustration="true"]')).toHaveCount(1)
     await expect(page.getByRole('button', { name: 'Show all', exact: true })).toBeVisible()
     await expect(
-        page.locator('a[href*="/publications/new"]').filter({ hasText: 'New post' })
+        page.locator('main a[href*="/publications/new"]').filter({ hasText: 'New post' })
     ).toHaveCount(0)
 
     await page.getByRole('button', { name: 'Show all', exact: true }).click()

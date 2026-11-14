@@ -1861,7 +1861,6 @@
     "editor_constraint_increments": "Par incréments de {count}",
     "editor_constraint_source": "Source : {formats}",
     "theme_switch": "Changer de thème",
-    "theme_switch_to": "Passer au thème {theme}",
     "theme_light": "clair",
     "theme_dark": "sombre",
     "theme_system": "système",
