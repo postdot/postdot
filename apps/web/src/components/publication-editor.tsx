@@ -1665,13 +1665,15 @@ export function PublicationEditor({
                                         tagSavePending
                                     }
                                     emptyLabel={m.taxonomy_no_tags()}
-                                    label={m.taxonomy_tags()}
+                                    label={m.taxonomy_internal_tags()}
+                                    manageTagsProjectId={projectId}
                                     onChange={value => void handlePublicationTagIdsChange(value)}
                                     onCreateTag={
                                         publicationEditable ? onCreateProjectTag : undefined
                                     }
                                     selectedTagIds={publicationTagIds}
                                     selectedLabel={count => m.taxonomy_selected_tags({ count })}
+                                    showSelectedTags
                                     tags={availableTags}
                                 />
                                 {tagError ? (

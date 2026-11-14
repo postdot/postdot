@@ -45,6 +45,21 @@ test('creates tags without losing composition and synchronizes archived assignme
         'Release notes'
     )
     const picker = page.getByRole('button', { name: '1 tags selected', exact: true })
+    await expect(picker).toContainText('Internal tags')
+    const tagRow = page.locator('[data-publication-tag-picker="true"]')
+    await expect(tagRow.getByText('Launch', { exact: true })).toBeVisible()
+    await expect(tagRow.getByRole('link', { name: 'Manage tags', exact: true })).toHaveAttribute(
+        'href',
+        new RegExp(`/dashboard/projects/${projectId}/tags`)
+    )
+    // Create and remove a second tag directly from inline controls without opening the dropdown.
+    await tagRow.getByRole('button', { name: 'Create tag', exact: true }).click()
+    await page.getByRole('textbox', { name: 'Tag name', exact: true }).fill('Notes')
+    await page.getByRole('button', { name: 'Create and select', exact: true }).click()
+    await expect(page.getByRole('dialog')).toHaveCount(0)
+    await expect(tagRow.getByText('Notes', { exact: true })).toBeVisible()
+    await tagRow.getByRole('button', { name: 'Remove Notes', exact: true }).click()
+    await expect(tagRow.getByText('Notes', { exact: true })).toHaveCount(0)
     await expect(picker).toBeVisible()
     await page.bringToFront()
     await picker.click()
@@ -58,6 +73,14 @@ test('creates tags without losing composition and synchronizes archived assignme
     }
     expect(entries).toHaveLength(1)
     await page.goto(`/dashboard/projects/${projectId}/publications/${entries[0]!.id}`)
+    await expect(
+        page.locator('[data-publication-tag-picker="true"]').getByText('Launch', { exact: true })
+    ).toBeVisible()
+    await expect(
+        page
+            .locator('[data-publication-tag-picker="true"]')
+            .getByRole('link', { name: 'Manage tags', exact: true })
+    ).toHaveAttribute('href', new RegExp(`/dashboard/projects/${projectId}/tags`))
     const source = page.getByRole('textbox', { name: 'Body', exact: true })
     await source.fill('Unsaved editor changes stay intact.')
 

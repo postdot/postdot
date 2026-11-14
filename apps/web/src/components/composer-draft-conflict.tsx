@@ -107,7 +107,7 @@ export function ComposerDraftConflict({
                             {content.postContent}
                         </p>
                         <div className="space-y-1 text-sm">
-                            <h4 className="font-medium">{m.taxonomy_tags()}</h4>
+                            <h4 className="font-medium">{m.taxonomy_internal_tags()}</h4>
                             {content.publicationTagIds.length === 0 ? (
                                 <p className="text-muted-foreground">{m.taxonomy_no_tags()}</p>
                             ) : (

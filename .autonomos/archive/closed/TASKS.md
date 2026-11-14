@@ -629,3 +629,4 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] **[UX-643]** Identify tags and ordered media in composer draft conflicts with explicit unavailable metadata `Priority: 🔵` `Complexity: M` `Completed: 2026-11-14`
 - [x] **[PROJ-644]** Allow privileged API keys and MCP to create projects and manage project timezones in API and Studio (GH #35, #37) `Priority: 🟠` `Complexity: M` `Completed: 2026-11-14`
 - [x] **[UX-645]** Simplify project and workspace lifecycle confirmation dialogs while preserving ADR-094 safety checks (GH #36) `Priority: 🟠` `Complexity: S` `Completed: 2026-11-14`
+- [x] **[UX-646]** Make internal publication tags visible as removable chips with direct creation and management link (GH #39) `Priority: 🟠` `Complexity: S` `Completed: 2026-11-14`

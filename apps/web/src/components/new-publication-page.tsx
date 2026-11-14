@@ -1452,13 +1452,15 @@ export function NewPublicationPage({
                                         archivedLabel={m.common_archived()}
                                         disabled={pending}
                                         emptyLabel={m.taxonomy_no_tags()}
-                                        label={m.taxonomy_tags()}
+                                        label={m.taxonomy_internal_tags()}
+                                        manageTagsProjectId={project.id}
                                         onChange={onPublicationTagIdsChange}
                                         onCreateTag={
                                             canCreateProjectTag ? onCreateProjectTag : undefined
                                         }
                                         selectedTagIds={publicationTagIds}
                                         selectedLabel={count => m.taxonomy_selected_tags({ count })}
+                                        showSelectedTags
                                         tags={pickerTags}
                                     />
                                 </div>
