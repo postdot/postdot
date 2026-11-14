@@ -1016,6 +1016,8 @@ export function NewPublicationPage({
 
             {recovery !== null && autosaveState === 'conflict' ? (
                 <ComposerDraftConflict
+                    projectId={project.id}
+                    tagCatalog={tagCatalogQuery}
                     local={recoveredComposerContent(recovery)}
                     saved={serverDraft?.content ?? null}
                     channels={channels}

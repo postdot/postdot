@@ -648,7 +648,7 @@ export function MediaPreview({
     )
 }
 
-function mediaStateLabel(state: MediaReference['asset']['state']) {
+export function mediaStateLabel(state: MediaReference['asset']['state']) {
     switch (state) {
         case 'reserved':
             return m.media_state_reserved()

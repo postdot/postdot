@@ -623,3 +623,7 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] **[UX-640]** Compare loaded Studio and API build identities in installation diagnostics `Priority: 🔵` `Complexity: L` `Completed: 2026-11-13`
 - [x] **[UX-641]** Audit composer failure feedback and draft-recovery decisions with rendered evidence `Priority: 🔵` `Complexity: L` `Completed: 2026-11-13`
 - [x] **[UX-642]** Clarify composer save failures and draft reads with guarded retry and accessible error contrast `Priority: 🔵` `Complexity: M` `Completed: 2026-11-13`
+
+## Closed 2026-11-14
+
+- [x] **[UX-643]** Identify tags and ordered media in composer draft conflicts with explicit unavailable metadata `Priority: 🔵` `Complexity: M` `Completed: 2026-11-14`
