@@ -180,6 +180,11 @@ export type WorkspaceTeamMember = NonNullable<
 export type WorkspaceInvitation = NonNullable<
     Awaited<ReturnType<WorkspaceRoute['invitations']['get']>>['data']
 >['invitations'][number]
+export type WorkspaceChannelsResponse = NonNullable<
+    Awaited<ReturnType<WorkspaceRoute['channels']['get']>>['data']
+>
+export type WorkspaceChannel = WorkspaceChannelsResponse['channels'][number]
+export type WorkspaceChannelConnectionState = WorkspaceChannel['connectionState']
 
 type ProjectRoute = ReturnType<PostdotClient['api']['projects']>
 

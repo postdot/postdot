@@ -17,11 +17,36 @@ import { Fragment, type ReactNode } from 'react'
 
 import { ChannelAvatar } from '@/components/identity-visuals'
 import { StatusText, type StatusTone } from '@/components/status-text'
-import type { Channel } from '@/lib/api'
+import type { Channel, WorkspaceChannelConnectionState } from '@/lib/api'
 import { useLanguage } from '@/lib/i18n'
 import * as m from '@/paraglide/messages.js'
 
 import type { ChannelLifecycleAction } from './channel-lifecycle-dialog'
+
+export function channelStatus({
+    archived,
+    connectionState,
+    manual,
+    needsSetup = false,
+}: {
+    readonly archived: boolean
+    readonly connectionState: WorkspaceChannelConnectionState
+    readonly manual: boolean
+    readonly needsSetup?: boolean
+}): { readonly label: string; readonly tone: StatusTone } | null {
+    if (archived) return { label: m.channel_archived(), tone: 'neutral' }
+    if (manual) return null
+    if (connectionState === 'active') return { label: m.channel_connected(), tone: 'positive' }
+    if (connectionState === 'revoked')
+        return { label: m.publisher_access_revoked(), tone: 'critical' }
+    if (connectionState === 'reconnect_required')
+        return {
+            label: m.publisher_reconnect_required_status(),
+            tone: 'attention',
+        }
+    if (needsSetup) return { label: m.publisher_setup_required(), tone: 'attention' }
+    return { label: m.channel_needs_connection(), tone: 'attention' }
+}
 
 /** Shared anatomy for project and workspace channel lists. */
 export function ChannelRow({

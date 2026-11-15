@@ -4,10 +4,9 @@ import { Link } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 
 import type { ChannelLifecycleAction } from '@/components/channel-lifecycle-dialog'
-import { ChannelActionsMenu, ChannelRow } from '@/components/channel-row'
+import { ChannelActionsMenu, ChannelRow, channelStatus } from '@/components/channel-row'
 import { CustomHttpConnectionDialog } from '@/components/custom-http-connection-dialog'
 import { channelProfileLabel } from '@/components/dashboard-publication-parts'
-import { type StatusTone } from '@/components/status-text'
 import type {
     Channel,
     ChannelListItem,
@@ -205,7 +204,7 @@ export function PublisherConnectionPanel({
                         : undefined
                 const status = channelStatus({
                     archived,
-                    connection,
+                    connectionState: connection?.state ?? 'none',
                     manual,
                     needsSetup,
                 })
@@ -322,31 +321,6 @@ export function PublisherConnectionPanel({
             })}
         </section>
     )
-}
-
-function channelStatus({
-    archived,
-    connection,
-    manual,
-    needsSetup,
-}: {
-    readonly archived: boolean
-    readonly connection: PublisherConnection | undefined
-    readonly manual: boolean
-    readonly needsSetup: boolean
-}): { readonly label: string; readonly tone: StatusTone } | null {
-    if (archived) return { label: m.channel_archived(), tone: 'neutral' }
-    if (manual) return null
-    if (connection?.state === 'active') return { label: m.channel_connected(), tone: 'positive' }
-    if (connection?.state === 'revoked')
-        return { label: m.publisher_access_revoked(), tone: 'critical' }
-    if (connection !== undefined)
-        return {
-            label: m.publisher_reconnect_required_status(),
-            tone: 'attention',
-        }
-    if (needsSetup) return { label: m.publisher_setup_required(), tone: 'attention' }
-    return { label: m.channel_needs_connection(), tone: 'attention' }
 }
 
 /** The connected account, as people recognise it: handle, page or endpoint. */

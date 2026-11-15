@@ -532,11 +532,61 @@ it('lists workspace channels without widening key scope, transfers management an
             channels: [
                 {
                     id: f.channel.id,
+                    connectionState: 'none',
                     management: { kind: 'project', project: { id: f.source } },
                     usages: [{ projectId: f.source, canAcceptManagement: true }],
                 },
             ],
         })
+        const workspaceActorId = (await f.database.sql
+            .statement<{ id: string }, [string]>(
+                'select id from actors where workspace_id=? limit 1'
+            )
+            .get(workspaceId))!.id
+        await f.database.sql
+            .statement(
+                `insert into publisher_credentials (id,workspace_id,provider_id,external_account_id,external_account_name,scopes,state,connected_by_actor_id,encryption_version,encryption_key_id,access_token_ciphertext,access_token_nonce,created_at,updated_at) values ('ws-cred-1',?,'bluesky','did:plc:ws-secret','@ws-secret.bsky.social','[]','active',?,1,'test-v1',?,?,100,100)`
+            )
+            .run(workspaceId, workspaceActorId, new Uint8Array(17), new Uint8Array(12))
+        await f.database.sql
+            .statement(
+                `insert into publishers (id,workspace_id,channel_id,kind,created_at,updated_at) values ('ws-pub-1',?,?,'custom_http',100,100)`
+            )
+            .run(workspaceId, f.channel.id)
+        await f.database.sql
+            .statement(
+                `insert into publisher_connections (id,workspace_id,publisher_id,credential_id,endpoint_url,connected_by_actor_id,created_at,updated_at) values ('ws-conn-1',?,'ws-pub-1','ws-cred-1','https://ws-secret.example/hook',?,100,100)`
+            )
+            .run(workspaceId, workspaceActorId)
+        for (const state of ['active', 'reconnect_required', 'revoked'] as const) {
+            if (state === 'revoked') {
+                await f.database.sql
+                    .statement(
+                        `update publisher_credentials set state='revoked',encryption_version=NULL,encryption_key_id=NULL,access_token_ciphertext=NULL,access_token_nonce=NULL where id='ws-cred-1'`
+                    )
+                    .run()
+            } else {
+                await f.database.sql
+                    .statement(`update publisher_credentials set state=? where id='ws-cred-1'`)
+                    .run(state)
+            }
+            const stateResponse = await call(f.app, base, credential)
+            expect(stateResponse.status).toBe(200)
+            const stateBody = await stateResponse.json()
+            expect(stateBody).toMatchObject({
+                channels: [{ id: f.channel.id, connectionState: state }],
+            })
+            const serialized = JSON.stringify(stateBody)
+            expect(serialized).not.toContain('ws-cred-1')
+            expect(serialized).not.toContain('ws-secret')
+        }
+        await f.database.sql
+            .statement(`delete from publisher_connections where id='ws-conn-1'`)
+            .run()
+        await f.database.sql.statement(`delete from publishers where id='ws-pub-1'`).run()
+        await f.database.sql
+            .statement(`delete from publisher_credentials where id='ws-cred-1'`)
+            .run()
         const shareOnly = await f.apiKey({
             name: 'Share workspace channel',
             projectIds: [f.source, f.target],

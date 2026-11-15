@@ -454,10 +454,46 @@ it('filters workspace metadata per channel and keeps administration separate fro
         ])
         expect(visible[0]).toMatchObject({
             id: f.channel.id,
+            connectionState: 'none',
             shared: true,
             canManage: false,
             management: { kind: 'project', project: null },
         })
+        await f.database.sql
+            .statement(
+                `insert into publisher_credentials (id,workspace_id,provider_id,external_account_id,external_account_name,scopes,state,connected_by_actor_id,encryption_version,encryption_key_id,access_token_ciphertext,access_token_nonce,created_at,updated_at) values ('cred-1','workspace','bluesky','did:plc:secret-account','@secret.bsky.social','[]','active',?,1,'test-v1',?,?,100,100)`
+            )
+            .run(f.actor.id, new Uint8Array(17), new Uint8Array(12))
+        await f.database.sql
+            .statement(
+                `insert into publishers (id,workspace_id,channel_id,kind,created_at,updated_at) values ('pub-1','workspace',?,'custom_http',100,100)`
+            )
+            .run(f.channel.id)
+        await f.database.sql
+            .statement(
+                `insert into publisher_connections (id,workspace_id,publisher_id,credential_id,endpoint_url,connected_by_actor_id,created_at,updated_at) values ('conn-1','workspace','pub-1','cred-1','https://secret-webhook.example/hook',?,100,100)`
+            )
+            .run(f.actor.id)
+        for (const state of ['active', 'reconnect_required', 'revoked'] as const) {
+            if (state === 'revoked') {
+                await f.database.sql
+                    .statement(
+                        `update publisher_credentials set state='revoked',encryption_version=NULL,encryption_key_id=NULL,access_token_ciphertext=NULL,access_token_nonce=NULL where id='cred-1'`
+                    )
+                    .run()
+            } else {
+                await f.database.sql
+                    .statement(`update publisher_credentials set state=? where id='cred-1'`)
+                    .run(state)
+            }
+            const [item] = await f.store.listWorkspace(viewer, 'workspace')
+            expect(item?.connectionState).toBe(state)
+            const serialized = JSON.stringify(item)
+            expect(serialized).not.toContain('cred-1')
+            expect(serialized).not.toContain('secret-account')
+            expect(serialized).not.toContain('secret.bsky.social')
+            expect(serialized).not.toContain('secret-webhook')
+        }
         expect(JSON.stringify(visible)).not.toContain(f.source.project.id)
         const admin = f.context({ roles: new Map(), admin: true })
         expect(await f.store.listProject(admin, f.source.project.id)).toBeNull()

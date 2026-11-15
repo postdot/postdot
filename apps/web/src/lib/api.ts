@@ -1578,6 +1578,9 @@ export type {
     WorkspaceTeam,
     WorkspaceTeamMember,
     WorkspaceInvitation,
+    WorkspaceChannelsResponse,
+    WorkspaceChannel,
+    WorkspaceChannelConnectionState,
 } from '@postdot/client'
 
 export function formatApiError(error: unknown): string {

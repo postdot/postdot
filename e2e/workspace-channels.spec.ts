@@ -54,7 +54,7 @@ for (const [locale, messages] of [
         const workspaceId = source.workspaceId
         const base = `/api/workspaces/${workspaceId}/channels`
         const created = await page.request.post(`/api/projects/${source.id}/channels`, {
-            data: { name: `Newsroom ${suffix}` },
+            data: { name: `Newsroom ${suffix}`, profile: 'bluesky' },
         })
         expect(created.status()).toBe(201)
         const { channel } = (await created.json()) as { channel: { id: string; name: string } }
@@ -95,6 +95,7 @@ for (const [locale, messages] of [
         ).toHaveCount(0)
         const row = page.locator(`[data-channel-row="${channel.id}"]`)
         await expect(row).toBeVisible()
+        await expect(row).toContainText(messages.channel_needs_connection)
         await row
             .getByRole('button', {
                 name: messages.channel_manage.replace('{channel}', channel.name),

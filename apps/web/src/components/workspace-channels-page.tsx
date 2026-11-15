@@ -15,7 +15,7 @@ import { useState } from 'react'
 
 import { ChannelCadenceDialog } from '@/components/channel-cadence-dialog'
 import { ChannelCreationDialog } from '@/components/channel-creation-dialog'
-import { ChannelRow, ChannelActionsMenu } from '@/components/channel-row'
+import { ChannelRow, ChannelActionsMenu, channelStatus } from '@/components/channel-row'
 import { ChannelScopeSwitch } from '@/components/channel-scope-switch'
 import { ChannelSharingDialog } from '@/components/channel-sharing-dialog'
 import { DashboardPageHeader } from '@/components/dashboard-page-header'
@@ -230,11 +230,11 @@ function WorkspaceChannelContent({
                                 <ChannelRow
                                     key={channel.id}
                                     channel={channel}
-                                    status={
-                                        channel.state === 'archived'
-                                            ? { label: m.channel_archived(), tone: 'neutral' }
-                                            : null
-                                    }
+                                    status={channelStatus({
+                                        archived: channel.state === 'archived',
+                                        connectionState: channel.connectionState,
+                                        manual: channel.profileId === 'manual-message',
+                                    })}
                                     secondary={[
                                         channel.profileId === 'manual-message'
                                             ? m.channel_platform_manual()

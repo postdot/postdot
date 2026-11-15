@@ -44,12 +44,15 @@ export interface WorkspaceChannelContext {
     readonly contextProjectId?: string
 }
 
+export type ChannelConnectionState = 'active' | 'reconnect_required' | 'revoked' | 'none'
+
 export interface ChannelRecord {
     readonly id: string
     readonly workspaceId: string
     readonly name: string
     readonly profileVersionId: string
     readonly profileId: string
+    readonly connectionState: ChannelConnectionState
     readonly state: 'active' | 'archived'
     readonly archivedAt: number | null
     readonly revision: number
@@ -118,7 +121,7 @@ export function createWorkspaceChannelStore(
         `select id,name,time_zone as timeZone,workspace_id as workspaceId,primary_category_id as primaryCategoryId,created_at as createdAt,updated_at as updatedAt from projects where id=?`
     )
     const channel = sql.statement<ChannelRecord, [string]>(
-        `select c.id,c.workspace_id as workspaceId,c.name,c.profile_version_id as profileVersionId,p.profile_id as profileId,c.state,c.archived_at as archivedAt,c.revision,c.created_at as createdAt,c.updated_at as updatedAt from channels c join channel_profile_versions p on p.workspace_id=c.workspace_id and p.channel_id=c.id and p.id=c.profile_version_id where c.id=?`
+        `select c.id,c.workspace_id as workspaceId,c.name,c.profile_version_id as profileVersionId,p.profile_id as profileId,coalesce(cred.state,'none') as connectionState,c.state,c.archived_at as archivedAt,c.revision,c.created_at as createdAt,c.updated_at as updatedAt from channels c join channel_profile_versions p on p.workspace_id=c.workspace_id and p.channel_id=c.id and p.id=c.profile_version_id left join publishers pub on pub.workspace_id=c.workspace_id and pub.channel_id=c.id left join publisher_connections conn on conn.workspace_id=pub.workspace_id and conn.publisher_id=pub.id left join publisher_credentials cred on cred.workspace_id=conn.workspace_id and cred.id=conn.credential_id where c.id=?`
     )
     const manager = sql.statement<{ projectId: string; name: string }, [string]>(
         `select m.project_id as projectId,p.name from channel_managers m join projects p on p.id=m.project_id where m.channel_id=?`

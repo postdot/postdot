@@ -414,6 +414,7 @@ export type {
 
 export type {
     ChannelAccessPolicy,
+    ChannelConnectionState,
     ChannelManagementIntent,
     ChannelOccupancyItem,
     ChannelProjectAction,

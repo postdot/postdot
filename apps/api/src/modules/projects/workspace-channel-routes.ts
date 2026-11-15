@@ -25,6 +25,12 @@ const channelSchema = Type.Object({
     name: Type.String(),
     profileVersionId: Type.String(),
     profileId: Type.String(),
+    connectionState: Type.Union([
+        Type.Literal('active'),
+        Type.Literal('reconnect_required'),
+        Type.Literal('revoked'),
+        Type.Literal('none'),
+    ]),
     state: Type.Union([Type.Literal('active'), Type.Literal('archived')]),
     archivedAt: Type.Union([Type.Integer(), Type.Null()]),
     revision: Type.Integer(),
