@@ -1,7 +1,10 @@
-import { describe, expect, it } from 'bun:test'
+import { describe, expect, it, test } from 'bun:test'
 
 import {
     detectDefaultProjectTimeZone,
+    formatClockTime,
+    parseClockTime,
+    usesTwelveHourClock,
     moveProjectSchedule,
     formatCivilSchedule,
     formatProjectDateTime,
@@ -74,7 +77,7 @@ describe('local date-time helpers', () => {
 
 describe('civil schedule display', () => {
     it('keeps project wall time without interpreting it in the browser timezone', () => {
-        expect(formatCivilSchedule('2026-03-08T02:30', 'en')).toContain('02:30')
+        expect(formatCivilSchedule('2026-03-08T02:30', 'en')).toMatch(/(^|\D)2:30\s?AM/)
         expect(formatCivilSchedule('2026-03-08T02:30', 'fr')).toContain('02:30')
     })
     it('rejects malformed and impossible saved values without throwing', () => {
@@ -105,5 +108,27 @@ describe('moving project schedules', () => {
         const autumn = parseDateTimeLocal('2027-10-30T02:30', 'Europe/Paris') as number
         expect(moveProjectSchedule(spring, 1, '24', 'Europe/Paris')).toBe('nonexistent')
         expect(moveProjectSchedule(autumn, 1, '24', 'Europe/Paris')).toBe('ambiguous')
+    })
+})
+
+describe('clock time in the reader’s format', () => {
+    test('formats for twelve- and twenty-four-hour locales', () => {
+        expect(usesTwelveHourClock('en')).toBe(true)
+        expect(usesTwelveHourClock('fr')).toBe(false)
+        expect(formatClockTime('13:41', 'en')).toMatch(/^1:41\s?PM$/)
+        expect(formatClockTime('00:05', 'en')).toMatch(/^12:05\s?AM$/)
+        expect(formatClockTime('13:41', 'fr')).toBe('13:41')
+    })
+
+    test('reads what people type', () => {
+        expect(parseClockTime('1:41 pm')).toBe('13:41')
+        expect(parseClockTime('1 PM')).toBe('13:00')
+        expect(parseClockTime('12am')).toBe('00:00')
+        expect(parseClockTime('12:30 p.m.')).toBe('12:30')
+        expect(parseClockTime('13:41')).toBe('13:41')
+        expect(parseClockTime('0905')).toBe('09:05')
+        expect(parseClockTime('9:5')).toBeNull()
+        expect(parseClockTime('13 pm')).toBeNull()
+        expect(parseClockTime('24:00')).toBeNull()
     })
 })

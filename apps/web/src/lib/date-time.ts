@@ -175,7 +175,13 @@ function getDisplayFormatter(timeZone: string, locale: string, omitYear = false,
         dateOnly
             ? { day: 'numeric', month: 'short', year: omitYear ? undefined : 'numeric', timeZone }
             : omitYear
-              ? { day: 'numeric', hour: 'numeric', minute: '2-digit', month: 'short', timeZone }
+              ? {
+                    day: 'numeric',
+                    hour: hourStyle(locale),
+                    minute: '2-digit',
+                    month: 'short',
+                    timeZone,
+                }
               : { dateStyle: 'medium', timeStyle: 'short', timeZone }
     )
     displayFormatters.set(key, formatter)
@@ -249,11 +255,13 @@ export function formatCivilSchedule(value: string, locale: string): string {
     const parts = parseCivilDateTime(value)
     if (parts === null) return ''
     const date = toUtcTimestamp(parts)
+    // One time format per locale (ADR-103 §7): no leading-zero hour, and the
+    // current year is implied.
     return new Intl.DateTimeFormat(locale, {
         day: 'numeric',
         month: 'short',
-        year: 'numeric',
-        hour: '2-digit',
+        ...(parts.year === new Date().getUTCFullYear() ? {} : { year: 'numeric' as const }),
+        hour: hourStyle(locale),
         minute: '2-digit',
         timeZone: 'UTC',
     }).format(date)
@@ -272,4 +280,48 @@ export function moveProjectSchedule(
     civil.setUTCDate(civil.getUTCDate() + amount * (unit === '168' ? 7 : 1))
     const result = parseDateTimeLocal(toDateTimeLocal(civil.getTime(), 'UTC'), timeZone)
     return typeof result === 'number' ? result + (((timestamp % 60_000) + 60_000) % 60_000) : result
+}
+
+/** "1:41 PM" on a 12-hour dial, "13:41" / "02:30" on a 24-hour one (the locale's own short time). */
+function hourStyle(locale: string): 'numeric' | '2-digit' {
+    return usesTwelveHourClock(locale) ? 'numeric' : '2-digit'
+}
+
+/** True when people in this locale read clock times on a 12-hour dial. */
+export function usesTwelveHourClock(locale: string): boolean {
+    const cycle = new Intl.DateTimeFormat(locale, { hour: 'numeric' }).resolvedOptions().hourCycle
+    return cycle === 'h11' || cycle === 'h12'
+}
+
+/** Shows a canonical `HH:mm` time the way the locale writes it ("1:41 PM" or "13:41"). */
+export function formatClockTime(time: string, locale: string): string {
+    const match = /^(\d{2}):(\d{2})$/.exec(time)
+    if (match === null || !usesTwelveHourClock(locale)) return time
+    return new Intl.DateTimeFormat(locale, {
+        hour: 'numeric',
+        minute: '2-digit',
+        timeZone: 'UTC',
+    }).format(Date.UTC(2000, 0, 1, Number(match[1]), Number(match[2])))
+}
+
+/**
+ * Reads a typed time as `HH:mm`. Accepts 24-hour input everywhere ("13:41",
+ * "1341") and 12-hour input with a day period ("1:41 pm", "1 PM", "12am").
+ */
+export function parseClockTime(text: string): string | null {
+    const value = text.trim().toLowerCase().replace(/\s+/g, ' ')
+    const twelve = /^(\d{1,2})(?::?(\d{2}))? ?([ap])\.? ?m?\.?$/.exec(value)
+    if (twelve !== null) {
+        const hour = Number(twelve[1])
+        const minute = Number(twelve[2] ?? '0')
+        if (hour < 1 || hour > 12 || minute > 59) return null
+        const hour24 = (hour % 12) + (twelve[3] === 'p' ? 12 : 0)
+        return `${String(hour24).padStart(2, '0')}:${String(minute).padStart(2, '0')}`
+    }
+    const twentyFour = /^(\d{1,2}):?(\d{2})$/.exec(value)
+    if (twentyFour === null) return null
+    const hour = Number(twentyFour[1])
+    const minute = Number(twentyFour[2])
+    if (hour > 23 || minute > 59) return null
+    return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`
 }

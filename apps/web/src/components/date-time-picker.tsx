@@ -8,7 +8,12 @@ import { CalendarMinimalisticIcon } from '@solar-icons/react/linear/calendar-min
 import { ClockCircleIcon } from '@solar-icons/react/linear/clock-circle'
 import { useEffect, useMemo, useState } from 'react'
 
-import { getZonedDateTimeParts } from '@/lib/date-time'
+import {
+    formatClockTime,
+    getZonedDateTimeParts,
+    parseClockTime,
+    usesTwelveHourClock,
+} from '@/lib/date-time'
 import * as m from '@/paraglide/messages.js'
 import type { Locale } from '@/paraglide/runtime.js'
 
@@ -68,14 +73,18 @@ export function DateTimePicker({
         [parsedValue, timeZone]
     )
     const [visibleMonth, setVisibleMonth] = useState<Date>(selectedDate ?? today)
+    const timeLocale = displayLocale ?? locale
+    const twelveHour = usesTwelveHourClock(timeLocale)
     const [draftTime, setDraftTime] = useState(() => formatTime(parsedValue))
-    const [timeInput, setTimeInput] = useState(() => formatTime(parsedValue))
+    const [timeInput, setTimeInput] = useState(() =>
+        formatClockTime(formatTime(parsedValue), timeLocale)
+    )
 
     useEffect(() => {
         const nextTime = formatTime(parsedValue)
         setDraftTime(nextTime)
-        setTimeInput(nextTime)
-    }, [parsedValue])
+        setTimeInput(formatClockTime(nextTime, timeLocale))
+    }, [parsedValue, timeLocale])
 
     const formattedValue = formatDisplayValue(value, parsedValue, displayLocale ?? locale)
     const calendarLocale = calendarLocales[locale]
@@ -93,9 +102,9 @@ export function DateTimePicker({
         onChange(formatCivilDateTime(parts.year, parts.month, parts.day, nextTime))
     }
 
-    function updateTime(nextTime: string) {
+    function updateTime(nextTime: string, keepInput = false) {
         setDraftTime(nextTime)
-        setTimeInput(nextTime)
+        if (!keepInput) setTimeInput(formatClockTime(nextTime, timeLocale))
         if (parsedValue === null) return
         onChange(
             formatCivilDateTime(parsedValue.year, parsedValue.month, parsedValue.day, nextTime)
@@ -103,16 +112,22 @@ export function DateTimePicker({
     }
 
     function handleTimeInputChange(nextValue: string) {
-        const nextInput = formatTimeInput(nextValue)
+        // A 24-hour locale keeps the HH:mm mask; a 12-hour locale lets people
+        // type "1:41 pm" and is read once complete (ADR-103 §7).
+        const nextInput = twelveHour ? nextValue.slice(0, 9) : formatTimeInput(nextValue)
         setTimeInput(nextInput)
-
-        if (parseTimeInput(nextInput) !== null) updateTime(nextInput)
+        const parsed = twelveHour
+            ? /[ap]/i.test(nextInput)
+                ? parseClockTime(nextInput)
+                : null
+            : parseTimeInput(nextInput)
+        if (parsed !== null) updateTime(parsed, true)
     }
 
     function commitTimeInput() {
-        const nextTime = parseTimeInput(timeInput)
+        const nextTime = parseClockTime(timeInput)
         if (nextTime === null) {
-            setTimeInput(draftTime)
+            setTimeInput(formatClockTime(draftTime, timeLocale))
             return
         }
         updateTime(nextTime)
@@ -179,16 +194,19 @@ export function DateTimePicker({
                     <Input
                         id={`${id}-time`}
                         type="text"
-                        inputMode="numeric"
+                        inputMode={twelveHour ? 'text' : 'numeric'}
                         autoComplete="off"
-                        maxLength={5}
-                        placeholder="09:00"
+                        maxLength={twelveHour ? 9 : 5}
+                        placeholder={formatClockTime('09:00', timeLocale)}
                         value={timeInput}
                         onChange={event => handleTimeInputChange(event.target.value)}
                         onBlur={commitTimeInput}
                         disabled={disabled}
                         aria-label={timeLabel}
-                        className="h-8 w-[5.5rem] bg-surface-field px-2 text-center text-sm tabular-nums"
+                        className={cn(
+                            'h-8 bg-surface-field px-2 text-center text-sm tabular-nums',
+                            twelveHour ? 'w-24' : 'w-[5.5rem]'
+                        )}
                     />
                 </div>
                 {clearLabel && value !== '' ? (
