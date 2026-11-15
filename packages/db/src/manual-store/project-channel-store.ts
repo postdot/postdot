@@ -71,6 +71,9 @@ export function createProjectChannelStore(
                time_zone as timeZone,
                workspace_id as workspaceId,
                primary_category_id as primaryCategoryId,
+               website_url as websiteUrl,
+               image_url as imageUrl,
+               image_source as imageSource,
                created_at as createdAt,
                updated_at as updatedAt
         from projects
@@ -97,6 +100,9 @@ export function createProjectChannelStore(
                projects.time_zone as timeZone,
                projects.workspace_id as workspaceId,
                projects.primary_category_id as primaryCategoryId,
+               projects.website_url as websiteUrl,
+               projects.image_url as imageUrl,
+               projects.image_source as imageSource,
                projects.created_at as createdAt,
                projects.updated_at as updatedAt
         from projects
@@ -112,6 +118,9 @@ export function createProjectChannelStore(
                projects.time_zone as timeZone,
                projects.workspace_id as workspaceId,
                projects.primary_category_id as primaryCategoryId,
+               projects.website_url as websiteUrl,
+               projects.image_url as imageUrl,
+               projects.image_source as imageSource,
                projects.created_at as createdAt,
                projects.updated_at as updatedAt
         from projects
@@ -138,6 +147,9 @@ export function createProjectChannelStore(
                channels.state,
                channels.archived_at as archivedAt,
                channels.revision,
+               channels.website_url as websiteUrl,
+               channels.image_url as imageUrl,
+               channels.image_source as imageSource,
                channels.created_at as createdAt,
                channels.updated_at as updatedAt
         from project_channel_contexts as channels
@@ -365,6 +377,11 @@ export function createProjectChannelStore(
                 subjectId: requireNonBlank(input.subjectId, 'subjectId'),
                 displayName: requireNonBlank(input.displayName, 'displayName'),
             })
+        },
+
+        async getProject(projectId: string): Promise<Project | null> {
+            const row = await loadProjectStatement.get(requireNonBlank(projectId, 'projectId'))
+            return row === null ? null : toProject(row)
         },
 
         async listProjects(subjectId: string): Promise<Project[]> {

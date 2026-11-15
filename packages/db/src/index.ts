@@ -369,6 +369,25 @@ export type {
 } from './publisher-store'
 export { createUserAvatarStore, AvatarValidationError, avatarMaxBytes } from './user-avatar-store'
 export type { UserAvatarStore } from './user-avatar-store'
+export {
+    createIdentityImageStore,
+    IdentityImageValidationError,
+    identityImageMaxBytes,
+    identityImageMaxDimension,
+    identityImageUrl,
+    normalizeIdentityWebsiteUrl,
+    processIdentityImage,
+    sniffIdentityImageFormat,
+} from './identity-image-store'
+export type {
+    IdentityImageErrorCode,
+    IdentityImageStore,
+    IdentityImageStoreOptions,
+    ProcessedIdentityImage,
+    SniffedIdentityImageFormat,
+    StoredIdentityImage,
+} from './identity-image-store'
+export { rollbackPortableMigration, loadPortableMigrations } from './sql/migrator'
 
 export {
     createNotificationEmailStore,

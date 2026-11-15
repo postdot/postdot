@@ -98,6 +98,9 @@ export function createChannelLifecycleStore(
                channels.state,
                channels.archived_at as archivedAt,
                channels.revision,
+               channels.website_url as websiteUrl,
+               channels.image_url as imageUrl,
+               channels.image_source as imageSource,
                channels.created_at as createdAt,
                channels.updated_at as updatedAt
         from project_channel_contexts as channels
@@ -241,6 +244,16 @@ export function createChannelLifecycleStore(
               where other.channel_id = channels.id
                 and other.project_id <> ?1
           )
+    `)
+    const cleanupUnreferencedIdentityImagesStatement = sql.statement<void, []>(`
+        delete from identity_images
+        where ('/api/identity-images/' || sha256) not in (
+            select image_url from projects where image_url is not null
+            union
+            select image_url from workspaces where image_url is not null
+            union
+            select image_url from channels where image_url is not null
+        )
     `)
     const insertAuditEventStatement = sql.statement<
         void,
@@ -448,6 +461,7 @@ export function createChannelLifecycleStore(
             ) {
                 throw staleChannelRevision(input.channelId, input.expectedRevision)
             }
+            await cleanupUnreferencedIdentityImagesStatement.run()
 
             const timestamp = requireTimestamp(options.now(), 'now')
             recordDatabaseCommitProject(database, input.projectId)

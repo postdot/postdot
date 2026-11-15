@@ -586,6 +586,16 @@ export function createResourceLifecycleStore(
                 )
             }
         }
+        await run(`
+            delete from identity_images
+            where ('/api/identity-images/' || sha256) not in (
+                select image_url from projects where image_url is not null
+                union
+                select image_url from workspaces where image_url is not null
+                union
+                select image_url from channels where image_url is not null
+            )
+        `)
     }
     return {
         state,

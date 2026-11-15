@@ -17,17 +17,22 @@ import type { SqlDialect } from './port'
 
 export const portableMigrationsFolder = fileURLToPath(new URL('../../migrations', import.meta.url))
 
-const sectionMarker = /^--\s*postdot:(common|sqlite|postgres)\s*$/
+const sectionMarker = /^--\s*postdot:(common|sqlite|postgres|down)\s*$/
 const fileName = /^(\d{4})_([a-z0-9_]+)\.sql$/
 
 /** Arbitrary constant identifying Postdot's migration advisory lock. */
 const postgresMigrationLock = 7_310_201_611
 
+export type PortableMigrationSectionEngine = SqlDialect | 'common' | 'down'
+
 export interface PortableMigration {
     readonly id: number
     readonly name: string
     readonly checksum: string
-    readonly sections: readonly { readonly engine: SqlDialect | 'common'; readonly sql: string }[]
+    readonly sections: readonly {
+        readonly engine: PortableMigrationSectionEngine
+        readonly sql: string
+    }[]
 }
 
 export function loadPortableMigrations(folder = portableMigrationsFolder): PortableMigration[] {
@@ -54,11 +59,11 @@ export function loadPortableMigrations(folder = portableMigrationsFolder): Porta
 }
 
 function parseSections(file: string, text: string): PortableMigration['sections'] {
-    const sections: { engine: SqlDialect | 'common'; lines: string[] }[] = []
+    const sections: { engine: PortableMigrationSectionEngine; lines: string[] }[] = []
     for (const line of text.split('\n')) {
         const marker = sectionMarker.exec(line.trim())
         if (marker) {
-            sections.push({ engine: marker[1] as SqlDialect | 'common', lines: [] })
+            sections.push({ engine: marker[1] as PortableMigrationSectionEngine, lines: [] })
         } else if (sections.length > 0) {
             sections.at(-1)!.lines.push(line)
         } else if (line.trim() !== '' && !line.trim().startsWith('--')) {
@@ -72,6 +77,15 @@ function parseSections(file: string, text: string): PortableMigration['sections'
 export function migrationSql(migration: PortableMigration, dialect: SqlDialect): string {
     return migration.sections
         .filter(section => section.engine === 'common' || section.engine === dialect)
+        .map(section => section.sql.trim())
+        .filter(sql => sql.length > 0)
+        .join('\n\n')
+}
+
+/** The rollback SQL a migration defines for its `-- postdot:down` sections. */
+export function migrationRollbackSql(migration: PortableMigration): string {
+    return migration.sections
+        .filter(section => section.engine === 'down')
         .map(section => section.sql.trim())
         .filter(sql => sql.length > 0)
         .join('\n\n')
@@ -169,6 +183,55 @@ export async function runPortableMigrations(
             .filter(row => !known.has(Number(row.id)))
             .map(row => `${String(row.id).padStart(4, '0')}_${row.name}`)
         return { applied, newer }
+    } finally {
+        if (sql.dialect === 'sqlite') {
+            await sql.exec(`pragma foreign_keys = ${foreignKeysWereEnabled ? 'on' : 'off'}`)
+        }
+    }
+}
+
+export async function rollbackPortableMigration(
+    database: DatabaseHandle,
+    migration: PortableMigration
+): Promise<boolean> {
+    const { sql } = database
+    if (sql.inTransaction()) throw new Error('Database migrations require their own transaction')
+    const downSql = migrationRollbackSql(migration)
+    if (downSql.length === 0) {
+        throw new Error(`Migration ${migration.id}_${migration.name} defines no rollback section`)
+    }
+    const foreignKeysWereEnabled =
+        sql.dialect === 'sqlite' &&
+        (await sql.statement<{ foreign_keys: number }>('pragma foreign_keys').get())
+            ?.foreign_keys === 1
+    if (sql.dialect === 'sqlite') await sql.exec('pragma foreign_keys = off')
+    try {
+        return await sql.transaction(async () => {
+            if (sql.dialect === 'postgres') {
+                await sql
+                    .statement<never, [number]>('select pg_advisory_xact_lock(?1)')
+                    .get(postgresMigrationLock)
+            }
+            const recorded = await sql
+                .statement<{ checksum: string }, [number]>(
+                    'select checksum from postdot_migrations where id = ?1'
+                )
+                .get(migration.id)
+            if (recorded === null) return false
+            await sql.exec(downSql)
+            if (sql.dialect === 'sqlite') {
+                const violations = await sql.statement('pragma foreign_key_check').all()
+                if (violations.length > 0) {
+                    throw new Error(
+                        `Rollback of ${migration.id}_${migration.name} would leave foreign-key violations: ${JSON.stringify(violations)}`
+                    )
+                }
+            }
+            await sql
+                .statement<never, [number]>('delete from postdot_migrations where id = ?1')
+                .run(migration.id)
+            return true
+        }, 'immediate')
     } finally {
         if (sql.dialect === 'sqlite') {
             await sql.exec(`pragma foreign_keys = ${foreignKeysWereEnabled ? 'on' : 'off'}`)
