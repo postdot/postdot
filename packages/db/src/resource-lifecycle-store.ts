@@ -76,8 +76,8 @@ export function createResourceLifecycleStore(
     }
     async function impact(kind: ResourceKind, id: string) {
         const resource = (
-            await rows<{ name: string; is_default?: number }>(
-                `select name${kind === 'workspace' ? ', is_default' : ''} from ${kind === 'project' ? 'projects' : 'workspaces'} where id = ?`,
+            await rows<{ name: string; image_url: string | null; is_default?: number }>(
+                `select name, image_url${kind === 'workspace' ? ', is_default' : ''} from ${kind === 'project' ? 'projects' : 'workspaces'} where id = ?`,
                 id
             )
         )[0]
@@ -182,6 +182,7 @@ export function createResourceLifecycleStore(
             kind,
             id,
             name: resource?.name ?? receipt!.name,
+            imageUrl: resource?.image_url ?? null,
             state: await state(kind, id),
             revision: receipt?.revision ?? 0,
             isDefault: resource?.is_default === 1,

@@ -372,6 +372,7 @@ export type { UserAvatarStore } from './user-avatar-store'
 export {
     createIdentityImageStore,
     IdentityImageValidationError,
+    IdentityImageAuthorizationError,
     identityImageMaxBytes,
     identityImageMaxDimension,
     identityImageUrl,
@@ -387,7 +388,6 @@ export type {
     SniffedIdentityImageFormat,
     StoredIdentityImage,
 } from './identity-image-store'
-export { rollbackPortableMigration, loadPortableMigrations } from './sql/migrator'
 
 export {
     createNotificationEmailStore,

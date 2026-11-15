@@ -12,11 +12,7 @@ import {
     sniffIdentityImageFormat,
 } from './identity-image-store'
 import { createManualStore } from './manual-store'
-import {
-    loadPortableMigrations,
-    rollbackPortableMigration,
-    runPortableMigrations,
-} from './sql/migrator'
+import { loadPortableMigrations, runPortableMigrations } from './sql/migrator'
 import { describeSchema } from './sql/schema-introspection'
 import { closeTestDatabase, openTestDatabase } from './testing'
 
@@ -102,7 +98,7 @@ async function seedOwner(database: DatabaseHandle, id = 'user-1') {
 }
 
 describe('identity image migration and store', () => {
-    it('applies and rolls back 0004_identity_images cleanly', async () => {
+    it('applies 0004_identity_images additively and remains idempotent', async () => {
         const database = createDatabase(':memory:')
         try {
             const migrations = loadPortableMigrations()
@@ -120,9 +116,13 @@ describe('identity image migration and store', () => {
             expect(schemaAfter.tables.workspaces?.columns.image_url).toBeDefined()
             expect(schemaAfter.tables.channels?.columns.image_source).toBeDefined()
 
-            await rollbackPortableMigration(database, migration0004)
-            const schemaRolledBack = await describeSchema(database)
-            expect(schemaRolledBack).toEqual(schemaBefore)
+            for (const [table, definition] of Object.entries(schemaBefore.tables)) {
+                for (const [column, shape] of Object.entries(definition.columns)) {
+                    expect(schemaAfter.tables[table]?.columns[column]).toEqual(shape)
+                }
+            }
+            expect((await runPortableMigrations(database, migrations)).applied).toEqual([])
+            expect(await describeSchema(database)).toEqual(schemaAfter)
         } finally {
             closeDatabase(database)
         }
@@ -320,5 +320,70 @@ describe('identity image migration and store', () => {
         } finally {
             await closeTestDatabase(database)
         }
+    })
+})
+
+it('merges concurrent website and image changes and checks authorization after processing', async () => {
+    const { database } = await openTestDatabase()
+    try {
+        await seedOwner(database)
+        const access = createAccessStore(database)
+        await access.claimFirstAccount({ userId: 'user-1' })
+        const workspace = (await access.getDefaultWorkspace())!
+        const manual = createManualStore(database)
+        const { project } = await manual.createProject({
+            name: 'Concurrent identity',
+            workspaceId: workspace.id,
+            subjectId: 'user-1',
+            displayName: 'Owner',
+        })
+        const store = createIdentityImageStore(database)
+        const bytes = await createLargePng(512, 256)
+        await Promise.all([
+            store.setProjectImage({ projectId: project.id, bytes, source: 'upload' }),
+            store.setProjectWebsite({
+                projectId: project.id,
+                websiteUrl: 'https://new.example.com',
+            }),
+        ])
+        const saved = await store.getProjectIdentity(project.id)
+        expect(saved).toMatchObject({
+            websiteUrl: 'https://new.example.com/',
+            imageSource: 'upload',
+        })
+        expect(saved?.imageUrl).toMatch(/^\/api\/identity-images\/[a-f0-9]{64}$/)
+        let checked = false
+        await expect(
+            store.setProjectImage({
+                projectId: project.id,
+                bytes,
+                source: 'upload',
+                authorize: async () => {
+                    checked = true
+                    return false
+                },
+            })
+        ).rejects.toMatchObject({ code: 'forbidden' })
+        expect(checked).toBe(true)
+        expect(await store.getProjectIdentity(project.id)).toEqual(saved)
+    } finally {
+        await closeTestDatabase(database)
+    }
+})
+
+it('refuses compressed images whose canvas exceeds the decoder pixel budget', async () => {
+    const bomb = new Uint8Array(onePixelPng)
+    const view = new DataView(bomb.buffer)
+    view.setUint32(16, 100_000)
+    view.setUint32(20, 100_000)
+    // Recompute the IHDR CRC so refusal exercises the dimension guard, not checksum validation.
+    let crc = 0xffffffff
+    for (const value of bomb.subarray(12, 29)) {
+        crc ^= value
+        for (let bit = 0; bit < 8; bit++) crc = (crc >>> 1) ^ (crc & 1 ? 0xedb88320 : 0)
+    }
+    view.setUint32(29, (crc ^ 0xffffffff) >>> 0)
+    await expect(processIdentityImage(bomb)).rejects.toMatchObject({
+        code: 'identity_image_format',
     })
 })
