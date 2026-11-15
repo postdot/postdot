@@ -839,14 +839,14 @@ test('supports media library search, viewing, and bulk actions', async ({ page }
         mediaBulkActionBar.getByRole('button', { name: 'Deselect', exact: true })
     ).toBeVisible()
     await expect(
-        mediaBulkActionBar.getByRole('button', { name: 'Delete (1)', exact: true })
+        mediaBulkActionBar.getByRole('button', { name: 'Delete', exact: true })
     ).toBeVisible()
     await expect(
-        mediaBulkActionBar.getByRole('button', { name: 'Open (1)', exact: true })
+        mediaBulkActionBar.getByRole('button', { name: 'Open', exact: true })
     ).toBeVisible()
     await page.getByRole('checkbox', { name: `Select ${secondMediaFilename}`, exact: true }).check()
     await expect(mediaBulkActionBar).toContainText('2 selected')
-    await mediaBulkActionBar.getByRole('button', { name: 'Open (2)', exact: true }).click()
+    await mediaBulkActionBar.getByRole('button', { name: 'Open', exact: true }).click()
     await expect(mediaLibraryViewer).toBeVisible()
     await expect(mediaLibraryViewer.locator('[data-media-viewer-thumbnail="true"]')).toHaveCount(2)
     await expect(
@@ -856,7 +856,7 @@ test('supports media library search, viewing, and bulk actions', async ({ page }
     await expect(mediaLibraryViewer.getByText('2 of 2', { exact: true })).toHaveCount(1)
     await mediaLibraryViewer.getByRole('button', { name: 'Close', exact: true }).click()
     await expect(mediaLibraryViewer).toHaveCount(0)
-    await mediaBulkActionBar.getByRole('button', { name: 'Delete (2)', exact: true }).click()
+    await mediaBulkActionBar.getByRole('button', { name: 'Delete', exact: true }).click()
     const mediaBulkDeletionDialog = page.locator('[data-media-bulk-delete-dialog="true"]')
     await expect(mediaBulkDeletionDialog).toBeVisible()
     await expect(
@@ -1720,7 +1720,7 @@ test('persists mixed and media-only publications through the dashboard', async (
     await expect(editedMediaCard).toBeVisible()
     await editedMediaCard.getByRole('checkbox').check()
     const usedMediaBulkActionBar = page.locator('[data-bulk-action-bar="true"]')
-    await usedMediaBulkActionBar.getByRole('button', { name: 'Delete (1)', exact: true }).click()
+    await usedMediaBulkActionBar.getByRole('button', { name: 'Delete', exact: true }).click()
     const usedMediaBulkDeletionDialog = page.locator('[data-media-bulk-delete-dialog="true"]')
     await expect(
         usedMediaBulkDeletionDialog.locator('[data-media-bulk-delete-usage="blocked"]')

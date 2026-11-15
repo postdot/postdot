@@ -60,10 +60,11 @@ export function BulkActionBar({
             aria-label={ariaLabel}
             data-bulk-action-bar="true"
             className={cn(
-                'sticky top-3 z-10 flex flex-wrap items-center justify-between gap-2 max-sm:flex-col max-sm:items-stretch',
+                'flex flex-wrap items-center justify-between gap-2 max-sm:flex-col max-sm:items-stretch',
+                // The bar floats over the list (DESIGN.md "floating selection").
                 quiet
                     ? 'px-0 py-0'
-                    : 'rounded-md bg-surface-inset/95 px-3 py-2 shadow-surface backdrop-blur-sm',
+                    : 'rounded-lg border border-border bg-popover px-3 py-2 shadow-overlay',
                 className
             )}>
             <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">

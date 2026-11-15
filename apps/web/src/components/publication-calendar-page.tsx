@@ -314,7 +314,6 @@ export function PublicationCalendarPage({
                                 ]}
                                 allSelected={allVisibleSelected}
                                 ariaLabel={m.calendar_selection_actions()}
-                                className="static bg-popover shadow-overlay backdrop-blur-none"
                                 clearLabel={m.calendar_clear_selection()}
                                 onClear={clearPublicationSelection}
                                 onToggleAll={toggleAllVisiblePublications}

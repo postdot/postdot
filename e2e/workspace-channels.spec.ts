@@ -288,9 +288,10 @@ for (const [locale, messages] of [
         await expect(row).toContainText(messages.channel_archived)
         await expect(page).toHaveURL(/\/dashboard\/channels\?/)
         expect(new URL(page.url()).searchParams.get('projectId')).toBe('none')
-        await expect(
-            page.getByRole('tab', { name: messages.channels_scope_project })
-        ).toBeDisabled()
+        // Without a project there is one scope, so no scope switch is offered.
+        await expect(page.getByRole('tab', { name: messages.channels_scope_project })).toHaveCount(
+            0
+        )
         await row
             .getByRole('button', {
                 name: messages.channel_manage.replace('{channel}', channel.name),
@@ -373,7 +374,7 @@ test('opens workspace scope from Channels when the workspace has no projects', a
     await expect(page).toHaveURL(/\/dashboard\/channels\?/)
     expect(new URL(page.url()).searchParams.get('scope')).toBe('workspace')
     await expect(page.getByRole('heading', { name: en.channels_title, exact: true })).toBeVisible()
-    await expect(page.getByRole('tab', { name: en.channels_scope_project })).toBeDisabled()
+    await expect(page.getByRole('tab', { name: en.channels_scope_project })).toHaveCount(0)
     await expect(page.getByText(en.workspace_channels_empty, { exact: true })).toBeVisible()
     await expect(page.getByRole('button', { name: en.channel_add, exact: true })).toHaveCount(0)
     await expect(page.getByRole('button', { name: /^Show archived/ })).toHaveCount(0)

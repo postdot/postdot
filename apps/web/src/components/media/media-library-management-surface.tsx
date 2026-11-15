@@ -217,7 +217,7 @@ export function MediaLibraryManagementSurface({
                         actions={[
                             {
                                 id: 'open',
-                                label: m.media_bulk_open_action({ count: bulkSelectedCount }),
+                                label: m.media_bulk_open_action(),
                                 icon: <FolderOpenIcon aria-hidden="true" />,
                                 variant: 'secondary',
                                 disabled: bulkSelectionResolutionPending,
@@ -225,7 +225,7 @@ export function MediaLibraryManagementSurface({
                             },
                             {
                                 id: 'delete',
-                                label: m.media_bulk_delete_action({ count: bulkSelectedCount }),
+                                label: m.media_bulk_delete_action(),
                                 icon: <TrashBinMinimalisticIcon aria-hidden="true" />,
                                 variant: 'destructive',
                                 disabled: bulkSelectionResolutionPending,

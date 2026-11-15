@@ -924,8 +924,8 @@
     "media_delete_pending": "Wird gelöscht…",
     "media_bulk_actions": "Massenaktionen",
     "media_bulk_clear_selection": "Auswahl aufheben",
-    "media_bulk_delete_action": "Löschen ({count})",
-    "media_bulk_open_action": "Öffnen ({count})",
+    "media_bulk_delete_action": "Löschen",
+    "media_bulk_open_action": "Öffnen",
     "media_bulk_select_asset": "{filename} auswählen",
     "media_bulk_deselect_asset": "Auswahl für {filename} aufheben",
     "media_bulk_selected": [

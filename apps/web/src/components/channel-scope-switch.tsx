@@ -14,27 +14,25 @@ export function ChannelScopeSwitch({
 }) {
     const { selectedWorkspaceId } = useDashboardGlobal()
     const navigate = useNavigate()
-    if (!selectedWorkspaceId) return null
+    // Without a project there is only one scope, and a switch would offer nothing.
+    if (!selectedWorkspaceId || !projectId) return null
     return (
         <Tabs
             className="mt-4 max-w-full"
             value={scope}
             onValueChange={value => {
                 if (value !== 'project' && value !== 'workspace') return
-                if (projectId)
-                    void navigate({
-                        to: '/dashboard/projects/$projectId/channels',
-                        params: { projectId },
-                        search: previous => ({
-                            ...previous,
-                            scope: value === 'workspace' ? 'workspace' : undefined,
-                        }),
-                    })
+                void navigate({
+                    to: '/dashboard/projects/$projectId/channels',
+                    params: { projectId },
+                    search: previous => ({
+                        ...previous,
+                        scope: value === 'workspace' ? 'workspace' : undefined,
+                    }),
+                })
             }}>
             <TabsList aria-label={m.channels_scope()} variant="line">
-                <TabsTrigger value="project" disabled={!projectId}>
-                    {m.channels_scope_project()}
-                </TabsTrigger>
+                <TabsTrigger value="project">{m.channels_scope_project()}</TabsTrigger>
                 <TabsTrigger value="workspace">{m.channels_scope_workspace()}</TabsTrigger>
             </TabsList>
         </Tabs>

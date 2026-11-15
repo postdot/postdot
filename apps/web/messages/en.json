@@ -924,8 +924,8 @@
     "media_delete_pending": "Deleting…",
     "media_bulk_actions": "Bulk actions",
     "media_bulk_clear_selection": "Deselect",
-    "media_bulk_delete_action": "Delete ({count})",
-    "media_bulk_open_action": "Open ({count})",
+    "media_bulk_delete_action": "Delete",
+    "media_bulk_open_action": "Open",
     "media_bulk_select_asset": "Select {filename}",
     "media_bulk_deselect_asset": "Deselect {filename}",
     "media_bulk_selected": [
