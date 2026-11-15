@@ -2607,11 +2607,8 @@
     "calendar_move_forward": "later",
     "calendar_move_back": "earlier",
     "calendar_move_past": "Nothing was moved. These posts would be scheduled in the past; choose a smaller backward move or move forward.",
-    "calendar_filter": "Filter",
     "calendar_filter_channels": "Channels",
     "calendar_filter_states": "State",
-    "calendar_filter_hidden": "{count} publications hidden.",
-    "calendar_filter_clear": "Clear filters",
     "calendar_move_action": "Move",
     "calendar_move_submit_one": "Move 1 publication",
     "calendar_move_submit_many": "Move {count} publications",
@@ -2736,5 +2733,10 @@
     "help_issue": "Report a problem",
     "help_issue_description": "Describe what happened; the team reads every report.",
     "preferences_display_title": "Display",
-    "search_aliases_help": "help documentation docs guide community github issue bug support"
+    "search_aliases_help": "help documentation docs guide community github issue bug support",
+    "filter_label": "Filter",
+    "filter_remove": "Remove filter {name}",
+    "filter_clear_all": "Clear filters",
+    "sort_label": "Sort by",
+    "sort_menu_label": "Sort: {order}"
 }

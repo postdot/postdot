@@ -432,6 +432,13 @@ building it; the current app contract must not silently decide those choices.
 - Time (audit S13): twelve-hour locales show and accept `1:41 PM`; twenty-four
   hour locales `13:41`; the current year is implied. Use the helpers in
   `apps/web/src/lib/date-time.ts`, never a local `Intl` formatter.
+- Filters (owner review, 2026-11-15): a list offers one `Filter` menu and one
+  `Sort` menu, quiet text buttons at the end of its toolbar
+  (`components/filter-controls.tsx`). A facet with fewer than two choices is not
+  offered; a menu with no facet is not shown. Conditions in force appear on
+  their own line under the toolbar, each removable, with `Clear filters` when
+  there are several. A period is not a filter: it keeps its own control. Rows
+  of outline selects are not used to filter.
 - Configuration saves once (audit H4, 2026-11-15): a settings dialog has one
   `Save`. A preview or impact step appears only when the change affects
   existing work (for content rules, a publication that would need review), and

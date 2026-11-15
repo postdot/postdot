@@ -2607,11 +2607,8 @@
     "calendar_move_forward": "más tarde",
     "calendar_move_back": "más temprano",
     "calendar_move_past": "No se ha movido nada. Estos posts quedarían programados en el pasado; reduzca el desplazamiento hacia atrás o muévalos hacia adelante.",
-    "calendar_filter": "Filtrar",
     "calendar_filter_channels": "Canales",
     "calendar_filter_states": "Estado",
-    "calendar_filter_hidden": "{count} publicaciones ocultas.",
-    "calendar_filter_clear": "Borrar filtros",
     "calendar_move_action": "Mover",
     "calendar_move_submit_one": "Mover 1 publicación",
     "calendar_move_submit_many": "Mover {count} publicaciones",
@@ -2736,5 +2733,10 @@
     "help_issue": "Informar de un problema",
     "help_issue_description": "Describe lo que pasó; el equipo lee cada informe.",
     "preferences_display_title": "Visualización",
-    "search_aliases_help": "ayuda documentación docs guía comunidad github problema error soporte"
+    "search_aliases_help": "ayuda documentación docs guía comunidad github problema error soporte",
+    "filter_label": "Filtrar",
+    "filter_remove": "Quitar el filtro {name}",
+    "filter_clear_all": "Borrar filtros",
+    "sort_label": "Ordenar por",
+    "sort_menu_label": "Orden: {order}"
 }

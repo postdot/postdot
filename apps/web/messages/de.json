@@ -2607,11 +2607,8 @@
     "calendar_move_forward": "später",
     "calendar_move_back": "früher",
     "calendar_move_past": "Nichts wurde verschoben. Diese Posts würden in der Vergangenheit liegen; wählen Sie einen kleineren Schritt zurück oder verschieben Sie nach vorn.",
-    "calendar_filter": "Filtern",
     "calendar_filter_channels": "Kanäle",
     "calendar_filter_states": "Status",
-    "calendar_filter_hidden": "{count} Veröffentlichungen ausgeblendet.",
-    "calendar_filter_clear": "Filter zurücksetzen",
     "calendar_move_action": "Verschieben",
     "calendar_move_submit_one": "1 Veröffentlichung verschieben",
     "calendar_move_submit_many": "{count} Veröffentlichungen verschieben",
@@ -2736,5 +2733,10 @@
     "help_issue": "Problem melden",
     "help_issue_description": "Beschreiben Sie, was passiert ist; das Team liest jede Meldung.",
     "preferences_display_title": "Darstellung",
-    "search_aliases_help": "hilfe dokumentation docs anleitung community github problem fehler support"
+    "search_aliases_help": "hilfe dokumentation docs anleitung community github problem fehler support",
+    "filter_label": "Filtern",
+    "filter_remove": "Filter {name} entfernen",
+    "filter_clear_all": "Filter zurücksetzen",
+    "sort_label": "Sortieren nach",
+    "sort_menu_label": "Sortierung: {order}"
 }

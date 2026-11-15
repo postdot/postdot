@@ -74,6 +74,7 @@ type ChannelIdentity = Pick<Channel, 'id' | 'name' | 'profileId'>
 
 export function PublicationCalendar({
     filterControl,
+    filterSummary,
     channels = [],
     duePublicationIds,
     loading,
@@ -89,6 +90,8 @@ export function PublicationCalendar({
     timeZone,
 }: {
     readonly filterControl?: React.ReactNode
+    /** Conditions in force, shown on their own line under the toolbar. */
+    readonly filterSummary?: React.ReactNode
     /** This project's channels, to show each publication's channel mark and name. */
     readonly channels?: readonly ChannelIdentity[]
     readonly duePublicationIds: ReadonlySet<string>
@@ -373,6 +376,7 @@ export function PublicationCalendar({
                     selectLabel={m.calendar_select()}
                     shortcutsEnabled={previewPublicationId === null}
                 />
+                <div className="mb-3 empty:hidden">{filterSummary}</div>
                 <CalendarBody
                     channelsById={channelsById}
                     locale={locale}

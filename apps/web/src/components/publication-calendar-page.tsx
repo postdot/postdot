@@ -9,14 +9,12 @@ import { useEffect, useMemo, useState } from 'react'
 import { BulkActionBar } from '@/components/bulk-action-bar'
 import { DashboardPageHeader } from '@/components/dashboard-page-header'
 import { EmptyState } from '@/components/empty-state'
+import { ActiveFilters, FilterMenu } from '@/components/filter-controls'
 import { PublicationBulkCancellationDialog } from '@/components/publication-bulk-cancellation-dialog'
 import { PublicationBulkMoveDialog } from '@/components/publication-bulk-move-dialog'
 import { PublicationBulkScheduleDialog } from '@/components/publication-bulk-schedule-dialog'
 import { PublicationCalendar } from '@/components/publication-calendar'
-import {
-    PublicationCalendarFilter,
-    calendarFilterState,
-} from '@/components/publication-calendar-filter'
+import { calendarFilterGroups, calendarFilterState } from '@/components/publication-calendar-filter'
 import { PublicationSummaryBar } from '@/components/publication-summary-bar'
 import { QueryErrorState } from '@/components/query-error-state'
 import { api } from '@/lib/api'
@@ -114,9 +112,13 @@ export function PublicationCalendarPage({
             (filterChannels.length === 0 || filterChannels.includes(p.channelId)) &&
             (filterStates.length === 0 || filterStates.includes(calendarFilterState(p, dueIds)))
     )
-    const hiddenCount =
-        calendarPublications.filter(p => p.scheduledAt !== null).length -
-        filteredPublications.filter(p => p.scheduledAt !== null).length
+    const filterGroups = calendarFilterGroups({
+        channels,
+        states: [...new Set(calendarPublications.map(p => calendarFilterState(p, dueIds)))],
+        channelIds: filterChannels,
+        selectedStates: filterStates,
+        onChange: (nextChannels, nextStates) => changeFilters(nextChannels, nextStates),
+    })
     // The next publication is read from the project's work, not the visible month.
     const nextScheduledPublication = useMemo(() => {
         const upcoming = [...publications, ...calendarPublications].filter(
@@ -336,40 +338,8 @@ export function PublicationCalendarPage({
                         <>
                             <section aria-labelledby="calendar-title" className="mt-7 min-w-0">
                                 <PublicationCalendar
-                                    filterControl={
-                                        <div className="flex flex-wrap items-center gap-2">
-                                            <PublicationCalendarFilter
-                                                channels={channels}
-                                                states={[
-                                                    ...new Set(
-                                                        calendarPublications.map(p =>
-                                                            calendarFilterState(p, dueIds)
-                                                        )
-                                                    ),
-                                                ]}
-                                                channelIds={filterChannels}
-                                                selectedStates={filterStates}
-                                                onChange={changeFilters}
-                                            />
-                                            {hiddenCount > 0 ||
-                                            filterChannels.length > 0 ||
-                                            filterStates.length > 0 ? (
-                                                <p className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
-                                                    {hiddenCount > 0
-                                                        ? m.calendar_filter_hidden({
-                                                              count: hiddenCount,
-                                                          })
-                                                        : null}{' '}
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        onClick={() => changeFilters([], [])}>
-                                                        {m.calendar_filter_clear()}
-                                                    </Button>
-                                                </p>
-                                            ) : null}
-                                        </div>
-                                    }
+                                    filterControl={<FilterMenu groups={filterGroups} />}
+                                    filterSummary={<ActiveFilters groups={filterGroups} />}
                                     channels={channels}
                                     occupancy={occupancy.filter(
                                         item =>

@@ -1,13 +1,4 @@
-import { Button } from '@postdot/ui/components/button'
-import {
-    DropdownMenu,
-    DropdownMenuTrigger,
-    DropdownMenuContent,
-    DropdownMenuGroup,
-    DropdownMenuLabel,
-    DropdownMenuCheckboxItem,
-} from '@postdot/ui/components/dropdown-menu'
-
+import type { FilterGroup } from '@/components/filter-controls'
 import { ChannelAvatar } from '@/components/identity-visuals'
 import type { Channel, PublicationSummary } from '@/lib/api'
 import * as m from '@/paraglide/messages.js'
@@ -16,7 +7,9 @@ export function calendarFilterState(publication: PublicationSummary, due: Readon
     if (due.has(publication.id) || publication.state === 'ambiguous') return 'attention'
     return publication.state
 }
-export function PublicationCalendarFilter({
+
+/** The calendar's filter conditions, offered through the shared Filter menu. */
+export function calendarFilterGroups({
     channels,
     states,
     channelIds,
@@ -28,7 +21,7 @@ export function PublicationCalendarFilter({
     readonly channelIds: readonly string[]
     readonly selectedStates: readonly string[]
     readonly onChange: (channels: string[], states: string[]) => void
-}) {
+}): FilterGroup[] {
     const labels: Record<string, string> = {
         draft: m.publication_state_draft(),
         scheduled: m.queue_scheduled(),
@@ -36,56 +29,28 @@ export function PublicationCalendarFilter({
         failed: m.publication_state_failed(),
         attention: m.publication_needs_attention(),
     }
-    const toggle = (values: readonly string[], id: string) =>
-        values.includes(id) ? values.filter(v => v !== id) : [...values, id]
-    if (
-        channels.length < 2 &&
-        states.length < 2 &&
-        channelIds.length === 0 &&
-        selectedStates.length === 0
-    )
-        return null
-    return (
-        <DropdownMenu>
-            <DropdownMenuTrigger render={<Button size="sm" variant="ghost" />}>
-                {m.calendar_filter()}
-                {channelIds.length + selectedStates.length > 0
-                    ? ` · ${channelIds.length + selectedStates.length}`
-                    : null}
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="max-h-80 w-64 max-w-[calc(100vw-2rem)] overflow-y-auto">
-                {channels.length > 1 ? (
-                    <DropdownMenuGroup>
-                        <DropdownMenuLabel>{m.calendar_filter_channels()}</DropdownMenuLabel>
-                        {channels.map(channel => (
-                            <DropdownMenuCheckboxItem
-                                key={channel.id}
-                                checked={channelIds.includes(channel.id)}
-                                onCheckedChange={() =>
-                                    onChange(toggle(channelIds, channel.id), [...selectedStates])
-                                }>
-                                <ChannelAvatar channel={channel} size="xs" />
-                                <span className="truncate">{channel.name}</span>
-                            </DropdownMenuCheckboxItem>
-                        ))}
-                    </DropdownMenuGroup>
-                ) : null}
-                {states.length > 1 ? (
-                    <DropdownMenuGroup>
-                        <DropdownMenuLabel>{m.calendar_filter_states()}</DropdownMenuLabel>
-                        {Object.entries(labels).map(([state, label]) => (
-                            <DropdownMenuCheckboxItem
-                                key={state}
-                                checked={selectedStates.includes(state)}
-                                onCheckedChange={() =>
-                                    onChange([...channelIds], toggle(selectedStates, state))
-                                }>
-                                {label}
-                            </DropdownMenuCheckboxItem>
-                        ))}
-                    </DropdownMenuGroup>
-                ) : null}
-            </DropdownMenuContent>
-        </DropdownMenu>
-    )
+    return [
+        {
+            id: 'channels',
+            label: m.calendar_filter_channels(),
+            multiple: true,
+            onChange: next => onChange(next, [...selectedStates]),
+            options: channels.map(channel => ({
+                label: channel.name,
+                media: <ChannelAvatar channel={channel} size="xs" />,
+                value: channel.id,
+            })),
+            selected: channelIds,
+        },
+        {
+            id: 'states',
+            label: m.calendar_filter_states(),
+            multiple: true,
+            onChange: next => onChange([...channelIds], next),
+            options: Object.entries(labels)
+                .filter(([state]) => states.includes(state) || selectedStates.includes(state))
+                .map(([state, label]) => ({ label, value: state })),
+            selected: selectedStates,
+        },
+    ]
 }
