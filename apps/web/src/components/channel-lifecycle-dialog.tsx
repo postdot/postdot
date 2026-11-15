@@ -14,9 +14,15 @@ import { toast } from '@postdot/ui/components/toast'
 import { ArchiveIcon } from '@solar-icons/react/linear/archive'
 import { RestartIcon } from '@solar-icons/react/linear/restart'
 import { TrashBinMinimalisticIcon } from '@solar-icons/react/linear/trash-bin-minimalistic'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
+import {
+    IdentityImageSection,
+    type IdentityImageEditorHandle,
+} from '@/components/identity-image-section'
+import { channelHasBrandIcon } from '@/components/identity-visuals'
 import type { Channel } from '@/lib/api'
+import { useProjectDashboard } from '@/lib/dashboard-context'
 import { useLanguage } from '@/lib/i18n'
 import * as m from '@/paraglide/messages.js'
 
@@ -44,6 +50,9 @@ export function ChannelLifecycleDialog({
     readonly pending: boolean
 }) {
     useLanguage()
+    const { project, access } = useProjectDashboard()
+    const imageEditor = useRef<IdentityImageEditorHandle>(null)
+    const [savingImage, setSavingImage] = useState(false)
     const [name, setName] = useState('')
     const [attempted, setAttempted] = useState(false)
 
@@ -100,6 +109,17 @@ export function ChannelLifecycleDialog({
                         </p>
                     )}
 
+                    {isRename && !channelHasBrandIcon(channel.profileId) ? (
+                        <IdentityImageSection
+                            key={channel.id}
+                            editorRef={imageEditor}
+                            embedded
+                            resource={channel}
+                            target={{ kind: 'channel', id: channel.id, projectId: project.id }}
+                            disabled={pending || savingImage || !access.canWrite()}
+                            onRefusal={access.reportRefusal}
+                        />
+                    ) : null}
                     {attempted && error ? (
                         <Alert variant="destructive" role="alert">
                             <AlertDescription>{error}</AlertDescription>
@@ -111,16 +131,31 @@ export function ChannelLifecycleDialog({
                         type="button"
                         variant="ghost"
                         onClick={() => onOpenChange(false)}
-                        disabled={pending}>
+                        disabled={pending || savingImage}>
                         {m.common_cancel()}
                     </Button>
                     <Button
                         type="button"
                         variant={destructive ? 'destructive' : 'default'}
-                        disabled={pending || (isRename && name.trim() === '')}
+                        disabled={pending || savingImage || (isRename && name.trim() === '')}
                         onClick={async () => {
                             setAttempted(false)
-                            const succeeded = await onAction(action, channel, name.trim())
+                            let updatedChannel = channel
+                            if (isRename && imageEditor.current) {
+                                setSavingImage(true)
+                                try {
+                                    const saved = await imageEditor.current.save()
+                                    updatedChannel = {
+                                        ...channel,
+                                        revision: saved.revision ?? channel.revision,
+                                    }
+                                } catch {
+                                    return
+                                } finally {
+                                    setSavingImage(false)
+                                }
+                            }
+                            const succeeded = await onAction(action, updatedChannel, name.trim())
                             if (!succeeded) {
                                 setAttempted(true)
                                 return
@@ -140,7 +175,7 @@ export function ChannelLifecycleDialog({
                         {action === 'delete' ? (
                             <TrashBinMinimalisticIcon aria-hidden="true" />
                         ) : null}
-                        {title}
+                        {isRename ? m.common_save() : title}
                     </Button>
                 </DialogFooter>
             </DialogContent>

@@ -536,6 +536,7 @@ function ProjectDirectoryList({
         name: string
         workspaceId: string | null
         upcomingScheduledCount: number
+        imageUrl?: string | null
     }>
 }) {
     const workspaceIds = useMemo(
@@ -611,6 +612,7 @@ function ProjectDirectoryList({
                         to="/dashboard/projects/$projectId/overview">
                         <span className="flex min-w-0 items-center gap-3">
                             <ResourceAvatar
+                                imageUrl={project.imageUrl}
                                 kind="project"
                                 name={project.name}
                                 seed={project.id}

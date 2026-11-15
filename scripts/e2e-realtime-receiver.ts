@@ -27,6 +27,16 @@ export function createRealtimeReceiver(port: number) {
         maxRequestBodySize: 1_048_576,
         async fetch(request) {
             const path = new URL(request.url).pathname
+            if (request.method === 'GET' && path === '/identity')
+                return new Response(
+                    '<!doctype html><head><link rel="icon" sizes="64x64" href="/identity/icon.png"></head>',
+                    { headers: { 'content-type': 'text/html' } }
+                )
+            if (request.method === 'GET' && path === '/identity/icon.png')
+                return new Response(
+                    Bun.file(new URL('../e2e/fixtures/identity.png', import.meta.url)),
+                    { headers: { 'content-type': 'image/png' } }
+                )
             if (request.method === 'GET' && path === '/ready') return new Response('ready')
             if (request.method === 'GET' && path === '/observations')
                 return Response.json({ requests })

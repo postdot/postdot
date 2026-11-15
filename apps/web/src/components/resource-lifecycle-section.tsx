@@ -179,7 +179,14 @@ export function ResourceLifecycleSection({
         <section className="mt-10 border-t border-border pt-6" aria-label={m.lifecycle_title()}>
             <div className="flex flex-wrap items-center justify-between gap-3">
                 <h2 className="flex min-w-0 items-center gap-3 font-heading text-lg font-medium">
-                    {inArchives ? <ResourceAvatar kind={kind} name={data.name} seed={id} /> : null}
+                    {inArchives ? (
+                        <ResourceAvatar
+                            imageUrl={data.imageUrl}
+                            kind={kind}
+                            name={data.name}
+                            seed={id}
+                        />
+                    ) : null}
                     <span className="break-words">
                         {inArchives ? data.name : m.lifecycle_title()}
                     </span>
@@ -294,7 +301,13 @@ export function ResourceLifecycleSection({
                     </DialogHeader>
                     <div className="min-h-0 space-y-4 overflow-y-auto overscroll-contain">
                         <div className="flex items-center gap-2.5 rounded-md border border-border bg-muted/40 px-3 py-2 text-sm">
-                            <ResourceAvatar kind={kind} name={data.name} seed={id} size="sm" />
+                            <ResourceAvatar
+                                imageUrl={data.imageUrl}
+                                kind={kind}
+                                name={data.name}
+                                seed={id}
+                                size="sm"
+                            />
                             <span className="min-w-0 truncate font-medium">{data.name}</span>
                         </div>
                         {action === 'delete' && (

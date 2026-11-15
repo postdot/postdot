@@ -282,14 +282,28 @@ export function DashboardProjectContext({
         selectedWorkspace?.role === 'owner' || selectedWorkspace?.role === 'admin'
     const workspaceOptions = workspaces.map<ContextSelectorItem>(workspace => ({
         description: workspaceRoleLabel(workspace.role),
-        icon: <ResourceAvatar kind="workspace" name={workspace.name} seed={workspace.id} />,
+        icon: (
+            <ResourceAvatar
+                imageUrl={workspace.imageUrl}
+                kind="workspace"
+                name={workspace.name}
+                seed={workspace.id}
+            />
+        ),
         id: workspace.id,
         kind: 'resource',
         label: workspace.name,
     }))
     const projectOptions = workspaceProjects.map<ContextSelectorItem>(project => ({
         description: categories.find(category => category.id === project.primaryCategoryId)?.name,
-        icon: <ResourceAvatar kind="project" name={project.name} seed={project.id} />,
+        icon: (
+            <ResourceAvatar
+                imageUrl={project.imageUrl}
+                kind="project"
+                name={project.name}
+                seed={project.id}
+            />
+        ),
         id: project.id,
         kind: 'resource',
         label: project.name,

@@ -25,3 +25,7 @@ export function useChannelVariant(channelId: string) {
 export function useChannelIdentityPeers() {
     return useContext(ChannelIdentities)
 }
+
+export function useChannelImage(channelId: string) {
+    return useContext(ChannelIdentities).find(channel => channel.id === channelId)?.imageUrl
+}

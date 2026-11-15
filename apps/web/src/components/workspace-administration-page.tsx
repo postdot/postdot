@@ -2,6 +2,7 @@ import { UsersGroupTwoRoundedIcon } from '@solar-icons/react/linear/users-group-
 
 import { AccessPageHeader } from '@/components/access-page-header'
 import { EmptyState } from '@/components/empty-state'
+import { IdentityImageSection } from '@/components/identity-image-section'
 import { PageColumn } from '@/components/page-column'
 import { ResourceLifecycleSection } from '@/components/resource-lifecycle-section'
 import { WorkspaceGroupsSection } from '@/components/workspace-groups-section'
@@ -32,15 +33,20 @@ export function WorkspaceAdministrationPage({ view }: { readonly view: 'people' 
                                 : m.nav_workspace_settings()
                         }
                     />
-                    <PageColumn
-                        className="[&>section:first-child]:mt-0 [&>section:first-child]:border-t-0 [&>section:first-child]:pt-0"
-                        variant={view === 'people' ? 'management' : 'reading'}>
+                    <PageColumn variant={view === 'people' ? 'management' : 'reading'}>
                         {workspace ? (
-                            <ResourceLifecycleSection
-                                key={workspace.id}
-                                kind="workspace"
-                                id={workspace.id}
-                            />
+                            <>
+                                <IdentityImageSection
+                                    key={`image-${workspace.id}`}
+                                    target={{ kind: 'workspace', id: workspace.id }}
+                                    resource={workspace}
+                                />
+                                <ResourceLifecycleSection
+                                    key={workspace.id}
+                                    kind="workspace"
+                                    id={workspace.id}
+                                />
+                            </>
                         ) : (
                             <EmptyState
                                 description={null}

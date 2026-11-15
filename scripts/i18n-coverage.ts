@@ -28,6 +28,7 @@ const allowedUnchangedByLocale = new Map<string, ReadonlySet<string>>([
     [
         'fr',
         new Set([
+            'identity_image', // Image is the native French noun too.
             'release_studio',
             'auth_board_source_label',
             'media_info_usage_source',
@@ -162,6 +163,7 @@ const allowedUnchangedByLocale = new Map<string, ReadonlySet<string>>([
     [
         'de',
         new Set([
+            'identity_website', // Website is used in German as well.
             'release_studio',
             'theme_option_system',
             'editor_constraint_source',

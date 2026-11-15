@@ -15,7 +15,7 @@ import { cn } from '@postdot/ui/lib/utils'
 import { useMemo, type HTMLAttributes } from 'react'
 
 import type { Channel } from '@/lib/api'
-import { useChannelVariant } from '@/lib/channel-identity-context'
+import { useChannelVariant, useChannelImage } from '@/lib/channel-identity-context'
 
 const userStyle = new Style(lorelei)
 
@@ -31,7 +31,7 @@ const channelIcons = {
     x: xIcon,
 } as const
 
-type ChannelIdentity = Pick<Channel, 'id' | 'name' | 'profileId'>
+type ChannelIdentity = Pick<Channel, 'id' | 'name' | 'profileId' | 'imageUrl'>
 type ChannelAvatarSize = 'xs' | 'sm' | 'md' | 'lg'
 
 export function ResourceAvatar({
@@ -159,6 +159,7 @@ export function ChannelAvatar({
 } & Omit<HTMLAttributes<HTMLSpanElement>, 'children'>) {
     const icon = getChannelIcon(channel.profileId)
     const variant = useChannelVariant(channel.id)
+    const storedImage = useChannelImage(channel.id)
 
     return (
         <span
@@ -178,6 +179,7 @@ export function ChannelAvatar({
                 <MonogramAvatar
                     className={cn('size-full', channelInitialsSizeClass[size])}
                     name={channel.name}
+                    imageUrl={channel.imageUrl === undefined ? storedImage : channel.imageUrl}
                     seed={`channel:${channel.id}`}
                 />
             )}
