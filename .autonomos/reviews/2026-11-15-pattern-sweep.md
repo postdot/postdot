@@ -104,3 +104,22 @@ _No confirmed matches outside the Settings shell (`Queue`, `Channels`, and `Perf
 - **Tag-count `<Badge>` inside filter trigger buttons** (`apps/web/src/components/performance-tag-filter.tsx:85`, `apps/web/src/components/publication-tag-picker.tsx:106`, `test-results/owner-audit/sweep-performance-engagement-desktop-light.png`): Both pickers render `<Badge variant="secondary">{count}</Badge>` for selected tag counts; likely overlaps Pattern 6 / *Tabs* ("Counts in tabs are plain muted numbers"), though compact numeric pills inside filter buttons may be borderline.
 - **No-active-tags inline message when archived tags exist** (`apps/web/src/components/project-tags-page.tsx:181`, `test-results/owner-audit/sweep-tags-desktop-light.png`): Renders `<p className="rounded-md bg-surface-inset/45 px-4 py-3 ...">` (already reported under P1-07 for its inset surface); borderline for Pattern 3 because the *Active tags* section is empty rather than the entire page, since archived tags still render below.
 - **Destination mismatch history fallback** (`apps/web/src/components/publication-destination.tsx:149-158`): `historyLabel` falls back to `providerId`, `destinationId`/`externalAccountId`, and `endpointOrigin` (Pattern 4 technical identity), but is only rendered when a destination change conflict history exists (not triggered in captured routes).
+
+## Resolution (UX-666, 2026-11-15)
+
+All 40 findings are addressed on `t3/studio-ux-experience-audit`:
+
+| Findings | Resolution | Commits |
+| --- | --- | --- |
+| P1-02/03/04, P3-01, P5-02, P8-04 | Calendar grid, agenda and preview on one bordered surface; constant Select toggle; one date control. | 596fd9213 |
+| P7-01/02/03 | One Filter and one Sort menu (`filter-controls.tsx`), conditions in force under the toolbar; the period keeps its own choice menu. DESIGN.md "Filters". | 3cdbd0d12, 95dfaca2b, ed91feb93, 9e1fb101c |
+| P1-05, P3-02, P3-03, P4-01, P4-02, P8-02 | Performance empty states, counters and tag menu. | 986aefc75..cc0efda40, 466f8a6a1, 9e1fb101c |
+| P1-01, P1-06, P5-01, P6-05, P8-03, P9-01, P9-02, P10-01/02/03 | One project page frame, sidebar without disabled destinations, media selection without a mode, copy link in the row menu. | b406d4cbd..fd03d4ddc, dba311fc9 |
+| P1-07..P1-11, P4-03, P4-04, P6-01..P6-04, P8-01, P8-05 | Content surfaces, StatusText, no MIME or JSON, text-only notice actions, no nested surfaces. | ec013790b |
+| P1-12, P10-04 | Project settings on the settings anatomy. | 13fa3c83f, 6cf8275a3 |
+
+Rules added while fixing: a date stepper is one control (pattern 8); a selection
+toggle keeps its label (pattern 5); `BulkActionBar` always floats; hover only on
+rows that act; a frame never draws a surface around an editor that has its own.
+Open, outside this sweep: the publication page's channel strip and its row of
+mixed buttons (Add tag / Move / Add a channel) need a design pass.
