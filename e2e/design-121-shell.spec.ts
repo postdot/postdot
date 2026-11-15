@@ -180,6 +180,16 @@ test('keeps the explicit no-project context on the project picker', async ({ pag
 
     const suffix = randomUUID().slice(0, 8)
     await createAccountAndProject(page, suffix)
+    const projectId = new URL(page.url()).pathname.split('/')[3]
+    for (let index = 0; index < 6; index += 1) {
+        const response = await page.request.post(`/api/projects/${projectId}/channels`, {
+            data: {
+                name: `Card channel ${index + 1}`,
+                profile: 'manual-message',
+            },
+        })
+        expect(response.status()).toBe(201)
+    }
 
     await page.getByRole('combobox', { name: 'Select project', exact: true }).click()
     await page.getByRole('option', { name: 'No project selected', exact: true }).click()
@@ -189,6 +199,13 @@ test('keeps the explicit no-project context on the project picker', async ({ pag
     await expect(page.getByRole('combobox', { name: 'Select project', exact: true })).toHaveText(
         'No project selected'
     )
+    const projectCard = page
+        .locator('main a[href$="/overview"]')
+        .filter({ hasText: `E2E-121 project ${suffix}` })
+    await expect(projectCard.locator('[data-project-channels] [data-channel-avatar]')).toHaveCount(
+        5
+    )
+    await expect(projectCard.locator('[data-project-channels]')).toContainText('+1')
 })
 
 test('keeps a fixed page edge, readable menus and transient action feedback', async ({

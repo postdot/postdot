@@ -33,6 +33,9 @@ test('sets project scheduling timezone on creation and updates it in project acc
     await page.getByRole('button', { name: en.nav_create_project, exact: true }).first().click()
     const onboardingDialog = page.getByRole('dialog')
     await expect(onboardingDialog).toBeVisible()
+    await expect(
+        onboardingDialog.getByRole('heading', { name: en.nav_new_project_title, exact: true })
+    ).toBeVisible()
     const onboardingTimeZoneTrigger = onboardingDialog.getByRole('combobox', {
         name: en.project_timezone_label,
         exact: true,
@@ -49,9 +52,12 @@ test('sets project scheduling timezone on creation and updates it in project acc
     await page.getByRole('option', { name: 'America/New_York', exact: true }).click()
     await expect(onboardingTimeZoneTrigger).toContainText('America/New_York')
 
-    await onboardingDialog
-        .getByRole('textbox', { name: en.nav_new_project, exact: true })
-        .fill(`E2E TZ project ${suffix}`)
+    const projectNameInput = onboardingDialog.getByRole('textbox', {
+        name: en.nav_new_project,
+        exact: true,
+    })
+    await expect(projectNameInput).toHaveAttribute('placeholder', en.nav_project_name)
+    await projectNameInput.fill(`E2E TZ project ${suffix}`)
     await onboardingDialog.getByRole('button', { name: en.nav_add_project, exact: true }).click()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/overview$/)
 

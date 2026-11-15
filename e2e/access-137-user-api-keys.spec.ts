@@ -29,6 +29,11 @@ test('creates and edits user-owned API keys with bounded project and action acce
 
     await page.getByRole('button', { name: 'Create an API key', exact: true }).click()
     const allProjectsDialog = page.getByRole('dialog')
+    await expect(allProjectsDialog.getByText('Projects', { exact: true })).toBeVisible()
+    await expect(allProjectsDialog.getByText('Projects :', { exact: true })).toHaveCount(0)
+    await expect(
+        allProjectsDialog.getByText(en.api_keys_anti_escalation_notice, { exact: true })
+    ).toBeVisible()
     await expect(allProjectsDialog.getByRole('radio', { name: 'All projects' })).toBeChecked()
     await allProjectsDialog.getByLabel('Name (optional)', { exact: true }).fill('Retry key')
     const keyEndpoint = '**/api/api-keys'
@@ -65,6 +70,8 @@ test('creates and edits user-owned API keys with bounded project and action acce
     await page.getByRole('button', { name: 'Done', exact: true }).click()
     if (generatedName === undefined) throw new Error('The generated API key name was not rendered')
     await expect(page.getByText(generatedName, { exact: true })).toBeVisible()
+    await expect(page.getByText('Sensitive', { exact: true })).toHaveCount(0)
+    await expect(page.getByText('Elevated', { exact: true })).toHaveCount(0)
 
     await page.getByRole('button', { name: 'Create an API key', exact: true }).click()
     const selectedProjectsDialog = page.getByRole('dialog')
@@ -87,6 +94,8 @@ test('creates and edits user-owned API keys with bounded project and action acce
         name: 'Only selected actions',
     })
     await selectedActionsRadio.check()
+    await expect(selectedProjectsDialog.getByText('Sensitive', { exact: true })).toHaveCount(0)
+    await expect(selectedProjectsDialog.getByText('Elevated', { exact: true })).toHaveCount(0)
     await selectedProjectsDialog.getByRole('checkbox', { name: 'Read project data' }).check()
     await selectedProjectsDialog
         .getByRole('checkbox', { name: 'Manage channels and profiles' })

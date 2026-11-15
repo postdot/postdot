@@ -46,7 +46,6 @@ import { EmptyState } from '@/components/empty-state'
 import {
     ApiKeyActionAccessFieldset,
     capabilityLabel,
-    elevatedCapabilities,
     type ActionScope,
     type KeyScope,
 } from '@/components/user-api-keys-actions'
@@ -307,14 +306,6 @@ export function UserApiKeysPage() {
                                                 <Badge variant="secondary">
                                                     {m.api_keys_active()}
                                                 </Badge>
-                                                {key.actionAccess === 'all' ||
-                                                key.actionAccess.some(cap =>
-                                                    elevatedCapabilities.has(cap)
-                                                ) ? (
-                                                    <Badge variant="outline">
-                                                        {m.api_keys_elevated_badge()}
-                                                    </Badge>
-                                                ) : null}
                                             </div>
                                             <p className="mt-1 break-words font-mono text-xs text-muted-foreground">
                                                 {key.tokenPrefix} ·{' '}
@@ -422,7 +413,7 @@ export function UserApiKeysPage() {
                             />
                         </Field>
                         <fieldset className="grid gap-2">
-                            <legend className="text-sm font-medium">{m.api_keys_scope()} :</legend>
+                            <legend className="text-sm font-medium">{m.api_keys_scope()}</legend>
                             <label
                                 className={`flex cursor-pointer items-center gap-3 rounded-md px-3 py-2.5 text-sm transition-colors focus-within:ring-3 focus-within:ring-ring/50 ${scope === 'all' ? 'bg-secondary' : 'bg-surface-control hover:bg-muted'}`}>
                                 <input

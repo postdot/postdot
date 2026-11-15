@@ -308,7 +308,11 @@ test('configures SMTP in administration and sends a real test without exposing c
     await expect(
         page.getByRole('status').filter({ hasText: 'Email settings saved.' })
     ).toBeVisible()
+    await expect(
+        page.getByRole('switch', { name: 'Use TLS (port 465)', exact: true })
+    ).toBeVisible()
     await page.getByRole('switch', { name: 'Enable email delivery', exact: true }).click()
+    await expect(page.getByLabel('SMTP server', { exact: true })).toHaveCount(0)
     await page.getByRole('button', { name: 'Save', exact: true }).click()
     await expect(
         page.getByRole('status').filter({ hasText: 'Email settings saved.' })
@@ -317,14 +321,18 @@ test('configures SMTP in administration and sends a real test without exposing c
     await expect(
         page.getByRole('switch', { name: 'Enable email delivery', exact: true })
     ).not.toBeChecked()
+    await expect(page.getByLabel('SMTP server', { exact: true })).toHaveCount(0)
     await expect(
         page.getByRole('button', { name: 'Send me a test email', exact: true })
     ).toBeDisabled()
     await page.screenshot({ path: testInfo.outputPath('smtp-desktop.png'), fullPage: true })
-    await page.getByRole('button', { name: 'Save', exact: true }).scrollIntoViewIfNeeded()
-    await page.screenshot({ path: testInfo.outputPath('smtp-desktop-fields.png'), fullPage: true })
     await page.setViewportSize({ width: 390, height: 844 })
+    await expect(page.getByLabel('SMTP server', { exact: true })).toHaveCount(0)
+    await page.getByRole('switch', { name: 'Enable email delivery', exact: true }).click()
     await expect(page.getByLabel('SMTP server', { exact: true })).toBeVisible()
+    await expect(page.getByLabel('Sender address', { exact: true })).toHaveValue(
+        'postdot-test@postdot.local'
+    )
     expect(
         await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)
     ).toBe(true)
