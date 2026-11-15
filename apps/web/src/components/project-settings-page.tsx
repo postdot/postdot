@@ -13,10 +13,10 @@ export function ProjectSettingsPage() {
 
     return (
         <main className="min-w-0 px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
-            <AccessPageHeader column="management" title={m.nav_project_configuration()} />
+            <AccessPageHeader column="reading" title={m.nav_project_configuration()} />
             <PageColumn
                 className="[&>section:first-child]:mt-0 [&>section:first-child]:border-t-0 [&>section:first-child]:pt-0"
-                variant="management">
+                variant="reading">
                 <ProjectTimeZoneSection />
                 <ResourceLifecycleSection kind="project" id={project.id} />
             </PageColumn>

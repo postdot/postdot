@@ -45,8 +45,8 @@ test('keeps instance settings separate from project navigation', async ({ page }
 
     await page.goto('/dashboard/settings/workspace')
 
-    await expect(page).toHaveURL(/\/dashboard\/settings\/workspace(?:\?.*)?$/)
-    await expect(page.getByRole('heading', { name: 'Members & groups', exact: true })).toBeVisible()
+    await expect(page).toHaveURL(/\/dashboard\/settings\/workspace\/people(?:\?.*)?$/)
+    await expect(page.getByRole('heading', { name: 'People', exact: true })).toBeVisible()
     await expect(
         page.getByRole('navigation', { name: 'Workspace navigation', exact: true })
     ).toBeVisible()
@@ -96,14 +96,14 @@ test('keeps the workspace administration error state actionable', async ({ page 
     })
 
     await page.goto('/dashboard/settings/workspace')
-    await expect(page.getByRole('heading', { name: 'Members & groups', exact: true })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'People', exact: true })).toBeVisible()
     await expect(page.getByRole('alert')).toContainText('The server could not complete the action.')
     await expect(page.getByRole('button', { name: 'Retry', exact: true })).toBeVisible()
     await expect(page.locator('main').getByRole('status')).toHaveCount(0)
 
     await page.unroute(workspaceSummaryRoute)
     await page.getByRole('button', { name: 'Retry', exact: true }).click()
-    await expect(page.getByRole('heading', { name: 'Members', exact: true })).toBeVisible()
+    await expect(page.getByRole('tab', { name: 'Members', exact: true })).toBeVisible()
     await expect(page.getByRole('alert')).toHaveCount(0)
 })
 

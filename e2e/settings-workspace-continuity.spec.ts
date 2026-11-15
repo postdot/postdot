@@ -42,7 +42,8 @@ test('keeps personal and installation settings open when changing workspace cont
         '/dashboard/settings/provider-applications',
         '/dashboard/settings/access',
         '/dashboard/settings',
-        '/dashboard/settings/workspace',
+        '/dashboard/settings/workspace/people',
+        '/dashboard/settings/workspace/settings',
         '/dashboard/channels',
     ]) {
         const initialProject = path === '/dashboard/channels' ? 'none' : first!.projectId

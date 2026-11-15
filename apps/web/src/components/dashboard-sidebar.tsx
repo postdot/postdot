@@ -57,6 +57,7 @@ export type DashboardSection =
     | 'settings-access'
     | 'settings-provider-applications'
     | 'settings-workspace'
+    | 'settings-workspace-settings'
     | 'settings'
     | 'preferences'
     | 'preferences-api-keys'
@@ -329,6 +330,18 @@ export function DashboardSidebar({
                                                 projectId={selectedProjectId}
                                                 workspaceId={selectedWorkspaceId}
                                             />
+                                            <WorkspaceMenuItem
+                                                active={
+                                                    activeSection === 'settings-workspace-settings'
+                                                }
+                                                destination="settings-workspace-settings"
+                                                icon={
+                                                    <SettingsMinimalisticIcon aria-hidden="true" />
+                                                }
+                                                label={m.nav_workspace_settings()}
+                                                projectId={selectedProjectId}
+                                                workspaceId={selectedWorkspaceId}
+                                            />
                                         </SidebarMenu>
                                     </nav>
                                 </SidebarGroupContent>
@@ -457,6 +470,7 @@ export function workspaceSection(pathname: string): DashboardSection {
     if (pathname === '/dashboard/settings/archives') return 'settings-archives'
     if (pathname.includes('/projects/') && pathname.endsWith('/settings')) return 'project-settings'
     if (pathname.includes('/settings/access')) return 'settings-access'
+    if (pathname.includes('/settings/workspace/settings')) return 'settings-workspace-settings'
     if (pathname.includes('/settings/workspace')) return 'settings-workspace'
     if (pathname.includes('/settings/provider-applications')) {
         return 'settings-provider-applications'
@@ -480,13 +494,13 @@ export function workspaceSectionLabel(section: DashboardSection) {
     if (section === 'queue') return m.nav_queue()
     if (section === 'channels') return m.nav_channels()
     if (section === 'media') return m.nav_media()
-    if (section === 'access') return m.nav_access()
-    if (section === 'invitations') return m.nav_project_invitations()
+    if (section === 'access' || section === 'invitations') return m.nav_access()
     if (section === 'tags') return m.taxonomy_tags()
     if (section === 'project-settings') return m.nav_project_configuration()
     if (section === 'settings-archives') return m.lifecycle_archives()
     if (section === 'settings-access') return m.nav_instance_access()
     if (section === 'settings-provider-applications') return m.nav_instance_provider_apps()
+    if (section === 'settings-workspace-settings') return m.nav_workspace_settings()
     if (section === 'settings-workspace') return m.nav_workspace_administration()
     if (section === 'settings') return m.nav_instance_configuration()
     if (section === 'preferences') return m.nav_preferences_general()
@@ -538,6 +552,7 @@ function WorkspaceMenuItem({
                         : destination.startsWith('preferences')
                           ? 'personal'
                           : destination === 'settings-workspace' ||
+                              destination === 'settings-workspace-settings' ||
                               (destination === 'channels' && projectId === null) ||
                               (destination === 'overview' && projectId === null)
                             ? 'workspace'
@@ -627,10 +642,14 @@ function workspaceLink(
         )
     }
 
-    if (destination === 'settings-workspace') {
+    if (destination === 'settings-workspace' || destination === 'settings-workspace-settings') {
         return (
             <Link
-                to="/dashboard/settings/workspace"
+                to={
+                    destination === 'settings-workspace'
+                        ? '/dashboard/settings/workspace/people'
+                        : '/dashboard/settings/workspace/settings'
+                }
                 search={{ workspaceId: workspaceId ?? undefined, projectId: projectId ?? 'none' }}
                 activeOptions={{ exact: true }}
                 aria-label={ariaLabel}

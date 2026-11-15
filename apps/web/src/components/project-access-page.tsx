@@ -1,9 +1,6 @@
-import { AccessPageHeader } from '@/components/access-page-header'
-import { PageColumn } from '@/components/page-column'
 import { ProjectMembersSection } from '@/components/project-members-section'
 import { useDashboardGlobal, useProjectDashboard } from '@/lib/dashboard-context'
 import { useLanguage } from '@/lib/i18n'
-import * as m from '@/paraglide/messages.js'
 
 export function ProjectAccessPage() {
     useLanguage()
@@ -11,29 +8,11 @@ export function ProjectAccessPage() {
     const global = useDashboardGlobal()
 
     return (
-        <main className="min-w-0 px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
-            <div className="w-full">
-                <AccessPageHeader column="management" title={m.access_title()} />
-
-                <PageColumn variant="management">
-                    <ProjectMembersSection
-                        currentUserId={global.session.user.id}
-                        projectId={project.id}
-                        projectName={project.name}
-                        view="access"
-                        workspaceId={project.workspaceId}
-                    />
-                    <div className="mt-10">
-                        <ProjectMembersSection
-                            currentUserId={global.session.user.id}
-                            projectId={project.id}
-                            projectName={project.name}
-                            view="invitations"
-                            workspaceId={project.workspaceId}
-                        />
-                    </div>
-                </PageColumn>
-            </div>
-        </main>
+        <ProjectMembersSection
+            currentUserId={global.session.user.id}
+            projectId={project.id}
+            projectName={project.name}
+            workspaceId={project.workspaceId}
+        />
     )
 }

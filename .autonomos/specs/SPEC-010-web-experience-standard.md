@@ -56,6 +56,7 @@ The owner's product values decide trade-offs the rules do not: **intuitiveness**
 - **NAV-05 — A navigation item and the page it opens share their name.** The sidebar label, the page title and the search entry for one destination use one noun. Verification: measure.
 - **NAV-06 — A navigation item is not repeated as a card inside a page already framed by that navigation.** Verification: review.
 - **NAV-07 — Items of one scope live in one place.** If the sidebar lists a scope's destinations in the product shell, its other destinations of that scope do not live only in a second shell without a visible link between them. Verification: registry.
+- **NAV-08 — People and object settings have separate jobs.** Project People contains members and invitations once per person; workspace People contains members, invitations and groups. Project settings and Workspace settings own their time zone or other object settings and end with a danger zone. Archive precedes a separated, quieter permanent deletion action; both confirm publication, channel and media consequences without internal counts. Old links redirect to the owning page. Verification: registry and review (ADR-103 §4–5, audit T3–T5/T10).
 
 ### Width and layout (LAY)
 

@@ -38,6 +38,9 @@ import { Route as DashboardProjectsProjectIdPerformanceRouteImport } from './rou
 import { Route as DashboardProjectsProjectIdQueueRouteImport } from './routes/dashboard/projects/$projectId/queue'
 import { Route as DashboardProjectsProjectIdSettingsRouteImport } from './routes/dashboard/projects/$projectId/settings'
 import { Route as DashboardProjectsProjectIdTagsRouteImport } from './routes/dashboard/projects/$projectId/tags'
+import { Route as DashboardSettingsWorkspaceIndexRouteImport } from './routes/dashboard/settings/workspace/index'
+import { Route as DashboardSettingsWorkspacePeopleRouteImport } from './routes/dashboard/settings/workspace/people'
+import { Route as DashboardSettingsWorkspaceSettingsRouteImport } from './routes/dashboard/settings/workspace/settings'
 import { Route as DashboardProjectsProjectIdPostsPostIdRouteImport } from './routes/dashboard/projects/$projectId/posts/$postId'
 import { Route as DashboardProjectsProjectIdPublicationsPublicationIdRouteImport } from './routes/dashboard/projects/$projectId/publications/$publicationId'
 import { Route as DashboardProjectsProjectIdPublicationsNewRouteImport } from './routes/dashboard/projects/$projectId/publications/new'
@@ -204,6 +207,24 @@ const DashboardProjectsProjectIdTagsRoute =
     path: '/tags',
     getParentRoute: () => DashboardProjectsProjectIdRoute,
   } as any)
+const DashboardSettingsWorkspaceIndexRoute =
+  DashboardSettingsWorkspaceIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => DashboardSettingsWorkspaceRoute,
+  } as any)
+const DashboardSettingsWorkspacePeopleRoute =
+  DashboardSettingsWorkspacePeopleRouteImport.update({
+    id: '/people',
+    path: '/people',
+    getParentRoute: () => DashboardSettingsWorkspaceRoute,
+  } as any)
+const DashboardSettingsWorkspaceSettingsRoute =
+  DashboardSettingsWorkspaceSettingsRouteImport.update({
+    id: '/settings',
+    path: '/settings',
+    getParentRoute: () => DashboardSettingsWorkspaceRoute,
+  } as any)
 const DashboardProjectsProjectIdPostsPostIdRoute =
   DashboardProjectsProjectIdPostsPostIdRouteImport.update({
     id: '/posts/$postId',
@@ -240,7 +261,7 @@ export interface FileRoutesByFullPath {
   '/dashboard/settings/access': typeof DashboardSettingsAccessRoute
   '/dashboard/settings/archives': typeof DashboardSettingsArchivesRoute
   '/dashboard/settings/provider-applications': typeof DashboardSettingsProviderApplicationsRoute
-  '/dashboard/settings/workspace': typeof DashboardSettingsWorkspaceRoute
+  '/dashboard/settings/workspace': typeof DashboardSettingsWorkspaceRouteWithChildren
   '/dashboard/workspace/channels': typeof DashboardWorkspaceChannelsRoute
   '/dashboard/preferences/': typeof DashboardPreferencesIndexRoute
   '/dashboard/settings/': typeof DashboardSettingsIndexRoute
@@ -253,6 +274,9 @@ export interface FileRoutesByFullPath {
   '/dashboard/projects/$projectId/queue': typeof DashboardProjectsProjectIdQueueRoute
   '/dashboard/projects/$projectId/settings': typeof DashboardProjectsProjectIdSettingsRoute
   '/dashboard/projects/$projectId/tags': typeof DashboardProjectsProjectIdTagsRoute
+  '/dashboard/settings/workspace/people': typeof DashboardSettingsWorkspacePeopleRoute
+  '/dashboard/settings/workspace/settings': typeof DashboardSettingsWorkspaceSettingsRoute
+  '/dashboard/settings/workspace/': typeof DashboardSettingsWorkspaceIndexRoute
   '/dashboard/projects/$projectId/posts/$postId': typeof DashboardProjectsProjectIdPostsPostIdRoute
   '/dashboard/projects/$projectId/publications/$publicationId': typeof DashboardProjectsProjectIdPublicationsPublicationIdRoute
   '/dashboard/projects/$projectId/publications/new': typeof DashboardProjectsProjectIdPublicationsNewRoute
@@ -273,7 +297,6 @@ export interface FileRoutesByTo {
   '/dashboard/settings/access': typeof DashboardSettingsAccessRoute
   '/dashboard/settings/archives': typeof DashboardSettingsArchivesRoute
   '/dashboard/settings/provider-applications': typeof DashboardSettingsProviderApplicationsRoute
-  '/dashboard/settings/workspace': typeof DashboardSettingsWorkspaceRoute
   '/dashboard/workspace/channels': typeof DashboardWorkspaceChannelsRoute
   '/dashboard/preferences': typeof DashboardPreferencesIndexRoute
   '/dashboard/settings': typeof DashboardSettingsIndexRoute
@@ -286,6 +309,9 @@ export interface FileRoutesByTo {
   '/dashboard/projects/$projectId/queue': typeof DashboardProjectsProjectIdQueueRoute
   '/dashboard/projects/$projectId/settings': typeof DashboardProjectsProjectIdSettingsRoute
   '/dashboard/projects/$projectId/tags': typeof DashboardProjectsProjectIdTagsRoute
+  '/dashboard/settings/workspace/people': typeof DashboardSettingsWorkspacePeopleRoute
+  '/dashboard/settings/workspace/settings': typeof DashboardSettingsWorkspaceSettingsRoute
+  '/dashboard/settings/workspace': typeof DashboardSettingsWorkspaceIndexRoute
   '/dashboard/projects/$projectId/posts/$postId': typeof DashboardProjectsProjectIdPostsPostIdRoute
   '/dashboard/projects/$projectId/publications/$publicationId': typeof DashboardProjectsProjectIdPublicationsPublicationIdRoute
   '/dashboard/projects/$projectId/publications/new': typeof DashboardProjectsProjectIdPublicationsNewRoute
@@ -308,7 +334,7 @@ export interface FileRoutesById {
   '/dashboard/settings/access': typeof DashboardSettingsAccessRoute
   '/dashboard/settings/archives': typeof DashboardSettingsArchivesRoute
   '/dashboard/settings/provider-applications': typeof DashboardSettingsProviderApplicationsRoute
-  '/dashboard/settings/workspace': typeof DashboardSettingsWorkspaceRoute
+  '/dashboard/settings/workspace': typeof DashboardSettingsWorkspaceRouteWithChildren
   '/dashboard/workspace/channels': typeof DashboardWorkspaceChannelsRoute
   '/dashboard/preferences/': typeof DashboardPreferencesIndexRoute
   '/dashboard/settings/': typeof DashboardSettingsIndexRoute
@@ -321,6 +347,9 @@ export interface FileRoutesById {
   '/dashboard/projects/$projectId/queue': typeof DashboardProjectsProjectIdQueueRoute
   '/dashboard/projects/$projectId/settings': typeof DashboardProjectsProjectIdSettingsRoute
   '/dashboard/projects/$projectId/tags': typeof DashboardProjectsProjectIdTagsRoute
+  '/dashboard/settings/workspace/people': typeof DashboardSettingsWorkspacePeopleRoute
+  '/dashboard/settings/workspace/settings': typeof DashboardSettingsWorkspaceSettingsRoute
+  '/dashboard/settings/workspace/': typeof DashboardSettingsWorkspaceIndexRoute
   '/dashboard/projects/$projectId/posts/$postId': typeof DashboardProjectsProjectIdPostsPostIdRoute
   '/dashboard/projects/$projectId/publications/$publicationId': typeof DashboardProjectsProjectIdPublicationsPublicationIdRoute
   '/dashboard/projects/$projectId/publications/new': typeof DashboardProjectsProjectIdPublicationsNewRoute
@@ -357,6 +386,9 @@ export interface FileRouteTypes {
     | '/dashboard/projects/$projectId/queue'
     | '/dashboard/projects/$projectId/settings'
     | '/dashboard/projects/$projectId/tags'
+    | '/dashboard/settings/workspace/people'
+    | '/dashboard/settings/workspace/settings'
+    | '/dashboard/settings/workspace/'
     | '/dashboard/projects/$projectId/posts/$postId'
     | '/dashboard/projects/$projectId/publications/$publicationId'
     | '/dashboard/projects/$projectId/publications/new'
@@ -377,7 +409,6 @@ export interface FileRouteTypes {
     | '/dashboard/settings/access'
     | '/dashboard/settings/archives'
     | '/dashboard/settings/provider-applications'
-    | '/dashboard/settings/workspace'
     | '/dashboard/workspace/channels'
     | '/dashboard/preferences'
     | '/dashboard/settings'
@@ -390,6 +421,9 @@ export interface FileRouteTypes {
     | '/dashboard/projects/$projectId/queue'
     | '/dashboard/projects/$projectId/settings'
     | '/dashboard/projects/$projectId/tags'
+    | '/dashboard/settings/workspace/people'
+    | '/dashboard/settings/workspace/settings'
+    | '/dashboard/settings/workspace'
     | '/dashboard/projects/$projectId/posts/$postId'
     | '/dashboard/projects/$projectId/publications/$publicationId'
     | '/dashboard/projects/$projectId/publications/new'
@@ -424,6 +458,9 @@ export interface FileRouteTypes {
     | '/dashboard/projects/$projectId/queue'
     | '/dashboard/projects/$projectId/settings'
     | '/dashboard/projects/$projectId/tags'
+    | '/dashboard/settings/workspace/people'
+    | '/dashboard/settings/workspace/settings'
+    | '/dashboard/settings/workspace/'
     | '/dashboard/projects/$projectId/posts/$postId'
     | '/dashboard/projects/$projectId/publications/$publicationId'
     | '/dashboard/projects/$projectId/publications/new'
@@ -645,6 +682,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardProjectsProjectIdTagsRouteImport
       parentRoute: typeof DashboardProjectsProjectIdRoute
     }
+    '/dashboard/settings/workspace/': {
+      id: '/dashboard/settings/workspace/'
+      path: '/'
+      fullPath: '/dashboard/settings/workspace/'
+      preLoaderRoute: typeof DashboardSettingsWorkspaceIndexRouteImport
+      parentRoute: typeof DashboardSettingsWorkspaceRoute
+    }
+    '/dashboard/settings/workspace/people': {
+      id: '/dashboard/settings/workspace/people'
+      path: '/people'
+      fullPath: '/dashboard/settings/workspace/people'
+      preLoaderRoute: typeof DashboardSettingsWorkspacePeopleRouteImport
+      parentRoute: typeof DashboardSettingsWorkspaceRoute
+    }
+    '/dashboard/settings/workspace/settings': {
+      id: '/dashboard/settings/workspace/settings'
+      path: '/settings'
+      fullPath: '/dashboard/settings/workspace/settings'
+      preLoaderRoute: typeof DashboardSettingsWorkspaceSettingsRouteImport
+      parentRoute: typeof DashboardSettingsWorkspaceRoute
+    }
     '/dashboard/projects/$projectId/posts/$postId': {
       id: '/dashboard/projects/$projectId/posts/$postId'
       path: '/posts/$postId'
@@ -729,6 +787,26 @@ const DashboardProjectsProjectIdRouteWithChildren =
     DashboardProjectsProjectIdRouteChildren,
   )
 
+interface DashboardSettingsWorkspaceRouteChildren {
+  DashboardSettingsWorkspacePeopleRoute: typeof DashboardSettingsWorkspacePeopleRoute
+  DashboardSettingsWorkspaceSettingsRoute: typeof DashboardSettingsWorkspaceSettingsRoute
+  DashboardSettingsWorkspaceIndexRoute: typeof DashboardSettingsWorkspaceIndexRoute
+}
+
+const DashboardSettingsWorkspaceRouteChildren: DashboardSettingsWorkspaceRouteChildren =
+  {
+    DashboardSettingsWorkspacePeopleRoute:
+      DashboardSettingsWorkspacePeopleRoute,
+    DashboardSettingsWorkspaceSettingsRoute:
+      DashboardSettingsWorkspaceSettingsRoute,
+    DashboardSettingsWorkspaceIndexRoute: DashboardSettingsWorkspaceIndexRoute,
+  }
+
+const DashboardSettingsWorkspaceRouteWithChildren =
+  DashboardSettingsWorkspaceRoute._addFileChildren(
+    DashboardSettingsWorkspaceRouteChildren,
+  )
+
 interface DashboardRouteChildren {
   DashboardChannelsRoute: typeof DashboardChannelsRoute
   DashboardPreferencesRoute: typeof DashboardPreferencesRouteWithChildren
@@ -736,7 +814,7 @@ interface DashboardRouteChildren {
   DashboardSettingsAccessRoute: typeof DashboardSettingsAccessRoute
   DashboardSettingsArchivesRoute: typeof DashboardSettingsArchivesRoute
   DashboardSettingsProviderApplicationsRoute: typeof DashboardSettingsProviderApplicationsRoute
-  DashboardSettingsWorkspaceRoute: typeof DashboardSettingsWorkspaceRoute
+  DashboardSettingsWorkspaceRoute: typeof DashboardSettingsWorkspaceRouteWithChildren
   DashboardWorkspaceChannelsRoute: typeof DashboardWorkspaceChannelsRoute
   DashboardSettingsIndexRoute: typeof DashboardSettingsIndexRoute
 }
@@ -749,7 +827,7 @@ const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardSettingsArchivesRoute: DashboardSettingsArchivesRoute,
   DashboardSettingsProviderApplicationsRoute:
     DashboardSettingsProviderApplicationsRoute,
-  DashboardSettingsWorkspaceRoute: DashboardSettingsWorkspaceRoute,
+  DashboardSettingsWorkspaceRoute: DashboardSettingsWorkspaceRouteWithChildren,
   DashboardWorkspaceChannelsRoute: DashboardWorkspaceChannelsRoute,
   DashboardSettingsIndexRoute: DashboardSettingsIndexRoute,
 }

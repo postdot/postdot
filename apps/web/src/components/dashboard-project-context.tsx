@@ -343,7 +343,7 @@ export function DashboardProjectContext({
                                     projectId: selectedProjectId ?? 'none',
                                     workspaceId: selectedWorkspaceId ?? undefined,
                                 }}
-                                to="/dashboard/settings/workspace">
+                                to="/dashboard/settings/workspace/people">
                                 <UsersGroupTwoRoundedIcon
                                     aria-hidden="true"
                                     className="size-4 shrink-0"

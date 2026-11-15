@@ -9,7 +9,16 @@ import {
 } from '@postdot/ui/components/dialog'
 import { Field, FieldLabel } from '@postdot/ui/components/field'
 import { Input } from '@postdot/ui/components/input'
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@postdot/ui/components/select'
 import { toast } from '@postdot/ui/components/toast'
+import { cn } from '@postdot/ui/lib/utils'
+import { CheckIcon } from '@solar-icons/react/linear/check'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useRouter, useNavigate, useSearch, useParams } from '@tanstack/react-router'
 import { useState, type ReactNode } from 'react'
@@ -18,9 +27,10 @@ import { AccessPageHeader } from '@/components/access-page-header'
 import { ResourceAvatar } from '@/components/identity-visuals'
 import { PageColumn } from '@/components/page-column'
 import { QueryErrorState } from '@/components/query-error-state'
+import { StatusText, type StatusTone } from '@/components/status-text'
 import { ApiError, api, formatApiError } from '@/lib/api'
 import { useDashboardGlobal } from '@/lib/dashboard-context'
-import { formatBytes, formatNumber } from '@/lib/format'
+import { formatNumber } from '@/lib/format'
 import { useLanguage } from '@/lib/i18n'
 import { useOptionalProjectAccess } from '@/lib/project-access'
 import { projectQueryKeys } from '@/lib/project-query-keys'
@@ -39,6 +49,19 @@ function stateLabel(state: string) {
             return m.lifecycle_state_deleting()
         default:
             return m.lifecycle_state_deleted()
+    }
+}
+function stateTone(state: string): StatusTone {
+    switch (state) {
+        case 'active':
+            return 'positive'
+        case 'archiving':
+        case 'deleting':
+            return 'progress'
+        case 'deleted':
+            return 'critical'
+        default:
+            return 'neutral'
     }
 }
 export function ResourceLifecycleSection({
@@ -95,44 +118,18 @@ export function ResourceLifecycleSection({
     if (!impact.data) return <p role="status">{m.common_loading()}</p>
     const data = impact.data
     const busy = ['archiving', 'deleting'].includes(data.state)
-    const countLabels: Record<string, () => string> = {
-        channels: m.lifecycle_count_channels,
-        posts: m.lifecycle_count_posts,
-        publication_composer_drafts: m.lifecycle_count_drafts,
-        publications: m.lifecycle_count_publications,
-        media_assets: m.lifecycle_count_media,
-        publishers: m.lifecycle_count_connections,
-        audit_events: m.lifecycle_count_history,
-        project_user_grants: m.lifecycle_count_members,
-        project_team_grants: m.lifecycle_count_groups,
-        mediaBytes: m.lifecycle_count_bytes,
-        workspaceMembers: m.access_members_title,
-        workspaceGroups: m.access_workspace_groups_title,
-    }
-    const publicationLabels: Record<string, () => string> = {
-        draft: m.publication_state_draft,
-        scheduled: m.publication_state_queued,
-        ready: m.publication_state_ready,
-        publishing: m.publication_state_publishing,
-        published: m.publication_state_published,
-        failed: m.publication_state_failed,
-        ambiguous: m.publication_state_needs_review,
-        cancelled: m.publication_state_cancelled,
-    }
-    const nonZeroCounts = Object.entries(data.counts).filter(([, value]) => value > 0)
-    const nonZeroPublications = Object.entries(data.publications).filter(([, count]) => count > 0)
-    const hasNonZeroImpact =
-        nonZeroCounts.length > 0 ||
-        nonZeroPublications.length > 0 ||
-        data.pending > 0 ||
-        data.uncertain > 0 ||
-        data.active > 0
+    // pending includes comment work; only publication states count publications.
+    const scheduled = (data.publications.scheduled ?? 0) + (data.publications.ready ?? 0)
+    const channels = data.counts.channels ?? 0
+    const media = data.counts.media_assets ?? 0
+    const archiveLabel =
+        kind === 'project' ? m.lifecycle_archive_project() : m.lifecycle_archive_workspace()
     const actionLabel =
         action === 'delete'
             ? m.lifecycle_delete()
             : action === 'restore'
               ? m.lifecycle_restore()
-              : m.lifecycle_archive()
+              : archiveLabel
     async function submit() {
         if (!action || pending || (access !== null && !access.canWrite())) return
         setPending(true)
@@ -178,7 +175,7 @@ export function ResourceLifecycleSection({
         void impact.refetch()
     }
     return (
-        <section className="mt-8 border-t border-border pt-6" aria-label={m.lifecycle_title()}>
+        <section className="mt-10 border-t border-border pt-6" aria-label={m.lifecycle_title()}>
             <div className="flex flex-wrap items-center justify-between gap-3">
                 <h2 className="flex min-w-0 items-center gap-3 font-heading text-lg font-medium">
                     {inArchives ? <ResourceAvatar kind={kind} name={data.name} seed={id} /> : null}
@@ -195,13 +192,16 @@ export function ResourceLifecycleSection({
                     </Link>
                 ) : null}
             </div>
-            <p className="mt-2 text-sm text-muted-foreground">
-                {inArchives
-                    ? kind === 'project'
-                        ? m.nav_project()
-                        : m.nav_workspace()
-                    : data.name}{' '}
-                · {stateLabel(data.state)}
+            <p className="mt-2 flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground">
+                <span>
+                    {inArchives
+                        ? kind === 'project'
+                            ? m.nav_project()
+                            : m.nav_workspace()
+                        : data.name}
+                </span>
+                <span aria-hidden="true">·</span>
+                <StatusText tone={stateTone(data.state)}>{stateLabel(data.state)}</StatusText>
             </p>
             {impact.isError && action === null ? (
                 <QueryErrorState className="mt-4" onRetry={() => void impact.refetch()} />
@@ -213,23 +213,28 @@ export function ResourceLifecycleSection({
             ) : busy ? (
                 <p role="status" className="mt-3">
                     {data.cleanupPending > 0
-                        ? m.lifecycle_cleanup_waiting({ count: data.cleanupPending })
+                        ? m.lifecycle_cleanup_waiting()
                         : m.lifecycle_waiting()}
                 </p>
             ) : (
-                <div className="mt-4 flex flex-wrap gap-3">
+                <div className="mt-4 space-y-6">
                     {data.state === 'active' ? (
                         <Button variant="outline" onClick={() => open('archive')}>
-                            {m.lifecycle_archive()}
+                            {archiveLabel}
                         </Button>
                     ) : (
                         <Button variant="outline" onClick={() => open('restore')}>
                             {m.lifecycle_restore()}
                         </Button>
                     )}
-                    <Button variant="destructive" onClick={() => open('delete')}>
-                        {m.lifecycle_delete()}
-                    </Button>
+                    <div className="border-t border-border pt-4">
+                        <Button
+                            variant="ghost"
+                            className="text-muted-foreground"
+                            onClick={() => open('delete')}>
+                            {m.lifecycle_delete()}
+                        </Button>
+                    </div>
                 </div>
             )}
             <Dialog
@@ -237,18 +242,62 @@ export function ResourceLifecycleSection({
                 onOpenChange={value => {
                     if (!pending && !value) setAction(null)
                 }}>
-                <DialogContent className="flex max-h-[calc(100dvh-2rem)] min-h-0 max-w-lg flex-col overflow-hidden sm:max-w-lg">
+                <DialogContent className="flex max-h-[calc(100dvh-2rem)] min-h-0 flex-col overflow-hidden sm:max-w-lg">
                     <DialogHeader className="shrink-0">
                         <DialogTitle>{actionLabel}</DialogTitle>
-                        <DialogDescription className="leading-6">
-                            {action === 'delete'
-                                ? m.lifecycle_delete_explanation()
-                                : action === 'restore'
-                                  ? kind === 'workspace'
-                                      ? m.lifecycle_restore_workspace_explanation()
-                                      : m.lifecycle_restore_explanation()
-                                  : m.lifecycle_archive_explanation()}
-                        </DialogDescription>
+                        {action === 'restore' ? (
+                            <DialogDescription>
+                                {kind === 'workspace'
+                                    ? m.lifecycle_restore_workspace_explanation()
+                                    : m.lifecycle_restore_explanation()}
+                            </DialogDescription>
+                        ) : (
+                            <DialogDescription
+                                render={<div />}
+                                className="space-y-2 leading-6"
+                                data-lifecycle-consequences="true">
+                                <p>
+                                    {scheduled === 0
+                                        ? m.lifecycle_no_scheduled()
+                                        : m.lifecycle_scheduled_cancelled({
+                                              count: scheduled,
+                                              total: formatNumber(scheduled, locale),
+                                          })}
+                                </p>
+                                <p>
+                                    {action === 'delete'
+                                        ? kind === 'project'
+                                            ? m.lifecycle_project_channels_removed({
+                                                  count: channels,
+                                                  total: formatNumber(channels, locale),
+                                              })
+                                            : m.lifecycle_workspace_channels_deleted({
+                                                  count: channels,
+                                                  total: formatNumber(channels, locale),
+                                              })
+                                        : kind === 'project'
+                                          ? m.lifecycle_project_channels_stopped({
+                                                count: channels,
+                                                total: formatNumber(channels, locale),
+                                            })
+                                          : m.lifecycle_workspace_channels_stopped({
+                                                count: channels,
+                                                total: formatNumber(channels, locale),
+                                            })}
+                                </p>
+                                <p>
+                                    {action === 'delete'
+                                        ? m.lifecycle_media_deleted({
+                                              count: media,
+                                              total: formatNumber(media, locale),
+                                          })
+                                        : m.lifecycle_media_retained({
+                                              count: media,
+                                              total: formatNumber(media, locale),
+                                          })}
+                                </p>
+                            </DialogDescription>
+                        )}
                     </DialogHeader>
                     <div className="min-h-0 space-y-4 overflow-y-auto overscroll-contain">
                         <div className="flex items-center gap-2.5 rounded-md border border-border bg-muted/40 px-3 py-2 text-sm">
@@ -268,115 +317,49 @@ export function ResourceLifecycleSection({
                                 />
                             </Field>
                         )}
-                        {hasNonZeroImpact && (
-                            <dl className="grid grid-cols-[1fr_auto] gap-x-6 gap-y-2 rounded-md border border-border bg-muted/20 px-3 py-2.5 text-sm tabular-nums">
-                                {nonZeroCounts.map(([key, value]) => (
-                                    <div key={key} className="contents">
-                                        <dt className="text-muted-foreground">
-                                            {countLabels[key]?.() ?? key}
-                                        </dt>
-                                        <dd className="font-medium">
-                                            {key === 'mediaBytes'
-                                                ? formatBytes(value, locale)
-                                                : formatNumber(value, locale)}
-                                        </dd>
-                                    </div>
-                                ))}
-                                {nonZeroPublications.map(([state, count]) => (
-                                    <div className="contents" key={`publication-${state}`}>
-                                        <dt className="text-muted-foreground">
-                                            {m.lifecycle_count_publications()} ·{' '}
-                                            {publicationLabels[state]?.() ?? state}
-                                        </dt>
-                                        <dd className="font-medium">
-                                            {formatNumber(count, locale)}
-                                        </dd>
-                                    </div>
-                                ))}
-                                {data.pending > 0 && (
-                                    <div className="contents">
-                                        <dt className="text-muted-foreground">
-                                            {m.lifecycle_pending()}
-                                        </dt>
-                                        <dd className="font-medium">
-                                            {formatNumber(data.pending, locale)}
-                                        </dd>
-                                    </div>
-                                )}
-                                {data.uncertain > 0 && (
-                                    <div className="contents">
-                                        <dt className="text-muted-foreground">
-                                            {m.lifecycle_uncertain()}
-                                        </dt>
-                                        <dd className="font-medium">
-                                            {formatNumber(data.uncertain, locale)}
-                                        </dd>
-                                    </div>
-                                )}
-                                {data.active > 0 && (
-                                    <div className="contents">
-                                        <dt className="text-muted-foreground">
-                                            {m.lifecycle_active_operations()}
-                                        </dt>
-                                        <dd className="font-medium">
-                                            {formatNumber(data.active, locale)}
-                                        </dd>
-                                    </div>
-                                )}
-                            </dl>
-                        )}
-                        {kind === 'workspace' && data.projects.length > 0 && (
-                            <ul className="space-y-1 text-sm text-muted-foreground">
-                                {data.projects.map(project => (
-                                    <li key={project.id}>
-                                        {project.name} · {stateLabel(project.state)}
-                                    </li>
-                                ))}
-                            </ul>
-                        )}
                         {action !== 'restore' && data.pending > 0 && (
-                            <label className="flex items-start gap-2 text-sm">
-                                <input
-                                    type="checkbox"
-                                    checked={cancelPending}
-                                    onChange={event => setCancelPending(event.target.checked)}
-                                />
-                                {m.lifecycle_cancel_pending()}
-                            </label>
+                            <LifecycleCheckbox
+                                checked={cancelPending}
+                                label={m.lifecycle_cancel_pending()}
+                                onChange={setCancelPending}
+                            />
                         )}
                         {action !== 'restore' && data.isDefault && (
-                            <label className="grid gap-2 text-sm">
-                                {m.lifecycle_replacement()}
-                                <select
-                                    className="w-full rounded-md border border-input bg-background p-2"
+                            <Field className="gap-2">
+                                <FieldLabel htmlFor="lifecycle-replacement">
+                                    {m.lifecycle_replacement()}
+                                </FieldLabel>
+                                <Select
                                     value={replacementWorkspaceId}
-                                    onChange={event => setReplacement(event.target.value)}>
-                                    <option value="">{m.lifecycle_replacement_hint()}</option>
-                                    {workspaces.data?.workspaces
-                                        .filter(
-                                            workspace =>
-                                                workspace.id !== id &&
-                                                ['owner', 'admin'].includes(workspace.role)
-                                        )
-                                        .map(workspace => (
-                                            <option value={workspace.id} key={workspace.id}>
-                                                {workspace.name}
-                                            </option>
-                                        ))}
-                                </select>
-                            </label>
+                                    onValueChange={value => setReplacement(value ?? '')}>
+                                    <SelectTrigger
+                                        className="w-full"
+                                        id="lifecycle-replacement"
+                                        aria-label={m.lifecycle_replacement()}>
+                                        <SelectValue placeholder={m.lifecycle_replacement_hint()} />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {workspaces.data?.workspaces
+                                            .filter(
+                                                workspace =>
+                                                    workspace.id !== id &&
+                                                    ['owner', 'admin'].includes(workspace.role)
+                                            )
+                                            .map(workspace => (
+                                                <SelectItem value={workspace.id} key={workspace.id}>
+                                                    {workspace.name}
+                                                </SelectItem>
+                                            ))}
+                                    </SelectContent>
+                                </Select>
+                            </Field>
                         )}
                         {action === 'delete' && data.uncertain > 0 && (
-                            <label className="flex items-start gap-2 text-sm">
-                                <input
-                                    type="checkbox"
-                                    checked={acknowledgeUncertain}
-                                    onChange={event =>
-                                        setAcknowledgeUncertain(event.target.checked)
-                                    }
-                                />
-                                {m.lifecycle_ack_uncertain()}
-                            </label>
+                            <LifecycleCheckbox
+                                checked={acknowledgeUncertain}
+                                label={m.lifecycle_ack_uncertain()}
+                                onChange={setAcknowledgeUncertain}
+                            />
                         )}
                         {impact.isError ? (
                             <QueryErrorState onRetry={() => void impact.refetch()} />
@@ -490,4 +473,35 @@ export function useProjectLifecycle(projectId: string) {
         refetchInterval: query =>
             ['archiving', 'deleting'].includes(query.state.data?.state ?? '') ? 1500 : false,
     })
+}
+
+function LifecycleCheckbox({
+    checked,
+    label,
+    onChange,
+}: {
+    readonly checked: boolean
+    readonly label: string
+    readonly onChange: (checked: boolean) => void
+}) {
+    return (
+        <label className="relative flex cursor-pointer items-start gap-2.5 text-sm">
+            <input
+                checked={checked}
+                className="peer absolute left-0 top-0.5 size-4 cursor-pointer opacity-0"
+                onChange={event => onChange(event.currentTarget.checked)}
+                type="checkbox"
+            />
+            <span
+                aria-hidden="true"
+                className={cn(
+                    'pointer-events-none mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-[4px] border border-muted-foreground/45 bg-transparent text-transparent transition-[background-color,border-color,box-shadow]',
+                    'peer-focus-visible:ring-2 peer-focus-visible:ring-primary peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-background',
+                    checked && 'border-primary bg-primary text-primary-foreground shadow-control'
+                )}>
+                {checked ? <CheckIcon className="size-3" /> : null}
+            </span>
+            <span>{label}</span>
+        </label>
+    )
 }

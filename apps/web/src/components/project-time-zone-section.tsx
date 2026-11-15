@@ -65,7 +65,9 @@ export function ProjectTimeZoneSection() {
                 className="mt-4 flex max-w-md flex-col gap-3"
                 onSubmit={e => void handleSubmit(e)}>
                 <Field className="gap-1.5">
-                    <FieldLabel htmlFor="project-timezone">{m.project_timezone_label()}</FieldLabel>
+                    <FieldLabel className="sr-only" htmlFor="project-timezone">
+                        {m.project_timezone_label()}
+                    </FieldLabel>
                     <TimeZoneCombobox
                         disabled={!canEdit || pending}
                         id="project-timezone"

@@ -56,7 +56,8 @@ export function DashboardShell({
         activeSection === 'preferences' ||
         activeSection === 'preferences-api-keys' ||
         activeSection === 'preferences-account'
-    const isWorkspaceSettings = activeSection === 'settings-workspace'
+    const isWorkspaceSettings =
+        activeSection === 'settings-workspace' || activeSection === 'settings-workspace-settings'
     const isInstanceSettings =
         activeSection === 'settings-archives' ||
         activeSection === 'settings' ||

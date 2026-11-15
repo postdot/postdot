@@ -14,9 +14,7 @@ test('an instance admin can create, copy, revoke, and accept invitations', async
     const account = await createAccountAndProject(page, suffix)
     await page.goto(`/dashboard/settings/access?projectId=${account.projectId}`)
 
-    await expect(
-        page.getByRole('heading', { name: 'Members & invitations', exact: true }).first()
-    ).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'People', exact: true }).first()).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Your access', exact: true })).toHaveCount(0)
     await expect(page.getByRole('heading', { name: 'Members', exact: true })).toBeVisible()
     await expect(page.getByText('Administrator', { exact: true }).first()).toBeVisible()
@@ -142,9 +140,7 @@ test('a member cannot enter instance administration', async ({ page }) => {
 
     await page.goto(`/dashboard/settings/access?projectId=${account.projectId}`)
     await expect(page).toHaveURL(new RegExp(`/dashboard/projects/${account.projectId}/overview$`))
-    await expect(
-        page.getByRole('heading', { name: 'Members & invitations', exact: true })
-    ).toHaveCount(0)
+    await expect(page.getByRole('heading', { name: 'People', exact: true })).toHaveCount(0)
     await expect(page.getByRole('button', { name: 'Invite', exact: true })).toHaveCount(0)
 })
 

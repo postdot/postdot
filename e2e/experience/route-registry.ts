@@ -128,7 +128,7 @@ export const experienceRoutes: readonly ExperienceRoute[] = [
         job: 'Maintain project tags',
     },
     {
-        id: 'project-access',
+        id: 'project-people',
         path: ({ projectId }) => `/dashboard/projects/${projectId}/access`,
         scope: 'project',
         shell: 'product',
@@ -140,7 +140,7 @@ export const experienceRoutes: readonly ExperienceRoute[] = [
         path: ({ projectId }) => `/dashboard/projects/${projectId}/settings`,
         scope: 'project',
         shell: 'product',
-        widthClass: 'management-column',
+        widthClass: 'reading-column',
         job: 'Set the project time zone, archive or delete the project',
     },
     {
@@ -153,12 +153,22 @@ export const experienceRoutes: readonly ExperienceRoute[] = [
         job: 'Manage shared channels and their project use',
     },
     {
-        id: 'workspace-administration',
-        path: ({ workspaceId }) => `/dashboard/settings/workspace?workspaceId=${workspaceId}`,
+        id: 'workspace-people',
+        path: ({ workspaceId }) =>
+            `/dashboard/settings/workspace/people?workspaceId=${workspaceId}`,
+        scope: 'workspace',
+        shell: 'settings',
+        widthClass: 'management-column',
+        job: 'Manage workspace people, invitations and groups',
+    },
+    {
+        id: 'workspace-settings',
+        path: ({ workspaceId }) =>
+            `/dashboard/settings/workspace/settings?workspaceId=${workspaceId}`,
         scope: 'workspace',
         shell: 'settings',
         widthClass: 'reading-column',
-        job: 'Manage workspace members and groups',
+        job: 'Archive or permanently delete the workspace',
     },
     {
         id: 'personal-general',

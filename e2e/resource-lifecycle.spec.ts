@@ -42,10 +42,17 @@ for (const [locale, messages] of [
         await page.addInitScript(value => localStorage.setItem('PARAGLIDE_LOCALE', value), locale)
         await page.goto(`/dashboard/projects/${project.id}/settings`)
         const section = page.getByRole('region', { name: messages.lifecycle_title })
-        await section.getByRole('button', { name: messages.lifecycle_archive, exact: true }).click()
+        await section
+            .getByRole('button', { name: messages.lifecycle_archive_project, exact: true })
+            .click()
         const dialog = page.locator('[data-slot="dialog-content"]')
-        await expect(dialog.getByText(messages.lifecycle_archive_explanation)).toBeVisible()
-        await dialog.getByRole('button', { name: messages.lifecycle_archive, exact: true }).click()
+        await expect(dialog.locator('[data-lifecycle-consequences] > p')).toHaveCount(3)
+        await expect(
+            dialog.getByText(messages.lifecycle_no_scheduled, { exact: true })
+        ).toBeVisible()
+        await dialog
+            .getByRole('button', { name: messages.lifecycle_archive_project, exact: true })
+            .click()
         await expect(
             page.getByRole('status').filter({ hasText: messages.lifecycle_archived_notice })
         ).toBeVisible()
@@ -77,25 +84,13 @@ for (const [locale, messages] of [
         await expect(
             dialog.getByRole('heading', { name: messages.lifecycle_delete, exact: true })
         ).toBeVisible()
-        await expect(dialog.getByText(messages.lifecycle_delete_explanation)).toBeVisible()
         await expect(dialog.getByText(name, { exact: true })).toBeVisible()
+        await expect(dialog.locator('[data-lifecycle-consequences] > p')).toHaveCount(3)
         await expect(
-            dialog.getByText(messages.lifecycle_count_channels, { exact: true })
+            dialog.getByText(messages.lifecycle_no_scheduled, { exact: true })
         ).toBeVisible()
-        await expect(
-            dialog.getByText(messages.lifecycle_count_posts, { exact: true })
-        ).toBeVisible()
-        await expect(dialog.getByText(messages.lifecycle_count_media, { exact: true })).toHaveCount(
-            0
-        )
-        await expect(dialog.getByText(messages.lifecycle_count_bytes, { exact: true })).toHaveCount(
-            0
-        )
-        await expect(dialog.getByText(messages.lifecycle_pending, { exact: true })).toHaveCount(0)
-        await expect(dialog.getByText(messages.lifecycle_uncertain, { exact: true })).toHaveCount(0)
-        await expect(
-            dialog.getByText(messages.lifecycle_active_operations, { exact: true })
-        ).toHaveCount(0)
+        await expect(dialog.locator('dl')).toHaveCount(0)
+        await expect(dialog).not.toContainText(/audit|grant|pending work|the resource/i)
         await expect(
             dialog.getByRole('button', { name: messages.lifecycle_delete, exact: true })
         ).toBeDisabled()
@@ -116,6 +111,99 @@ for (const [locale, messages] of [
                     .then(body =>
                         body.projects.some((item: { id: string }) => item.id === project.id)
                     )
+            )
+            .toBe(false)
+    })
+}
+
+for (const [locale, copy] of [
+    ['en', en],
+    ['fr', fr],
+] as const) {
+    test(`deletes a workspace with publication consequences and a typed name in ${locale}`, async ({
+        page,
+    }) => {
+        const suffix = randomUUID().slice(0, 8)
+        expect(
+            (
+                await page.request.post('/api/auth/sign-up/email', {
+                    data: {
+                        name: 'Workspace owner',
+                        email: `workspace-delete-${suffix}@example.test`,
+                        password: 'lifecycle-browser-password-123',
+                    },
+                })
+            ).status()
+        ).toBe(200)
+        const name = `Disposable workspace ${suffix}`
+        const { workspace } = await (
+            await page.request.post('/api/workspaces', { data: { name } })
+        ).json()
+        const { project } = await (
+            await page.request.post('/api/projects', {
+                data: { name: 'Editorial', workspaceId: workspace.id },
+            })
+        ).json()
+        const { channel } = await (
+            await page.request.post(`/api/projects/${project.id}/channels`, {
+                data: { name: 'Daily news' },
+            })
+        ).json()
+        expect(
+            (
+                await page.request.post(`/api/projects/${project.id}/posts`, {
+                    data: {
+                        sourceContent: {
+                            body: { format: 'plain_text', text: 'Scheduled news' },
+                            media: [],
+                        },
+                        publications: [
+                            {
+                                channelId: channel.id,
+                                deliveryMode: 'manual',
+                                scheduledAt: Date.now() + 86_400_000,
+                            },
+                        ],
+                    },
+                })
+            ).status()
+        ).toBe(201)
+        await page.addInitScript(value => localStorage.setItem('PARAGLIDE_LOCALE', value), locale)
+        await page.goto(
+            `/dashboard/settings/workspace/settings?workspaceId=${workspace.id}&projectId=${project.id}`
+        )
+        await page.getByRole('button', { name: copy.lifecycle_delete, exact: true }).click()
+        const dialog = page.locator('[data-slot="dialog-content"]')
+        const consequences = dialog.locator('[data-lifecycle-consequences] > p')
+        await expect(consequences).toHaveCount(3)
+        await expect(consequences.first()).toHaveText(
+            copy.lifecycle_scheduled_cancelled[0]!.match['countPlural=one']!.replace('{total}', '1')
+        )
+        await expect(consequences.nth(1)).toHaveText(
+            copy.lifecycle_workspace_channels_deleted[0]!.match['countPlural=one']!.replace(
+                '{total}',
+                '1'
+            )
+        )
+        await expect(dialog).not.toContainText(/audit|grant|pending work|the resource/i)
+        const confirm = dialog.getByRole('button', { name: copy.lifecycle_delete, exact: true })
+        await expect(confirm).toBeDisabled()
+        await dialog
+            .getByLabel(copy.lifecycle_confirm_name.replace('{name}', name), { exact: true })
+            .fill(name)
+        await expect(confirm).toBeDisabled()
+        await dialog
+            .getByRole('checkbox', { name: copy.lifecycle_cancel_pending, exact: true })
+            .check()
+        await expect(confirm).toBeEnabled()
+        await confirm.click()
+        await expect(dialog).toHaveCount(0)
+        await expect(page).toHaveURL(/\/dashboard\/settings\/archives\?/)
+        await expect
+            .poll(async () =>
+                (await (await page.request.get('/api/workspaces')).json()).workspaces.some(
+                    (item: { id: string }) => item.id === workspace.id
+                )
             )
             .toBe(false)
     })

@@ -185,6 +185,7 @@ export function DashboardSearch({
                         },
                         {
                             title: m.nav_instance_access(),
+                            scopeLabel: m.nav_installation(),
                             href: `/dashboard/settings/access?${context}`,
                             keywords: m.search_aliases_instance_access(),
                         },
@@ -203,14 +204,31 @@ export function DashboardSearch({
                   ? [
                         {
                             title: m.nav_workspace_administration(),
-                            href: `/dashboard/settings/workspace?${context}`,
+                            scopeLabel: m.nav_workspace(),
+                            href: `/dashboard/settings/workspace/people?${context}`,
                             keywords: m.search_aliases_workspace(),
+                        },
+                        {
+                            title: m.nav_workspace_settings(),
+                            href: `/dashboard/settings/workspace/settings?${context}`,
+                            keywords: `${m.search_aliases_workspace()} ${m.lifecycle_title()}`,
                         },
                     ]
                   : []),
               ...(projectId === null
                   ? []
                   : [
+                        {
+                            title: m.nav_access(),
+                            scopeLabel: m.nav_project(),
+                            href: `/dashboard/projects/${encodeURIComponent(projectId)}/access`,
+                            keywords: m.search_aliases_instance_access(),
+                        },
+                        {
+                            title: m.nav_project_configuration(),
+                            href: `/dashboard/projects/${encodeURIComponent(projectId)}/settings`,
+                            keywords: `${m.nav_project_configuration()} ${m.project_timezone_title()} ${m.lifecycle_title()}`,
+                        },
                         {
                             title: m.nav_overview(),
                             href: `/dashboard/projects/${encodeURIComponent(projectId)}/overview`,
@@ -478,7 +496,12 @@ export function DashboardSearch({
                                                 aria-hidden="true"
                                                 className="size-5 shrink-0 text-muted-foreground"
                                             />
-                                            <span>{page.title}</span>
+                                            <span className="flex-1">{page.title}</span>
+                                            {'scopeLabel' in page ? (
+                                                <span className="text-xs text-muted-foreground">
+                                                    {page.scopeLabel}
+                                                </span>
+                                            ) : null}
                                         </CommandItem>
                                     )
                                 })}

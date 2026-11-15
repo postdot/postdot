@@ -1,7 +1,20 @@
 import { Alert, AlertDescription, AlertTitle } from '@postdot/ui/components/alert'
-import { Badge } from '@postdot/ui/components/badge'
 import { Button } from '@postdot/ui/components/button'
-import { Dialog, DialogContent, DialogTitle, DialogTrigger } from '@postdot/ui/components/dialog'
+import {
+    Dialog,
+    DialogClose,
+    DialogContent,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from '@postdot/ui/components/dialog'
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@postdot/ui/components/dropdown-menu'
 import { Field, FieldLabel } from '@postdot/ui/components/field'
 import { Input } from '@postdot/ui/components/input'
 import {
@@ -15,6 +28,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@postdot/ui/components
 import { AddIcon } from '@solar-icons/react/linear/add'
 import { CheckIcon } from '@solar-icons/react/linear/check'
 import { CloseIcon } from '@solar-icons/react/linear/close'
+import { MenuDotsIcon } from '@solar-icons/react/linear/menu-dots'
 import { PenIcon } from '@solar-icons/react/linear/pen'
 import { RefreshIcon } from '@solar-icons/react/linear/refresh'
 import { UserCrossRoundedIcon } from '@solar-icons/react/linear/user-cross-rounded'
@@ -22,8 +36,10 @@ import { UserPlusRoundedIcon } from '@solar-icons/react/linear/user-plus-rounded
 import { UsersGroupTwoRoundedIcon } from '@solar-icons/react/linear/users-group-two-rounded'
 import { useEffect, useState, type FormEvent } from 'react'
 
+import { AccessPageHeader } from '@/components/access-page-header'
 import { EmptyState } from '@/components/empty-state'
 import { UserAvatar } from '@/components/identity-visuals'
+import { PageColumn } from '@/components/page-column'
 import {
     api,
     ApiError,
@@ -34,6 +50,7 @@ import {
     type WorkspaceTeamMember,
 } from '@/lib/api'
 import { useDashboardGlobal } from '@/lib/dashboard-context'
+import { useLanguage } from '@/lib/i18n'
 import * as m from '@/paraglide/messages.js'
 
 interface WorkspaceGroupsSectionProps {
@@ -51,6 +68,7 @@ interface WorkspaceTeamProject {
 type TeamProjectsById = Record<string, WorkspaceTeamProject[]>
 
 export function WorkspaceGroupsSection({ workspaceId }: WorkspaceGroupsSectionProps) {
+    useLanguage()
     const { session } = useDashboardGlobal()
     const [workspace, setWorkspace] = useState<WorkspaceSummary | null>(null)
     const [teamMembers, setTeamMembers] = useState<TeamMembersById>({})
@@ -349,29 +367,32 @@ export function WorkspaceGroupsSection({ workspaceId }: WorkspaceGroupsSectionPr
 
     if (workspace === null) {
         return (
-            <section className="mt-6 bg-surface-raised p-5 shadow-surface sm:p-6">
-                {error ? (
-                    <Alert variant="destructive">
-                        <AlertTitle>{m.access_workspace_groups_action_failed()}</AlertTitle>
-                        <AlertDescription className="flex flex-wrap items-center gap-x-3 gap-y-2">
-                            <span>{error}</span>
-                            <Button
-                                className="shrink-0"
-                                onClick={() => setReloadVersion(current => current + 1)}
-                                size="sm"
-                                type="button"
-                                variant="ghost">
-                                <RefreshIcon aria-hidden="true" />
-                                {m.common_retry()}
-                            </Button>
-                        </AlertDescription>
-                    </Alert>
-                ) : (
-                    <p className="text-sm text-muted-foreground" role="status">
-                        {m.access_workspace_groups_loading()}
-                    </p>
-                )}
-            </section>
+            <>
+                <AccessPageHeader column="management" title={m.access_workspace_title()} />
+                <PageColumn variant="management">
+                    {error ? (
+                        <Alert variant="destructive">
+                            <AlertTitle>{m.access_workspace_groups_action_failed()}</AlertTitle>
+                            <AlertDescription className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                                <span>{error}</span>
+                                <Button
+                                    className="shrink-0"
+                                    onClick={() => setReloadVersion(current => current + 1)}
+                                    size="sm"
+                                    type="button"
+                                    variant="ghost">
+                                    <RefreshIcon aria-hidden="true" />
+                                    {m.common_retry()}
+                                </Button>
+                            </AlertDescription>
+                        </Alert>
+                    ) : (
+                        <p className="text-sm text-muted-foreground" role="status">
+                            {m.access_workspace_groups_loading()}
+                        </p>
+                    )}
+                </PageColumn>
+            </>
         )
     }
 
@@ -386,7 +407,24 @@ export function WorkspaceGroupsSection({ workspaceId }: WorkspaceGroupsSectionPr
             onOpenChange={open => {
                 if (!open && pendingAction === null) setActiveForm(null)
             }}>
-            <div className="space-y-6">
+            <AccessPageHeader
+                column="management"
+                title={m.access_workspace_title()}
+                action={
+                    canManage ? (
+                        <DialogTrigger
+                            onClick={() => {
+                                setError(null)
+                                setActiveForm('invite')
+                            }}
+                            render={<Button disabled={pendingAction !== null} />}>
+                            <UserPlusRoundedIcon aria-hidden="true" />
+                            {m.access_project_invite_button()}
+                        </DialogTrigger>
+                    ) : undefined
+                }
+            />
+            <PageColumn variant="management" className="space-y-6">
                 {error && activeForm === null ? (
                     <Alert variant="destructive">
                         <AlertTitle>{m.access_workspace_groups_action_failed()}</AlertTitle>
@@ -411,37 +449,8 @@ export function WorkspaceGroupsSection({ workspaceId }: WorkspaceGroupsSectionPr
                     </TabsList>
                     <TabsContent value="members" className="space-y-8">
                         <section aria-labelledby="workspace-members-title" className="min-w-0">
-                            <div className="flex items-center justify-between gap-3">
-                                <div className="min-w-0">
-                                    <h2 id="workspace-members-title" className="sr-only">
-                                        {m.access_workspace_members_title()}
-                                    </h2>
-                                </div>
-                                {canManage ? (
-                                    <DialogTrigger
-                                        onClick={() => {
-                                            setError(null)
-                                            setActiveForm('invite')
-                                        }}
-                                        render={
-                                            <Button
-                                                size="sm"
-                                                variant="secondary"
-                                                disabled={pendingAction !== null}
-                                            />
-                                        }>
-                                        <UserPlusRoundedIcon aria-hidden="true" />
-                                        {m.access_workspace_invite_title()}
-                                    </DialogTrigger>
-                                ) : (
-                                    <Badge variant="secondary">
-                                        {m.access_workspace_groups_read_only()}
-                                    </Badge>
-                                )}
-                            </div>
-
                             <ul
-                                className="mt-5 divide-y divide-border/40"
+                                className="divide-y divide-border"
                                 aria-label={m.access_workspace_members_title()}>
                                 {workspace.members.map(member => {
                                     const isCurrent = member.userId === session.user.id
@@ -452,10 +461,10 @@ export function WorkspaceGroupsSection({ workspaceId }: WorkspaceGroupsSectionPr
 
                                     return (
                                         <li
-                                            className="flex min-w-0 flex-col gap-3 py-3 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between"
+                                            className="flex min-w-0 items-center gap-3 py-4"
                                             key={member.id}
                                             aria-busy={pendingMemberAction}>
-                                            <div className="flex min-w-0 items-center gap-3">
+                                            <div className="flex min-w-0 flex-1 items-center gap-3">
                                                 <UserAvatar
                                                     imageUrl={member.image}
                                                     name={member.name}
@@ -467,11 +476,6 @@ export function WorkspaceGroupsSection({ workspaceId }: WorkspaceGroupsSectionPr
                                                         <p className="truncate text-sm font-medium">
                                                             {member.name}
                                                         </p>
-                                                        {isCurrent ? (
-                                                            <Badge variant="outline">
-                                                                {m.access_current_member()}
-                                                            </Badge>
-                                                        ) : null}
                                                     </div>
                                                     <p className="truncate text-xs text-muted-foreground">
                                                         {member.email}
@@ -479,82 +483,70 @@ export function WorkspaceGroupsSection({ workspaceId }: WorkspaceGroupsSectionPr
                                                 </div>
                                             </div>
 
-                                            <div className="flex shrink-0 items-center gap-2">
-                                                {isOwner ? (
-                                                    <Badge variant="secondary">
-                                                        {m.access_project_role_owner()}
-                                                    </Badge>
-                                                ) : (
-                                                    <Select
-                                                        items={{
-                                                            admin: m.access_role_admin(),
-                                                            member: m.access_role_member(),
-                                                        }}
-                                                        value={
-                                                            hasWorkspaceMemberRole(
-                                                                member.role,
-                                                                'admin'
-                                                            )
-                                                                ? 'admin'
-                                                                : 'member'
-                                                        }
-                                                        onValueChange={value => {
-                                                            if (
-                                                                value === 'admin' ||
-                                                                value === 'member'
-                                                            ) {
-                                                                void handleUpdateWorkspaceMember(
-                                                                    member.id,
-                                                                    value
-                                                                )
-                                                            }
-                                                        }}>
-                                                        <SelectTrigger
-                                                            aria-label={m.access_workspace_member_role_label(
-                                                                {
+                                            <span className="text-sm text-muted-foreground">
+                                                {isOwner
+                                                    ? m.access_project_role_owner()
+                                                    : hasWorkspaceMemberRole(member.role, 'admin')
+                                                      ? m.access_role_admin()
+                                                      : m.access_role_member()}
+                                            </span>
+                                            {canManage && !isOwner && !isCurrent ? (
+                                                <DropdownMenu>
+                                                    <DropdownMenuTrigger
+                                                        render={
+                                                            <Button
+                                                                size="icon"
+                                                                variant="ghost"
+                                                                aria-label={m.people_actions({
                                                                     name: member.name,
-                                                                }
-                                                            )}
-                                                            className="min-w-28"
-                                                            disabled={
-                                                                !canManage ||
-                                                                isCurrent ||
-                                                                pendingAction !== null
-                                                            }
-                                                            size="sm">
-                                                            <SelectValue />
-                                                        </SelectTrigger>
-                                                        <SelectContent align="end">
-                                                            <SelectItem value="admin">
-                                                                {m.access_role_admin()}
-                                                            </SelectItem>
-                                                            <SelectItem value="member">
-                                                                {m.access_role_member()}
-                                                            </SelectItem>
-                                                        </SelectContent>
-                                                    </Select>
-                                                )}
-                                                {canManage && !isOwner && !isCurrent ? (
-                                                    <Button
-                                                        aria-label={m.access_workspace_member_remove_label(
-                                                            {
-                                                                name: member.name,
-                                                            }
-                                                        )}
-                                                        disabled={pendingAction !== null}
-                                                        onClick={() =>
-                                                            void handleRemoveWorkspaceMember(
-                                                                member.id
+                                                                })}
+                                                                disabled={pendingAction !== null}
+                                                            />
+                                                        }>
+                                                        <MenuDotsIcon aria-hidden="true" />
+                                                    </DropdownMenuTrigger>
+                                                    <DropdownMenuContent align="end">
+                                                        {(['admin', 'member'] as const)
+                                                            .filter(role =>
+                                                                role === 'admin'
+                                                                    ? !hasWorkspaceMemberRole(
+                                                                          member.role,
+                                                                          'admin'
+                                                                      )
+                                                                    : hasWorkspaceMemberRole(
+                                                                          member.role,
+                                                                          'admin'
+                                                                      )
                                                             )
-                                                        }
-                                                        size="sm"
-                                                        type="button"
-                                                        variant="ghost">
-                                                        <UserCrossRoundedIcon aria-hidden="true" />
-                                                        {m.access_workspace_member_remove()}
-                                                    </Button>
-                                                ) : null}
-                                            </div>
+                                                            .map(role => (
+                                                                <DropdownMenuItem
+                                                                    key={role}
+                                                                    onClick={() =>
+                                                                        void handleUpdateWorkspaceMember(
+                                                                            member.id,
+                                                                            role
+                                                                        )
+                                                                    }>
+                                                                    {m.people_change_role({
+                                                                        role:
+                                                                            role === 'admin'
+                                                                                ? m.access_role_admin()
+                                                                                : m.access_role_member(),
+                                                                    })}
+                                                                </DropdownMenuItem>
+                                                            ))}
+                                                        <DropdownMenuItem
+                                                            variant="destructive"
+                                                            onClick={() =>
+                                                                void handleRemoveWorkspaceMember(
+                                                                    member.id
+                                                                )
+                                                            }>
+                                                            {m.access_workspace_member_remove()}
+                                                        </DropdownMenuItem>
+                                                    </DropdownMenuContent>
+                                                </DropdownMenu>
+                                            ) : null}
                                         </li>
                                     )
                                 })}
@@ -642,9 +634,9 @@ export function WorkspaceGroupsSection({ workspaceId }: WorkspaceGroupsSectionPr
                                         {m.access_workspace_group_create()}
                                     </DialogTrigger>
                                 ) : (
-                                    <Badge variant="secondary">
+                                    <span className="text-sm text-muted-foreground">
                                         {m.access_workspace_groups_read_only()}
-                                    </Badge>
+                                    </span>
                                 )}
                             </div>
 
@@ -722,9 +714,9 @@ export function WorkspaceGroupsSection({ workspaceId }: WorkspaceGroupsSectionPr
                                                                     {team.name}
                                                                 </h3>
                                                                 {team.isDefault ? (
-                                                                    <Badge variant="secondary">
+                                                                    <span className="text-sm text-muted-foreground">
                                                                         {m.access_workspace_group_default()}
-                                                                    </Badge>
+                                                                    </span>
                                                                 ) : null}
                                                             </div>
                                                         )}
@@ -944,13 +936,15 @@ export function WorkspaceGroupsSection({ workspaceId }: WorkspaceGroupsSectionPr
                         </section>
                     </TabsContent>
                 </Tabs>
-            </div>
-            <DialogContent className="bg-surface-raised" showCloseButton={pendingAction === null}>
-                <DialogTitle className="pr-6">
-                    {activeForm === 'invite'
-                        ? m.access_invite_to_scope({ name: workspace.workspace.name })
-                        : m.access_workspace_group_create()}
-                </DialogTitle>
+            </PageColumn>
+            <DialogContent className="sm:max-w-lg" showCloseButton={pendingAction === null}>
+                <DialogHeader>
+                    <DialogTitle>
+                        {activeForm === 'invite'
+                            ? m.access_invite_to_scope({ name: workspace.workspace.name })
+                            : m.access_workspace_group_create()}
+                    </DialogTitle>
+                </DialogHeader>
                 {error ? (
                     <Alert variant="destructive">
                         <AlertTitle>{m.access_workspace_groups_action_failed()}</AlertTitle>
@@ -961,63 +955,72 @@ export function WorkspaceGroupsSection({ workspaceId }: WorkspaceGroupsSectionPr
                     <form
                         className="grid gap-4"
                         onSubmit={event => void handleCreateInvitation(event)}>
-                        <Field className="min-w-0 gap-1.5">
-                            <FieldLabel htmlFor="workspace-invite-email">
-                                {m.access_workspace_invite_email()}
-                            </FieldLabel>
-                            <Input
-                                disabled={pendingAction !== null}
-                                id="workspace-invite-email"
-                                placeholder={m.access_workspace_invite_email_placeholder()}
-                                required
-                                type="email"
-                                value={inviteEmail}
-                                onChange={event => setInviteEmail(event.target.value)}
-                            />
-                        </Field>
-                        <Field className="min-w-0 gap-1.5">
-                            <FieldLabel htmlFor="workspace-invite-group">
-                                {m.access_workspace_invite_group()}
-                            </FieldLabel>
-                            <Select
-                                items={Object.fromEntries(
-                                    workspace.teams.map(team => [team.id, team.name])
-                                )}
-                                value={inviteTeamId}
-                                onValueChange={value => setInviteTeamId(value ?? '')}>
-                                <SelectTrigger
-                                    aria-label={m.access_workspace_invite_group()}
-                                    className="w-full"
+                        <div className="grid items-start gap-4 sm:grid-cols-[minmax(0,1fr)_10rem]">
+                            <Field className="min-w-0 gap-2">
+                                <FieldLabel htmlFor="workspace-invite-email">
+                                    {m.access_workspace_invite_email()}
+                                </FieldLabel>
+                                <Input
                                     disabled={pendingAction !== null}
-                                    id="workspace-invite-group">
-                                    <SelectValue
-                                        placeholder={m.access_workspace_invite_group_placeholder()}
-                                    />
-                                </SelectTrigger>
-                                <SelectContent align="start">
-                                    {workspace.teams.map(team => (
-                                        <SelectItem key={team.id} value={team.id}>
-                                            {team.name}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </Field>
-                        <Button
-                            className="justify-self-end"
-                            disabled={
-                                pendingAction !== null ||
-                                inviteEmail.trim() === '' ||
-                                inviteTeamId === ''
-                            }
-                            type="submit">
-                            <UserPlusRoundedIcon aria-hidden="true" />
-                            {m.access_workspace_invite_button()}
-                        </Button>
+                                    id="workspace-invite-email"
+                                    placeholder={m.access_workspace_invite_email_placeholder()}
+                                    required
+                                    type="email"
+                                    value={inviteEmail}
+                                    onChange={event => setInviteEmail(event.target.value)}
+                                />
+                            </Field>
+                            <Field className="min-w-0 gap-2">
+                                <FieldLabel htmlFor="workspace-invite-group">
+                                    {m.access_workspace_invite_group()}
+                                </FieldLabel>
+                                <Select
+                                    items={Object.fromEntries(
+                                        workspace.teams.map(team => [team.id, team.name])
+                                    )}
+                                    value={inviteTeamId}
+                                    onValueChange={value => setInviteTeamId(value ?? '')}>
+                                    <SelectTrigger
+                                        aria-label={m.access_workspace_invite_group()}
+                                        className="w-full"
+                                        disabled={pendingAction !== null}
+                                        id="workspace-invite-group">
+                                        <SelectValue
+                                            placeholder={m.access_workspace_invite_group_placeholder()}
+                                        />
+                                    </SelectTrigger>
+                                    <SelectContent align="start">
+                                        {workspace.teams.map(team => (
+                                            <SelectItem key={team.id} value={team.id}>
+                                                {team.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </Field>
+                        </div>
+                        <DialogFooter>
+                            <DialogClose
+                                render={
+                                    <Button variant="outline" disabled={pendingAction !== null} />
+                                }>
+                                {m.common_cancel()}
+                            </DialogClose>
+                            <Button
+                                disabled={
+                                    pendingAction !== null ||
+                                    inviteEmail.trim() === '' ||
+                                    inviteTeamId === ''
+                                }
+                                type="submit">
+                                <UserPlusRoundedIcon aria-hidden="true" />
+                                {m.access_workspace_invite_button()}
+                            </Button>
+                        </DialogFooter>
                     </form>
                 ) : (
                     <form className="grid gap-4" onSubmit={handleCreateTeam}>
-                        <Field className="min-w-0 flex-1 gap-1.5">
+                        <Field className="min-w-0 flex-1 gap-2">
                             <FieldLabel htmlFor="workspace-group-name">
                                 {m.access_workspace_group_new_name()}
                             </FieldLabel>
@@ -1030,13 +1033,20 @@ export function WorkspaceGroupsSection({ workspaceId }: WorkspaceGroupsSectionPr
                                 onChange={event => setNewTeamName(event.target.value)}
                             />
                         </Field>
-                        <Button
-                            className="justify-self-end"
-                            disabled={pendingAction !== null || newTeamName.trim() === ''}
-                            type="submit">
-                            <AddIcon aria-hidden="true" />
-                            {m.access_workspace_group_create()}
-                        </Button>
+                        <DialogFooter>
+                            <DialogClose
+                                render={
+                                    <Button variant="outline" disabled={pendingAction !== null} />
+                                }>
+                                {m.common_cancel()}
+                            </DialogClose>
+                            <Button
+                                disabled={pendingAction !== null || newTeamName.trim() === ''}
+                                type="submit">
+                                <AddIcon aria-hidden="true" />
+                                {m.access_workspace_group_create()}
+                            </Button>
+                        </DialogFooter>
                     </form>
                 )}
             </DialogContent>

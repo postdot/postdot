@@ -1,6 +1,4 @@
-import { createFileRoute } from '@tanstack/react-router'
-
-import { WorkspaceAdministrationPage } from '@/components/workspace-administration-page'
+import { createFileRoute, Outlet } from '@tanstack/react-router'
 
 export interface WorkspaceSettingsSearch {
     projectId?: string
@@ -22,6 +20,5 @@ export const Route = createFileRoute('/dashboard/settings/workspace')({
 })
 
 function WorkspaceAdministrationRoute() {
-    const search = Route.useSearch()
-    return <WorkspaceAdministrationPage preferredWorkspaceId={search.workspaceId} />
+    return <Outlet />
 }

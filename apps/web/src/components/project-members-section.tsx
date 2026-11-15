@@ -1,5 +1,4 @@
 import { Alert, AlertDescription, AlertTitle } from '@postdot/ui/components/alert'
-import { Badge } from '@postdot/ui/components/badge'
 import { Button } from '@postdot/ui/components/button'
 import {
     Dialog,
@@ -10,6 +9,12 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@postdot/ui/components/dialog'
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@postdot/ui/components/dropdown-menu'
 import { Field, FieldLabel } from '@postdot/ui/components/field'
 import { Input } from '@postdot/ui/components/input'
 import {
@@ -20,14 +25,17 @@ import {
     SelectValue,
 } from '@postdot/ui/components/select'
 import { CopyIcon } from '@solar-icons/react/linear/copy'
-import { RestartIcon } from '@solar-icons/react/linear/restart'
+import { MenuDotsIcon } from '@solar-icons/react/linear/menu-dots'
 import { UserCrossRoundedIcon } from '@solar-icons/react/linear/user-cross-rounded'
 import { UserPlusRoundedIcon } from '@solar-icons/react/linear/user-plus-rounded'
 import { UsersGroupTwoRoundedIcon } from '@solar-icons/react/linear/users-group-two-rounded'
 import { useEffect, useState, type FormEvent } from 'react'
 
+import { AccessPageHeader } from '@/components/access-page-header'
 import { EmptyState } from '@/components/empty-state'
 import { UserAvatar } from '@/components/identity-visuals'
+import { PageColumn } from '@/components/page-column'
+import { StatusText } from '@/components/status-text'
 import {
     api,
     ApiError,
@@ -37,10 +45,8 @@ import {
     type ProjectMemberRole,
     type ProjectTeamGrant,
     type ProjectUserGrant,
-    type WorkspaceMember,
     type WorkspaceSummary,
 } from '@/lib/api'
-import { formatDateTime } from '@/lib/format'
 import { useLanguage } from '@/lib/i18n'
 import { useOptionalProjectAccess } from '@/lib/project-access'
 import * as m from '@/paraglide/messages.js'
@@ -57,7 +63,6 @@ interface ProjectMembersSectionProps {
     readonly currentUserId: string
     readonly projectId: string
     readonly projectName: string
-    readonly view: 'access' | 'invitations'
     readonly workspaceId: string | null
 }
 
@@ -81,10 +86,10 @@ export function ProjectMembersSection({
     currentUserId,
     projectId,
     projectName,
-    view,
     workspaceId,
 }: ProjectMembersSectionProps) {
-    const { locale } = useLanguage()
+    useLanguage()
+    const [form, setForm] = useState<'invite' | 'member' | null>(null)
     const access = useOptionalProjectAccess()
     const [loadedAccessRevision, setLoadedAccessRevision] = useState<number | null>(null)
     const [members, setMembers] = useState<ProjectMember[] | null>(null)
@@ -123,27 +128,6 @@ export function ProjectMembersSection({
 
         async function load() {
             try {
-                if (view === 'invitations') {
-                    if (workspaceId === null) {
-                        setInvitations([])
-                        return
-                    }
-
-                    const workspaceResponse = await api.getWorkspace(workspaceId)
-                    if (cancelled) return
-                    setLoadedAccessRevision(access?.revision ?? 0)
-                    setWorkspace(workspaceResponse)
-
-                    if (!isWorkspaceAdmin(workspaceResponse)) {
-                        setInvitations([])
-                        return
-                    }
-
-                    const invitationResponse = await api.listProjectInvitations(projectId)
-                    if (!cancelled) setInvitations(invitationResponse.invitations)
-                    return
-                }
-
                 const accessSnapshotPromise: Promise<ProjectAccessSnapshot> =
                     workspaceId === null
                         ? Promise.resolve(emptyProjectAccessSnapshot)
@@ -167,7 +151,10 @@ export function ProjectMembersSection({
                 setWorkspace(accessSnapshot.workspace)
                 setUserGrants(accessSnapshot.userGrants)
                 setTeamGrants(accessSnapshot.teamGrants)
-                setInvitations([])
+                if (isWorkspaceAdmin(accessSnapshot.workspace)) {
+                    const response = await api.listProjectInvitations(projectId)
+                    if (!cancelled) setInvitations(response.invitations)
+                } else setInvitations([])
             } catch (caughtError) {
                 if (!cancelled) {
                     setError(projectMembersErrorMessage(caughtError))
@@ -179,7 +166,7 @@ export function ProjectMembersSection({
         return () => {
             cancelled = true
         }
-    }, [currentUserId, projectId, view, workspaceId, access?.revision])
+    }, [currentUserId, projectId, workspaceId, access?.revision])
 
     const accessSnapshotConfirmed =
         access === null ||
@@ -208,6 +195,7 @@ export function ProjectMembersSection({
             const response = await api.createProjectUserGrant(projectId, selectedUserId, directRole)
             setUserGrants(current => replaceUserGrant(current ?? [], response.grant))
             setSelectedUserId('')
+            setForm(null)
             await refreshMembers()
             setNotice(m.access_project_member_updated())
         })
@@ -303,6 +291,7 @@ export function ProjectMembersSection({
             setCopyError(false)
             setEmail('')
             setInvitations(invitationResponse.invitations)
+            setForm(null)
             setNotice(m.access_project_invitation_created())
         })
     }
@@ -373,9 +362,25 @@ export function ProjectMembersSection({
     }
 
     return (
-        <>
-            <section aria-label={m.access_title()} className="min-w-0">
-                {error ? (
+        <main className="min-w-0 px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
+            <AccessPageHeader
+                column="management"
+                title={m.access_title()}
+                action={
+                    canManageWorkspace ? (
+                        <Button
+                            onClick={() => {
+                                setError(null)
+                                setForm('invite')
+                            }}>
+                            <UserPlusRoundedIcon aria-hidden="true" />
+                            {m.access_project_invite_button()}
+                        </Button>
+                    ) : undefined
+                }
+            />
+            <PageColumn variant="management">
+                {error && form === null ? (
                     <Alert className="mb-5" variant="destructive">
                         <AlertTitle>{m.access_action_failed()}</AlertTitle>
                         <AlertDescription>{error}</AlertDescription>
@@ -386,164 +391,330 @@ export function ProjectMembersSection({
                         {notice}
                     </p>
                 ) : null}
-
-                {view === 'access' ? (
-                    <>
-                        <section aria-labelledby="project-effective-access-title">
-                            <div className="flex items-center justify-between gap-3">
-                                <h2
-                                    id="project-effective-access-title"
-                                    className="text-sm font-medium">
-                                    {m.access_project_effective_title()}
-                                </h2>
-                                {members && members.length > 0 ? (
-                                    <span className="text-xs tabular-nums text-muted-foreground">
-                                        {members.length}
-                                    </span>
-                                ) : null}
-                            </div>
-
-                            {members === null ? (
-                                <p className="mt-4 text-sm text-muted-foreground" role="status">
-                                    {m.access_instance_loading()}
-                                </p>
-                            ) : members.length === 0 ? (
-                                <EmptyState
-                                    className="mt-4"
-                                    icon={<UsersGroupTwoRoundedIcon aria-hidden="true" />}
-                                    layout="compact"
-                                    title={m.access_project_effective_empty()}
-                                />
-                            ) : (
-                                <ul
-                                    className="mt-4 grid gap-2"
-                                    aria-label={m.access_project_effective_title()}>
-                                    {members.map(member => {
-                                        const directGrant = userGrants?.find(
-                                            grant => grant.userId === member.userId
-                                        )
-                                        const isCurrent = member.userId === currentUserId
-                                        const sourceLabel =
-                                            member.role === 'owner'
-                                                ? m.access_project_access_owner()
-                                                : directGrant === undefined
-                                                  ? m.access_project_access_inherited()
-                                                  : m.access_project_access_direct()
-
-                                        return (
-                                            <li
-                                                key={member.userId}
-                                                className="flex min-w-0 flex-col gap-3 bg-surface-inset/45 p-3 shadow-field sm:flex-row sm:items-center sm:justify-between">
-                                                <div className="flex min-w-0 items-center gap-3">
-                                                    <UserAvatar
-                                                        imageUrl={member.image}
-                                                        name={member.name}
-                                                        seed={member.userId}
-                                                        size="sm"
-                                                    />
-                                                    <div className="min-w-0">
-                                                        <div className="flex min-w-0 items-center gap-2">
-                                                            <p className="truncate text-sm font-medium">
-                                                                {member.name}
-                                                            </p>
-                                                            {isCurrent ? (
-                                                                <Badge variant="outline">
-                                                                    {m.access_current_member()}
-                                                                </Badge>
-                                                            ) : null}
-                                                        </div>
-                                                        <p className="truncate text-xs text-muted-foreground">
-                                                            {member.email}
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                                <div className="flex shrink-0 items-center gap-2 sm:justify-end">
-                                                    <Badge
-                                                        variant={
-                                                            member.role === 'owner'
-                                                                ? 'default'
-                                                                : 'secondary'
-                                                        }>
-                                                        {projectRoleLabel(member.role)}
-                                                    </Badge>
-                                                    <span className="text-xs text-muted-foreground">
-                                                        {sourceLabel}
-                                                    </span>
-                                                </div>
-                                            </li>
-                                        )
-                                    })}
-                                </ul>
-                            )}
-                        </section>
-
-                        {workspace !== null ? (
-                            <div className="mt-6 grid gap-4 lg:grid-cols-2">
-                                <DirectAccessSection
-                                    canManage={canManageAccess}
-                                    grants={userGrants}
-                                    members={workspace.members}
-                                    pendingAction={pendingAction}
-                                    selectedUserId={selectedUserId}
-                                    role={directRole}
-                                    onRoleChange={setDirectRole}
-                                    onSelectUser={setSelectedUserId}
-                                    onSubmit={handleCreateUserGrant}
-                                    onUpdate={grant =>
-                                        void handleUpdateUserGrant(
-                                            grant,
-                                            grant.role as EditableProjectRole
-                                        )
-                                    }
-                                    onRemove={grant => setRemovalTarget({ kind: 'user', grant })}
-                                />
-                                <GroupAccessSection
-                                    canManage={canManageAccess}
-                                    grants={teamGrants}
-                                    pendingAction={pendingAction}
-                                    selectedTeamId={selectedTeamId}
-                                    role={groupRole}
-                                    assignableTeams={assignableTeams}
-                                    onRoleChange={setGroupRole}
-                                    onSelectTeam={setSelectedTeamId}
-                                    onSubmit={handleCreateTeamGrant}
-                                    onUpdate={grant =>
-                                        void handleUpdateTeamGrant(
-                                            grant,
-                                            grant.role as EditableProjectRole
-                                        )
-                                    }
-                                    onRemove={grant => setRemovalTarget({ kind: 'team', grant })}
-                                />
-                            </div>
-                        ) : null}
-                    </>
-                ) : canManageWorkspace ? (
-                    <InvitationSection
-                        projectName={projectName}
-                        copied={copied}
-                        copyError={copyError}
-                        createdInvitation={createdInvitation}
-                        email={email}
-                        inviteRole={inviteRole}
-                        invitations={invitations}
-                        locale={locale}
-                        pendingAction={pendingAction}
-                        pendingInvitations={pendingInvitations}
-                        onCancel={invitationId => void handleCancelInvitation(invitationId)}
-                        onCopy={() => void handleCopyInvitation()}
-                        onEmailChange={setEmail}
-                        onInviteRoleChange={setInviteRole}
-                        onResend={invitationId => void handleResendInvitation(invitationId)}
-                        onSubmit={handleCreateInvitation}
-                    />
-                ) : workspace !== null ? (
-                    <p className="mt-5 text-xs text-muted-foreground">
-                        {m.access_project_workspace_admin_required()}
+                {members === null ? (
+                    <p className="text-sm text-muted-foreground" role="status">
+                        {m.access_instance_loading()}
                     </p>
+                ) : members.length === 0 ? (
+                    <EmptyState
+                        icon={<UsersGroupTwoRoundedIcon aria-hidden="true" />}
+                        layout="compact"
+                        title={m.access_project_effective_empty()}
+                    />
+                ) : (
+                    <ul className="divide-y divide-border" aria-label={m.access_members_title()}>
+                        {members.map(member => {
+                            const direct = userGrants?.find(grant => grant.userId === member.userId)
+                            const editable =
+                                canManageAccess &&
+                                member.userId !== currentUserId &&
+                                direct !== undefined &&
+                                direct.role !== 'owner'
+                            return (
+                                <li
+                                    key={member.userId}
+                                    className="flex min-w-0 items-center gap-3 py-4">
+                                    <UserAvatar
+                                        imageUrl={member.image}
+                                        name={member.name}
+                                        seed={member.userId}
+                                        size="sm"
+                                    />
+                                    <div className="min-w-0 flex-1">
+                                        <p className="truncate text-sm font-medium">
+                                            {member.name}
+                                        </p>
+                                        <p className="truncate text-xs text-muted-foreground">
+                                            {member.email}
+                                        </p>
+                                    </div>
+                                    <span className="text-sm text-muted-foreground">
+                                        {projectRoleLabel(member.role)}
+                                    </span>
+                                    {editable ? (
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger
+                                                render={
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        aria-label={m.people_actions({
+                                                            name: member.name,
+                                                        })}
+                                                        disabled={pendingAction !== null}
+                                                    />
+                                                }>
+                                                <MenuDotsIcon aria-hidden="true" />
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end">
+                                                {(['editor', 'viewer'] as const)
+                                                    .filter(role => role !== direct.role)
+                                                    .map(role => (
+                                                        <DropdownMenuItem
+                                                            key={role}
+                                                            onClick={() =>
+                                                                void handleUpdateUserGrant(
+                                                                    direct,
+                                                                    role
+                                                                )
+                                                            }>
+                                                            {m.people_change_role({
+                                                                role: projectRoleLabel(role),
+                                                            })}
+                                                        </DropdownMenuItem>
+                                                    ))}
+                                                <DropdownMenuItem
+                                                    variant="destructive"
+                                                    onClick={() =>
+                                                        setRemovalTarget({
+                                                            kind: 'user',
+                                                            grant: direct,
+                                                        })
+                                                    }>
+                                                    {m.access_project_remove_access_button()}
+                                                </DropdownMenuItem>
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                    ) : null}
+                                </li>
+                            )
+                        })}
+                    </ul>
+                )}
+                {canManageAccess &&
+                workspace?.members.some(
+                    member => !userGrants?.some(grant => grant.userId === member.userId)
+                ) ? (
+                    <Button
+                        className="mt-4"
+                        variant="outline"
+                        onClick={() => {
+                            setError(null)
+                            setForm('member')
+                        }}>
+                        {m.access_project_add_member()}
+                    </Button>
                 ) : null}
-            </section>
-
+                {pendingInvitations.length > 0 ? (
+                    <section className="mt-8" aria-labelledby="project-invitations-title">
+                        <h2
+                            id="project-invitations-title"
+                            className="font-heading text-base font-medium">
+                            {m.access_project_pending_title()}
+                        </h2>
+                        <ul className="mt-2 divide-y divide-border">
+                            {pendingInvitations.map(invitation => (
+                                <li
+                                    key={invitation.id}
+                                    className="flex min-w-0 items-center gap-3 py-4">
+                                    <div className="min-w-0 flex-1">
+                                        <p className="truncate text-sm">{invitation.email}</p>
+                                        <span className="text-xs text-muted-foreground">
+                                            {projectRoleLabel(invitation.role)}
+                                        </span>
+                                    </div>
+                                    <StatusText tone="neutral">
+                                        {isProjectInvitationExpired(invitation)
+                                            ? m.access_project_invitation_expired()
+                                            : m.people_invited()}
+                                    </StatusText>
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger
+                                            render={
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    aria-label={m.people_actions({
+                                                        name: invitation.email,
+                                                    })}
+                                                    disabled={pendingAction !== null}
+                                                />
+                                            }>
+                                            <MenuDotsIcon aria-hidden="true" />
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end">
+                                            <DropdownMenuItem
+                                                onClick={() =>
+                                                    void handleResendInvitation(invitation.id)
+                                                }>
+                                                {m.access_project_invitation_resend()}
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem
+                                                variant="destructive"
+                                                onClick={() =>
+                                                    void handleCancelInvitation(invitation.id)
+                                                }>
+                                                {m.access_project_cancel_invitation()}
+                                            </DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+                                </li>
+                            ))}
+                        </ul>
+                    </section>
+                ) : null}
+                {createdInvitation ? (
+                    <div className="mt-5 space-y-3">
+                        <p className="text-sm font-medium">
+                            {m.access_project_invitation_created_for({
+                                email: createdInvitation.email,
+                            })}
+                        </p>
+                        <code className="block break-all text-xs text-muted-foreground">
+                            {createdInvitation.link}
+                        </code>
+                        {copyError ? (
+                            <p role="alert" className="text-sm text-destructive">
+                                {m.access_project_copy_link_unavailable()}
+                            </p>
+                        ) : null}
+                        <Button variant="outline" onClick={() => void handleCopyInvitation()}>
+                            <CopyIcon aria-hidden="true" />
+                            {copied ? m.access_copied() : m.access_project_copy_link()}
+                        </Button>
+                    </div>
+                ) : null}
+                {workspace !== null &&
+                (workspace.teams.length > 0 || (teamGrants?.length ?? 0) > 0) ? (
+                    <div className="mt-10">
+                        <GroupAccessSection
+                            canManage={canManageAccess}
+                            grants={teamGrants}
+                            pendingAction={pendingAction}
+                            selectedTeamId={selectedTeamId}
+                            role={groupRole}
+                            assignableTeams={assignableTeams}
+                            onRoleChange={setGroupRole}
+                            onSelectTeam={setSelectedTeamId}
+                            onSubmit={handleCreateTeamGrant}
+                            onUpdate={grant =>
+                                void handleUpdateTeamGrant(grant, grant.role as EditableProjectRole)
+                            }
+                            onRemove={grant => setRemovalTarget({ kind: 'team', grant })}
+                        />
+                    </div>
+                ) : null}
+            </PageColumn>
+            <Dialog
+                open={form !== null}
+                onOpenChange={open => {
+                    if (!open && pendingAction === null) setForm(null)
+                }}>
+                <DialogContent className="sm:max-w-lg">
+                    <DialogHeader>
+                        <DialogTitle>
+                            {form === 'invite'
+                                ? m.access_invite_to_scope({ name: projectName })
+                                : m.access_project_add_member()}
+                        </DialogTitle>
+                    </DialogHeader>
+                    {error ? (
+                        <p role="alert" className="text-sm text-destructive">
+                            {error}
+                        </p>
+                    ) : null}
+                    <form
+                        className="grid gap-4"
+                        onSubmit={
+                            form === 'invite' ? handleCreateInvitation : handleCreateUserGrant
+                        }>
+                        <div className="grid items-start gap-4 sm:grid-cols-[minmax(0,1fr)_9rem]">
+                            <Field className="min-w-0 gap-2">
+                                <FieldLabel htmlFor="project-member-invite-email">
+                                    {form === 'invite'
+                                        ? m.access_project_invite_email()
+                                        : m.access_members_title()}
+                                </FieldLabel>
+                                {form === 'invite' ? (
+                                    <Input
+                                        id="project-member-invite-email"
+                                        type="email"
+                                        required
+                                        value={email}
+                                        onChange={event => setEmail(event.target.value)}
+                                        disabled={pendingAction !== null}
+                                        autoComplete="email"
+                                    />
+                                ) : (
+                                    <Select
+                                        value={selectedUserId}
+                                        onValueChange={value => setSelectedUserId(value ?? '')}>
+                                        <SelectTrigger id="project-member-invite-email">
+                                            <SelectValue
+                                                placeholder={m.access_project_member_placeholder()}
+                                            />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {workspace?.members
+                                                .filter(
+                                                    member =>
+                                                        !userGrants?.some(
+                                                            grant => grant.userId === member.userId
+                                                        )
+                                                )
+                                                .map(member => (
+                                                    <SelectItem
+                                                        key={member.userId}
+                                                        value={member.userId}>
+                                                        {member.name}
+                                                    </SelectItem>
+                                                ))}
+                                        </SelectContent>
+                                    </Select>
+                                )}
+                            </Field>
+                            <Field className="min-w-0 gap-2">
+                                <FieldLabel htmlFor="project-member-invite-role">
+                                    {m.access_project_invite_role()}
+                                </FieldLabel>
+                                <Select
+                                    value={form === 'invite' ? inviteRole : directRole}
+                                    onValueChange={value =>
+                                        setEditableRole(
+                                            value,
+                                            form === 'invite' ? setInviteRole : setDirectRole
+                                        )
+                                    }>
+                                    <SelectTrigger
+                                        className="w-full"
+                                        id="project-member-invite-role">
+                                        <SelectValue>
+                                            {projectRoleLabel(
+                                                form === 'invite' ? inviteRole : directRole
+                                            )}
+                                        </SelectValue>
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {(['editor', 'viewer'] as const).map(role => (
+                                            <SelectItem key={role} value={role}>
+                                                {projectRoleLabel(role)}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </Field>
+                        </div>
+                        <DialogFooter>
+                            <DialogClose
+                                render={
+                                    <Button variant="outline" disabled={pendingAction !== null} />
+                                }>
+                                {m.common_cancel()}
+                            </DialogClose>
+                            <Button
+                                type="submit"
+                                disabled={
+                                    pendingAction !== null ||
+                                    (form === 'member' && selectedUserId === '')
+                                }>
+                                {form === 'invite'
+                                    ? m.access_project_invite_button()
+                                    : m.people_add()}
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
             <Dialog
                 open={removalTarget !== null}
                 onOpenChange={open => {
@@ -576,179 +747,7 @@ export function ProjectMembersSection({
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
-        </>
-    )
-}
-
-function DirectAccessSection({
-    canManage,
-    grants,
-    members,
-    pendingAction,
-    selectedUserId,
-    role,
-    onRoleChange,
-    onSelectUser,
-    onSubmit,
-    onUpdate,
-    onRemove,
-}: {
-    readonly canManage: boolean
-    readonly grants: ProjectUserGrant[] | null
-    readonly members: WorkspaceMember[]
-    readonly pendingAction: string | null
-    readonly selectedUserId: string
-    readonly role: EditableProjectRole
-    readonly onRoleChange: (role: EditableProjectRole) => void
-    readonly onSelectUser: (userId: string) => void
-    readonly onSubmit: (event: FormEvent<HTMLFormElement>) => void
-    readonly onUpdate: (grant: ProjectUserGrant) => void
-    readonly onRemove: (grant: ProjectUserGrant) => void
-}) {
-    const availableMembers = members.filter(
-        member => !grants?.some(grant => grant.userId === member.userId)
-    )
-
-    if (grants?.length === 0 && !canManage) return null
-
-    return (
-        <section
-            className="min-w-0 bg-surface-inset/45 p-4 shadow-surface"
-            aria-labelledby="project-direct-access-title">
-            <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                    <h2 id="project-direct-access-title" className="text-sm font-medium">
-                        {m.access_project_direct_title()}
-                    </h2>
-                </div>
-            </div>
-
-            {grants === null ? (
-                <p className="mt-4 text-sm text-muted-foreground" role="status">
-                    {m.access_instance_loading()}
-                </p>
-            ) : grants.length === 0 ? null : (
-                <ul className="mt-4 grid gap-2">
-                    {grants.map(grant => {
-                        const member = members.find(candidate => candidate.userId === grant.userId)
-                        const isOwner = grant.role === 'owner'
-                        const isPending = pendingAction?.includes(grant.userId) ?? false
-
-                        return (
-                            <li
-                                key={grant.id}
-                                aria-busy={isPending}
-                                className="flex min-w-0 flex-col gap-3 bg-surface-raised p-3 shadow-field sm:flex-row sm:items-center sm:justify-between">
-                                <div className="flex min-w-0 items-center gap-3">
-                                    <UserAvatar
-                                        imageUrl={member?.image ?? null}
-                                        name={member?.name ?? grant.userId}
-                                        seed={grant.userId}
-                                        size="sm"
-                                    />
-                                    <div className="min-w-0">
-                                        <p className="truncate text-sm font-medium">
-                                            {member?.name ?? grant.userId}
-                                        </p>
-                                        <p className="truncate text-xs text-muted-foreground">
-                                            {member?.email ?? grant.userId}
-                                        </p>
-                                    </div>
-                                </div>
-                                <div className="flex shrink-0 items-center gap-2 sm:justify-end">
-                                    {isOwner ? (
-                                        <Badge>{projectRoleLabel(grant.role)}</Badge>
-                                    ) : canManage ? (
-                                        <>
-                                            <Select
-                                                value={grant.role}
-                                                onValueChange={value => {
-                                                    if (value === 'editor' || value === 'viewer') {
-                                                        onUpdate({ ...grant, role: value })
-                                                    }
-                                                }}>
-                                                <SelectTrigger
-                                                    aria-label={m.access_project_role_label({
-                                                        email: member?.email ?? grant.userId,
-                                                    })}
-                                                    className="min-w-28"
-                                                    disabled={pendingAction !== null}
-                                                    size="sm">
-                                                    <SelectValue>
-                                                        {projectRoleLabel(grant.role)}
-                                                    </SelectValue>
-                                                </SelectTrigger>
-                                                <SelectContent align="start">
-                                                    <SelectItem value="editor">
-                                                        {m.access_project_role_editor()}
-                                                    </SelectItem>
-                                                    <SelectItem value="viewer">
-                                                        {m.access_project_role_viewer()}
-                                                    </SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                            <Button
-                                                type="button"
-                                                aria-label={`${m.access_project_remove_member()} ${member?.name ?? grant.userId}`}
-                                                size="icon-sm"
-                                                variant="ghost"
-                                                disabled={pendingAction !== null}
-                                                onClick={() => onRemove(grant)}>
-                                                <UserCrossRoundedIcon aria-hidden="true" />
-                                            </Button>
-                                        </>
-                                    ) : (
-                                        <Badge variant="secondary">
-                                            {projectRoleLabel(grant.role)}
-                                        </Badge>
-                                    )}
-                                </div>
-                            </li>
-                        )
-                    })}
-                </ul>
-            )}
-
-            {canManage && availableMembers.length > 0 ? (
-                <form
-                    className="mt-4 grid gap-2 sm:grid-cols-[minmax(0,1fr)_7rem]"
-                    onSubmit={onSubmit}>
-                    <Select
-                        value={selectedUserId}
-                        onValueChange={value => onSelectUser(value ?? '')}>
-                        <SelectTrigger aria-label={m.access_project_add_member()} size="sm">
-                            <SelectValue placeholder={m.access_project_member_placeholder()} />
-                        </SelectTrigger>
-                        <SelectContent align="start">
-                            {availableMembers.map(member => (
-                                <SelectItem key={member.userId} value={member.userId}>
-                                    {member.name}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                    <Select
-                        value={role}
-                        onValueChange={value => setEditableRole(value, onRoleChange)}>
-                        <SelectTrigger aria-label={m.access_project_invite_role()} size="sm">
-                            <SelectValue>{projectRoleLabel(role)}</SelectValue>
-                        </SelectTrigger>
-                        <SelectContent align="start">
-                            <SelectItem value="editor">{m.access_project_role_editor()}</SelectItem>
-                            <SelectItem value="viewer">{m.access_project_role_viewer()}</SelectItem>
-                        </SelectContent>
-                    </Select>
-                    <Button
-                        className="sm:col-span-2 sm:justify-self-end"
-                        type="submit"
-                        size="sm"
-                        disabled={pendingAction !== null || selectedUserId === ''}>
-                        <UserPlusRoundedIcon aria-hidden="true" />
-                        {m.access_project_grant_button()}
-                    </Button>
-                </form>
-            ) : null}
-        </section>
+        </main>
     )
 }
 
@@ -780,12 +779,12 @@ function GroupAccessSection({
     if (grants?.length === 0 && !canManage) return null
 
     return (
-        <section
-            className="min-w-0 bg-surface-inset/45 p-4 shadow-surface"
-            aria-labelledby="project-group-access-title">
+        <section className="min-w-0" aria-labelledby="project-group-access-title">
             <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                    <h2 id="project-group-access-title" className="text-sm font-medium">
+                    <h2
+                        id="project-group-access-title"
+                        className="font-heading text-base font-medium">
                         {m.access_project_groups_title()}
                     </h2>
                 </div>
@@ -804,7 +803,7 @@ function GroupAccessSection({
                             <li
                                 key={grant.id}
                                 aria-busy={isPending}
-                                className="flex min-w-0 flex-col gap-3 bg-surface-raised p-3 shadow-field sm:flex-row sm:items-center sm:justify-between">
+                                className="flex min-w-0 flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between">
                                 <div className="flex min-w-0 items-center gap-3">
                                     <span className="flex size-8 shrink-0 items-center justify-center bg-primary/10 text-primary">
                                         <UsersGroupTwoRoundedIcon
@@ -820,7 +819,9 @@ function GroupAccessSection({
                                 </div>
                                 <div className="flex shrink-0 items-center gap-2 sm:justify-end">
                                     {isOwner ? (
-                                        <Badge>{projectRoleLabel(grant.role)}</Badge>
+                                        <span className="text-sm text-muted-foreground">
+                                            {projectRoleLabel(grant.role)}
+                                        </span>
                                     ) : canManage ? (
                                         <>
                                             <Select
@@ -861,9 +862,9 @@ function GroupAccessSection({
                                             </Button>
                                         </>
                                     ) : (
-                                        <Badge variant="secondary">
+                                        <span className="text-sm text-muted-foreground">
                                             {projectRoleLabel(grant.role)}
-                                        </Badge>
+                                        </span>
                                     )}
                                 </div>
                             </li>
@@ -904,193 +905,12 @@ function GroupAccessSection({
                     <Button
                         className="sm:col-span-2 sm:justify-self-end"
                         type="submit"
-                        size="sm"
+                        variant="outline"
                         disabled={pendingAction !== null || selectedTeamId === ''}>
                         <UsersGroupTwoRoundedIcon aria-hidden="true" />
                         {m.access_project_group_grant_button()}
                     </Button>
                 </form>
-            ) : null}
-        </section>
-    )
-}
-
-function InvitationSection({
-    projectName,
-    copied,
-    copyError,
-    createdInvitation,
-    email,
-    inviteRole,
-    invitations,
-    locale,
-    pendingAction,
-    pendingInvitations,
-    onCancel,
-    onCopy,
-    onEmailChange,
-    onInviteRoleChange,
-    onResend,
-    onSubmit,
-}: {
-    readonly projectName: string
-    readonly copied: boolean
-    readonly copyError: boolean
-    readonly createdInvitation: CreatedProjectInvitation | null
-    readonly email: string
-    readonly inviteRole: EditableProjectRole
-    readonly invitations: ProjectInvitation[] | null
-    readonly locale: string
-    readonly pendingAction: string | null
-    readonly pendingInvitations: ProjectInvitation[]
-    readonly onCancel: (invitationId: string) => void
-    readonly onCopy: () => void
-    readonly onEmailChange: (email: string) => void
-    readonly onInviteRoleChange: (role: EditableProjectRole) => void
-    readonly onResend: (invitationId: string) => void
-    readonly onSubmit: (event: FormEvent<HTMLFormElement>) => void
-}) {
-    return (
-        <section
-            className="mt-6 bg-surface-inset/45 p-4 shadow-surface"
-            aria-labelledby="project-invite-title">
-            <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                    <h2 id="project-invite-title" className="text-sm font-medium">
-                        {m.access_invite_to_scope({ name: projectName })}
-                    </h2>
-                </div>
-            </div>
-
-            <form
-                className="mt-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_7rem_auto] sm:items-end"
-                onSubmit={onSubmit}>
-                <Field className="min-w-0 gap-1.5">
-                    <FieldLabel htmlFor="project-member-invite-email">
-                        {m.access_project_invite_email()}
-                    </FieldLabel>
-                    <Input
-                        id="project-member-invite-email"
-                        type="email"
-                        required
-                        value={email}
-                        onChange={event => onEmailChange(event.target.value)}
-                        placeholder={m.access_project_invite_email_placeholder()}
-                    />
-                </Field>
-                <Field className="gap-1.5">
-                    <FieldLabel htmlFor="project-member-invite-role">
-                        {m.access_project_invite_role()}
-                    </FieldLabel>
-                    <Select
-                        value={inviteRole}
-                        onValueChange={value => setEditableRole(value, onInviteRoleChange)}>
-                        <SelectTrigger id="project-member-invite-role" size="sm">
-                            <SelectValue>{projectRoleLabel(inviteRole)}</SelectValue>
-                        </SelectTrigger>
-                        <SelectContent align="start">
-                            <SelectItem value="editor">{m.access_project_role_editor()}</SelectItem>
-                            <SelectItem value="viewer">{m.access_project_role_viewer()}</SelectItem>
-                        </SelectContent>
-                    </Select>
-                </Field>
-                <Button type="submit" disabled={pendingAction !== null}>
-                    <UserPlusRoundedIcon aria-hidden="true" />
-                    {m.access_project_invite_button()}
-                </Button>
-            </form>
-
-            {createdInvitation ? (
-                <div className="mt-5 bg-primary/10 p-4 shadow-surface">
-                    <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                            <p className="truncate text-sm font-medium">
-                                {m.access_project_invitation_created_for({
-                                    email: createdInvitation.email,
-                                })}
-                            </p>
-                            <p className="mt-1 text-xs text-muted-foreground">
-                                {m.access_project_invitation_copy_once()}
-                            </p>
-                        </div>
-                        <Badge variant="default">{m.access_pending()}</Badge>
-                    </div>
-                    <code className="mt-3 block overflow-x-auto bg-background px-3 py-2 text-xs leading-5 text-foreground shadow-field">
-                        {createdInvitation.link}
-                    </code>
-                    {copyError ? (
-                        <p className="mt-2 text-xs text-state-failed" role="alert">
-                            {m.access_project_copy_link_unavailable()}
-                        </p>
-                    ) : null}
-                    <Button type="button" className="mt-3" size="sm" onClick={onCopy}>
-                        <CopyIcon aria-hidden="true" />
-                        {copied ? m.access_copied() : m.access_project_copy_link()}
-                    </Button>
-                </div>
-            ) : null}
-
-            {invitations === null || pendingInvitations.length > 0 ? (
-                <div className="mt-6">
-                    <div className="flex items-center justify-between gap-3">
-                        <h3 className="text-sm font-medium">{m.access_project_pending_title()}</h3>
-                        <span className="text-xs tabular-nums text-muted-foreground">
-                            {pendingInvitations.length}
-                        </span>
-                    </div>
-
-                    {invitations === null ? (
-                        <p className="mt-4 text-sm text-muted-foreground" role="status">
-                            {m.access_instance_loading()}
-                        </p>
-                    ) : (
-                        <ul
-                            className="mt-3 grid gap-2"
-                            aria-label={m.access_project_pending_title()}>
-                            {pendingInvitations.map(invitation => (
-                                <li
-                                    key={invitation.id}
-                                    className="flex min-w-0 flex-col gap-3 bg-surface-raised p-3 shadow-field sm:flex-row sm:items-center sm:justify-between">
-                                    <div className="min-w-0">
-                                        <div className="flex min-w-0 items-center gap-2">
-                                            <p className="truncate text-sm font-medium">
-                                                {invitation.email}
-                                            </p>
-                                            {isProjectInvitationExpired(invitation) ? (
-                                                <Badge variant="secondary">
-                                                    {m.access_project_invitation_expired()}
-                                                </Badge>
-                                            ) : null}
-                                        </div>
-                                        <p className="mt-1 text-xs text-muted-foreground">
-                                            {projectInvitationDetails(invitation, locale)}
-                                        </p>
-                                    </div>
-                                    <div className="flex shrink-0 items-center gap-1">
-                                        <Button
-                                            type="button"
-                                            aria-label={`${m.access_project_invitation_resend()} ${invitation.email}`}
-                                            size="sm"
-                                            variant="ghost"
-                                            disabled={pendingAction !== null}
-                                            onClick={() => onResend(invitation.id)}>
-                                            <RestartIcon aria-hidden="true" />
-                                            {m.access_project_invitation_resend()}
-                                        </Button>
-                                        <Button
-                                            type="button"
-                                            size="sm"
-                                            variant="ghost"
-                                            disabled={pendingAction !== null}
-                                            onClick={() => onCancel(invitation.id)}>
-                                            {m.access_project_cancel_invitation()}
-                                        </Button>
-                                    </div>
-                                </li>
-                            ))}
-                        </ul>
-                    )}
-                </div>
             ) : null}
         </section>
     )
@@ -1132,12 +952,6 @@ function projectInvitationLink(projectId: string, organizationId: string, invita
 
 function isProjectInvitationExpired(invitation: ProjectInvitation) {
     return invitation.expiresAt <= Date.now()
-}
-
-function projectInvitationDetails(invitation: ProjectInvitation, locale: string) {
-    return `${projectRoleLabel(invitation.role)} · ${m.access_project_invitation_expires({
-        date: formatDateTime(invitation.expiresAt, 'UTC', locale),
-    })}`
 }
 
 function projectMembersErrorMessage(error: unknown) {
