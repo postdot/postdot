@@ -1995,12 +1995,9 @@ function issueCode(issue: Record<string, unknown>) {
     return typeof issue.code === 'string' ? issue.code : 'validation_issue'
 }
 
-function issueMessage(issue: Record<string, unknown>) {
-    const code = issueCode(issue)
-    const path = typeof issue.path === 'string' && issue.path !== '' ? issue.path : null
-    return path === null
-        ? m.editor_target_validation_issue_without_path({ code })
-        : m.editor_target_validation_issue({ path, code })
+function issueMessage(_issue: Record<string, unknown>) {
+    // Codes and field paths stay out of Studio (ADR-103 §1, audit W3).
+    return m.editor_target_validation_issue()
 }
 
 function formatJson(value: unknown) {
