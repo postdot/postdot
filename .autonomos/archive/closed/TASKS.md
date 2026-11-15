@@ -641,3 +641,7 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] **[UX-658]** Queue: grouped default, dense rows, history, undo (audit Q1–Q6) `Priority: 🟠` `Complexity: M` `Completed: 2026-11-14`
 - [x] **[UX-662]** Queue: Published history tab, hide filters when empty, two-line mobile rows (audit Q4–Q6; undo of Mark published done in Studio, API, MCP, CLI) `Priority: 🟠` `Complexity: M` `Completed: 2026-11-14`
 - [x] **[UX-659]** Publication and post pages: one save, no raw JSON, diagnostics aside (audit D1–D9) `Priority: 🟠` `Complexity: L` `Completed: 2026-11-14`
+
+## Closed 2026-11-15
+
+- [x] **[UX-661]** Calendar filter by channel and state, and "Move by…" bulk reschedule (audit C10 remainder, C11) `Priority: ⚪` `Complexity: M` `Completed: 2026-11-15`

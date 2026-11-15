@@ -1365,13 +1365,15 @@ export const api = {
     async reschedulePublications(
         projectId: string,
         publicationIds: readonly string[],
-        scheduledAt: number
+        scheduledAt: number,
+        scheduledTimes?: Record<string, number>
     ) {
         return withCadenceConfirmation(async cadenceConfirmation =>
             unwrap(
                 await client.api.projects({ projectId }).publications.schedule.patch({
                     publicationIds: [...publicationIds],
                     scheduledAt,
+                    scheduledTimes,
                     cadenceConfirmation,
                 })
             )

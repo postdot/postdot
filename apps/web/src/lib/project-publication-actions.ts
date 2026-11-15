@@ -69,10 +69,16 @@ export function useProjectPublicationActions() {
 
     async function handleReschedulePublications(
         publicationIds: readonly string[],
-        scheduledAt: number
+        scheduledAt: number,
+        scheduledTimes?: Record<string, number>
     ): Promise<boolean> {
         return runAction(async () => {
-            await api.reschedulePublications(project.id, publicationIds, scheduledAt)
+            await api.reschedulePublications(
+                project.id,
+                publicationIds,
+                scheduledAt,
+                scheduledTimes
+            )
             await refreshProject()
         })
     }

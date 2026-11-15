@@ -3,15 +3,20 @@ import { AddIcon } from '@solar-icons/react/linear/add'
 import { CalendarAddIcon } from '@solar-icons/react/linear/calendar-add'
 import { TrashBinMinimalisticIcon } from '@solar-icons/react/linear/trash-bin-minimalistic'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Link } from '@tanstack/react-router'
+import { Link, useNavigate } from '@tanstack/react-router'
 import { useEffect, useMemo, useState } from 'react'
 
 import { BulkActionBar } from '@/components/bulk-action-bar'
 import { DashboardPageHeader } from '@/components/dashboard-page-header'
 import { EmptyState } from '@/components/empty-state'
 import { PublicationBulkCancellationDialog } from '@/components/publication-bulk-cancellation-dialog'
+import { PublicationBulkMoveDialog } from '@/components/publication-bulk-move-dialog'
 import { PublicationBulkScheduleDialog } from '@/components/publication-bulk-schedule-dialog'
 import { PublicationCalendar } from '@/components/publication-calendar'
+import {
+    PublicationCalendarFilter,
+    calendarFilterState,
+} from '@/components/publication-calendar-filter'
 import { PublicationSummaryBar } from '@/components/publication-summary-bar'
 import { QueryErrorState } from '@/components/query-error-state'
 import { api } from '@/lib/api'
@@ -32,6 +37,7 @@ import {
     type PublicationCalendarView,
 } from '@/lib/publication-calendar-events'
 import * as m from '@/paraglide/messages.js'
+import { Route } from '@/routes/dashboard/projects/$projectId/overview'
 
 export function PublicationCalendarPage({
     initialCalendarDateKey,
@@ -41,6 +47,21 @@ export function PublicationCalendarPage({
     readonly initialCalendarView?: PublicationCalendarView
 } = {}) {
     const { locale } = useLanguage()
+    const search = Route.useSearch()
+    const navigate = useNavigate({ from: '/dashboard/projects/$projectId/overview' })
+    const filterChannels = search.channelIds?.split(',').filter(Boolean) ?? []
+    const filterStates = search.states?.split(',').filter(Boolean) ?? []
+    function changeFilters(channelIds: string[], states: string[]) {
+        setSelectedPublicationIds(new Set())
+        void navigate({
+            search: previous => ({
+                ...previous,
+                channelIds: channelIds.join(',') || undefined,
+                states: states.join(',') || undefined,
+            }),
+            replace: true,
+        })
+    }
     const { channels, project, projectRole } = useProjectDashboard()
     const { due, publications } = useProjectPublicationData(project.id)
     const { onCancelPublications, onReschedulePublications, pending } =
@@ -88,6 +109,14 @@ export function PublicationCalendarPage({
     })
     const occupancy = hasSharedChannel ? (occupancyQuery.data ?? []) : []
     const dueIds = useMemo(() => new Set(due.map(publication => publication.id)), [due])
+    const filteredPublications = calendarPublications.filter(
+        p =>
+            (filterChannels.length === 0 || filterChannels.includes(p.channelId)) &&
+            (filterStates.length === 0 || filterStates.includes(calendarFilterState(p, dueIds)))
+    )
+    const hiddenCount =
+        calendarPublications.filter(p => p.scheduledAt !== null).length -
+        filteredPublications.filter(p => p.scheduledAt !== null).length
     const nextScheduledPublication = useMemo(() => {
         const upcoming = calendarPublications.filter(
             publication =>
@@ -100,17 +129,18 @@ export function PublicationCalendarPage({
         return upcoming[0] ?? null
     }, [calendarPublications])
     const calendarPublicationIds = useMemo(
-        () => toPublicationCalendarEvents(calendarPublications, dueIds).map(event => event.id),
-        [calendarPublications, dueIds]
+        () => toPublicationCalendarEvents(filteredPublications, dueIds).map(event => event.id),
+        [filteredPublications, dueIds]
     )
     const [selectedPublicationIds, setSelectedPublicationIds] = useState<Set<string>>(
         () => new Set()
     )
+    const [moveDialogOpen, setMoveDialogOpen] = useState(false)
     const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false)
     const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
     useEffect(() => {
         setSelectedPublicationIds(new Set())
-    }, [calendarDateKey])
+    }, [calendarDateKey, search.channelIds, search.states])
 
     const selectedCalendarPublications = calendarPublications.filter(publication =>
         selectedPublicationIds.has(publication.id)
@@ -146,10 +176,14 @@ export function PublicationCalendarPage({
         })
     }
 
-    async function rescheduleSelection(scheduledAt: number): Promise<boolean> {
+    async function rescheduleSelection(
+        scheduledAt: number,
+        scheduledTimes?: Record<string, number>
+    ): Promise<boolean> {
         const succeeded = await onReschedulePublications(
             selectedCalendarPublications.map(publication => publication.id),
-            scheduledAt
+            scheduledAt,
+            scheduledTimes
         )
         if (succeeded) {
             clearPublicationSelection()
@@ -250,6 +284,13 @@ export function PublicationCalendarPage({
                                         onSelect: () => setScheduleDialogOpen(true),
                                     },
                                     {
+                                        disabled: !canRescheduleSelection,
+                                        disabledReason: m.queue_reschedule_only_scheduled(),
+                                        id: 'move',
+                                        label: m.calendar_move_by(),
+                                        onSelect: () => setMoveDialogOpen(true),
+                                    },
+                                    {
                                         disabled: !canCancelSelection,
                                         disabledReason: m.queue_cancel_only_scheduled(),
                                         icon: <TrashBinMinimalisticIcon aria-hidden="true" />,
@@ -283,8 +324,27 @@ export function PublicationCalendarPage({
                         <>
                             <section aria-labelledby="calendar-title" className="mt-7 min-w-0">
                                 <PublicationCalendar
+                                    filterControl={
+                                        <PublicationCalendarFilter
+                                            channels={channels}
+                                            states={[
+                                                ...new Set(
+                                                    calendarPublications.map(p =>
+                                                        calendarFilterState(p, dueIds)
+                                                    )
+                                                ),
+                                            ]}
+                                            channelIds={filterChannels}
+                                            selectedStates={filterStates}
+                                            onChange={changeFilters}
+                                        />
+                                    }
                                     channels={channels}
-                                    occupancy={occupancy}
+                                    occupancy={occupancy.filter(
+                                        item =>
+                                            filterChannels.length === 0 ||
+                                            filterChannels.includes(item.channelId)
+                                    )}
                                     duePublicationIds={dueIds}
                                     loading={calendarPublicationsQuery.isFetching}
                                     locale={locale}
@@ -295,11 +355,26 @@ export function PublicationCalendarPage({
                                         setSelectedPublicationIds(new Set(publicationIds))
                                     }}
                                     projectId={project.id}
-                                    publications={calendarPublications}
+                                    publications={filteredPublications}
                                     readOnly={readOnly}
                                     selectedPublicationIds={selectedPublicationIds}
                                     timeZone={project.timeZone}
                                 />
+                                {hiddenCount > 0 ||
+                                filterChannels.length > 0 ||
+                                filterStates.length > 0 ? (
+                                    <p className="mt-3 text-xs text-muted-foreground">
+                                        {hiddenCount > 0
+                                            ? m.calendar_filter_hidden({ count: hiddenCount })
+                                            : null}{' '}
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => changeFilters([], [])}>
+                                            {m.calendar_filter_clear()}
+                                        </Button>
+                                    </p>
+                                ) : null}
                                 {occupancy.length > 0 ? (
                                     <p className="mt-3 text-xs text-muted-foreground">
                                         {m.calendar_occupied_note()}
@@ -331,6 +406,14 @@ export function PublicationCalendarPage({
                 </>
             )}
 
+            <PublicationBulkMoveDialog
+                open={moveDialogOpen}
+                onOpenChange={setMoveDialogOpen}
+                publications={selectedCalendarPublications}
+                pending={pending}
+                timeZone={project.timeZone}
+                onMove={times => rescheduleSelection(Math.min(...Object.values(times)), times)}
+            />
             <PublicationBulkScheduleDialog
                 open={scheduleDialogOpen}
                 onOpenChange={setScheduleDialogOpen}

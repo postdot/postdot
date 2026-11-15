@@ -1304,15 +1304,41 @@ describe('manual workflow store', () => {
                 throw new Error('The bulk scheduling publications are missing')
             }
 
+            await expect(
+                store.reschedulePublications({
+                    projectId: project.project.id,
+                    publicationIds: [firstPublication.id, secondPublication.id],
+                    scheduledAt: now + 120_000,
+                    scheduledTimes: { [firstPublication.id]: now + 120_000 },
+                    subjectId: 'user-1',
+                })
+            ).rejects.toThrow('scheduledTimes must include every selected publication exactly once')
+            await expect(
+                store.reschedulePublications({
+                    projectId: project.project.id,
+                    publicationIds: [firstPublication.id, secondPublication.id],
+                    scheduledAt: now + 120_000,
+                    scheduledTimes: {
+                        [firstPublication.id]: now + 120_000,
+                        [secondPublication.id]: now - 1,
+                    },
+                    subjectId: 'user-1',
+                })
+            ).rejects.toThrow('scheduledAt must not be before now')
+
             const rescheduled = await store.reschedulePublications({
                 projectId: project.project.id,
                 publicationIds: [firstPublication.id, secondPublication.id],
                 scheduledAt: now + 120_000,
+                scheduledTimes: {
+                    [firstPublication.id]: now + 120_000,
+                    [secondPublication.id]: now + 180_000,
+                },
                 subjectId: 'user-1',
             })
             expect(rescheduled).toMatchObject([
                 { id: firstPublication.id, state: 'scheduled', scheduledAt: now + 120_000 },
-                { id: secondPublication.id, state: 'scheduled', scheduledAt: now + 120_000 },
+                { id: secondPublication.id, state: 'scheduled', scheduledAt: now + 180_000 },
             ])
             expect(
                 await database.sql
@@ -1322,7 +1348,7 @@ describe('manual workflow store', () => {
                     .all()
             ).toMatchObject([
                 { publicationId: firstPublication.id, runAt: now + 120_000 },
-                { publicationId: secondPublication.id, runAt: now + 120_000 },
+                { publicationId: secondPublication.id, runAt: now + 180_000 },
             ])
             expect(
                 await database.sql
@@ -1351,7 +1377,7 @@ describe('manual workflow store', () => {
                     }),
                     expect.objectContaining({
                         id: secondPublication.id,
-                        scheduledAt: now + 120_000,
+                        scheduledAt: now + 180_000,
                     }),
                     expect.objectContaining({
                         id: draftPublication.id,

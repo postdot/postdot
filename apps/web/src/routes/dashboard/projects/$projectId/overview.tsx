@@ -8,6 +8,8 @@ import {
 } from '@/lib/publication-calendar-events'
 
 export interface OverviewSearch {
+    channelIds?: string
+    states?: string
     date?: string
     view?: PublicationCalendarView
 }
@@ -15,6 +17,8 @@ export interface OverviewSearch {
 export const Route = createFileRoute('/dashboard/projects/$projectId/overview')({
     validateSearch: (search: Record<string, unknown>): OverviewSearch => {
         const validated: OverviewSearch = {}
+        if (typeof search.channelIds === 'string') validated.channelIds = search.channelIds
+        if (typeof search.states === 'string') validated.states = search.states
         if (isCalendarDateKey(search.date)) {
             validated.date = search.date
         }

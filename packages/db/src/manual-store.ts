@@ -228,6 +228,7 @@ export interface PromotePublicationDraftInput {
 }
 
 export interface ReschedulePublicationsInput {
+    readonly scheduledTimes?: Readonly<Record<string, Timestamp>>
     readonly cadenceConfirmation?: string
     readonly projectId: string
     readonly publicationIds: readonly string[]

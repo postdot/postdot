@@ -905,6 +905,7 @@ export const rejectPublicationRequestBody = Type.Object({
 })
 
 export const reschedulePublicationsBody = Type.Object({
+    scheduledTimes: Type.Optional(Type.Record(Type.String(), Type.Integer({ minimum: 0 }))),
     cadenceConfirmation: Type.Optional(Type.String({ minLength: 64, maxLength: 64 })),
     publicationIds: Type.Array(Type.String({ minLength: 1 }), {
         minItems: 1,

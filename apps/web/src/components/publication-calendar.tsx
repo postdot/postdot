@@ -73,6 +73,7 @@ const CALENDAR_VIEW_SHORTCUTS = {
 type ChannelIdentity = Pick<Channel, 'id' | 'name' | 'profileId'>
 
 export function PublicationCalendar({
+    filterControl,
     channels = [],
     duePublicationIds,
     loading,
@@ -87,6 +88,7 @@ export function PublicationCalendar({
     selectedPublicationIds,
     timeZone,
 }: {
+    readonly filterControl?: React.ReactNode
     /** This project's channels, to show each publication's channel mark and name. */
     readonly channels?: readonly ChannelIdentity[]
     readonly duePublicationIds: ReadonlySet<string>
@@ -362,6 +364,7 @@ export function PublicationCalendar({
                         setSelectionMode(enabled)
                         if (!enabled) onSelectedPublicationIdsChange([])
                     }}
+                    filterControl={filterControl}
                     selectionAvailable={!readOnly}
                     selectionMode={selectionMode}
                     selectLabel={m.calendar_select()}
@@ -395,6 +398,7 @@ export function PublicationCalendar({
 }
 
 function EventCalendarToolbar({
+    filterControl,
     doneLabel,
     hotkeyTarget,
     onSelectionModeChange,
@@ -403,6 +407,7 @@ function EventCalendarToolbar({
     selectionMode,
     shortcutsEnabled,
 }: {
+    readonly filterControl?: React.ReactNode
     readonly doneLabel: string
     readonly hotkeyTarget: RefObject<HTMLDivElement | null>
     readonly onSelectionModeChange: (enabled: boolean) => void
@@ -482,6 +487,7 @@ function EventCalendarToolbar({
                 {title}
             </h2>
             <div className="flex max-w-full flex-wrap items-center gap-3 sm:ml-auto">
+                {filterControl}
                 {selectionAvailable ? (
                     <Button
                         aria-pressed={selectionMode}

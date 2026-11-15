@@ -2667,5 +2667,21 @@
     "channels_projects_title": "Projects for {channel}",
     "workspace_channels_show_archived": "Show archived ({count})",
     "workspace_channels_hide_archived": "Hide archived",
-    "channels_used_by_count": "Used by {count} projects"
+    "channels_used_by_count": "Used by {count} projects",
+    "calendar_move_by": "Move by…",
+    "calendar_move_amount": "Amount",
+    "calendar_move_unit": "Unit",
+    "calendar_move_hours": "Hours",
+    "calendar_move_days": "Days",
+    "calendar_move_weeks": "Weeks",
+    "calendar_move_direction": "Direction",
+    "calendar_move_forward": "Forward",
+    "calendar_move_back": "Back",
+    "calendar_move_range": "First: {first}. Last: {last}.",
+    "calendar_move_past": "Nothing was moved. These posts would be scheduled in the past; choose a smaller backward move or move forward.",
+    "calendar_filter": "Filter",
+    "calendar_filter_channels": "Channels",
+    "calendar_filter_states": "State",
+    "calendar_filter_hidden": "{count} publications hidden.",
+    "calendar_filter_clear": "Clear filters"
 }

@@ -604,6 +604,7 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                 }
 
                 const publications = await manualStore.reschedulePublications({
+                    scheduledTimes: body.scheduledTimes,
                     projectId: params.projectId,
                     publicationIds: body.publicationIds,
                     scheduledAt: body.scheduledAt,
