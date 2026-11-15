@@ -214,9 +214,9 @@ function icoDibToBmp(entryBytes: Uint8Array): Uint8Array | null {
     return bmp
 }
 
-function selectIcoDecodableBuffers(bytes: Uint8Array): readonly Uint8Array[] {
+function* selectIcoDecodableBuffers(bytes: Uint8Array): Generator<Uint8Array> {
     const entries = parseIcoEntries(bytes)
-    if (!entries || entries.length === 0) return []
+    if (!entries || entries.length === 0) return
     const sorted = [...entries].sort((left, right) => {
         const leftMeetsMin = Math.min(left.width, left.height) >= 32 ? 1 : 0
         const rightMeetsMin = Math.min(right.width, right.height) >= 32 ? 1 : 0
@@ -228,17 +228,15 @@ function selectIcoDecodableBuffers(bytes: Uint8Array): readonly Uint8Array[] {
         if (left.isPng !== right.isPng) return left.isPng ? -1 : 1
         return right.bytesInRes - left.bytesInRes
     })
-    const buffers: Uint8Array[] = []
     for (const entry of sorted) {
         const slice = bytes.subarray(entry.imageOffset, entry.imageOffset + entry.bytesInRes)
         if (entry.isPng) {
-            buffers.push(slice)
+            yield slice
         } else {
             const bmp = icoDibToBmp(slice)
-            if (bmp !== null) buffers.push(bmp)
+            if (bmp !== null) yield bmp
         }
     }
-    return buffers
 }
 
 let processingQueue = Promise.resolve()
@@ -246,13 +244,6 @@ let processingQueue = Promise.resolve()
 export async function processIdentityImage(bytes: Uint8Array): Promise<ProcessedIdentityImage> {
     const format = sniffIdentityImageFormat(bytes)
     const candidates = format === 'image/x-icon' ? selectIcoDecodableBuffers(bytes) : [bytes]
-    if (candidates.length === 0) {
-        throw new IdentityImageValidationError(
-            'identity_image_format',
-            'ICO file does not contain a supported raster icon'
-        )
-    }
-
     const previous = processingQueue
     let release!: () => void
     processingQueue = new Promise<void>(resolve => {
