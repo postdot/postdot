@@ -11,6 +11,8 @@
 
 - [x] **[UX-663]** Identity images for projects, workspaces and channels (owner feedback, 2026-11-15) `Priority: 🔵` `Complexity: L`
 
+- [x] **[UX-664]** Settings pages on one anatomy (owner review, 2026-11-15) `Priority: 🔵` `Complexity: M`
+
 ## Current direction
 
 Shared-channel implementation follows [ADR-095](decisions/ADR-095-workspace-channels-and-project-attachments.md)
