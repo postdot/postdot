@@ -99,6 +99,7 @@ export function FilterMenu({ groups }: { readonly groups: readonly FilterGroup[]
                                     value={group.selected[0] ?? group.anyValue ?? ''}>
                                     {group.options.map(option => (
                                         <DropdownMenuRadioItem
+                                            closeOnClick
                                             key={option.value}
                                             value={option.value}>
                                             {option.media}
@@ -129,7 +130,7 @@ export function ActiveFilters({ groups }: { readonly groups: readonly FilterGrou
         <div className="flex min-w-0 flex-wrap items-center gap-1.5" data-active-filters="true">
             {conditions.map(({ group, label, value }) => (
                 <span
-                    className="inline-flex h-7 max-w-64 items-center gap-1 rounded-md border border-border bg-surface-raised pr-0.5 pl-2 text-xs"
+                    className="inline-flex h-7 max-w-full items-center gap-1 rounded-md border border-border bg-surface-raised pr-0.5 pl-2 text-xs"
                     key={`${group.id}:${value}`}>
                     <span className="shrink-0 text-muted-foreground">{group.label}</span>
                     <span className="truncate font-medium">{label}</span>
@@ -204,7 +205,10 @@ export function SortMenu({
                         onValueChange={next => onChange(String(next))}
                         value={value}>
                         {options.map(option => (
-                            <DropdownMenuRadioItem key={option.value} value={option.value}>
+                            <DropdownMenuRadioItem
+                                closeOnClick
+                                key={option.value}
+                                value={option.value}>
                                 {option.label}
                             </DropdownMenuRadioItem>
                         ))}

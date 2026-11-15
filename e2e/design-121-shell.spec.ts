@@ -255,12 +255,12 @@ test('keeps a fixed page edge, readable menus and transient action feedback', as
     expect(seededPost.status()).toBe(201)
 
     await page.goto(`/dashboard/projects/${projectId}/queue`)
-    await page.getByRole('combobox', { name: 'Delivery', exact: true }).click()
-    await page.getByRole('option', { name: 'By hand only', exact: true }).click()
-    await page.getByRole('combobox', { name: 'Delivery', exact: true }).click()
-    const options = page.locator('[data-slot="select-content"]')
+    await page.locator('[data-filter-menu="true"]').click()
+    await page.getByRole('menuitemradio', { name: 'By hand only', exact: true }).click()
+    await page.locator('[data-filter-menu="true"]').click()
+    const options = page.getByRole('menu')
     await expect(options).toBeVisible()
-    for (const option of await page.getByRole('option').all()) {
+    for (const option of await page.getByRole('menuitemradio').all()) {
         const fit = await option.evaluate(element => ({
             visible: element.clientWidth,
             content: element.scrollWidth,
