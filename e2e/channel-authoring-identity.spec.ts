@@ -614,7 +614,11 @@ test('resumes composition from channel setup and after an OAuth callback reload'
     const body = 'Keep this text and destination through connection setup.'
     await content.fill(body)
     await page.getByRole('link', { name: 'Channels', exact: true }).click()
-    await page.getByRole('link', { name: en.publication_resume_composition, exact: true }).click()
+    // P10-01 / ADR-103 §2: sidebar destination Channels has no return control above its title.
+    await expect(
+        page.getByRole('link', { name: en.publication_resume_composition, exact: true })
+    ).toHaveCount(0)
+    await page.getByRole('link', { name: en.nav_new_publication, exact: true }).click()
     await expect(content).toHaveText(body)
     for (const result of ['authorization_denied', 'connected'] as const) {
         // A full navigation models the existing callback landing URL, not a provider exchange.

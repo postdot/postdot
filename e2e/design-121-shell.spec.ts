@@ -240,6 +240,20 @@ test('keeps a fixed page edge, readable menus and transient action feedback', as
     await expect(edge).not.toHaveCSS('box-shadow', 'none')
     await page.screenshot({ path: info.outputPath('fixed-edge-scrolled.png') })
 
+    const { channels } = (await (
+        await page.request.get(`/api/projects/${projectId}/channels`)
+    ).json()) as { channels: { id: string }[] }
+    const seededPost = await page.request.post(`/api/projects/${projectId}/posts`, {
+        data: {
+            sourceContent: {
+                body: { format: 'plain_text', text: 'Shell filter sizing post' },
+                media: [],
+            },
+            publications: [{ channelId: channels[0]!.id, deliveryMode: 'manual' }],
+        },
+    })
+    expect(seededPost.status()).toBe(201)
+
     await page.goto(`/dashboard/projects/${projectId}/queue`)
     await page.getByRole('combobox', { name: 'Delivery', exact: true }).click()
     await page.getByRole('option', { name: 'By hand only', exact: true }).click()

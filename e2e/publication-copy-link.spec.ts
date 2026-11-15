@@ -33,7 +33,11 @@ test('copies a canonical internal link from Queue and publication details', asyn
         const path = `/dashboard/projects/${fixture.project.id}/publications/${publications[0].id}`
         await page.goto(`/dashboard/projects/${fixture.project.id}/queue?filter=all`)
         const expected = new URL(path, page.url()).href
-        await page.getByRole('button', { name: 'Copy publication link', exact: true }).click()
+        await expect(
+            page.getByRole('button', { name: 'Copy publication link', exact: true })
+        ).toHaveCount(0)
+        await page.locator('[data-publication-row-actions="true"]').click()
+        await page.getByRole('menuitem', { name: 'Copy publication link', exact: true }).click()
         await expect
             .poll(() =>
                 page.evaluate(

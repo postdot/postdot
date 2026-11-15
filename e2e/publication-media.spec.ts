@@ -154,8 +154,9 @@ test('keeps dashboard and composer media journeys reliable', async ({ page, requ
             )
             return { linkCount: links.length, topOffsetCount: topOffsets.size }
         })
-    const projectNavigationLayout = await page
-        .getByRole('navigation', { name: 'Project navigation' })
+    await expect(page.getByRole('navigation', { name: 'Project navigation' })).toHaveCount(0)
+    const workspaceNavigationLayout = await page
+        .getByRole('navigation', { name: 'Workspace navigation' })
         .evaluate(element => {
             const links = Array.from(element.querySelectorAll('a, button'))
             const topOffsets = new Set(
@@ -169,9 +170,9 @@ test('keeps dashboard and composer media journeys reliable', async ({ page, requ
             )
             return { linkCount: links.length, topOffsetCount: topOffsets.size }
         })
-    expect(workNavigationLayout).toEqual({ linkCount: 3, topOffsetCount: 3 })
-    // Channels, Media, Tags, People, Project settings (ADR-103 §4).
-    expect(projectNavigationLayout).toEqual({ linkCount: 5, topOffsetCount: 5 })
+    expect(workNavigationLayout).toEqual({ linkCount: 1, topOffsetCount: 1 })
+    // With no project selected, disabled project items are hidden and only Channels appears under Workspace (P10-02/P10-03).
+    expect(workspaceNavigationLayout).toEqual({ linkCount: 1, topOffsetCount: 1 })
     await page.getByRole('button', { name: 'Close', exact: true }).click()
     await page.setViewportSize({ width: 1280, height: 720 })
 
@@ -234,7 +235,7 @@ test('keeps dashboard and composer media journeys reliable', async ({ page, requ
     const desktopProjectForm = page.getByRole('dialog')
     await page.getByRole('textbox', { name: 'Name', exact: true }).fill(projectName)
     await desktopProjectForm.getByRole('button', { name: 'Create project', exact: true }).click()
-    await expect(page.getByRole('combobox', { name: 'Select project' }).first()).toHaveText(
+    await expect(page.getByRole('combobox', { name: 'Select project' }).first()).toContainText(
         projectName
     )
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/overview$/)
@@ -295,7 +296,8 @@ test('keeps dashboard and composer media journeys reliable', async ({ page, requ
     await expect(page.getByText(tokenName, { exact: true })).toBeVisible()
 
     const keyItem = page.getByRole('listitem').filter({ hasText: tokenName })
-    await keyItem.getByRole('button', { name: 'Revoke', exact: true }).click()
+    await keyItem.getByRole('button', { name: `Manage ${tokenName}`, exact: true }).click()
+    await page.getByRole('menuitem', { name: 'Revoke', exact: true }).click()
     await expect(page.getByRole('heading', { name: 'Revoke this API key?' })).toBeVisible()
     await page.getByRole('dialog').getByRole('button', { name: 'Revoke', exact: true }).click()
     await expect(page.getByText(tokenName, { exact: true })).toHaveCount(0)
@@ -631,7 +633,7 @@ test('supports media library search, viewing, and bulk actions', async ({ page }
     await importMediaFiles(page, [mediaFilename, secondMediaFilename, droppedMediaFilename])
     await expect(page.locator('[data-media-drop-hint="true"]')).toHaveCount(0)
     await expect(page.locator('[data-media-library-toolbar="true"]')).toBeVisible()
-    await expect(page.locator('[data-media-selection-mode-toggle="true"]')).toBeVisible()
+    await expect(page.locator('[data-media-selection-mode-toggle="true"]')).toHaveCount(0)
     await expect(page.locator('[data-media-trash-open="true"]')).toBeVisible()
     await expect(
         page.getByRole('button', { name: `View ${droppedMediaFilename}`, exact: true })
@@ -820,14 +822,15 @@ test('supports media library search, viewing, and bulk actions', async ({ page }
     await mediaLibraryViewer.getByRole('button', { name: 'Close', exact: true }).click()
     await expect(mediaLibraryViewer).toHaveCount(0)
 
-    await page.getByRole('button', { name: 'Select', exact: true }).click()
-    await expect(mediaBulkActionBar).toBeVisible()
-    await expect(mediaBulkActionBar).toContainText('0 selected')
-    await droppedMediaCard.click({ position: { x: 2, y: 2 } })
+    await page.locator('[data-media-filter="sort"]').click()
+    await page.getByRole('option', { name: 'Oldest', exact: true }).click()
+    await expect(mediaBulkActionBar).toHaveCount(0)
+    await droppedMediaCard.getByRole('checkbox').check()
     await expect(droppedMediaCard).toHaveAttribute('data-media-action-selected', 'true')
-    await droppedMediaCard.click({ position: { x: 2, y: 2 } })
+    await expect(page.locator('[data-media-selection-bar="true"]')).toHaveCSS('position', 'fixed')
+    await droppedMediaCard.getByRole('checkbox').uncheck()
     await expect(droppedMediaCard).not.toHaveAttribute('data-media-action-selected')
-    await page.getByRole('button', { name: `Select ${mediaFilename}`, exact: true }).click()
+    await page.getByRole('checkbox', { name: `Select ${mediaFilename}`, exact: true }).check()
     await expect(mediaBulkActionBar).toBeVisible()
     await expect(
         mediaBulkActionBar.getByRole('button', { name: 'Select all', exact: true })
@@ -841,7 +844,7 @@ test('supports media library search, viewing, and bulk actions', async ({ page }
     await expect(
         mediaBulkActionBar.getByRole('button', { name: 'Open (1)', exact: true })
     ).toBeVisible()
-    await page.getByRole('button', { name: `Select ${secondMediaFilename}`, exact: true }).click()
+    await page.getByRole('checkbox', { name: `Select ${secondMediaFilename}`, exact: true }).check()
     await expect(mediaBulkActionBar).toContainText('2 selected')
     await mediaBulkActionBar.getByRole('button', { name: 'Open (2)', exact: true }).click()
     await expect(mediaLibraryViewer).toBeVisible()
@@ -874,7 +877,6 @@ test('supports media library search, viewing, and bulk actions', async ({ page }
     await expect(
         page.getByRole('button', { name: `View ${secondMediaFilename}`, exact: true })
     ).toHaveCount(0)
-    await page.getByRole('button', { name: 'Exit selection', exact: true }).click()
     await expect(mediaBulkActionBar).toHaveCount(0)
     const mediaSearch = page.getByRole('searchbox', { name: 'Search media', exact: true })
     await expect(mediaSearch).toBeVisible()
@@ -951,6 +953,8 @@ test('supports media library search, viewing, and bulk actions', async ({ page }
     const mediaDownload = page.waitForEvent('download')
     await page.getByRole('menuitem', { name: 'Download', exact: true }).click()
     expect((await mediaDownload).suggestedFilename()).toBe(droppedMediaFilename)
+    await page.locator('[data-media-filter="sort"]').click()
+    await page.getByRole('option', { name: 'Newest', exact: true }).click()
     await droppedMediaCard
         .getByRole('button', { name: `Actions for ${droppedMediaFilename}`, exact: true })
         .click()
@@ -1057,7 +1061,7 @@ test('persists mixed and media-only publications through the dashboard', async (
     await createChannel(page, secondChannelName, 'LinkedIn')
     await page.goto(`/dashboard/projects/${firstProjectId}/media`)
     await importMediaFiles(page, [editedMediaFilename])
-    await page.getByRole('button', { name: 'List view', exact: true }).click()
+    await expect(page.locator('[data-media-library-toolbar="true"]')).toHaveCount(0)
 
     await expect(
         page.locator('main').getByRole('button', { name: 'New post', exact: true })
@@ -1692,6 +1696,11 @@ test('persists mixed and media-only publications through the dashboard', async (
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/media$/)
     await expect(page.locator('[data-media-library-view]')).toHaveAttribute(
         'data-media-library-view',
+        'grid'
+    )
+    await page.getByRole('button', { name: 'List view', exact: true }).click()
+    await expect(page.locator('[data-media-library-view]')).toHaveAttribute(
+        'data-media-library-view',
         'list'
     )
     await page.getByRole('button', { name: 'Compact view', exact: true }).click()
@@ -1709,8 +1718,7 @@ test('persists mixed and media-only publications through the dashboard', async (
         .filter({ hasText: editedMediaFilename })
         .first()
     await expect(editedMediaCard).toBeVisible()
-    await page.getByRole('button', { name: 'Select', exact: true }).click()
-    await editedMediaCard.click({ position: { x: 2, y: 2 } })
+    await editedMediaCard.getByRole('checkbox').check()
     const usedMediaBulkActionBar = page.locator('[data-bulk-action-bar="true"]')
     await usedMediaBulkActionBar.getByRole('button', { name: 'Delete (1)', exact: true }).click()
     const usedMediaBulkDeletionDialog = page.locator('[data-media-bulk-delete-dialog="true"]')
@@ -1735,7 +1743,7 @@ test('persists mixed and media-only publications through the dashboard', async (
         .filter({ has: page.getByRole('textbox', { name: 'Name', exact: true }) })
         .getByRole('button', { name: 'Create project', exact: true })
         .click()
-    await expect(page.getByRole('combobox', { name: 'Select project' }).first()).toHaveText(
+    await expect(page.getByRole('combobox', { name: 'Select project' }).first()).toContainText(
         secondProjectName
     )
     const secondProjectId = projectIdFromUrl(page.url())
@@ -1751,7 +1759,7 @@ test('persists mixed and media-only publications through the dashboard', async (
     await expect(
         page.locator('#publisher-connections').getByText(secondChannelName, { exact: true })
     ).toBeVisible()
-    await expect(page.getByRole('combobox', { name: 'Select project' }).first()).toHaveText(
+    await expect(page.getByRole('combobox', { name: 'Select project' }).first()).toContainText(
         projectName
     )
 
@@ -1760,7 +1768,7 @@ test('persists mixed and media-only publications through the dashboard', async (
         page.getByRole('status').getByText(en.channels_empty_title, { exact: true })
     ).toBeVisible()
     await expect(page.getByText(channelName, { exact: true })).toHaveCount(0)
-    await expect(page.getByRole('combobox', { name: 'Select project' }).first()).toHaveText(
+    await expect(page.getByRole('combobox', { name: 'Select project' }).first()).toContainText(
         secondProjectName
     )
 })

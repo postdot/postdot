@@ -143,7 +143,8 @@ test('project roles keep viewer read-only and editor actions available', async (
         ).toBe(200)
 
         await editorPage.reload()
-        await expect(editorPage.getByRole('button', { name: 'Select', exact: true })).toBeVisible()
+        await expect(editorPage.getByRole('button', { name: 'Select', exact: true })).toHaveCount(0)
+        await expect(editorPage.locator('[data-media-bulk-selection-toggle="true"]')).toHaveCount(1)
 
         await editorPage.goto(`/dashboard/projects/${owner.projectId}/channels`)
         await expect(
