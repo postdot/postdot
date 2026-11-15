@@ -114,9 +114,7 @@ for (const [locale, copy] of [
         })
         await page.keyboard.press('Escape')
 
-        await page.goto(
-            `/dashboard/workspace/channels?workspaceId=${project.workspaceId}&projectId=${project.id}`
-        )
+        await page.goto(`/dashboard/projects/${project.id}/channels?scope=workspace`)
         await page.getByRole('button', { name: copy.channel_add, exact: true }).click()
         await expect(
             page.getByRole('combobox', {

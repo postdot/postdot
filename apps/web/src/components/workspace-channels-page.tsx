@@ -1,5 +1,4 @@
 import { Alert, AlertDescription } from '@postdot/ui/components/alert'
-import { Badge } from '@postdot/ui/components/badge'
 import { Button } from '@postdot/ui/components/button'
 import { Label } from '@postdot/ui/components/label'
 import {
@@ -13,15 +12,17 @@ import { Switch } from '@postdot/ui/components/switch'
 import { AddIcon } from '@solar-icons/react/linear/add'
 import { LinkIcon } from '@solar-icons/react/linear/link'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Link } from '@tanstack/react-router'
 import { useState } from 'react'
 
-import { AccessPageHeader } from '@/components/access-page-header'
 import { ChannelCadenceDialog } from '@/components/channel-cadence-dialog'
 import { ChannelCreationDialog } from '@/components/channel-creation-dialog'
-import { ChannelManagementTransfer } from '@/components/channel-management-transfer'
+import { ChannelRow, ChannelActionsMenu } from '@/components/channel-row'
+import { ChannelScopeSwitch } from '@/components/channel-scope-switch'
+import { ChannelSharingDialog } from '@/components/channel-sharing-dialog'
+import { DashboardPageHeader } from '@/components/dashboard-page-header'
+import { channelProfileLabel } from '@/components/dashboard-publication-parts'
 import { EmptyState } from '@/components/empty-state'
-import { ChannelAvatar } from '@/components/identity-visuals'
+import { PageColumn } from '@/components/page-column'
 import {
     api,
     ApiError,
@@ -36,43 +37,54 @@ import * as m from '@/paraglide/messages.js'
 type WorkspaceChannels = Awaited<ReturnType<typeof api.listWorkspaceChannels>>
 type WorkspaceChannel = WorkspaceChannels['channels'][number]
 
-export function WorkspaceChannelsPage() {
+export function WorkspaceChannelsPage({ projectId }: { readonly projectId?: string }) {
     const global = useDashboardGlobal()
     useLanguage()
     if (!global.selectedWorkspaceId)
         return (
             <main className="px-4 py-8">
-                <AccessPageHeader column="management" title={m.workspace_channels_title()} />
+                <DashboardPageHeader column="management" title={m.channels_title()} />
             </main>
         )
     return (
         <WorkspaceChannelContent
             key={global.selectedWorkspaceId}
             workspaceId={global.selectedWorkspaceId}
+            projectId={projectId}
         />
     )
 }
-function WorkspaceChannelContent({ workspaceId }: { workspaceId: string }) {
+function WorkspaceChannelContent({
+    workspaceId,
+    projectId,
+}: {
+    workspaceId: string
+    projectId?: string
+}) {
     const [includeArchived, setIncludeArchived] = useState(false)
     const [creating, setCreating] = useState(false)
     const [initialProjectId, setInitialProjectId] = useState<string | null>(null)
     const [pending, setPending] = useState(false)
     const [error, setError] = useState<string | null>(null)
+    const [sharingChannelId, setSharingChannelId] = useState<string | null>(null)
     const [cadenceChannel, setCadenceChannel] = useState<WorkspaceChannel | null>(null)
     const queryClient = useQueryClient()
     const query = useQuery({
-        queryKey: ['workspace-channels', workspaceId, includeArchived],
+        queryKey: ['workspace-channels', workspaceId, true],
         staleTime: 0,
-        queryFn: () => api.listWorkspaceChannels(workspaceId, includeArchived),
+        queryFn: () => api.listWorkspaceChannels(workspaceId, true),
     })
     const data = query.data
+    const visibleChannels =
+        data?.channels.filter(channel => includeArchived || channel.state === 'active') ?? []
     const projects = data?.projects ?? []
+    const sharingChannel = data?.channels.find(channel => channel.id === sharingChannelId) ?? null
     const canCreate = projects.filter(p => p.canCreate)
     async function refresh() {
         await Promise.all([
             queryClient.invalidateQueries({
                 queryKey: ['workspace-channels', workspaceId],
-                refetchType: 'none',
+                refetchType: 'active',
             }),
             queryClient.invalidateQueries({ queryKey: ['channel-sharing'], refetchType: 'none' }),
             queryClient.invalidateQueries({ queryKey: ['channel-cadence'], refetchType: 'none' }),
@@ -83,7 +95,6 @@ function WorkspaceChannelContent({ workspaceId }: { workspaceId: string }) {
                 })
             ),
         ])
-        await query.refetch()
     }
     async function create(
         name: string,
@@ -108,10 +119,10 @@ function WorkspaceChannelContent({ workspaceId }: { workspaceId: string }) {
         }
     }
     return (
-        <main className="min-w-0 px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
-            <AccessPageHeader
+        <main className="min-w-0 px-4 py-7 sm:px-6 lg:px-8 lg:py-8">
+            <DashboardPageHeader
                 column="management"
-                title={m.workspace_channels_title()}
+                title={m.channels_title()}
                 action={
                     canCreate.length ? (
                         <Button onClick={() => setCreating(value => !value)}>
@@ -119,9 +130,10 @@ function WorkspaceChannelContent({ workspaceId }: { workspaceId: string }) {
                             {creating ? m.common_cancel() : m.channel_add()}
                         </Button>
                     ) : undefined
-                }
-            />
-            <div className="mx-auto w-full max-w-5xl space-y-5">
+                }>
+                <ChannelScopeSwitch scope="workspace" projectId={projectId} />
+            </DashboardPageHeader>
+            <PageColumn variant="management" className="space-y-5">
                 {creating ? (
                     <section
                         className="max-w-xl space-y-3"
@@ -173,16 +185,19 @@ function WorkspaceChannelContent({ workspaceId }: { workspaceId: string }) {
                         ) : null}
                     </section>
                 ) : null}
-                <div className="flex items-center gap-2">
-                    <Switch
-                        id="workspace-channels-archived"
-                        checked={includeArchived}
-                        onCheckedChange={value => setIncludeArchived(value === true)}
-                    />
-                    <Label htmlFor="workspace-channels-archived">
-                        {m.workspace_channels_archived()}
-                    </Label>
-                </div>
+                {data &&
+                (includeArchived || data.channels.some(channel => channel.state === 'archived')) ? (
+                    <div className="flex items-center gap-2">
+                        <Switch
+                            id="workspace-channels-archived"
+                            checked={includeArchived}
+                            onCheckedChange={value => setIncludeArchived(value === true)}
+                        />
+                        <Label htmlFor="workspace-channels-archived">
+                            {m.workspace_channels_archived()}
+                        </Label>
+                    </div>
+                ) : null}
                 {query.isPending ? (
                     <p className="text-sm text-muted-foreground" role="status">
                         {m.workspace_channels_loading()}
@@ -201,7 +216,7 @@ function WorkspaceChannelContent({ workspaceId }: { workspaceId: string }) {
                         </Button>
                     </Alert>
                 ) : null}
-                {data?.channels.length === 0 ? (
+                {data && visibleChannels.length === 0 ? (
                     <EmptyState
                         icon={<LinkIcon aria-hidden="true" />}
                         title={m.workspace_channels_empty()}
@@ -209,21 +224,72 @@ function WorkspaceChannelContent({ workspaceId }: { workspaceId: string }) {
                         layout="compact"
                     />
                 ) : null}
-                {data?.channels.length ? (
-                    <div className="divide-y divide-border/50">
-                        {data.channels.map(channel => (
-                            <WorkspaceChannelRow
-                                key={channel.id}
-                                channel={channel}
-                                workspaceId={workspaceId}
-                                projects={projects}
-                                onChanged={refresh}
-                                onCadence={() => setCadenceChannel(channel)}
-                            />
-                        ))}
+                {visibleChannels.length ? (
+                    <div className="divide-y divide-border/50 overflow-hidden rounded-lg border border-border/60 bg-surface-raised shadow-surface">
+                        {visibleChannels.map(channel => {
+                            const manager = channel.management
+                            const managerLabel =
+                                manager.kind === 'workspace'
+                                    ? m.channel_share_manager_workspace()
+                                    : manager.project
+                                      ? m.channel_share_manager_project({
+                                            project: manager.project.name,
+                                        })
+                                      : m.channel_share_manager_other()
+                            const usedBy = channel.usages
+                                .filter(usage => usage.state === 'active')
+                                .map(usage => usage.name)
+                            return (
+                                <ChannelRow
+                                    key={channel.id}
+                                    channel={channel}
+                                    status={
+                                        channel.state === 'archived'
+                                            ? { label: m.channel_archived(), tone: 'neutral' }
+                                            : null
+                                    }
+                                    secondary={[
+                                        channel.profileId === 'manual-message'
+                                            ? m.channel_platform_manual()
+                                            : channelProfileLabel(channel.profileId),
+                                        managerLabel,
+                                        ...(usedBy.length
+                                            ? [m.channels_used_by({ projects: usedBy.join(', ') })]
+                                            : []),
+                                    ]}
+                                    menu={
+                                        <ChannelActionsMenu
+                                            channel={channel}
+                                            disabled={false}
+                                            canManage={channel.canManage}
+                                            onShare={() => setSharingChannelId(channel.id)}
+                                            sharingLabel={m.nav_projects()}
+                                            onCadence={
+                                                channel.canManage
+                                                    ? () => setCadenceChannel(channel)
+                                                    : undefined
+                                            }
+                                        />
+                                    }
+                                />
+                            )
+                        })}
                     </div>
                 ) : null}
-            </div>
+            </PageColumn>
+            {sharingChannel ? (
+                <ChannelSharingDialog
+                    key={sharingChannel.id}
+                    workspaceId={workspaceId}
+                    candidates={projects.filter(project => project.canAttach)}
+                    channel={sharingChannel}
+                    open={true}
+                    onOpenChange={open => {
+                        if (!open) setSharingChannelId(null)
+                    }}
+                    onChanged={refresh}
+                />
+            ) : null}
             {cadenceChannel ? (
                 <ChannelCadenceDialog
                     workspaceId={workspaceId}
@@ -234,234 +300,5 @@ function WorkspaceChannelContent({ workspaceId }: { workspaceId: string }) {
                 />
             ) : null}
         </main>
-    )
-}
-function WorkspaceChannelRow({
-    channel,
-    workspaceId,
-    projects,
-    onChanged,
-    onCadence,
-}: {
-    channel: WorkspaceChannel
-    workspaceId: string
-    projects: WorkspaceChannels['projects']
-    onChanged: () => Promise<void>
-    onCadence: () => void
-}) {
-    const [pending, setPending] = useState(false)
-    const [error, setError] = useState<string | null>(null)
-    const [lastProjectId, setLastProjectId] = useState<string | null>(null)
-    const [adding, setAdding] = useState(false)
-    const active = channel.usages.filter(u => u.state === 'active')
-    const available = projects.filter(p => p.canAttach && !active.some(u => u.projectId === p.id))
-    const manager = channel.management
-    const managerLabel =
-        manager.kind === 'workspace'
-            ? m.channel_share_manager_workspace()
-            : manager.project
-              ? m.channel_share_manager_project({ project: manager.project.name })
-              : m.channel_share_manager_other()
-    async function run(operation: () => Promise<unknown>) {
-        setPending(true)
-        setError(null)
-        try {
-            await operation()
-            setLastProjectId(null)
-            await onChanged()
-            return true
-        } catch (caught) {
-            setError(formatApiError(caught))
-            if (caught instanceof ApiError && caught.code === 'stale_revision') await onChanged()
-            return false
-        } finally {
-            setPending(false)
-        }
-    }
-    return (
-        <details className="group py-4" data-workspace-channel={channel.id}>
-            <summary className="flex cursor-pointer list-none items-center gap-3 rounded-sm p-1 focus-visible:outline-2 focus-visible:outline-ring">
-                <ChannelAvatar channel={channel} size="md" />
-                <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                        <h2 className="break-words text-sm font-medium">{channel.name}</h2>
-                        {channel.shared ? (
-                            <Badge variant="outline">{m.channel_shared_badge()}</Badge>
-                        ) : null}
-                        {channel.state === 'archived' ? (
-                            <Badge variant="outline">{m.channel_archived()}</Badge>
-                        ) : null}
-                    </div>
-                    <p className="mt-1 text-xs text-muted-foreground">{managerLabel}</p>
-                </div>
-                <span className="shrink-0 text-xs text-muted-foreground">
-                    {m.workspace_channel_inspect()}
-                </span>
-            </summary>
-            <div className="mt-5 space-y-5 pl-1 sm:pl-14">
-                <section className="space-y-2">
-                    <h3 className="text-sm font-medium">{m.channel_share_used_by()}</h3>
-                    <p className="text-xs text-muted-foreground">
-                        {m.workspace_channels_visibility()}
-                    </p>
-                    <ul className="space-y-2">
-                        {channel.usages.map(usage => (
-                            <li
-                                key={usage.projectId}
-                                className="flex flex-wrap items-center justify-between gap-2 text-sm">
-                                <Link
-                                    className="min-w-0 break-words text-link hover:underline"
-                                    to="/dashboard/projects/$projectId/channels"
-                                    params={{ projectId: usage.projectId }}>
-                                    {usage.name}
-                                </Link>
-                                {usage.state === 'detached' ? (
-                                    <span className="text-xs text-muted-foreground">
-                                        {m.workspace_channel_detached()}
-                                    </span>
-                                ) : channel.canShare ? (
-                                    <Button
-                                        size="sm"
-                                        variant="ghost"
-                                        disabled={pending}
-                                        onClick={() => {
-                                            setLastProjectId(usage.projectId)
-                                        }}>
-                                        {m.channel_share_withdraw({ project: usage.name })}
-                                    </Button>
-                                ) : null}
-                            </li>
-                        ))}
-                    </ul>
-                </section>
-                {lastProjectId ? (
-                    <Alert>
-                        <AlertDescription>
-                            <p>{m.workspace_channel_withdraw_confirm()}</p>
-                            <div className="mt-3 flex flex-wrap gap-2">
-                                <Button
-                                    disabled={pending}
-                                    onClick={() =>
-                                        void run(() =>
-                                            api.withdrawWorkspaceChannel(
-                                                workspaceId,
-                                                channel.id,
-                                                lastProjectId,
-                                                channel.revision
-                                            )
-                                        )
-                                    }>
-                                    {m.workspace_channel_withdraw()}
-                                </Button>
-                                <Button
-                                    variant="outline"
-                                    disabled={pending}
-                                    onClick={() =>
-                                        void run(() =>
-                                            api.withdrawWorkspaceChannel(
-                                                workspaceId,
-                                                channel.id,
-                                                lastProjectId,
-                                                channel.revision,
-                                                'archive'
-                                            )
-                                        )
-                                    }>
-                                    {m.channel_share_withdraw_archive()}
-                                </Button>
-                                <Button
-                                    variant="ghost"
-                                    disabled={pending}
-                                    onClick={() => setLastProjectId(null)}>
-                                    {m.common_cancel()}
-                                </Button>
-                            </div>
-                        </AlertDescription>
-                    </Alert>
-                ) : null}
-                {channel.canManage && channel.state === 'active' ? (
-                    <Button size="sm" variant="outline" onClick={onCadence}>
-                        {m.cadence_action()}
-                    </Button>
-                ) : null}
-                {channel.canShare && channel.state === 'active' ? (
-                    <section className="space-y-3">
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            disabled={pending}
-                            onClick={() => setAdding(value => !value)}>
-                            {m.channel_share_action()}
-                        </Button>
-                        {adding ? (
-                            <>
-                                <p className="text-sm text-muted-foreground">
-                                    {m.channel_share_description()}
-                                </p>
-                                {available.length ? (
-                                    <ul className="space-y-2">
-                                        {available.map(project => (
-                                            <li
-                                                key={project.id}
-                                                className="flex flex-wrap items-center justify-between gap-2 text-sm">
-                                                <span className="break-words">{project.name}</span>
-                                                <Button
-                                                    size="sm"
-                                                    variant="outline"
-                                                    disabled={pending}
-                                                    onClick={() =>
-                                                        void run(() =>
-                                                            api.attachWorkspaceChannel(
-                                                                workspaceId,
-                                                                channel.id,
-                                                                project.id,
-                                                                channel.revision
-                                                            )
-                                                        )
-                                                    }>
-                                                    {m.channel_share_add({ project: project.name })}
-                                                </Button>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                ) : (
-                                    <p className="text-sm text-muted-foreground">
-                                        {m.channel_share_none_available()}
-                                    </p>
-                                )}
-                            </>
-                        ) : null}
-                    </section>
-                ) : null}
-                {channel.canShare ? (
-                    <ChannelManagementTransfer
-                        pending={pending}
-                        projects={active
-                            .filter(
-                                u =>
-                                    u.canAcceptManagement &&
-                                    (manager.kind !== 'project' ||
-                                        manager.project?.id !== u.projectId)
-                            )
-                            .map(u => ({ id: u.projectId, name: u.name }))}
-                        onTransfer={projectId =>
-                            run(() =>
-                                api.transferWorkspaceChannelManagement(
-                                    workspaceId,
-                                    channel.id,
-                                    projectId,
-                                    channel.revision
-                                )
-                            )
-                        }
-                    />
-                ) : null}
-                {error ? (
-                    <Alert variant="destructive" role="alert">
-                        <AlertDescription>{error}</AlertDescription>
-                    </Alert>
-                ) : null}
-            </div>
-        </details>
     )
 }

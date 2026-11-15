@@ -1,14 +1,13 @@
 import { Button, buttonVariants } from '@postdot/ui/components/button'
 import { SettingsIcon } from '@solar-icons/react/linear/settings'
 import { Link } from '@tanstack/react-router'
-import { Fragment, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import type { ChannelLifecycleAction } from '@/components/channel-lifecycle-dialog'
-import { ChannelActionsMenu } from '@/components/channel-row'
+import { ChannelActionsMenu, ChannelRow } from '@/components/channel-row'
 import { CustomHttpConnectionDialog } from '@/components/custom-http-connection-dialog'
 import { channelProfileLabel } from '@/components/dashboard-publication-parts'
-import { ChannelAvatar } from '@/components/identity-visuals'
-import { StatusText, type StatusTone } from '@/components/status-text'
+import { type StatusTone } from '@/components/status-text'
 import type {
     Channel,
     ChannelListItem,
@@ -225,43 +224,18 @@ export function PublisherConnectionPanel({
                 const manageable = !readOnly && canManageChannel && !archived
 
                 return (
-                    <article
+                    <ChannelRow
                         id={`publisher-connection-${channel.id}`}
                         key={channel.id}
-                        className="grid min-w-0 scroll-mt-20 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 px-4 py-3.5 sm:grid-cols-[auto_minmax(0,1fr)_auto_auto] sm:px-5">
-                        <ChannelAvatar
-                            channel={channel}
-                            className={archived ? 'opacity-40' : undefined}
-                            size="md"
-                        />
-                        <div className="min-w-0">
-                            <div className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-0.5">
-                                <p className="min-w-0 truncate text-sm font-medium">
-                                    {channel.name}
-                                </p>
-                                {status ? (
-                                    <StatusText tone={status.tone}>{status.label}</StatusText>
-                                ) : null}
-                            </div>
-                            <p className="mt-0.5 flex min-w-0 flex-wrap gap-x-1.5 text-xs text-muted-foreground">
-                                {[
-                                    ...(details.length > 0 ? details : [platform]),
-                                    ...(channel.shared && !archived
-                                        ? [m.channel_shared_badge()]
-                                        : []),
-                                ].map((part, index) => (
-                                    <Fragment key={`${index}-${part}`}>
-                                        {index > 0 ? <span aria-hidden="true">·</span> : null}
-                                        <span className="min-w-0 break-words">{part}</span>
-                                    </Fragment>
-                                ))}
-                            </p>
-                            {note ? (
-                                <p className="mt-1 text-xs text-muted-foreground">{note}</p>
-                            ) : null}
-                        </div>
-                        <div className="col-span-2 col-start-2 row-start-2 flex justify-start empty:hidden sm:col-span-1 sm:col-start-3 sm:row-start-1 sm:justify-end">
-                            {!manageable || !canConnect ? null : needsSetup ? (
+                        channel={channel}
+                        status={status}
+                        secondary={[
+                            ...(details.length > 0 ? details : [platform]),
+                            ...(channel.shared && !archived ? [m.channel_shared_badge()] : []),
+                        ]}
+                        note={note}
+                        action={
+                            !manageable || !canConnect ? null : needsSetup ? (
                                 isInstanceAdmin ? (
                                     <Link
                                         className={buttonVariants({
@@ -321,10 +295,10 @@ export function PublisherConnectionPanel({
                                     onConnect={onConnectCustomHttpPublisher}
                                     reconnect={connection !== undefined}
                                 />
-                            ) : null}
-                        </div>
-                        {readOnly ? null : (
-                            <div className="col-start-3 row-start-1 sm:col-start-4">
+                            ) : null
+                        }
+                        menu={
+                            readOnly ? undefined : (
                                 <ChannelActionsMenu
                                     channel={channel}
                                     canManage={canManageChannel}
@@ -337,11 +311,13 @@ export function PublisherConnectionPanel({
                                     onEditProfile={() => onEditProfile(channel)}
                                     onLifecycleAction={action => onLifecycleAction(action, channel)}
                                     onCadence={onCadence ? () => onCadence(channel) : undefined}
-                                    onShare={onShare ? () => onShare(channel) : undefined}
+                                    onShare={
+                                        onShare && !archived ? () => onShare(channel) : undefined
+                                    }
                                 />
-                            </div>
-                        )}
-                    </article>
+                            )
+                        }
+                    />
                 )
             })}
         </section>

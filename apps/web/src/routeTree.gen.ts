@@ -17,6 +17,7 @@ import { Route as InviteRouteImport } from './routes/invite'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as SetupRouteImport } from './routes/setup'
+import { Route as DashboardChannelsRouteImport } from './routes/dashboard/channels'
 import { Route as DashboardPreferencesRouteImport } from './routes/dashboard/preferences'
 import { Route as DashboardPreferencesIndexRouteImport } from './routes/dashboard/preferences/index'
 import { Route as DashboardPreferencesAccountRouteImport } from './routes/dashboard/preferences/account'
@@ -80,6 +81,11 @@ const SetupRoute = SetupRouteImport.update({
   id: '/setup',
   path: '/setup',
   getParentRoute: () => rootRouteImport,
+} as any)
+const DashboardChannelsRoute = DashboardChannelsRouteImport.update({
+  id: '/channels',
+  path: '/channels',
+  getParentRoute: () => DashboardRoute,
 } as any)
 const DashboardPreferencesRoute = DashboardPreferencesRouteImport.update({
   id: '/preferences',
@@ -226,6 +232,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
   '/setup': typeof SetupRoute
+  '/dashboard/channels': typeof DashboardChannelsRoute
   '/dashboard/preferences': typeof DashboardPreferencesRouteWithChildren
   '/dashboard/preferences/account': typeof DashboardPreferencesAccountRoute
   '/dashboard/preferences/api-keys': typeof DashboardPreferencesApiKeysRoute
@@ -259,6 +266,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
   '/setup': typeof SetupRoute
+  '/dashboard/channels': typeof DashboardChannelsRoute
   '/dashboard/preferences/account': typeof DashboardPreferencesAccountRoute
   '/dashboard/preferences/api-keys': typeof DashboardPreferencesApiKeysRoute
   '/dashboard/projects/$projectId': typeof DashboardProjectsProjectIdRouteWithChildren
@@ -292,6 +300,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
   '/setup': typeof SetupRoute
+  '/dashboard/channels': typeof DashboardChannelsRoute
   '/dashboard/preferences': typeof DashboardPreferencesRouteWithChildren
   '/dashboard/preferences/account': typeof DashboardPreferencesAccountRoute
   '/dashboard/preferences/api-keys': typeof DashboardPreferencesApiKeysRoute
@@ -327,6 +336,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/reset-password'
     | '/setup'
+    | '/dashboard/channels'
     | '/dashboard/preferences'
     | '/dashboard/preferences/account'
     | '/dashboard/preferences/api-keys'
@@ -360,6 +370,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/reset-password'
     | '/setup'
+    | '/dashboard/channels'
     | '/dashboard/preferences/account'
     | '/dashboard/preferences/api-keys'
     | '/dashboard/projects/$projectId'
@@ -392,6 +403,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/reset-password'
     | '/setup'
+    | '/dashboard/channels'
     | '/dashboard/preferences'
     | '/dashboard/preferences/account'
     | '/dashboard/preferences/api-keys'
@@ -485,6 +497,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/setup'
       preLoaderRoute: typeof SetupRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/dashboard/channels': {
+      id: '/dashboard/channels'
+      path: '/channels'
+      fullPath: '/dashboard/channels'
+      preLoaderRoute: typeof DashboardChannelsRouteImport
+      parentRoute: typeof DashboardRoute
     }
     '/dashboard/preferences': {
       id: '/dashboard/preferences'
@@ -711,6 +730,7 @@ const DashboardProjectsProjectIdRouteWithChildren =
   )
 
 interface DashboardRouteChildren {
+  DashboardChannelsRoute: typeof DashboardChannelsRoute
   DashboardPreferencesRoute: typeof DashboardPreferencesRouteWithChildren
   DashboardProjectsProjectIdRoute: typeof DashboardProjectsProjectIdRouteWithChildren
   DashboardSettingsAccessRoute: typeof DashboardSettingsAccessRoute
@@ -722,6 +742,7 @@ interface DashboardRouteChildren {
 }
 
 const DashboardRouteChildren: DashboardRouteChildren = {
+  DashboardChannelsRoute: DashboardChannelsRoute,
   DashboardPreferencesRoute: DashboardPreferencesRouteWithChildren,
   DashboardProjectsProjectIdRoute: DashboardProjectsProjectIdRouteWithChildren,
   DashboardSettingsAccessRoute: DashboardSettingsAccessRoute,

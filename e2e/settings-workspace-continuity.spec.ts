@@ -43,9 +43,10 @@ test('keeps personal and installation settings open when changing workspace cont
         '/dashboard/settings/access',
         '/dashboard/settings',
         '/dashboard/settings/workspace',
-        '/dashboard/workspace/channels',
+        '/dashboard/channels',
     ]) {
-        await page.goto(`${path}?workspaceId=${first!.id}&projectId=${first!.projectId}`)
+        const initialProject = path === '/dashboard/channels' ? 'none' : first!.projectId
+        await page.goto(`${path}?workspaceId=${first!.id}&projectId=${initialProject}`)
         const workspaceSelector = page.getByRole('combobox', {
             name: en.nav_select_workspace,
             exact: true,
@@ -65,7 +66,7 @@ test('keeps personal and installation settings open when changing workspace cont
         expect(new URL(page.url()).pathname).toBe(path)
         // The settings list opens with its return row; workspace channels is a product page.
         await expect(page.locator('[data-settings-return="true"]')).toHaveCount(
-            path === '/dashboard/workspace/channels' ? 0 : 1
+            path === '/dashboard/channels' ? 0 : 1
         )
         // NAV-03: the same context survives a fresh link with optional context omitted.
         await page.goto(path)

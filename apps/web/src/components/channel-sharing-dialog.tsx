@@ -19,9 +19,10 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@postdot/ui/components/
 import { AddCircleIcon } from '@solar-icons/react/linear/add-circle'
 import { CloseIcon } from '@solar-icons/react/linear/close'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { Link } from '@tanstack/react-router'
 import { useState } from 'react'
 
-import { api, formatApiError, ApiError, type Channel, type Project } from '@/lib/api'
+import { api, formatApiError, ApiError, type Channel } from '@/lib/api'
 import { useLanguage } from '@/lib/i18n'
 import * as m from '@/paraglide/messages.js'
 
@@ -38,22 +39,34 @@ export function ChannelSharingDialog({
     onOpenChange,
     open,
     projectId,
+    workspaceId,
 }: {
     /** Other projects of this workspace, from the caller's own project list. */
-    readonly candidates: readonly Project[]
-    readonly channel: Channel | null
+    readonly candidates: readonly { id: string; name: string }[]
+    readonly channel: Pick<Channel, 'id' | 'name' | 'revision' | 'state'> | null
     /** Refresh channel lists after any change. */
     readonly onChanged: () => Promise<void>
     readonly onOpenChange: (open: boolean) => void
     readonly open: boolean
-    readonly projectId: string
+    readonly projectId?: string
+    readonly workspaceId?: string
 }) {
     useLanguage()
     const queryClient = useQueryClient()
     const channelId = channel?.id ?? ''
+    const contextId = workspaceId ?? projectId ?? ''
+    const queryKey = [...sharingKey(contextId, channelId), workspaceId ? 'workspace' : 'project']
     const sharing = useQuery({
-        queryKey: sharingKey(projectId, channelId),
-        queryFn: () => api.getChannelSharing(projectId, channelId),
+        queryKey,
+        queryFn: async () => {
+            if (workspaceId) {
+                const data = await api.listWorkspaceChannels(workspaceId, true)
+                const found = data.channels.find(candidate => candidate.id === channelId)
+                if (!found) throw new Error(m.channels_unavailable())
+                return { channel: found, usages: found.usages }
+            }
+            return api.getChannelSharing(projectId!, channelId)
+        },
         enabled: open && channel !== null,
     })
     const [pending, setPending] = useState(false)
@@ -67,6 +80,9 @@ export function ChannelSharingDialog({
     const view = sharing.data
     const usedIds = new Set(view?.usages.filter(u => u.state === 'active').map(u => u.projectId))
     const active = view?.usages.filter(usage => usage.state === 'active') ?? []
+    const history = workspaceId
+        ? (view?.usages.filter(usage => usage.state === 'detached') ?? [])
+        : []
     const available = candidates.filter(
         candidate => candidate.id !== projectId && !usedIds.has(candidate.id)
     )
@@ -82,7 +98,7 @@ export function ChannelSharingDialog({
         try {
             await operation()
             await queryClient.invalidateQueries({
-                queryKey: sharingKey(projectId, channelId),
+                queryKey,
             })
             await onChanged()
             toast.add({ title: success, type: 'success' })
@@ -111,11 +127,30 @@ export function ChannelSharingDialog({
                 ? m.channel_share_manager_other()
                 : m.channel_share_manager_project({ project: manager.project.name })
 
+    function withdraw(targetId: string, archive = false) {
+        return workspaceId
+            ? api.withdrawWorkspaceChannel(
+                  workspaceId,
+                  channelId,
+                  targetId,
+                  revision,
+                  archive ? 'archive' : undefined
+              )
+            : api.withdrawChannel(projectId!, channelId, targetId, {
+                  expectedRevision: revision,
+                  ...(archive ? { lastAttachment: 'archive' as const } : {}),
+              })
+    }
+
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="flex max-h-[calc(100dvh-2rem)] min-h-0 max-w-lg flex-col overflow-hidden">
                 <DialogHeader className="shrink-0">
-                    <DialogTitle>{m.channel_share_title({ channel: channel.name })}</DialogTitle>
+                    <DialogTitle>
+                        {workspaceId
+                            ? m.channels_projects_title({ channel: channel.name })
+                            : m.channel_share_title({ channel: channel.name })}
+                    </DialogTitle>
                     <DialogDescription>{m.channel_share_description()}</DialogDescription>
                 </DialogHeader>
 
@@ -154,9 +189,19 @@ export function ChannelSharingDialog({
                                                 key={usage.projectId}
                                                 className="flex min-h-11 items-center justify-between gap-3 py-1.5 pr-1.5 pl-3">
                                                 <span className="min-w-0">
-                                                    <span className="block truncate text-sm">
-                                                        {usage.name}
-                                                    </span>
+                                                    {workspaceId ? (
+                                                        <Link
+                                                            className="block break-words text-sm text-link hover:underline"
+                                                            to="/dashboard/projects/$projectId/channels"
+                                                            params={{ projectId: usage.projectId }}
+                                                            onClick={() => onOpenChange(false)}>
+                                                            {usage.name}
+                                                        </Link>
+                                                    ) : (
+                                                        <span className="block truncate text-sm">
+                                                            {usage.name}
+                                                        </span>
+                                                    )}
                                                     {manages ? (
                                                         <span className="block text-xs text-muted-foreground">
                                                             {m.channel_share_manages()}
@@ -180,14 +225,8 @@ export function ChannelSharingDialog({
                                                                     onClick={() =>
                                                                         void run(
                                                                             () =>
-                                                                                api.withdrawChannel(
-                                                                                    projectId,
-                                                                                    channel.id,
-                                                                                    usage.projectId,
-                                                                                    {
-                                                                                        expectedRevision:
-                                                                                            revision,
-                                                                                    }
+                                                                                withdraw(
+                                                                                    usage.projectId
                                                                                 ),
                                                                             m.channel_share_withdrawn(
                                                                                 {
@@ -250,12 +289,19 @@ export function ChannelSharingDialog({
                                                         onClick={() =>
                                                             void run(
                                                                 () =>
-                                                                    api.attachChannel(
-                                                                        projectId,
-                                                                        channel.id,
-                                                                        candidate.id,
-                                                                        revision
-                                                                    ),
+                                                                    workspaceId
+                                                                        ? api.attachWorkspaceChannel(
+                                                                              workspaceId,
+                                                                              channel.id,
+                                                                              candidate.id,
+                                                                              revision
+                                                                          )
+                                                                        : api.attachChannel(
+                                                                              projectId!,
+                                                                              channel.id,
+                                                                              candidate.id,
+                                                                              revision
+                                                                          ),
                                                                 m.channel_share_added({
                                                                     project: candidate.name,
                                                                     channel: channel.name,
@@ -271,6 +317,33 @@ export function ChannelSharingDialog({
                                 ) : null}
                             </section>
 
+                            {history.length > 0 ? (
+                                <section
+                                    className="space-y-2"
+                                    aria-label={m.channels_previous_projects()}>
+                                    <h3 className="text-sm font-medium">
+                                        {m.channels_previous_projects()}
+                                    </h3>
+                                    <ul className="space-y-2">
+                                        {history.map(usage => (
+                                            <li
+                                                key={usage.projectId}
+                                                className="flex justify-between gap-3 text-sm">
+                                                <Link
+                                                    className="min-w-0 break-words text-link hover:underline"
+                                                    to="/dashboard/projects/$projectId/channels"
+                                                    params={{ projectId: usage.projectId }}
+                                                    onClick={() => onOpenChange(false)}>
+                                                    {usage.name}
+                                                </Link>
+                                                <span className="text-xs text-muted-foreground">
+                                                    {m.workspace_channel_detached()}
+                                                </span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </section>
+                            ) : null}
                             {lastProject ? (
                                 <Alert role="alert">
                                     <AlertDescription className="space-y-3">
@@ -286,16 +359,7 @@ export function ChannelSharingDialog({
                                             disabled={pending}
                                             onClick={() =>
                                                 void run(
-                                                    () =>
-                                                        api.withdrawChannel(
-                                                            projectId,
-                                                            channel.id,
-                                                            lastProject.id,
-                                                            {
-                                                                expectedRevision: revision,
-                                                                lastAttachment: 'archive',
-                                                            }
-                                                        ),
+                                                    () => withdraw(lastProject.id, true),
                                                     m.channel_share_withdrawn({
                                                         project: lastProject.name,
                                                         channel: channel.name,
@@ -326,12 +390,19 @@ export function ChannelSharingDialog({
                                     onTransfer={async targetId => {
                                         let success = false
                                         await run(async () => {
-                                            await api.transferChannelManagement(
-                                                projectId,
-                                                channel.id,
-                                                targetId,
-                                                revision
-                                            )
+                                            await (workspaceId
+                                                ? api.transferWorkspaceChannelManagement(
+                                                      workspaceId,
+                                                      channel.id,
+                                                      targetId,
+                                                      revision
+                                                  )
+                                                : api.transferChannelManagement(
+                                                      projectId!,
+                                                      channel.id,
+                                                      targetId,
+                                                      revision
+                                                  ))
                                             success = true
                                         }, m.channel_transfer_saved())
                                         return success

@@ -145,7 +145,8 @@ export const experienceRoutes: readonly ExperienceRoute[] = [
     },
     {
         id: 'workspace-channels',
-        path: ({ workspaceId }) => `/dashboard/workspace/channels?workspaceId=${workspaceId}`,
+        path: ({ workspaceId }) =>
+            `/dashboard/channels?workspaceId=${workspaceId}&projectId=none&scope=workspace`,
         scope: 'workspace',
         shell: 'product',
         widthClass: 'management-column',

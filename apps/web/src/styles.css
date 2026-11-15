@@ -58,8 +58,7 @@
     color: var(--navigation-teal);
 }
 
-:is([data-navigation-destination='workspace-channels'], [data-navigation-destination='invitations'])
-    > svg {
+[data-navigation-destination='invitations'] > svg {
     color: var(--navigation-cyan);
 }
 

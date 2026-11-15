@@ -116,6 +116,7 @@ export const Route = createFileRoute('/dashboard')({
         const isGlobalContextPath =
             isSettingsPath(location.pathname) ||
             isPreferencesPath(location.pathname) ||
+            location.pathname === '/dashboard/channels' ||
             location.pathname === '/dashboard/workspace/channels'
         if (
             isGlobalContextPath &&
@@ -264,11 +265,14 @@ function DashboardSession() {
 
     async function handleWorkspaceChange(workspaceId: string) {
         setError(null)
-        if (
-            isSettingsPath(pathname) ||
-            isPreferencesPath(pathname) ||
-            pathname === '/dashboard/workspace/channels'
-        ) {
+        if (pathname.endsWith('/channels')) {
+            await navigate({
+                to: '/dashboard/channels',
+                search: { workspaceId, projectId: 'none', scope: 'workspace' },
+            })
+            return
+        }
+        if (isSettingsPath(pathname) || isPreferencesPath(pathname)) {
             await navigate({
                 to: '.',
                 search: previous => ({ ...previous, workspaceId, projectId: 'none' }),
@@ -343,7 +347,7 @@ function DashboardSession() {
 
     const isPreferences = isPreferencesPath(pathname)
     const isGlobalContextPath =
-        isSettingsPath(pathname) || isPreferences || pathname === '/dashboard/workspace/channels'
+        isSettingsPath(pathname) || isPreferences || pathname === '/dashboard/channels'
     const settingsProjectId = isGlobalContextPath ? readProjectContextId(routeSearch) : undefined
     const selectedSettingsProject = isGlobalContextPath
         ? (projects.find(
@@ -355,7 +359,7 @@ function DashboardSession() {
     return (
         <DashboardGlobalProvider value={value}>
             <AppToaster />
-            {isSettingsPath(pathname) || pathname === '/dashboard/workspace/channels' ? (
+            {isSettingsPath(pathname) || pathname === '/dashboard/channels' ? (
                 <GlobalSettingsShell global={value} selectedProject={selectedSettingsProject} />
             ) : isPreferences ? (
                 <GlobalSettingsShell global={value} selectedProject={selectedSettingsProject} />
@@ -400,7 +404,13 @@ function createLoginContinuation(pathname: string, search: unknown) {
     if (pathname !== '/dashboard' && !pathname.startsWith('/dashboard/')) return undefined
 
     const params = new URLSearchParams()
-    for (const key of ['invitation', 'organizationInvitation', 'projectId', 'workspaceId']) {
+    for (const key of [
+        'invitation',
+        'organizationInvitation',
+        'projectId',
+        'workspaceId',
+        'scope',
+    ]) {
         const value = readSearchString(search, key)
         if (value !== undefined) params.set(key, value)
     }

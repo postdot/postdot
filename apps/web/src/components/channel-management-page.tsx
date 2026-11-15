@@ -13,6 +13,7 @@ import {
     type ChannelLifecycleAction,
 } from '@/components/channel-lifecycle-dialog'
 import { ChannelProfileEditorDialog } from '@/components/channel-profile-editor-dialog'
+import { ChannelScopeSwitch } from '@/components/channel-scope-switch'
 import { ChannelSharingDialog } from '@/components/channel-sharing-dialog'
 import { DashboardPageHeader } from '@/components/dashboard-page-header'
 import { EmptyState } from '@/components/empty-state'
@@ -160,8 +161,9 @@ export function ChannelManagementPage({
                         </Link>
                     ) : undefined
                 }
-                title={m.channels_title()}
-            />
+                title={m.channels_title()}>
+                <ChannelScopeSwitch scope="project" projectId={project.id} />
+            </DashboardPageHeader>
 
             <PageColumn variant="management">
                 {error && lifecycle === null ? (

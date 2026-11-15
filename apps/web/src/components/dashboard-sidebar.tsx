@@ -19,7 +19,6 @@ import { GalleryIcon } from '@solar-icons/react/linear/gallery'
 import { KeyMinimalisticIcon } from '@solar-icons/react/linear/key-minimalistic'
 import { LinkIcon } from '@solar-icons/react/linear/link'
 import { ListIcon } from '@solar-icons/react/linear/list'
-import { Routing2Icon } from '@solar-icons/react/linear/routing-2'
 import { ServerIcon } from '@solar-icons/react/linear/server'
 import { SettingsIcon } from '@solar-icons/react/linear/settings'
 import { SettingsMinimalisticIcon } from '@solar-icons/react/linear/settings-minimalistic'
@@ -57,7 +56,6 @@ export type DashboardSection =
     | 'settings-archives'
     | 'settings-access'
     | 'settings-provider-applications'
-    | 'workspace-channels'
     | 'settings-workspace'
     | 'settings'
     | 'preferences'
@@ -322,14 +320,6 @@ export function DashboardSidebar({
                                     <nav aria-label={m.nav_workspace_navigation()}>
                                         <SidebarMenu>
                                             <WorkspaceMenuItem
-                                                active={activeSection === 'workspace-channels'}
-                                                destination="workspace-channels"
-                                                icon={<Routing2Icon aria-hidden="true" />}
-                                                label={m.workspace_channels_title()}
-                                                projectId={selectedProjectId}
-                                                workspaceId={selectedWorkspaceId}
-                                            />
-                                            <WorkspaceMenuItem
                                                 active={activeSection === 'settings-workspace'}
                                                 destination="settings-workspace"
                                                 icon={
@@ -441,25 +431,6 @@ export function DashboardSidebar({
                         </SidebarGroup>
                     </>
                 )}
-                {selectedWorkspaceId && (!isSettingsShell || !canManageWorkspace) ? (
-                    <SidebarGroup className="px-3 py-1 group-data-[collapsible=icon]:px-2">
-                        <SidebarGroupLabel className="px-2">{m.nav_workspace()}</SidebarGroupLabel>
-                        <SidebarGroupContent>
-                            <nav aria-label={m.workspace_channels_navigation()}>
-                                <SidebarMenu>
-                                    <WorkspaceMenuItem
-                                        active={activeSection === 'workspace-channels'}
-                                        destination="workspace-channels"
-                                        icon={<Routing2Icon aria-hidden="true" />}
-                                        label={m.workspace_channels_title()}
-                                        projectId={selectedProjectId}
-                                        workspaceId={selectedWorkspaceId}
-                                    />
-                                </SidebarMenu>
-                            </nav>
-                        </SidebarGroupContent>
-                    </SidebarGroup>
-                ) : null}
             </SidebarContent>
 
             {isSettingsShell ? null : (
@@ -480,7 +451,6 @@ export function DashboardSidebar({
 }
 
 export function workspaceSection(pathname: string): DashboardSection {
-    if (pathname === '/dashboard/workspace/channels') return 'workspace-channels'
     if (pathname === '/dashboard/preferences/account') return 'preferences-account'
     if (pathname === '/dashboard/preferences/api-keys') return 'preferences-api-keys'
     if (pathname === '/dashboard/preferences') return 'preferences'
@@ -508,7 +478,6 @@ export function workspaceSectionLabel(section: DashboardSection) {
     if (section === 'new-publication') return m.nav_new_publication()
     if (section === 'performance') return m.nav_performance()
     if (section === 'queue') return m.nav_queue()
-    if (section === 'workspace-channels') return m.workspace_channels_title()
     if (section === 'channels') return m.nav_channels()
     if (section === 'media') return m.nav_media()
     if (section === 'access') return m.nav_access()
@@ -546,7 +515,7 @@ function WorkspaceMenuItem({
         (destination === 'new-publication' ||
             destination === 'performance' ||
             destination === 'queue' ||
-            destination === 'channels' ||
+            (destination === 'channels' && workspaceId === null) ||
             destination === 'media' ||
             destination === 'access' ||
             destination === 'invitations' ||
@@ -568,8 +537,8 @@ function WorkspaceMenuItem({
                         ? undefined
                         : destination.startsWith('preferences')
                           ? 'personal'
-                          : destination === 'workspace-channels' ||
-                              destination === 'settings-workspace' ||
+                          : destination === 'settings-workspace' ||
+                              (destination === 'channels' && projectId === null) ||
                               (destination === 'overview' && projectId === null)
                             ? 'workspace'
                             : destination.startsWith('settings')
@@ -658,16 +627,6 @@ function workspaceLink(
         )
     }
 
-    if (destination === 'workspace-channels')
-        return (
-            <Link
-                to="/dashboard/workspace/channels"
-                search={{ workspaceId: workspaceId ?? undefined, projectId: projectId ?? 'none' }}
-                activeOptions={{ exact: true }}
-                aria-label={ariaLabel}
-                aria-current={active ? 'page' : undefined}
-            />
-        )
     if (destination === 'settings-workspace') {
         return (
             <Link
@@ -715,6 +674,20 @@ function workspaceLink(
             />
         )
     }
+
+    if (destination === 'channels' && projectId === null)
+        return (
+            <Link
+                to="/dashboard/channels"
+                search={{
+                    workspaceId: workspaceId ?? undefined,
+                    projectId: 'none',
+                    scope: 'workspace',
+                }}
+                aria-label={ariaLabel}
+                aria-current={active ? 'page' : undefined}
+            />
+        )
 
     if (projectId === null) {
         return (

@@ -61,11 +61,29 @@ for (const [locale, messages] of [
         await page.addInitScript(value => localStorage.setItem('PARAGLIDE_LOCALE', value), locale)
         await page.goto(`/dashboard/projects/${source.id}/channels`)
         await page
-            .getByRole('link', { name: messages.workspace_channels_title, exact: true })
+            .getByRole('tab', { name: messages.channels_scope_workspace, exact: true })
             .click()
-        await expect(page).toHaveURL(/\/dashboard\/workspace\/channels/)
-        // SPEC-010 NAV-01/NAV-02: the destination keeps the selected project and the product navigation.
-        await expect(page).toHaveURL(new RegExp(`projectId=${source.id}`))
+        await expect(page).toHaveURL(
+            new RegExp(`/projects/${source.id}/channels\\?scope=workspace`)
+        )
+        await page.reload()
+        await expect(
+            page.getByRole('tab', { name: messages.channels_scope_workspace })
+        ).toHaveAttribute('aria-selected', 'true')
+        await page.getByRole('tab', { name: messages.channels_scope_project }).click()
+        await expect(page).not.toHaveURL(/scope=workspace/)
+        // Old bookmarks resolve to Channels while retaining the selected project.
+        await page.goto(
+            `/dashboard/workspace/channels?workspaceId=${workspaceId}&projectId=${source.id}`
+        )
+        await expect(page).toHaveURL(new RegExp(`/projects/${source.id}/channels\\?`))
+        expect(new URL(page.url()).searchParams.get('scope')).toBe('workspace')
+        await expect(
+            page.getByRole('heading', { name: messages.channels_title, exact: true })
+        ).toBeVisible()
+        await expect(
+            page.locator('[data-navigation-destination="workspace-channels"]')
+        ).toHaveCount(0)
         await expect(
             page.getByRole('combobox', { name: messages.nav_select_project }).first()
         ).toContainText(`Source ${suffix}`)
@@ -75,19 +93,23 @@ for (const [locale, messages] of [
         await expect(
             page.getByRole('button', { name: messages.nav_back_to_project, exact: true })
         ).toHaveCount(0)
-        const row = page.locator(`[data-workspace-channel="${channel.id}"]`)
+        const row = page.locator(`[data-channel-row="${channel.id}"]`)
         await expect(row).toBeVisible()
-        await row.locator('summary').first().focus()
-        await page.keyboard.press('Enter')
-        await row.getByRole('button', { name: messages.channel_share_action, exact: true }).click()
         await row
             .getByRole('button', {
-                name: messages.channel_share_add.replace('{project}', `Target ${suffix}`),
-                exact: true,
+                name: messages.channel_manage.replace('{channel}', channel.name),
             })
             .click()
-        await row.locator('[data-channel-transfer] > summary').click()
-        await row.getByRole('combobox', { name: messages.channel_transfer_project }).click()
+        await page.getByRole('menuitem', { name: messages.nav_projects, exact: true }).click()
+        const workspaceSharing = page.getByRole('dialog')
+        await workspaceSharing
+            .getByRole('button', { name: messages.channel_share_available, exact: true })
+            .click()
+        await page.getByRole('menuitem', { name: `Target ${suffix}`, exact: true }).click()
+        await workspaceSharing.locator('[data-channel-transfer] > summary').click()
+        await workspaceSharing
+            .getByRole('combobox', { name: messages.channel_transfer_project })
+            .click()
         await page.getByRole('option', { name: `Target ${suffix}`, exact: true }).click()
         // A concurrent attachment changes the channel revision after the selection.
         expect(
@@ -97,12 +119,18 @@ for (const [locale, messages] of [
                 })
             ).status()
         ).toBe(200)
-        await row
+        await workspaceSharing
             .getByRole('button', { name: messages.channel_transfer_confirm, exact: true })
             .click()
-        await expect(row.getByRole('alert')).toBeVisible()
-        await row
+        await expect(workspaceSharing.getByRole('alert')).toBeVisible()
+        await workspaceSharing
             .getByRole('button', { name: messages.channel_transfer_confirm, exact: true })
+            .click()
+        await expect(row).toContainText(
+            messages.channel_share_manager_project.replace('{project}', `Target ${suffix}`)
+        )
+        await workspaceSharing
+            .getByRole('button', { name: messages.channel_share_done, exact: true })
             .click()
         await expect(row).toContainText(
             messages.channel_share_manager_project.replace('{project}', `Target ${suffix}`)
@@ -118,7 +146,12 @@ for (const [locale, messages] of [
             if (locale === 'en' && width !== 820)
                 await page.screenshot({ path: `/tmp/postdot-workspace-channels-${width}.png` })
         }
-        await row.getByRole('button', { name: messages.cadence_action, exact: true }).click()
+        await row
+            .getByRole('button', {
+                name: messages.channel_manage.replace('{channel}', channel.name),
+            })
+            .click()
+        await page.getByRole('menuitem', { name: messages.cadence_action, exact: true }).click()
         const cadence = page.locator('[data-slot="dialog-content"]')
         await cadence.getByLabel(messages.cadence_daily, { exact: true }).fill('3')
         await cadence.getByRole('button', { name: messages.cadence_save, exact: true }).click()
@@ -142,7 +175,14 @@ for (const [locale, messages] of [
             await route.continue()
         })
         try {
-            const navigation = row
+            await row
+                .getByRole('button', {
+                    name: messages.channel_manage.replace('{channel}', channel.name),
+                })
+                .click()
+            await page.getByRole('menuitem', { name: messages.nav_projects, exact: true }).click()
+            const navigation = page
+                .getByRole('dialog')
                 .getByRole('link', { name: `Target ${suffix}`, exact: true })
                 .click()
             await membershipStarted
@@ -160,8 +200,16 @@ for (const [locale, messages] of [
         // Repeat through history to cover an already loaded destination as well.
         await page.goBack()
         await expect(row).toBeVisible()
-        await row.locator('summary').first().click()
-        await row.getByRole('link', { name: `Target ${suffix}`, exact: true }).click()
+        await row
+            .getByRole('button', {
+                name: messages.channel_manage.replace('{channel}', channel.name),
+            })
+            .click()
+        await page.getByRole('menuitem', { name: messages.nav_projects, exact: true }).click()
+        await page
+            .getByRole('dialog')
+            .getByRole('link', { name: `Target ${suffix}`, exact: true })
+            .click()
         await expect(page).toHaveURL(new RegExp(`/projects/${target.id}/channels$`))
         await expect(page.locator(`[id="publisher-connection-${channel.id}"]`)).toBeVisible()
         expect(queryClientErrors).toEqual([])
@@ -187,34 +235,70 @@ for (const [locale, messages] of [
         await sharing
             .getByRole('button', { name: messages.channel_share_done, exact: true })
             .click()
-        // Archive through explicit last-attachment retirement, then inspect retained history.
-        for (const project of [source, target, third]) {
-            const view = (await (await page.request.get(base)).json()) as {
-                channels: { id: string; revision: number }[]
-            }
-            const revision = view.channels.find(c => c.id === channel.id)!.revision
-            expect(
-                (
-                    await page.request.post(`${base}/${channel.id}/withdraw`, {
-                        data: {
-                            projectId: project.id,
-                            expectedRevision: revision,
-                            ...(project.id === third.id ? { lastAttachment: 'archive' } : {}),
-                        },
+        // Withdraw projects through the shared dialog, explicitly archiving the last use.
+        await page
+            .getByRole('tab', { name: messages.channels_scope_workspace, exact: true })
+            .click()
+        await row
+            .getByRole('button', {
+                name: messages.channel_manage.replace('{channel}', channel.name),
+            })
+            .click()
+        await page.getByRole('menuitem', { name: messages.nav_projects, exact: true }).click()
+        const retirement = page.getByRole('dialog')
+        for (const name of [`Source ${suffix}`, `Target ${suffix}`, `Third ${suffix}`]) {
+            await retirement
+                .getByRole('button', {
+                    name: messages.channel_share_withdraw.replace('{project}', name),
+                    exact: true,
+                })
+                .click()
+            if (name === `Third ${suffix}`) {
+                await expect(retirement.getByRole('alert')).toBeVisible()
+                await retirement
+                    .getByRole('button', {
+                        name: messages.channel_share_withdraw_archive,
+                        exact: true,
                     })
-                ).status()
-            ).toBe(200)
+                    .click()
+            }
+            await expect(
+                retirement.getByRole('button', {
+                    name: messages.channel_share_withdraw.replace('{project}', name),
+                    exact: true,
+                })
+            ).toHaveCount(0)
         }
+        await expect(
+            retirement.getByText(messages.workspace_channel_detached, { exact: true })
+        ).toHaveCount(3)
+        await retirement
+            .getByRole('button', { name: messages.channel_share_done, exact: true })
+            .click()
         await page.goto(`/dashboard/workspace/channels?workspaceId=${workspaceId}&projectId=none`)
         await expect(
             page.getByText(messages.workspace_channels_empty, { exact: true })
         ).toBeVisible()
         await page.getByRole('switch', { name: messages.workspace_channels_archived }).click()
         await expect(row).toContainText(messages.channel_archived)
-        await row.locator('summary').first().click()
+        await expect(page).toHaveURL(/\/dashboard\/channels\?/)
+        expect(new URL(page.url()).searchParams.get('projectId')).toBe('none')
         await expect(
-            row.getByText(messages.workspace_channel_detached, { exact: true })
+            page.getByRole('tab', { name: messages.channels_scope_project })
+        ).toBeDisabled()
+        await row
+            .getByRole('button', {
+                name: messages.channel_manage.replace('{channel}', channel.name),
+            })
+            .click()
+        await page.getByRole('menuitem', { name: messages.nav_projects, exact: true }).click()
+        await expect(
+            page.getByRole('dialog').getByText(messages.workspace_channel_detached, { exact: true })
         ).toHaveCount(3)
+        await page
+            .getByRole('dialog')
+            .getByRole('button', { name: messages.channel_share_done, exact: true })
+            .click()
         // Workspace creation explicitly chooses its first managing project.
         await page.getByRole('button', { name: messages.channel_add, exact: true }).click()
         await expect(
@@ -260,3 +344,38 @@ for (const [locale, messages] of [
         }
     })
 }
+
+test('opens workspace scope from Channels when the workspace has no projects', async ({ page }) => {
+    const suffix = randomUUID().slice(0, 7)
+    expect(
+        (
+            await page.request.post('/api/auth/sign-up/email', {
+                data: {
+                    name: 'Empty workspace operator',
+                    email: `empty-channels-${suffix}@example.test`,
+                    password: 'workspace-browser-password-123',
+                },
+            })
+        ).status()
+    ).toBe(200)
+    const response = await page.request.post('/api/workspaces', {
+        data: { name: `Empty ${suffix}` },
+    })
+    expect(response.status()).toBe(201)
+    const { workspace } = (await response.json()) as { workspace: { id: string } }
+    await page.goto(`/dashboard?workspaceId=${workspace.id}&projectId=none`)
+    await page.getByRole('link', { name: en.nav_channels, exact: true }).click()
+    await expect(page).toHaveURL(/\/dashboard\/channels\?/)
+    expect(new URL(page.url()).searchParams.get('scope')).toBe('workspace')
+    await expect(page.getByRole('heading', { name: en.channels_title, exact: true })).toBeVisible()
+    await expect(page.getByRole('tab', { name: en.channels_scope_project })).toBeDisabled()
+    await expect(page.getByText(en.workspace_channels_empty, { exact: true })).toBeVisible()
+    await expect(page.getByRole('button', { name: en.channel_add, exact: true })).toHaveCount(0)
+    await expect(page.getByRole('switch', { name: en.workspace_channels_archived })).toHaveCount(0)
+    await page.reload()
+    await expect(page.getByText(en.workspace_channels_empty, { exact: true })).toBeVisible()
+    await page.goto(`/dashboard/workspace/channels?workspaceId=${workspace.id}&projectId=none`)
+    await expect(page).toHaveURL(/\/dashboard\/channels\?/)
+    expect(new URL(page.url()).searchParams.get('workspaceId')).toBe(workspace.id)
+    expect(new URL(page.url()).searchParams.get('projectId')).toBe('none')
+})

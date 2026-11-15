@@ -1,6 +1,12 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, redirect } from '@tanstack/react-router'
 
-import { WorkspaceChannelsPage } from '@/components/workspace-channels-page'
+/** Keep existing bookmarks while Channels owns both scopes. */
 export const Route = createFileRoute('/dashboard/workspace/channels')({
-    component: WorkspaceChannelsPage,
+    beforeLoad: ({ search }) => {
+        throw redirect({
+            to: '/dashboard/channels',
+            search: { ...search, scope: 'workspace' },
+            replace: true,
+        })
+    },
 })
