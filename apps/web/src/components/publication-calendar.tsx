@@ -486,7 +486,7 @@ function EventCalendarToolbar({
                 id="calendar-title">
                 {title}
             </h2>
-            <div className="flex max-w-full flex-wrap items-center gap-3 sm:ml-auto">
+            <div className="flex w-full max-w-full flex-wrap items-center justify-between gap-2 sm:ml-auto sm:w-auto sm:justify-end sm:gap-3">
                 {filterControl}
                 {selectionAvailable ? (
                     <Button
@@ -516,7 +516,9 @@ function EventCalendarToolbar({
                             size="sm"
                             variant="ghost">
                             {viewName(settings, availableView, dayCount)}
-                            <Kbd aria-hidden="true">{CALENDAR_VIEW_SHORTCUTS[availableView]}</Kbd>
+                            <Kbd aria-hidden="true" className="hidden sm:inline-flex">
+                                {CALENDAR_VIEW_SHORTCUTS[availableView]}
+                            </Kbd>
                         </Button>
                     ))}
                 </div>
