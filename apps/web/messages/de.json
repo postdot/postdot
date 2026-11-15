@@ -1309,7 +1309,6 @@
     "api_keys_expiration_90_days": "90 Tage",
     "api_keys_expiration_180_days": "180 Tage",
     "api_keys_expiration_365_days": "1 Jahr",
-    "api_keys_active": "Aktiv",
     "api_keys_revoke": "Widerrufen",
     "api_keys_revoke_title": "Diesen API-Schlüssel widerrufen?",
     "api_keys_revoke_description": "Der Schlüssel „{name}“ kann sich nicht mehr authentifizieren.",
@@ -1572,17 +1571,6 @@
     "calendar_scheduled": "geplant",
     "calendar_unscheduled": "nicht geplant",
     "calendar_attention": "erfordert Aufmerksamkeit",
-    "calendar_unscheduled_description": [
-        {
-            "declarations": ["input count", "local countPlural = count: plural"],
-            "selectors": ["countPlural"],
-            "match": {
-                "countPlural=one": "{count} Veröffentlichung verbleibt außerhalb des Kalenders, bis ein Zeitpunkt gewählt wird.",
-                "countPlural=other": "{count} Veröffentlichungen verbleiben außerhalb des Kalenders, bis ein Zeitpunkt gewählt wird."
-            }
-        }
-    ],
-    "calendar_review_queue": "Warteschlange überprüfen",
     "calendar_occupied": "Belegter Zeitpunkt auf {channel}",
     "calendar_occupied_note": "Gedimmte Einträge sind Zeiten, die andere Projekte bereits auf einem geteilten Kanal nutzen. Projekte, auf die Sie keinen Lesezugriff haben, werden ohne Namen oder Inhalt angezeigt.",
     "calendar_add_event": "Neuer Beitrag",
@@ -1842,8 +1830,6 @@
     "account_password_invalid": "Das aktuelle Passwort ist falsch.",
     "account_password_failed": "Das Passwort konnte nicht geändert werden. Überprüfen Sie seine Länge oder melden Sie sich erneut an, falls Ihre Sitzung abgelaufen ist.",
     "provider_apps_secret_keep": "Leer lassen, um das aktuelle Secret beizubehalten.",
-    "api_keys_projects_label": "Projekte",
-    "api_keys_actions_label": "Aktionen",
     "notifications_open_subject": "Veröffentlichung öffnen: {title}",
     "notifications_subject_unavailable": "Diese Veröffentlichung ist nicht mehr zugänglich",
     "editor_lab_title": "Editor-Experiment",
@@ -2334,11 +2320,8 @@
     "performance_export_pending": "Wird exportiert…",
     "performance_export_cancel": "Export abbrechen",
     "performance_export_failed": "Die CSV-Datei konnte nicht exportiert werden. Erneut versuchen.",
-    "release_title": "Anwendungsversionen",
-    "release_version": "Version",
-    "release_revision": "Commit",
+    "release_title": "Über diese Installation",
     "release_unversioned": "Build ohne Versionierung",
-    "release_unknown_revision": "Nicht erfasst",
     "release_load_failed": "Die API-Version konnte nicht geladen werden.",
     "lifecycle_title": "Gefahrenbereich",
     "lifecycle_archives": "Archiv",
@@ -2555,12 +2538,12 @@
     "engagement_older": "Ältere Messwerte",
     "engagement_count_unit": "Anzahl",
     "engagement_cumulative_basis": "Kumulierte Summe",
-    "release_studio": "Geladenes Studio",
+    "release_studio": "Studio",
     "release_api": "API",
-    "release_check_api": "API prüfen",
+    "release_check_api": "Erneut prüfen",
     "release_checking": "API-Version wird geprüft…",
     "release_match": "Studio und API verwenden denselben Build.",
-    "release_unknown": "Die Build-Identität ist unvollständig. Ein Versionsvergleich ist nicht möglich.",
+    "release_unknown": "Diese Builds tragen keine Version und lassen sich nicht vergleichen.",
     "release_mismatch_title": "Studio und API verwenden unterschiedliche Builds",
     "release_mismatch_help": "Öffne einen neuen Tab, um Studio neu zu laden. Wenn der Unterschied bleibt, muss ein Administrator Studio und API aus demselben Release bereitstellen.",
     "project_timezone_label": "Planungszeitzone",
@@ -2718,5 +2701,9 @@
     "theme_option_system": "System",
     "overview_status_nothing_next": "Noch nichts geplant",
     "overview_status_scheduled": "Geplant",
-    "overview_status_failed": "Fehlgeschlagen"
+    "overview_status_failed": "Fehlgeschlagen",
+    "overview_status_unscheduled": "Ohne Zeit",
+    "delivery_empty_description": "Ergebnisse erscheinen hier, sobald ein Beitrag veröffentlicht wurde.",
+    "api_keys_manage": "{name} verwalten",
+    "lifecycle_empty_description": "Archivierte Projekte und Arbeitsbereiche erscheinen hier und lassen sich wiederherstellen."
 }

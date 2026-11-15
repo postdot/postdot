@@ -15,7 +15,13 @@ test('creates and edits user-owned API keys with bounded project and action acce
     const projectName = `E2E-137 project ${suffix}`
     const projectId = await createAccountAndProject(page, suffix, projectName)
 
-    await page.getByRole('button', { name: 'Open account menu', exact: true }).click()
+    // The dashboard settles its project data right after creation; open the menu once it holds.
+    await expect(async () => {
+        await page.getByRole('button', { name: 'Open account menu', exact: true }).click()
+        await expect(page.getByRole('menuitem', { name: 'Settings', exact: true })).toBeVisible({
+            timeout: 1_000,
+        })
+    }).toPass()
     await page.getByRole('menuitem', { name: 'Settings', exact: true }).click()
     await expect(page).toHaveURL(/\/dashboard\/preferences(?:\?.*)?$/)
     await page
@@ -110,14 +116,14 @@ test('creates and edits user-owned API keys with bounded project and action acce
     await page.getByRole('button', { name: 'Done', exact: true }).click()
     if (limitedKeyName === undefined) throw new Error('The limited API key name was not rendered')
     await expect(page.getByText(/1 project\(s\): .*E2E-137 project/)).toBeVisible()
-    await expect(
-        page.getByText('Limited to: Read project data, Manage channels and profiles', {
-            exact: true,
-        })
-    ).toBeVisible()
+    await expect(page.locator('li').filter({ hasText: limitedKeyName })).toContainText(
+        'Limited to: Read project data, Manage channels and profiles'
+    )
 
     const limitedKey = page.locator('li').filter({ hasText: limitedKeyName })
-    await limitedKey.getByRole('button', { name: 'Edit actions', exact: true }).click()
+    // Rare key actions live in the row menu.
+    await limitedKey.getByRole('button', { name: `Manage ${limitedKeyName}`, exact: true }).click()
+    await page.getByRole('menuitem', { name: 'Edit actions', exact: true }).click()
     const editActionsDialog = page.getByRole('dialog')
     await expect(
         editActionsDialog.getByRole('checkbox', { name: 'Read project data' })
@@ -127,12 +133,9 @@ test('creates and edits user-owned API keys with bounded project and action acce
         .getByRole('checkbox', { name: 'Prepare and manage publications' })
         .check()
     await editActionsDialog.getByRole('button', { name: 'Save actions' }).click()
-    await expect(
-        limitedKey.getByText(
-            'Limited to: Prepare and manage publications, Manage channels and profiles',
-            { exact: true }
-        )
-    ).toBeVisible()
+    await expect(limitedKey).toContainText(
+        'Limited to: Prepare and manage publications, Manage channels and profiles'
+    )
 
     for (const theme of ['light', 'dark'] as const) {
         if (!(await page.locator('html').getAttribute('class'))?.split(' ').includes(theme)) {

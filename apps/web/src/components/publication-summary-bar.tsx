@@ -21,6 +21,7 @@ export function PublicationSummaryBar({
     projectId,
     scheduledCount,
     timeZone,
+    unscheduledCount,
 }: {
     readonly ariaLabel: string
     readonly dueCount: number
@@ -31,6 +32,7 @@ export function PublicationSummaryBar({
     readonly projectId: string
     readonly scheduledCount: number
     readonly timeZone: string
+    readonly unscheduledCount: number
 }) {
     return (
         <section
@@ -73,6 +75,15 @@ export function PublicationSummaryBar({
                         projectId={projectId}
                     />
                 ) : null}
+                {unscheduledCount > 0 ? (
+                    <StatusFigure
+                        count={unscheduledCount}
+                        filter="draft"
+                        label={m.overview_status_unscheduled()}
+                        locale={locale}
+                        projectId={projectId}
+                    />
+                ) : null}
                 {dueCount > 0 ? (
                     <StatusFigure
                         count={dueCount}
@@ -107,7 +118,7 @@ function StatusFigure({
     tone,
 }: {
     readonly count: number
-    readonly filter: 'attention' | 'scheduled'
+    readonly filter: 'attention' | 'draft' | 'scheduled'
     readonly label: ReactNode
     readonly locale: string
     readonly projectId: string

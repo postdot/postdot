@@ -1309,7 +1309,6 @@
     "api_keys_expiration_90_days": "90 jours",
     "api_keys_expiration_180_days": "180 jours",
     "api_keys_expiration_365_days": "1 an",
-    "api_keys_active": "Active",
     "api_keys_revoke": "Révoquer",
     "api_keys_revoke_title": "Révoquer cette clé API ?",
     "api_keys_revoke_description": "La clé « {name} » ne pourra plus s’authentifier.",
@@ -1572,17 +1571,6 @@
     "calendar_scheduled": "planifiées",
     "calendar_unscheduled": "non planifiées",
     "calendar_attention": "à traiter",
-    "calendar_unscheduled_description": [
-        {
-            "declarations": ["input count", "local countPlural = count: plural"],
-            "selectors": ["countPlural"],
-            "match": {
-                "countPlural=one": "{count} publication reste hors du calendrier jusqu’au choix d’une heure.",
-                "countPlural=other": "{count} publications restent hors du calendrier jusqu’au choix d’une heure."
-            }
-        }
-    ],
-    "calendar_review_queue": "Voir la file d’attente",
     "calendar_occupied": "Créneau pris sur {channel}",
     "calendar_occupied_note": "Les entrées atténuées sont des créneaux que d’autres projets utilisent déjà sur un canal partagé. Les projets que vous ne pouvez pas lire sont affichés sans nom ni contenu.",
     "calendar_add_event": "Nouveau post",
@@ -1842,8 +1830,6 @@
     "account_password_invalid": "Le mot de passe actuel est incorrect.",
     "account_password_failed": "Le mot de passe n’a pas pu être modifié. Vérifiez sa longueur ou reconnectez-vous si votre session a expiré.",
     "provider_apps_secret_keep": "Laisser vide pour conserver le secret actuel.",
-    "api_keys_projects_label": "Projets",
-    "api_keys_actions_label": "Actions",
     "notifications_open_subject": "Ouvrir la publication : {title}",
     "notifications_subject_unavailable": "Cette publication n’est plus accessible",
     "editor_lab_title": "Essai de l’éditeur",
@@ -2334,11 +2320,8 @@
     "performance_export_pending": "Export en cours…",
     "performance_export_cancel": "Annuler l’export",
     "performance_export_failed": "Le CSV n’a pas pu être exporté. Réessayez.",
-    "release_title": "Versions de l’application",
-    "release_version": "Version",
-    "release_revision": "Commit",
+    "release_title": "À propos de cette installation",
     "release_unversioned": "Compilation sans version",
-    "release_unknown_revision": "Non renseigné",
     "release_load_failed": "Impossible de charger la version de l’API.",
     "lifecycle_title": "Zone de danger",
     "lifecycle_archives": "Archives",
@@ -2555,12 +2538,12 @@
     "engagement_older": "Relevés plus anciens",
     "engagement_count_unit": "Nombre",
     "engagement_cumulative_basis": "Total cumulé",
-    "release_studio": "Studio chargé",
+    "release_studio": "Studio",
     "release_api": "API",
-    "release_check_api": "Vérifier l’API",
+    "release_check_api": "Vérifier à nouveau",
     "release_checking": "Vérification de la version de l’API…",
     "release_match": "Le Studio et l’API correspondent au même build.",
-    "release_unknown": "L’identité du build est incomplète. La comparaison des versions est indisponible.",
+    "release_unknown": "Ces versions ne portent pas de numéro, elles ne peuvent pas être comparées.",
     "release_mismatch_title": "Les builds du Studio et de l’API diffèrent",
     "release_mismatch_help": "Ouvrez un nouvel onglet pour recharger le Studio. Si l’écart persiste, un administrateur doit déployer le Studio et l’API depuis la même release.",
     "project_timezone_label": "Fuseau horaire de planification",
@@ -2718,5 +2701,9 @@
     "theme_option_system": "Système",
     "overview_status_nothing_next": "Rien de planifié pour l’instant",
     "overview_status_scheduled": "Planifiées",
-    "overview_status_failed": "En échec"
+    "overview_status_failed": "En échec",
+    "overview_status_unscheduled": "Sans horaire",
+    "delivery_empty_description": "Les résultats apparaissent ici dès qu’un post est parti.",
+    "api_keys_manage": "Gérer {name}",
+    "lifecycle_empty_description": "Les projets et espaces de travail archivés apparaissent ici, prêts à être restaurés."
 }

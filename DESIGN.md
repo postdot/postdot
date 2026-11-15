@@ -388,6 +388,20 @@ building it; the current app contract must not silently decide those choices.
 - User feedback and destructive actions: show save, recovery, conflict,
   publish, and failure states with explicit status and reversible paths where
   the domain allows them.
+- Surfaces (owner review, 2026-11-15): content that people read or act on
+  (lists, panels, stat groups, settings blocks) sits on `surface-raised` with a
+  1 px `border`, never on an inset fill close to the page colour. A row under
+  the pointer uses `surface-hover`. Fields are white with an `input` border in
+  the light theme.
+- Tabs: underline page tabs (`TabsList variant="line"`) switch what a page
+  shows (queue states, channel scope, Engagement/Publishing, members/groups);
+  a segmented control only switches how the same content is displayed (by
+  post/by channel, month/week). Counts in tabs are plain muted numbers.
+- Attention is a warm orange (`--state-attention`), not gold. Reading sizes
+  are a half step above Tailwind (`text-sm` 14.5 px, `text-xs` 12.5 px);
+  sidebar rows are 36 px with 18 px icons.
+- A selection never reshapes a toolbar: selection actions float at the bottom
+  of the viewport, as on the calendar.
 - Empty states (audit S12, 2026-11-15): one `EmptyState` component, two
   contexts. A page whose content is missing uses the default layout: centred,
   no surface, an illustration when one fits, and an action only when the page

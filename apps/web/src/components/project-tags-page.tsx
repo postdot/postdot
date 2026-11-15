@@ -263,7 +263,7 @@ function ProjectTagRow({
     return (
         <li
             aria-busy={pending}
-            className="flex min-w-0 items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/35">
+            className="flex min-w-0 items-center gap-3 px-4 py-3 transition-colors hover:bg-surface-hover">
             <div className="flex min-w-0 flex-1 items-center gap-2.5">
                 <TagIcon
                     aria-hidden="true"

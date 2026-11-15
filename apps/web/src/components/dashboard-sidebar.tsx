@@ -221,6 +221,12 @@ export function DashboardSidebar({
                                 </SidebarMenu>
                             </SidebarGroupContent>
                         </SidebarGroup>
+                        {/* The settings state names itself, so nobody infers it from the items. */}
+                        <h2
+                            className="px-5 pt-2 pb-1 font-heading text-lg font-semibold group-data-[collapsible=icon]:hidden"
+                            data-settings-title="true">
+                            {m.nav_settings()}
+                        </h2>
                         <SidebarGroup className="px-3 py-1 group-data-[collapsible=icon]:px-2">
                             <SidebarGroupLabel className="px-2">
                                 {m.nav_personal_settings()}

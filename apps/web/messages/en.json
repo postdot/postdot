@@ -1309,7 +1309,6 @@
     "api_keys_expiration_90_days": "90 days",
     "api_keys_expiration_180_days": "180 days",
     "api_keys_expiration_365_days": "1 year",
-    "api_keys_active": "Active",
     "api_keys_revoke": "Revoke",
     "api_keys_revoke_title": "Revoke this API key?",
     "api_keys_revoke_description": "The key “{name}” will no longer be able to authenticate.",
@@ -1572,17 +1571,6 @@
     "calendar_scheduled": "scheduled",
     "calendar_unscheduled": "unscheduled",
     "calendar_attention": "needs attention",
-    "calendar_unscheduled_description": [
-        {
-            "declarations": ["input count", "local countPlural = count: plural"],
-            "selectors": ["countPlural"],
-            "match": {
-                "countPlural=one": "{count} publication remains outside the calendar until a time is chosen.",
-                "countPlural=other": "{count} publications remain outside the calendar until a time is chosen."
-            }
-        }
-    ],
-    "calendar_review_queue": "Review the Queue",
     "calendar_occupied": "Time taken on {channel}",
     "calendar_occupied_note": "Muted entries are time other projects already use on a shared channel. Projects you cannot read are shown without a name or content.",
     "calendar_add_event": "New post",
@@ -1842,8 +1830,6 @@
     "account_password_invalid": "The current password is incorrect.",
     "account_password_failed": "The password could not be changed. Check its length or sign in again if your session has expired.",
     "provider_apps_secret_keep": "Leave blank to keep the current secret.",
-    "api_keys_projects_label": "Projects",
-    "api_keys_actions_label": "Actions",
     "notifications_open_subject": "Open publication: {title}",
     "notifications_subject_unavailable": "This publication is no longer accessible",
     "editor_lab_title": "Editor experiment",
@@ -2334,11 +2320,8 @@
     "performance_export_pending": "Exporting…",
     "performance_export_cancel": "Cancel export",
     "performance_export_failed": "The CSV could not be exported. Try again.",
-    "release_title": "Application versions",
-    "release_version": "Version",
-    "release_revision": "Commit",
+    "release_title": "About this installation",
     "release_unversioned": "Unversioned build",
-    "release_unknown_revision": "Not recorded",
     "release_load_failed": "API version could not be loaded.",
     "lifecycle_title": "Danger zone",
     "lifecycle_archives": "Archive",
@@ -2555,12 +2538,12 @@
     "engagement_older": "Older readings",
     "engagement_count_unit": "Count",
     "engagement_cumulative_basis": "Cumulative total",
-    "release_studio": "Loaded Studio",
+    "release_studio": "Studio",
     "release_api": "API",
-    "release_check_api": "Check API",
+    "release_check_api": "Check again",
     "release_checking": "Checking API version…",
     "release_match": "Studio and API identify the same build.",
-    "release_unknown": "The build identity is incomplete. A version comparison is unavailable.",
+    "release_unknown": "These builds carry no version, so they can’t be compared.",
     "release_mismatch_title": "Studio and API builds differ",
     "release_mismatch_help": "Open a new tab to reload Studio. If the difference remains, have an administrator deploy Studio and API from the same release.",
     "project_timezone_label": "Scheduling timezone",
@@ -2718,5 +2701,9 @@
     "theme_option_system": "System",
     "overview_status_nothing_next": "Nothing scheduled yet",
     "overview_status_scheduled": "Scheduled",
-    "overview_status_failed": "Failed"
+    "overview_status_failed": "Failed",
+    "overview_status_unscheduled": "No time yet",
+    "delivery_empty_description": "Results appear here once a post has gone out.",
+    "api_keys_manage": "Manage {name}",
+    "lifecycle_empty_description": "Archived projects and workspaces appear here, ready to restore."
 }

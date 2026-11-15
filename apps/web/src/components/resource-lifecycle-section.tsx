@@ -24,6 +24,7 @@ import { Link, useRouter, useNavigate, useSearch, useParams } from '@tanstack/re
 import { useState, type ReactNode } from 'react'
 
 import { AccessPageHeader } from '@/components/access-page-header'
+import { EmptyState } from '@/components/empty-state'
 import { ResourceAvatar } from '@/components/identity-visuals'
 import { PageColumn } from '@/components/page-column'
 import { QueryErrorState } from '@/components/query-error-state'
@@ -401,14 +402,19 @@ export function ResourceArchives() {
     })
     return (
         <main className="min-w-0 px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
-            <AccessPageHeader column="management" title={m.lifecycle_archives()} />
-            <PageColumn variant="management">
+            <AccessPageHeader column="reading" title={m.lifecycle_archives()} />
+            <PageColumn variant="reading">
                 {resources.isPending ? (
                     <p role="status">{m.common_loading()}</p>
                 ) : resources.isError ? (
                     <QueryErrorState onRetry={() => void resources.refetch()} />
                 ) : resources.data.length === 0 ? (
-                    <p className="mt-4 text-muted-foreground">{m.lifecycle_empty()}</p>
+                    <EmptyState
+                        className="mt-2"
+                        description={m.lifecycle_empty_description()}
+                        illustration="data"
+                        title={m.lifecycle_empty()}
+                    />
                 ) : (
                     resources.data.map(resource => (
                         <ResourceLifecycleSection

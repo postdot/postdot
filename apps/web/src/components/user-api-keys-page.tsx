@@ -1,5 +1,4 @@
 import { Alert, AlertDescription, AlertTitle } from '@postdot/ui/components/alert'
-import { Badge } from '@postdot/ui/components/badge'
 import { Button } from '@postdot/ui/components/button'
 import {
     Combobox,
@@ -24,6 +23,12 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@postdot/ui/components/dialog'
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@postdot/ui/components/dropdown-menu'
 import { Field, FieldLabel } from '@postdot/ui/components/field'
 import { Input } from '@postdot/ui/components/input'
 import {
@@ -36,7 +41,7 @@ import {
 import { toast } from '@postdot/ui/components/toast'
 import { AddIcon } from '@solar-icons/react/linear/add'
 import { CopyIcon } from '@solar-icons/react/linear/copy'
-import { KeyMinimalisticIcon } from '@solar-icons/react/linear/key-minimalistic'
+import { MenuDotsVerticalIcon } from '@solar-icons/react/linear/menu-dots-vertical'
 import { RefreshIcon } from '@solar-icons/react/linear/refresh'
 import { TrashBinMinimalisticIcon } from '@solar-icons/react/linear/trash-bin-minimalistic'
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
@@ -289,42 +294,18 @@ export function UserApiKeysPage() {
                         />
                     ) : (
                         <section aria-label={m.api_keys_title()} className="min-w-0">
-                            <ul className="divide-y divide-border/40">
+                            <ul className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-surface-raised">
                                 {keys.map(key => (
-                                    <li key={key.id} className="flex min-w-0 gap-4 py-5">
-                                        <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-surface-control text-primary">
-                                            <KeyMinimalisticIcon
-                                                aria-hidden="true"
-                                                className="size-5"
-                                            />
-                                        </span>
+                                    <li
+                                        key={key.id}
+                                        className="flex min-w-0 items-center gap-3 px-4 py-3">
                                         <div className="min-w-0 flex-1">
-                                            <div className="flex min-w-0 flex-wrap items-center gap-2">
-                                                <span className="truncate text-sm font-medium">
-                                                    {key.name}
-                                                </span>
-                                                <Badge variant="secondary">
-                                                    {m.api_keys_active()}
-                                                </Badge>
-                                            </div>
-                                            <p className="mt-1 break-words font-mono text-xs text-muted-foreground">
-                                                {key.tokenPrefix} ·{' '}
-                                                {key.expiresAt === null
-                                                    ? m.common_never_expires()
-                                                    : m.common_expires_on({
-                                                          date: formatDateTime(
-                                                              key.expiresAt,
-                                                              'UTC',
-                                                              locale
-                                                          ),
-                                                      })}
+                                            <p className="truncate text-sm font-medium">
+                                                {key.name}
                                             </p>
-                                            <dl className="mt-4 grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2 text-xs">
-                                                <dt className="text-muted-foreground">
-                                                    {m.api_keys_projects_label()}
-                                                </dt>
-                                                <dd className="min-w-0 break-words">
-                                                    {key.projectAccess === 'all'
+                                            <p className="mt-0.5 text-xs text-muted-foreground">
+                                                {[
+                                                    key.projectAccess === 'all'
                                                         ? m.api_keys_scope_all()
                                                         : m.api_keys_scope_selected({
                                                               count: key.projectAccess.length,
@@ -334,44 +315,57 @@ export function UserApiKeysPage() {
                                                                           projectNames.get(id) ?? id
                                                                   )
                                                                   .join(', '),
-                                                          })}
-                                                </dd>
-                                                <dt className="text-muted-foreground">
-                                                    {m.api_keys_actions_label()}
-                                                </dt>
-                                                <dd className="min-w-0 break-words">
-                                                    {key.actionAccess === 'all'
+                                                          }),
+                                                    key.actionAccess === 'all'
                                                         ? m.api_keys_action_access_all_summary()
                                                         : m.api_keys_action_access_summary({
                                                               actions: key.actionAccess
                                                                   .map(capabilityLabel)
                                                                   .join(', '),
-                                                          })}
-                                                </dd>
-                                            </dl>
-                                            <div className="mt-4 flex flex-wrap gap-2">
-                                                <Button
-                                                    type="button"
-                                                    size="sm"
-                                                    variant="ghost"
-                                                    disabled={pending}
+                                                          }),
+                                                    key.expiresAt === null
+                                                        ? m.common_never_expires()
+                                                        : m.common_expires_on({
+                                                              date: formatDateTime(
+                                                                  key.expiresAt,
+                                                                  'UTC',
+                                                                  locale
+                                                              ),
+                                                          }),
+                                                ].join(' · ')}
+                                            </p>
+                                        </div>
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger
+                                                render={
+                                                    <Button
+                                                        type="button"
+                                                        size="icon-sm"
+                                                        variant="ghost"
+                                                        disabled={pending}
+                                                        aria-label={m.api_keys_manage({
+                                                            name: key.name,
+                                                        })}>
+                                                        <MenuDotsVerticalIcon aria-hidden="true" />
+                                                    </Button>
+                                                }
+                                            />
+                                            <DropdownMenuContent align="end">
+                                                <DropdownMenuItem
                                                     onClick={() => beginEditActions(key)}>
                                                     {m.api_keys_edit_actions()}
-                                                </Button>
-                                                <Button
-                                                    type="button"
-                                                    size="sm"
-                                                    variant="ghost"
-                                                    disabled={pending}
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem
+                                                    variant="destructive"
                                                     onClick={() => {
                                                         setError(null)
                                                         setKeyToRevoke(key)
                                                     }}>
                                                     <TrashBinMinimalisticIcon aria-hidden="true" />
                                                     {m.api_keys_revoke()}
-                                                </Button>
-                                            </div>
-                                        </div>
+                                                </DropdownMenuItem>
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
                                     </li>
                                 ))}
                             </ul>

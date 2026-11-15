@@ -28,6 +28,7 @@ const allowedUnchangedByLocale = new Map<string, ReadonlySet<string>>([
     [
         'fr',
         new Set([
+            'release_studio',
             'auth_board_source_label',
             'media_info_usage_source',
             'search_posts',
@@ -47,8 +48,6 @@ const allowedUnchangedByLocale = new Map<string, ReadonlySet<string>>([
             'thread_message',
             'access_project_access_via_group',
             'api_keys_expiration',
-            'api_keys_active',
-            'api_keys_actions_label',
             'calendar_event',
             'calendar_events',
             'calendar_view_agenda',
@@ -78,9 +77,7 @@ const allowedUnchangedByLocale = new Map<string, ReadonlySet<string>>([
             'nav_channel_tooltip',
             'nav_installation',
             'nav_instance',
-            'release_version',
             'release_api', // Protocol acronym, identical in every supported locale.
-            'release_revision',
             'nav_instance_settings',
             'nav_publications',
             'nav_workspace',
@@ -112,6 +109,7 @@ const allowedUnchangedByLocale = new Map<string, ReadonlySet<string>>([
     [
         'es',
         new Set([
+            'release_studio',
             'channel_bluesky_profile',
             'channel_devto_profile',
             'channel_discord_profile',
@@ -158,13 +156,13 @@ const allowedUnchangedByLocale = new Map<string, ReadonlySet<string>>([
             'publication_outcome_external_url_placeholder',
             'queue_filter_aria',
             'queue_manual',
-            'release_revision',
             'release_api',
         ]),
     ],
     [
         'de',
         new Set([
+            'release_studio',
             'theme_option_system',
             'editor_constraint_source',
             'channel_bluesky_profile',
@@ -238,9 +236,7 @@ const allowedUnchangedByLocale = new Map<string, ReadonlySet<string>>([
             'publication_outcome_external_url_placeholder',
             'publication_preview_sample_author',
             'queue_filter_aria',
-            'release_revision',
             'release_api',
-            'release_version',
             'request_body_format',
             'smtp_port',
             'taxonomy_tags',

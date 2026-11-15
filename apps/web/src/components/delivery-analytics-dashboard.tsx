@@ -173,12 +173,19 @@ export function DeliveryAnalyticsDashboard({
                     {m.common_loading()}
                 </p>
             ) : null}
-            {report && counters && !Object.values(counters).some(Boolean) && !incomplete ? (
-                neverPublished ? (
-                    <EmptyState title={m.delivery_empty()} layout="compact" />
-                ) : (
-                    <p className="py-6 text-sm text-muted-foreground">{m.delivery_empty()}</p>
-                )
+            {report && counters && !Object.values(counters).some(Boolean) ? (
+                <EmptyState
+                    className="mt-2"
+                    description={
+                        incomplete
+                            ? m.delivery_incomplete()
+                            : neverPublished
+                              ? m.delivery_empty_description()
+                              : null
+                    }
+                    illustration="data"
+                    title={m.delivery_empty()}
+                />
             ) : report && counters ? (
                 <>
                     <p className="text-xs leading-5 text-muted-foreground">
@@ -192,12 +199,12 @@ export function DeliveryAnalyticsDashboard({
                         })}
                     </p>
                     {incomplete ? (
-                        <p role="status" className="text-sm text-state-attention">
+                        <p role="status" className="text-xs text-muted-foreground">
                             {m.delivery_incomplete()}
                         </p>
                     ) : null}
                     <dl
-                        className="grid grid-cols-2 gap-x-6 gap-y-5 border-y border-border py-4 lg:grid-cols-4"
+                        className="grid grid-cols-2 overflow-hidden rounded-lg border border-border bg-surface-raised lg:grid-cols-4 [&>div]:border-border [&>div]:p-4 [&>div:nth-child(n+2)]:lg:border-l [&>div:nth-child(2n)]:border-l [&>div:nth-child(n+3)]:border-t [&>div:nth-child(n+3)]:lg:border-t-0"
                         data-delivery-counters>
                         {(Object.keys(labels) as (keyof typeof labels)[]).map(key => (
                             <div key={key}>
@@ -226,8 +233,8 @@ export function DeliveryAnalyticsDashboard({
                         ))}
                     </dl>
 
-                    <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(18rem,1fr)]">
-                        <div className="min-w-0">
+                    <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(18rem,1fr)]">
+                        <div className="min-w-0 rounded-lg border border-border bg-surface-raised p-4">
                             <div className="flex flex-wrap items-baseline justify-between gap-2">
                                 <h3 className="text-sm font-medium">{m.delivery_daily()}</h3>
                             </div>
@@ -328,7 +335,7 @@ export function DeliveryAnalyticsDashboard({
                             )}
                         </div>
                         {destinations.length ? (
-                            <div className="min-w-0">
+                            <div className="min-w-0 rounded-lg border border-border bg-surface-raised p-4">
                                 <h3 className="mb-3 text-sm font-medium">
                                     {m.delivery_by_destination()}
                                 </h3>

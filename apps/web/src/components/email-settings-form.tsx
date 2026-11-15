@@ -213,18 +213,21 @@ function EmailSettingsFields({
                         {notice}
                     </p>
                 )}
-                <div className="flex flex-wrap gap-3">
-                    <Button type="submit" disabled={pending !== null || !dirty}>
-                        {pending === 'save' ? m.common_loading() : m.common_save()}
-                    </Button>
-                    <Button
-                        type="button"
-                        variant="outline"
-                        disabled={pending !== null || dirty || !saved.enabled}
-                        onClick={() => void test()}>
-                        {pending === 'test' ? m.common_loading() : m.smtp_test()}
-                    </Button>
-                </div>
+                {/* With delivery off and nothing changed there is nothing to save or test. */}
+                {form.enabled || dirty ? (
+                    <div className="flex flex-wrap gap-3">
+                        <Button type="submit" disabled={pending !== null || !dirty}>
+                            {pending === 'save' ? m.common_loading() : m.common_save()}
+                        </Button>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            disabled={pending !== null || dirty || !saved.enabled}
+                            onClick={() => void test()}>
+                            {pending === 'test' ? m.common_loading() : m.smtp_test()}
+                        </Button>
+                    </div>
+                ) : null}
             </form>
         </section>
     )

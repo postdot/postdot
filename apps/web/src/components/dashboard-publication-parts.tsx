@@ -125,7 +125,7 @@ export function PublicationList({
         <TooltipProvider delay={450}>
             <div
                 className={cn(
-                    'mt-4 overflow-hidden rounded-lg bg-surface-inset/55 p-1 shadow-surface lg:grid lg:gap-x-2',
+                    'mt-4 overflow-hidden rounded-lg border border-border bg-surface-raised p-1 lg:grid lg:gap-x-2',
                     selectionEnabled
                         ? 'lg:grid-cols-[auto_minmax(11rem,0.85fr)_minmax(0,1fr)_max-content]'
                         : 'lg:grid-cols-[minmax(11rem,0.85fr)_minmax(0,1fr)_max-content]'
@@ -148,9 +148,9 @@ export function PublicationList({
                         <div
                             key={group.postId}
                             data-queue-post-group={groupByPost ? group.postId : undefined}
-                            className="space-y-1 lg:col-span-full lg:grid lg:grid-cols-subgrid lg:gap-y-1 lg:space-y-0">
+                            className="space-y-1 border-t border-border/70 pb-1 first:border-t-0 lg:col-span-full lg:grid lg:grid-cols-subgrid lg:gap-y-1 lg:space-y-0">
                             {groupByPost ? (
-                                <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 px-3 pb-2 pt-5 lg:col-span-full">
+                                <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 px-3 pb-1.5 pt-4 lg:col-span-full">
                                     <h2 className="min-w-0 basis-full text-sm font-semibold sm:flex-1 sm:basis-auto">
                                         {publicationIdentityLabel(group.publications[0]!)}
                                     </h2>
@@ -216,7 +216,7 @@ function PublicationTableHeader({
 }) {
     return (
         <div
-            className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-center gap-x-2 rounded-md bg-surface-field/35 px-2 py-2 sm:px-3 lg:col-span-full lg:grid-cols-subgrid"
+            className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-center gap-x-2 border-b border-border px-2 py-2 sm:px-3 lg:col-span-full lg:grid-cols-subgrid"
             data-publication-table-header="true">
             <SelectionCheckbox
                 checked={allSelected}
@@ -299,7 +299,7 @@ function PublicationListItem({
             data-publication-selection-card="true"
             data-publication-selection-active={selected || undefined}
             className={cn(
-                'min-w-0 rounded-md transition-[background-color,box-shadow] hover:bg-surface-field/55 lg:col-span-full lg:grid lg:grid-cols-subgrid lg:items-center lg:gap-x-2 lg:px-2 lg:py-1.5 sm:lg:px-3',
+                'min-w-0 rounded-md transition-[background-color,box-shadow] hover:bg-surface-hover lg:col-span-full lg:grid lg:grid-cols-subgrid lg:items-center lg:gap-x-2 lg:px-2 lg:py-1.5 sm:lg:px-3',
                 selected && 'bg-primary/[0.07]'
             )}>
             <div

@@ -176,10 +176,8 @@ test('reschedules and cancels selected publications from Queue', async ({ page }
     await expect(groups).toHaveCount(0)
     await expect(selectionToggles).toHaveCount(3)
     const queueBulkActionBar = page.locator('[data-bulk-action-bar="true"]')
-    await expect(queueBulkActionBar).toBeVisible()
-    await expect(
-        queueBulkActionBar.getByRole('button', { name: 'Reschedule', exact: true })
-    ).toHaveCount(0)
+    // Nothing selected: no selection bar, and the toolbar keeps its shape.
+    await expect(queueBulkActionBar).toHaveCount(0)
     const publicationTable = page.locator('[data-publication-table-header="true"]')
     const initialTableTop = await publicationTable.evaluate(
         element => element.getBoundingClientRect().top

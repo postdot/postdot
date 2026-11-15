@@ -1,6 +1,5 @@
 import { Button } from '@postdot/ui/components/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@postdot/ui/components/tabs'
-import { ChartSquareIcon } from '@solar-icons/react/linear/chart-square'
 import { RefreshIcon } from '@solar-icons/react/linear/refresh'
 import {
     useInfiniteQuery,
@@ -548,8 +547,7 @@ export function PublicationPerformancePage({
                                     ? m.performance_tag_filter_no_matches_description()
                                     : undefined
                             }
-                            icon={<ChartSquareIcon aria-hidden="true" className="size-5" />}
-                            layout="compact"
+                            illustration="data"
                             title={
                                 hasNoTagMatch
                                     ? m.performance_tag_filter_no_matches_title()

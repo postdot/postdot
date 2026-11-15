@@ -275,6 +275,7 @@ export function PublicationCalendarPage({
                         }
                         nextPublication={nextScheduledPublication}
                         scheduledCount={publicationSummary.scheduled}
+                        unscheduledCount={unscheduledPublications.length}
                         projectId={project.id}
                         timeZone={project.timeZone}
                     />
@@ -396,26 +397,6 @@ export function PublicationCalendarPage({
                                     </p>
                                 ) : null}
                             </section>
-
-                            {unscheduledPublications.length > 0 ? (
-                                <p className="mt-5 text-sm text-muted-foreground">
-                                    {m.calendar_unscheduled_description({
-                                        count: unscheduledPublications.length,
-                                    })}{' '}
-                                    <Link
-                                        className="text-primary underline underline-offset-4 hover:text-foreground"
-                                        params={{ projectId: project.id }}
-                                        search={{
-                                            filter: undefined,
-                                            sort: undefined,
-                                            tagIds: undefined,
-                                        }}
-                                        to="/dashboard/projects/$projectId/queue">
-                                        {m.calendar_review_queue()}
-                                    </Link>
-                                    .
-                                </p>
-                            ) : null}
                         </>
                     )}
                 </>
