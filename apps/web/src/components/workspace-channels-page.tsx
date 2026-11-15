@@ -8,7 +8,6 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@postdot/ui/components/select'
-import { Switch } from '@postdot/ui/components/switch'
 import { AddIcon } from '@solar-icons/react/linear/add'
 import { LinkIcon } from '@solar-icons/react/linear/link'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -77,6 +76,7 @@ function WorkspaceChannelContent({
     const data = query.data
     const visibleChannels =
         data?.channels.filter(channel => includeArchived || channel.state === 'active') ?? []
+    const archivedCount = data?.channels.filter(channel => channel.state === 'archived').length ?? 0
     const projects = data?.projects ?? []
     const sharingChannel = data?.channels.find(channel => channel.id === sharingChannelId) ?? null
     const canCreate = projects.filter(p => p.canCreate)
@@ -185,19 +185,6 @@ function WorkspaceChannelContent({
                         ) : null}
                     </section>
                 ) : null}
-                {data &&
-                (includeArchived || data.channels.some(channel => channel.state === 'archived')) ? (
-                    <div className="flex items-center gap-2">
-                        <Switch
-                            id="workspace-channels-archived"
-                            checked={includeArchived}
-                            onCheckedChange={value => setIncludeArchived(value === true)}
-                        />
-                        <Label htmlFor="workspace-channels-archived">
-                            {m.workspace_channels_archived()}
-                        </Label>
-                    </div>
-                ) : null}
                 {query.isPending ? (
                     <p className="text-sm text-muted-foreground" role="status">
                         {m.workspace_channels_loading()}
@@ -253,9 +240,11 @@ function WorkspaceChannelContent({
                                             ? m.channel_platform_manual()
                                             : channelProfileLabel(channel.profileId),
                                         managerLabel,
-                                        ...(usedBy.length
-                                            ? [m.channels_used_by({ projects: usedBy.join(', ') })]
-                                            : []),
+                                        ...(usedBy.length === 1
+                                            ? [m.channels_used_by({ projects: usedBy[0]! })]
+                                            : usedBy.length > 1
+                                              ? [m.channels_used_by_count({ count: usedBy.length })]
+                                              : []),
                                     ]}
                                     menu={
                                         <ChannelActionsMenu
@@ -275,6 +264,19 @@ function WorkspaceChannelContent({
                             )
                         })}
                     </div>
+                ) : null}
+                {archivedCount > 0 ? (
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="self-start text-muted-foreground"
+                        aria-pressed={includeArchived}
+                        onClick={() => setIncludeArchived(value => !value)}>
+                        {includeArchived
+                            ? m.workspace_channels_hide_archived()
+                            : m.workspace_channels_show_archived({ count: archivedCount })}
+                    </Button>
                 ) : null}
             </PageColumn>
             {sharingChannel ? (

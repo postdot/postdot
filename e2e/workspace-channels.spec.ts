@@ -279,7 +279,11 @@ for (const [locale, messages] of [
         await expect(
             page.getByText(messages.workspace_channels_empty, { exact: true })
         ).toBeVisible()
-        await page.getByRole('switch', { name: messages.workspace_channels_archived }).click()
+        await page
+            .getByRole('button', {
+                name: messages.workspace_channels_show_archived.replace('{count}', '1'),
+            })
+            .click()
         await expect(row).toContainText(messages.channel_archived)
         await expect(page).toHaveURL(/\/dashboard\/channels\?/)
         expect(new URL(page.url()).searchParams.get('projectId')).toBe('none')
@@ -371,7 +375,7 @@ test('opens workspace scope from Channels when the workspace has no projects', a
     await expect(page.getByRole('tab', { name: en.channels_scope_project })).toBeDisabled()
     await expect(page.getByText(en.workspace_channels_empty, { exact: true })).toBeVisible()
     await expect(page.getByRole('button', { name: en.channel_add, exact: true })).toHaveCount(0)
-    await expect(page.getByRole('switch', { name: en.workspace_channels_archived })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: /^Show archived/ })).toHaveCount(0)
     await page.reload()
     await expect(page.getByText(en.workspace_channels_empty, { exact: true })).toBeVisible()
     await page.goto(`/dashboard/workspace/channels?workspaceId=${workspace.id}&projectId=none`)

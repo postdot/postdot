@@ -2462,7 +2462,6 @@
     "workspace_channels_loading": "Kanäle werden geladen…",
     "workspace_channels_empty": "Keine sichtbaren Kanäle",
     "workspace_channels_visibility": "Es werden nur Projekte angezeigt, die Sie einsehen können.",
-    "workspace_channels_archived": "Archivierte Kanäle einschließen",
     "workspace_channel_initial_project": "Ursprünglich verwaltendes Projekt",
     "workspace_channel_detached": "Entfernt",
     "channel_transfer_title": "Kanalverwaltung",
@@ -2665,5 +2664,8 @@
     "channels_used_by": "Verwendet von {projects}",
     "channels_previous_projects": "Frühere Projekte",
     "channels_unavailable": "Dieser Kanal ist nicht mehr verfügbar. Lade Kanäle neu, um die aktuelle Liste zu sehen.",
-    "channels_projects_title": "Projekte für {channel}"
+    "channels_projects_title": "Projekte für {channel}",
+    "workspace_channels_show_archived": "Archivierte anzeigen ({count})",
+    "workspace_channels_hide_archived": "Archivierte ausblenden",
+    "channels_used_by_count": "Von {count} Projekten genutzt"
 }
