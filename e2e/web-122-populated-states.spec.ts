@@ -80,7 +80,7 @@ test('uses the calendar as the project overview and keeps Queue distinct', async
     const overviewSummary = page.getByLabel('Overview summary', { exact: true })
     // Overview surfaces actionable work and the next publication without zero-value totals.
     await expect(overviewSummary).toContainText('To publish by hand')
-    await expect(overviewSummary).toContainText('Next publication')
+    await expect(overviewSummary).toContainText('Next')
     await expect(overviewSummary).not.toContainText('3 scheduled')
     const overviewCalendar = page.locator('[data-calendar="reui"]')
     await expect(overviewCalendar).toBeVisible()

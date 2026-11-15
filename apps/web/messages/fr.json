@@ -390,8 +390,7 @@
     "overview_title": "Vue d’ensemble",
     "overview_summary_aria": "Résumé de la vue d’ensemble",
     "overview_widget_manual_due": "À publier à la main",
-    "overview_widget_review": "Voir",
-    "overview_widget_next": "Prochaine publication",
+    "overview_widget_next": "Ensuite",
     "overview_widget_open_publication": "Ouvrir {title}",
     "overview_publications": "publications",
     "overview_scheduled": "planifiées",
@@ -2715,5 +2714,9 @@
         }
     ],
     "lifecycle_posts_retained": "Tous les posts et médias sont conservés pour une restauration.",
-    "lifecycle_posts_deleted": "Tous les posts locaux seront supprimés définitivement ; les posts publiés restent en ligne."
+    "lifecycle_posts_deleted": "Tous les posts locaux seront supprimés définitivement ; les posts publiés restent en ligne.",
+    "theme_option_system": "Système",
+    "overview_status_nothing_next": "Rien de planifié pour l’instant",
+    "overview_status_scheduled": "Planifiées",
+    "overview_status_failed": "En échec"
 }

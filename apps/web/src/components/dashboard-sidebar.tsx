@@ -122,21 +122,24 @@ export function DashboardSidebar({
                         <Link
                             to="/dashboard"
                             aria-label={m.nav_aria_label()}
-                            className="flex size-8 shrink-0 items-center justify-center rounded-md text-foreground hover:text-foreground/75 group-data-[collapsible=icon]:size-full! group-data-[collapsible=icon]:rounded-none">
-                            <PostdotLogo className="size-7" />
+                            className="-ml-0.5 flex h-8 min-w-0 items-center gap-2 rounded-md pr-2 pl-0.5 text-foreground hover:text-foreground/75 group-data-[collapsible=icon]:size-full! group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:ml-0 group-data-[collapsible=icon]:rounded-none group-data-[collapsible=icon]:p-0">
+                            <PostdotLogo className="size-7 shrink-0" />
+                            <span className="truncate text-sm font-semibold group-data-[collapsible=icon]:hidden">
+                                Postdot
+                            </span>
                         </Link>
                     ) : (
                         <Link
                             to="/dashboard/projects/$projectId/overview"
                             params={{ projectId: selectedProjectId }}
                             aria-label={m.nav_aria_label()}
-                            className="flex size-8 shrink-0 items-center justify-center rounded-md text-foreground hover:text-foreground/75 group-data-[collapsible=icon]:size-full! group-data-[collapsible=icon]:rounded-none">
-                            <PostdotLogo className="size-7" />
+                            className="-ml-0.5 flex h-8 min-w-0 items-center gap-2 rounded-md pr-2 pl-0.5 text-foreground hover:text-foreground/75 group-data-[collapsible=icon]:size-full! group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:ml-0 group-data-[collapsible=icon]:rounded-none group-data-[collapsible=icon]:p-0">
+                            <PostdotLogo className="size-7 shrink-0" />
+                            <span className="truncate text-sm font-semibold group-data-[collapsible=icon]:hidden">
+                                Postdot
+                            </span>
                         </Link>
                     )}
-                    <div className="min-w-0 group-data-[collapsible=icon]:hidden">
-                        <p className="truncate text-sm font-semibold">Postdot</p>
-                    </div>
                 </div>
 
                 {!isSettingsShell ? (

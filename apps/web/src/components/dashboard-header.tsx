@@ -24,7 +24,7 @@ import { DashboardSearch } from '@/components/dashboard-search'
 import { UserAvatar } from '@/components/identity-visuals'
 import { isLocale, languageLabels } from '@/components/language-switcher'
 import { NotificationInbox } from '@/components/notification-inbox'
-import { themeLabel, themeOptions } from '@/components/theme-toggle'
+import { selectedThemeOption, themeLabel, themeOptions } from '@/components/theme-toggle'
 import type { Project, ProjectCategory, Session, WorkspaceListItem } from '@/lib/api'
 import { useLanguage } from '@/lib/i18n'
 import { useTheme } from '@/lib/theme'
@@ -77,7 +77,8 @@ export function DashboardHeader({
     workspaces,
 }: DashboardHeaderProps) {
     const { locale, setLocale } = useLanguage()
-    const { resolvedTheme, setTheme } = useTheme()
+    const { theme: chosenTheme, setTheme } = useTheme()
+    const selectedTheme = selectedThemeOption(chosenTheme)
     return (
         <header
             data-dashboard-header="true"
@@ -159,11 +160,11 @@ export function DashboardHeader({
                                 {themeOptions.map(theme => (
                                     <DropdownMenuItem
                                         key={theme}
-                                        aria-current={resolvedTheme === theme ? 'true' : undefined}
+                                        aria-current={selectedTheme === theme ? 'true' : undefined}
                                         data-theme-option={theme}
                                         onClick={() => setTheme(theme)}>
                                         {themeLabel(theme)}
-                                        {resolvedTheme === theme ? (
+                                        {selectedTheme === theme ? (
                                             <CheckIcon aria-hidden="true" className="ml-auto" />
                                         ) : null}
                                     </DropdownMenuItem>

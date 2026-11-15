@@ -390,8 +390,7 @@
     "overview_title": "Overview",
     "overview_summary_aria": "Overview summary",
     "overview_widget_manual_due": "To publish by hand",
-    "overview_widget_review": "Review",
-    "overview_widget_next": "Next publication",
+    "overview_widget_next": "Next",
     "overview_widget_open_publication": "Open {title}",
     "overview_publications": "publications",
     "overview_scheduled": "scheduled",
@@ -2715,5 +2714,9 @@
         }
     ],
     "lifecycle_posts_retained": "All posts and media are kept for restoration.",
-    "lifecycle_posts_deleted": "All local posts will be permanently deleted; published posts stay online."
+    "lifecycle_posts_deleted": "All local posts will be permanently deleted; published posts stay online.",
+    "theme_option_system": "System",
+    "overview_status_nothing_next": "Nothing scheduled yet",
+    "overview_status_scheduled": "Scheduled",
+    "overview_status_failed": "Failed"
 }

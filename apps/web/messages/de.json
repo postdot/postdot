@@ -390,8 +390,7 @@
     "overview_title": "Übersicht",
     "overview_summary_aria": "Übersichtszusammenfassung",
     "overview_widget_manual_due": "Von Hand zu veröffentlichen",
-    "overview_widget_review": "Prüfen",
-    "overview_widget_next": "Nächste Veröffentlichung",
+    "overview_widget_next": "Als Nächstes",
     "overview_widget_open_publication": "{title} öffnen",
     "overview_publications": "Veröffentlichungen",
     "overview_scheduled": "geplant",
@@ -2715,5 +2714,9 @@
         }
     ],
     "lifecycle_posts_retained": "Alle Beiträge und Medien bleiben für eine Wiederherstellung erhalten.",
-    "lifecycle_posts_deleted": "Alle lokalen Beiträge werden endgültig gelöscht; veröffentlichte Beiträge bleiben online."
+    "lifecycle_posts_deleted": "Alle lokalen Beiträge werden endgültig gelöscht; veröffentlichte Beiträge bleiben online.",
+    "theme_option_system": "System",
+    "overview_status_nothing_next": "Noch nichts geplant",
+    "overview_status_scheduled": "Geplant",
+    "overview_status_failed": "Fehlgeschlagen"
 }

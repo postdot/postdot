@@ -63,7 +63,7 @@ export function PublicationCalendarPage({
         })
     }
     const { channels, project, projectRole } = useProjectDashboard()
-    const { due, publications } = useProjectPublicationData(project.id)
+    const { due, publications, publicationSummary } = useProjectPublicationData(project.id)
     const { onCancelPublications, onReschedulePublications, pending } =
         useProjectPublicationActions()
     const queryClient = useQueryClient()
@@ -117,8 +117,9 @@ export function PublicationCalendarPage({
     const hiddenCount =
         calendarPublications.filter(p => p.scheduledAt !== null).length -
         filteredPublications.filter(p => p.scheduledAt !== null).length
+    // The next publication is read from the project's work, not the visible month.
     const nextScheduledPublication = useMemo(() => {
-        const upcoming = calendarPublications.filter(
+        const upcoming = [...publications, ...calendarPublications].filter(
             publication =>
                 publication.state === 'scheduled' &&
                 publication.scheduledAt !== null &&
@@ -127,7 +128,10 @@ export function PublicationCalendarPage({
         )
         upcoming.sort((left, right) => left.scheduledAt! - right.scheduledAt!)
         return upcoming[0] ?? null
-    }, [calendarPublications])
+    }, [publications, calendarPublications])
+    const failedCount = publications.filter(
+        publication => publication.state === 'failed' || publication.state === 'ambiguous'
+    ).length
     const calendarPublicationIds = useMemo(
         () => toPublicationCalendarEvents(filteredPublications, dueIds).map(event => event.id),
         [filteredPublications, dueIds]
@@ -262,8 +266,15 @@ export function PublicationCalendarPage({
                     <PublicationSummaryBar
                         ariaLabel={m.overview_summary_aria()}
                         dueCount={due.length}
+                        failedCount={failedCount}
                         locale={locale}
+                        nextChannel={
+                            channels.find(
+                                channel => channel.id === nextScheduledPublication?.channelId
+                            ) ?? null
+                        }
                         nextPublication={nextScheduledPublication}
+                        scheduledCount={publicationSummary.scheduled}
                         projectId={project.id}
                         timeZone={project.timeZone}
                     />

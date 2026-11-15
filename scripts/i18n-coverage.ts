@@ -165,6 +165,7 @@ const allowedUnchangedByLocale = new Map<string, ReadonlySet<string>>([
     [
         'de',
         new Set([
+            'theme_option_system',
             'editor_constraint_source',
             'channel_bluesky_profile',
             'channel_devto_profile',
