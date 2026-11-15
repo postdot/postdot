@@ -54,6 +54,7 @@ test('project roles keep viewer read-only and editor actions available', async (
 
         await viewerPage.goto(`/dashboard/projects/${owner.projectId}/media`)
         await expect(viewerPage.getByRole('button', { name: 'Import', exact: true })).toHaveCount(0)
+        await expect(viewerPage.locator('[data-media-import-menu-trigger="true"]')).toHaveCount(0)
         await expect(viewerPage.getByRole('button', { name: 'Select', exact: true })).toHaveCount(0)
 
         const viewerCreateChannelResponse = await viewerPage.request.post(
@@ -99,7 +100,49 @@ test('project roles keep viewer read-only and editor actions available', async (
         ).toBeVisible()
 
         await editorPage.goto(`/dashboard/projects/${owner.projectId}/media`)
-        await expect(editorPage.getByRole('button', { name: 'Import', exact: true })).toBeVisible()
+        await expect(
+            editorPage
+                .locator('[data-page-header="true"]')
+                .getByRole('button', { name: 'Import', exact: true })
+        ).toBeVisible()
+        await expect(editorPage.locator('[data-media-import-menu-trigger="true"]')).toBeVisible()
+        await expect(editorPage.getByRole('button', { name: 'Select', exact: true })).toHaveCount(0)
+
+        const pngBytes = Buffer.from(
+            'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII=',
+            'base64'
+        )
+        const uploadReservation = await editorPage.request.post(
+            `/api/projects/${owner.projectId}/media/uploads`,
+            {
+                data: {
+                    originalFilename: `editor-role-${suffix}.png`,
+                    contentType: 'image/png',
+                    expectedSize: pngBytes.length,
+                },
+            }
+        )
+        expect(uploadReservation.status()).toBe(201)
+        const { upload } = (await uploadReservation.json()) as {
+            upload: { intentId: string }
+        }
+        expect(
+            (
+                await editorPage.request.put(
+                    `/api/projects/${owner.projectId}/media/uploads/${upload.intentId}`,
+                    { data: pngBytes }
+                )
+            ).status()
+        ).toBe(200)
+        expect(
+            (
+                await editorPage.request.post(
+                    `/api/projects/${owner.projectId}/media/uploads/${upload.intentId}/finalize`
+                )
+            ).status()
+        ).toBe(200)
+
+        await editorPage.reload()
         await expect(editorPage.getByRole('button', { name: 'Select', exact: true })).toBeVisible()
 
         await editorPage.goto(`/dashboard/projects/${owner.projectId}/channels`)

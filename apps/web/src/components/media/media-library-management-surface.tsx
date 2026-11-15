@@ -2,8 +2,8 @@ import { Alert, AlertDescription, AlertTitle } from '@postdot/ui/components/aler
 import { Button } from '@postdot/ui/components/button'
 import { AltArrowLeftIcon } from '@solar-icons/react/linear/alt-arrow-left'
 import { FolderOpenIcon } from '@solar-icons/react/linear/folder-open'
-import { GalleryAddIcon } from '@solar-icons/react/linear/gallery-add'
 import { TrashBinMinimalisticIcon } from '@solar-icons/react/linear/trash-bin-minimalistic'
+import { UploadIcon } from '@solar-icons/react/linear/upload'
 import type { RefObject } from 'react'
 
 import { BulkActionBar } from '@/components/bulk-action-bar'
@@ -36,7 +36,6 @@ export interface MediaLibraryManagementSurfaceProps {
     readonly error: string | null
     readonly emptyDescription?: string
     readonly uploading: string | null
-    readonly dragActive: boolean
     readonly bulkSelectionMode: boolean
     readonly bulkSelectionResolutionPending: boolean
     readonly bulkSelectedAssetIds: ReadonlySet<string>
@@ -95,7 +94,6 @@ export function MediaLibraryManagementSurface({
     error,
     emptyDescription,
     uploading,
-    dragActive,
     bulkSelectionMode,
     bulkSelectionResolutionPending,
     bulkSelectedAssetIds,
@@ -139,6 +137,32 @@ export function MediaLibraryManagementSurface({
     onViewChange,
     onToggleAsset,
 }: MediaLibraryManagementSurfaceProps) {
+    const hasActiveLibraryQuery =
+        searchQuery.trim() !== '' || mediaFamilyFilter !== 'all' || mediaDateFilter !== 'all'
+    const hasActiveQuery = view === 'library' ? hasActiveLibraryQuery : searchQuery.trim() !== ''
+    const isEmptyView = assets.length === 0 && !hasActiveQuery
+    const showToolbar = !isEmptyView
+
+    const trashButton =
+        view === 'library' && canManageLibrary ? (
+            <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className="shadow-none"
+                disabled={interactionDisabled}
+                data-media-trash-open="true"
+                onClick={() => onViewChange('trash')}>
+                <TrashBinMinimalisticIcon aria-hidden="true" />
+                {m.media_trash_open()}
+                {trashCount > 0 ? (
+                    <span className="rounded-full bg-muted px-1.5 text-xs tabular-nums text-muted-foreground">
+                        {trashCount}
+                    </span>
+                ) : null}
+            </Button>
+        ) : undefined
+
     return (
         <>
             {view === 'trash' ? (
@@ -157,51 +181,36 @@ export function MediaLibraryManagementSurface({
                 </div>
             ) : null}
 
-            <MediaLibraryToolbar
-                assetCount={assets.length}
-                bulkSelectionMode={bulkSelectionMode}
-                interactionDisabled={interactionDisabled}
-                mediaDateFilter={mediaDateFilter}
-                mediaFamilyFilter={mediaFamilyFilter}
-                mediaSort={mediaSort}
-                mediaViewMode={mediaViewMode}
-                onDateChange={onDateChange}
-                onFamilyChange={onFamilyChange}
-                onSearchQueryChange={onSearchQueryChange}
-                onSortChange={onSortChange}
-                onToggleSelectionMode={onToggleSelectionMode}
-                onViewModeChange={onViewModeChange}
-                projectId={projectId}
-                searchPending={searchPending}
-                searchQuery={searchQuery}
-                features={
-                    view === 'trash'
-                        ? { ...libraryFeatures, filters: false, viewModes: false }
-                        : libraryFeatures
-                }
-                navigationAction={
-                    view === 'library' && canManageLibrary ? (
-                        <Button
-                            type="button"
-                            size="sm"
-                            variant="ghost"
-                            className="shadow-none"
-                            disabled={interactionDisabled}
-                            data-media-trash-open="true"
-                            onClick={() => onViewChange('trash')}>
-                            <TrashBinMinimalisticIcon aria-hidden="true" />
-                            {m.media_trash_open()}
-                            {trashCount > 0 ? (
-                                <span className="rounded-full bg-muted px-1.5 text-xs tabular-nums text-muted-foreground">
-                                    {trashCount}
-                                </span>
-                            ) : null}
-                        </Button>
-                    ) : undefined
-                }
-                showSelectionMode={canManageLibrary && view === 'library'}
-                totalAssets={totalAssets}
-            />
+            {showToolbar ? (
+                <MediaLibraryToolbar
+                    assetCount={assets.length}
+                    bulkSelectionMode={bulkSelectionMode}
+                    interactionDisabled={interactionDisabled}
+                    mediaDateFilter={mediaDateFilter}
+                    mediaFamilyFilter={mediaFamilyFilter}
+                    mediaSort={mediaSort}
+                    mediaViewMode={mediaViewMode}
+                    onDateChange={onDateChange}
+                    onFamilyChange={onFamilyChange}
+                    onSearchQueryChange={onSearchQueryChange}
+                    onSortChange={onSortChange}
+                    onToggleSelectionMode={onToggleSelectionMode}
+                    onViewModeChange={onViewModeChange}
+                    projectId={projectId}
+                    searchPending={searchPending}
+                    searchQuery={searchQuery}
+                    features={
+                        view === 'trash'
+                            ? { ...libraryFeatures, filters: false, viewModes: false }
+                            : libraryFeatures
+                    }
+                    navigationAction={trashButton}
+                    showSelectionMode={canManageLibrary && view === 'library'}
+                    totalAssets={totalAssets}
+                />
+            ) : view === 'library' && trashCount > 0 && trashButton !== undefined ? (
+                <div className="flex justify-end">{trashButton}</div>
+            ) : null}
 
             {statusMessage !== null ? (
                 <p role="status" className="mt-3 text-sm text-muted-foreground">
@@ -260,7 +269,7 @@ export function MediaLibraryManagementSurface({
             {loading && assets.length === 0 ? (
                 <MediaLibrarySkeleton viewMode={mediaViewMode} />
             ) : assets.length === 0 ? (
-                searchQuery.trim() !== '' ? (
+                hasActiveQuery ? (
                     <EmptyState
                         className="mt-4 min-h-48 bg-surface-field px-4 py-6 shadow-none"
                         description={null}
@@ -272,19 +281,21 @@ export function MediaLibraryManagementSurface({
                     <EmptyState
                         action={
                             view === 'library' && canManageLibrary ? (
-                                <MediaDropHint
-                                    active={dragActive}
+                                <Button
+                                    type="button"
+                                    variant="secondary"
                                     disabled={mediaWriteDisabled}
-                                    onBrowse={onBrowse}
-                                    uploading={uploading}
-                                />
+                                    className="shadow-none"
+                                    data-media-empty-import="true"
+                                    onClick={onBrowse}>
+                                    <UploadIcon aria-hidden="true" />
+                                    {uploading === null
+                                        ? m.media_import()
+                                        : m.media_uploading({ filename: uploading })}
+                                </Button>
                             ) : undefined
                         }
-                        className={`mt-2 min-h-72 flex-1 transition-colors ${
-                            dragActive && view === 'library'
-                                ? 'bg-primary/10'
-                                : 'bg-surface-raised/70'
-                        }`}
+                        className="mt-2 min-h-72 flex-1 bg-surface-raised/70"
                         description={view === 'trash' ? null : (emptyDescription ?? null)}
                         icon={
                             view === 'trash' ? (
@@ -339,56 +350,6 @@ export function MediaLibraryManagementSurface({
                     </Button>
                 </div>
             ) : null}
-
-            {canManageLibrary && view === 'library' && assets.length > 0 ? (
-                <MediaDropHint
-                    active={dragActive}
-                    className="mt-5"
-                    disabled={mediaWriteDisabled}
-                    onBrowse={onBrowse}
-                    uploading={uploading}
-                />
-            ) : null}
         </>
-    )
-}
-
-export function MediaDropHint({
-    active,
-    className,
-    disabled,
-    onBrowse,
-    uploading,
-}: {
-    readonly active: boolean
-    readonly className?: string
-    readonly disabled: boolean
-    readonly onBrowse: () => void
-    readonly uploading: string | null
-}) {
-    return (
-        <div
-            data-media-drop-hint="true"
-            className={`flex w-full flex-col items-center gap-2 px-4 py-2 text-center text-sm transition-colors ${
-                active ? 'rounded-lg bg-primary/10 py-4 text-primary' : 'text-muted-foreground'
-            } ${className ?? ''}`}>
-            <GalleryAddIcon aria-hidden="true" className={active ? 'size-8' : 'size-7'} />
-            <p>
-                {active ? m.media_drop_files_active() : m.media_drop_files()}{' '}
-                {m.media_drop_files_hint()}{' '}
-                <Button
-                    type="button"
-                    variant="link"
-                    size="sm"
-                    disabled={disabled}
-                    className="h-auto p-0 align-baseline text-sm font-medium"
-                    onClick={onBrowse}>
-                    {uploading === null
-                        ? m.media_browse_files()
-                        : m.media_uploading({ filename: uploading })}
-                </Button>
-            </p>
-            <p className="text-xs text-muted-foreground">{m.media_supported_types()}</p>
-        </div>
     )
 }

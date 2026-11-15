@@ -139,48 +139,134 @@ export function MediaSourcePickerDialog({
                 </div>
 
                 {selectedSource === 'url' ? (
-                    <form
-                        className="grid gap-3"
-                        onSubmit={event => {
-                            event.preventDefault()
-                            if (url.trim() === '' || urlImportPending) return
-                            void onImportUrl(url)
-                        }}>
-                        <div className="grid gap-1.5">
-                            <label className="text-sm font-medium" htmlFor="media-source-url">
-                                {m.media_source_url_label()}
-                            </label>
-                            <Input
-                                id="media-source-url"
-                                type="url"
-                                value={url}
-                                autoFocus
-                                disabled={disabled || urlImportPending}
-                                placeholder={m.media_source_url_placeholder()}
-                                onChange={event => setUrl(event.target.value)}
-                            />
-                            <p className="text-xs text-muted-foreground">
-                                {m.media_source_url_hint()}
-                            </p>
-                        </div>
-                        {urlImportError !== null ? (
-                            <Alert variant="destructive">
-                                <AlertDescription>{urlImportError}</AlertDescription>
-                            </Alert>
-                        ) : null}
-                        <DialogFooter className="-mx-0 -mb-0 rounded-none border-0 bg-transparent p-0 sm:justify-end">
-                            <Button
-                                type="submit"
-                                disabled={disabled || url.trim() === '' || urlImportPending}>
-                                <UploadIcon aria-hidden="true" />
-                                {urlImportPending
-                                    ? m.media_source_url_importing()
-                                    : m.media_source_url_import()}
-                            </Button>
-                        </DialogFooter>
-                    </form>
+                    <MediaUrlImportForm
+                        disabled={disabled}
+                        onImportUrl={onImportUrl}
+                        setUrl={setUrl}
+                        url={url}
+                        urlImportError={urlImportError}
+                        urlImportPending={urlImportPending}
+                    />
                 ) : null}
             </DialogContent>
         </Dialog>
+    )
+}
+
+export interface MediaUrlImportDialogProps {
+    readonly open: boolean
+    readonly onOpenChange: (open: boolean) => void
+    readonly disabled: boolean
+    readonly urlImportPending: boolean
+    readonly urlImportError: string | null
+    readonly onImportUrl: (url: string) => Promise<void>
+}
+
+export function MediaUrlImportDialog({
+    open,
+    onOpenChange,
+    disabled,
+    urlImportPending,
+    urlImportError,
+    onImportUrl,
+}: MediaUrlImportDialogProps) {
+    const [url, setUrl] = useState('')
+
+    useEffect(() => {
+        if (!open) setUrl('')
+    }, [open])
+
+    return (
+        <Dialog
+            open={open}
+            onOpenChange={nextOpen => {
+                if (!nextOpen && urlImportPending) return
+                onOpenChange(nextOpen)
+            }}>
+            <DialogContent
+                className="max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-md overflow-x-hidden overflow-y-auto sm:max-w-md"
+                data-media-url-import-dialog="true">
+                <DialogHeader>
+                    <DialogTitle>{m.media_url_import_title()}</DialogTitle>
+                </DialogHeader>
+                <MediaUrlImportForm
+                    disabled={disabled}
+                    onCancel={() => {
+                        if (!urlImportPending) onOpenChange(false)
+                    }}
+                    onImportUrl={onImportUrl}
+                    setUrl={setUrl}
+                    url={url}
+                    urlImportError={urlImportError}
+                    urlImportPending={urlImportPending}
+                />
+            </DialogContent>
+        </Dialog>
+    )
+}
+
+function MediaUrlImportForm({
+    url,
+    setUrl,
+    disabled,
+    urlImportPending,
+    urlImportError,
+    onCancel,
+    onImportUrl,
+}: {
+    readonly url: string
+    readonly setUrl: (value: string) => void
+    readonly disabled: boolean
+    readonly urlImportPending: boolean
+    readonly urlImportError: string | null
+    readonly onCancel?: () => void
+    readonly onImportUrl: (url: string) => Promise<void>
+}) {
+    return (
+        <form
+            className="grid gap-3"
+            onSubmit={event => {
+                event.preventDefault()
+                if (url.trim() === '' || urlImportPending) return
+                void onImportUrl(url)
+            }}>
+            <div className="grid gap-1.5">
+                <label className="text-sm font-medium" htmlFor="media-source-url">
+                    {m.media_source_url_label()}
+                </label>
+                <Input
+                    id="media-source-url"
+                    type="url"
+                    value={url}
+                    autoFocus
+                    disabled={disabled || urlImportPending}
+                    placeholder={m.media_source_url_placeholder()}
+                    onChange={event => setUrl(event.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">{m.media_source_url_hint()}</p>
+            </div>
+            {urlImportError !== null ? (
+                <Alert variant="destructive">
+                    <AlertDescription>{urlImportError}</AlertDescription>
+                </Alert>
+            ) : null}
+            <DialogFooter className="-mx-0 -mb-0 rounded-none border-0 bg-transparent p-0 sm:justify-end">
+                {onCancel ? (
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        disabled={urlImportPending}
+                        onClick={onCancel}>
+                        {m.common_cancel()}
+                    </Button>
+                ) : null}
+                <Button type="submit" disabled={disabled || url.trim() === '' || urlImportPending}>
+                    <UploadIcon aria-hidden="true" />
+                    {urlImportPending
+                        ? m.media_source_url_importing()
+                        : m.media_source_url_import()}
+                </Button>
+            </DialogFooter>
+        </form>
     )
 }

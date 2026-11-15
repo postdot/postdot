@@ -24,7 +24,10 @@ import { MediaBulkDeletionDialog } from '@/components/media-bulk-deletion-dialog
 import { MediaDeletionDialog } from '@/components/media-deletion-dialog'
 import { MediaInformationDialog } from '@/components/media-information-dialog'
 import { MediaPermanentDeletionDialog } from '@/components/media-permanent-deletion-dialog'
-import { MediaSourcePickerDialog } from '@/components/media-source-picker-dialog'
+import {
+    MediaSourcePickerDialog,
+    MediaUrlImportDialog,
+} from '@/components/media-source-picker-dialog'
 import { MediaUploadRecoveryNotice } from '@/components/media-upload-recovery-notice'
 import { MediaWebcamDialog } from '@/components/media-webcam-dialog'
 import { MediaLibrarySkeleton } from '@/components/media/media-library-skeleton'
@@ -111,6 +114,8 @@ export interface MediaAttachmentPickerProps {
     readonly renderHeader?: (actions: {
         readonly disabled: boolean
         readonly onImport: () => void
+        readonly onImportFromUrl?: () => void
+        readonly onTakePhoto?: () => void
         readonly view: 'library' | 'trash'
         readonly uploading: string | null
     }) => ReactNode
@@ -248,6 +253,7 @@ function MediaAttachmentPickerView({
     const [dragActive, setDragActive] = useState(false)
     const dragDepthRef = useRef(0)
     const [sourcePickerOpen, setSourcePickerOpen] = useState(false)
+    const [urlImportDialogOpen, setUrlImportDialogOpen] = useState(false)
     const [webcamOpen, setWebcamOpen] = useState(false)
     const [mediaSources, setMediaSources] = useState<MediaImportSource[]>([
         ...DEFAULT_MEDIA_IMPORT_SOURCES,
@@ -306,6 +312,21 @@ function MediaAttachmentPickerView({
         bulkSelectionResolutionPending ||
         recoveryActionPending
     const mediaWriteDisabled = interactionLocked || readOnly
+    const hasBlockingManageDialog =
+        sourcePickerOpen ||
+        urlImportDialogOpen ||
+        webcamOpen ||
+        viewerAsset !== null ||
+        editorAsset !== null ||
+        deletionAsset !== null ||
+        permanentDeletionAsset !== null ||
+        bulkDeletionAssets.length > 0 ||
+        informationAsset !== null
+    const canAcceptPageDrop =
+        canManageLibrary &&
+        mediaView === 'library' &&
+        !mediaWriteDisabled &&
+        !hasBlockingManageDialog
     useEffect(() => {
         if (!onPreparationChange) return
         const report = () =>
@@ -407,7 +428,7 @@ function MediaAttachmentPickerView({
     }, [controller, projectId])
 
     useEffect(() => {
-        if (!sourcePickerOpen) return
+        if (!canManageLibrary && !sourcePickerOpen) return
 
         let active = true
         setMediaSourcesLoading(true)
@@ -426,7 +447,81 @@ function MediaAttachmentPickerView({
         return () => {
             active = false
         }
-    }, [projectId, sourcePickerOpen])
+    }, [canManageLibrary, projectId, sourcePickerOpen])
+
+    useEffect(() => {
+        if (!manageOnly) return
+        if (!canAcceptPageDrop) {
+            dragDepthRef.current = 0
+            setDragActive(false)
+            return
+        }
+
+        const hasDraggedFiles = (event: DragEvent) => {
+            const types = event.dataTransfer?.types
+            if (types && Array.from(types).includes('Files')) return true
+            return (event.dataTransfer?.files?.length ?? 0) > 0
+        }
+
+        const handleDragEnter = (event: DragEvent) => {
+            if (!hasDraggedFiles(event)) return
+            event.preventDefault()
+            dragDepthRef.current += 1
+            setDragActive(true)
+        }
+
+        const handleDragOver = (event: DragEvent) => {
+            if (!hasDraggedFiles(event)) return
+            event.preventDefault()
+            if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy'
+            setDragActive(true)
+        }
+
+        const handleDragLeave = (event: DragEvent) => {
+            if (!hasDraggedFiles(event) && dragDepthRef.current === 0) return
+            dragDepthRef.current = Math.max(0, dragDepthRef.current - 1)
+            if (dragDepthRef.current === 0 || event.relatedTarget === null) {
+                dragDepthRef.current = 0
+                setDragActive(false)
+            }
+        }
+
+        const handleDrop = (event: DragEvent) => {
+            dragDepthRef.current = 0
+            setDragActive(false)
+            const files = Array.from(event.dataTransfer?.files ?? [])
+            if (files.length === 0) return
+            event.preventDefault()
+            controller.uppy.addFiles(
+                files.map(file => ({
+                    name: file.name,
+                    type: file.type,
+                    data: file,
+                }))
+            )
+        }
+
+        const handleDragEnd = () => {
+            dragDepthRef.current = 0
+            setDragActive(false)
+        }
+
+        window.addEventListener('dragenter', handleDragEnter)
+        window.addEventListener('dragover', handleDragOver)
+        window.addEventListener('dragleave', handleDragLeave)
+        window.addEventListener('drop', handleDrop)
+        window.addEventListener('dragend', handleDragEnd)
+        window.addEventListener('blur', handleDragEnd)
+
+        return () => {
+            window.removeEventListener('dragenter', handleDragEnter)
+            window.removeEventListener('dragover', handleDragOver)
+            window.removeEventListener('dragleave', handleDragLeave)
+            window.removeEventListener('drop', handleDrop)
+            window.removeEventListener('dragend', handleDragEnd)
+            window.removeEventListener('blur', handleDragEnd)
+        }
+    }, [canAcceptPageDrop, controller, manageOnly])
 
     useEffect(() => {
         const handleRestrictionFailed = (file: PostdotMediaUppyFile | undefined) => {
@@ -1220,6 +1315,7 @@ function MediaAttachmentPickerView({
             }
 
             setSourcePickerOpen(false)
+            setUrlImportDialogOpen(false)
         } catch (caughtError) {
             setUrlImportError(describeError(caughtError))
         } finally {
@@ -1345,7 +1441,7 @@ function MediaAttachmentPickerView({
         visibleReadyAssets.length > 0 &&
         visibleReadyAssets.every(asset => bulkSelectedAssetIds.has(asset.asset.id))
     const dropzoneRootProps = mediaWriteDisabled ? {} : dropzone.getRootProps()
-    const containerDropzoneProps = dropzoneRootProps
+    const containerDropzoneProps = manageOnly || mediaWriteDisabled ? {} : dropzoneRootProps
     const fileInputProps = fileInput.getInputProps()
     const fileButtonProps = fileInput.getButtonProps()
     const queuedFiles = uppyFiles.filter(
@@ -1413,6 +1509,12 @@ function MediaAttachmentPickerView({
         fileButtonProps.onClick()
         setSourcePickerOpen(false)
     }
+    const openUrlImportDialog = () => {
+        if (mediaWriteDisabled) return
+        setUrlImportError(null)
+        setSourcePickerOpen(false)
+        setUrlImportDialogOpen(true)
+    }
     const openWebcamPicker = () => {
         if (mediaWriteDisabled) return
         setUrlImportError(null)
@@ -1434,9 +1536,13 @@ function MediaAttachmentPickerView({
             throw caughtError
         }
     }
+    const hasWebcamSource = mediaSources.some(source => source.id === 'webcam')
+    const hasUrlSource = mediaSources.some(source => source.id === 'url')
     const header = renderHeader?.({
         disabled: mediaWriteDisabled,
-        onImport: openSourcePicker,
+        onImport: manageOnly ? openDevicePicker : openSourcePicker,
+        onImportFromUrl: hasUrlSource ? openUrlImportDialog : undefined,
+        onTakePhoto: hasWebcamSource ? openWebcamPicker : undefined,
         view: mediaView,
         uploading,
     })
@@ -1557,7 +1663,6 @@ function MediaAttachmentPickerView({
                         bulkSelectionMode={bulkSelectionMode}
                         bulkSelectionResolutionPending={bulkSelectionResolutionPending}
                         canManageLibrary={canManageLibrary}
-                        dragActive={dragActive}
                         emptyDescription={emptyDescription}
                         error={error}
                         interactionDisabled={interactionLocked}
@@ -1576,7 +1681,7 @@ function MediaAttachmentPickerView({
                         statusMessage={statusMessage}
                         nextCursor={nextCursor}
                         onAccessibilityTextChange={updateAccessibilityText}
-                        onBrowse={openSourcePicker}
+                        onBrowse={openDevicePicker}
                         onClearBulkSelection={clearBulkSelection}
                         onDateChange={setMediaDateFilter}
                         onDownload={downloadAsset}
@@ -1852,12 +1957,33 @@ function MediaAttachmentPickerView({
                 urlImportError={urlImportError}
                 urlImportPending={urlImportPending}
             />
+            <MediaUrlImportDialog
+                disabled={mediaWriteDisabled}
+                onImportUrl={importMediaFromUrl}
+                onOpenChange={open => {
+                    setUrlImportDialogOpen(open)
+                    if (!open && !urlImportPending) setUrlImportError(null)
+                }}
+                open={urlImportDialogOpen && !readOnly}
+                urlImportError={urlImportError}
+                urlImportPending={urlImportPending}
+            />
             <MediaWebcamDialog
                 disabled={mediaWriteDisabled}
                 onCapture={captureWebcamFile}
                 onOpenChange={setWebcamOpen}
                 open={webcamOpen && !readOnly}
             />
+            {manageOnly && canAcceptPageDrop && dragActive ? (
+                <div
+                    aria-hidden="true"
+                    data-media-drop-overlay="true"
+                    className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-6 dark:bg-black/55">
+                    <div className="rounded-lg border border-border bg-surface-raised px-5 py-3 text-center text-sm font-medium text-foreground shadow-overlay">
+                        {m.media_drop_files_active()}
+                    </div>
+                </div>
+            ) : null}
             <Suspense fallback={null}>
                 {viewerAsset !== null ? (
                     <MediaViewer

@@ -1,3 +1,4 @@
+// cspell:ignore filechooser
 import { randomUUID } from 'node:crypto'
 
 import { expect, test, type Page, type Route } from '@playwright/test'
@@ -563,14 +564,79 @@ test('supports media library search, viewing, and bulk actions', async ({ page }
 
     await expect(page.locator('[data-media-selection-toggle="true"]')).toHaveCount(0)
     await expect(page.locator('[data-media-import-zone="true"]')).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Import', exact: true })).toBeVisible()
-    await expect(page.locator('[data-media-drop-hint="true"]')).toBeVisible()
-    await expect(
-        page
-            .locator('[data-media-import-zone="true"]')
-            .getByRole('button', { name: 'Browse', exact: true })
-    ).toBeVisible()
+    await expect(page.locator('[data-media-drop-hint="true"]')).toHaveCount(0)
+    await expect(page.locator('[data-media-library-toolbar="true"]')).toHaveCount(0)
+    await expect(page.locator('[data-media-filters="true"]')).toHaveCount(0)
+    await expect(page.locator('[data-media-selection-mode-toggle="true"]')).toHaveCount(0)
+    await expect(page.locator('[data-media-view-controls="true"]')).toHaveCount(0)
+    await expect(page.locator('[data-media-trash-open="true"]')).toHaveCount(0)
+
+    const headerImportButton = page
+        .locator('[data-page-header="true"]')
+        .getByRole('button', { name: 'Import', exact: true })
+    const importMenuTrigger = page.locator('[data-media-import-menu-trigger="true"]')
+    const emptyImportButton = page.locator('[data-media-empty-import="true"]')
+    await expect(headerImportButton).toBeVisible()
+    await expect(importMenuTrigger).toBeVisible()
+    await expect(emptyImportButton).toBeVisible()
+
+    const [headerChooser] = await Promise.all([
+        page.waitForEvent('filechooser'),
+        headerImportButton.click(),
+    ])
+    expect(headerChooser.isMultiple()).toBe(true)
+
+    const [emptyChooser] = await Promise.all([
+        page.waitForEvent('filechooser'),
+        emptyImportButton.click(),
+    ])
+    expect(emptyChooser.isMultiple()).toBe(true)
+
+    await importMenuTrigger.click()
+    await expect(page.getByRole('menuitem', { name: 'From a URL…', exact: true })).toBeVisible()
+    await expect(page.getByRole('menuitem', { name: 'Take a photo…', exact: true })).toBeVisible()
+    await page.getByRole('menuitem', { name: 'From a URL…', exact: true }).click()
+    const urlDialog = page.locator('[data-media-url-import-dialog="true"]')
+    await expect(urlDialog).toBeVisible()
+    await urlDialog.getByRole('button', { name: 'Cancel', exact: true }).click()
+    await expect(urlDialog).toHaveCount(0)
+
+    await importMenuTrigger.click()
+    await page.getByRole('menuitem', { name: 'Take a photo…', exact: true }).click()
+    const webcamDialog = page.locator('[data-media-webcam-dialog="true"]')
+    await expect(webcamDialog).toBeVisible()
+    await webcamDialog.getByRole('button', { name: 'Cancel', exact: true }).click()
+    await expect(webcamDialog).toHaveCount(0)
+
+    await page.evaluate(() => {
+        const dataTransfer = new DataTransfer()
+        dataTransfer.items.add(
+            new File([new Uint8Array([1, 2, 3])], 'drag.png', { type: 'image/png' })
+        )
+        window.dispatchEvent(
+            new DragEvent('dragenter', { bubbles: true, cancelable: true, dataTransfer })
+        )
+    })
+    await expect(page.locator('[data-media-drop-overlay="true"]')).toBeVisible()
+    await expect(page.locator('[data-media-drop-overlay="true"]')).toHaveText(
+        'Drop files to upload'
+    )
+    await page.evaluate(() => {
+        const dataTransfer = new DataTransfer()
+        dataTransfer.items.add(
+            new File([new Uint8Array([1, 2, 3])], 'drag.png', { type: 'image/png' })
+        )
+        window.dispatchEvent(
+            new DragEvent('dragleave', { bubbles: true, cancelable: true, dataTransfer })
+        )
+    })
+    await expect(page.locator('[data-media-drop-overlay="true"]')).toHaveCount(0)
+
     await importMediaFiles(page, [mediaFilename, secondMediaFilename, droppedMediaFilename])
+    await expect(page.locator('[data-media-drop-hint="true"]')).toHaveCount(0)
+    await expect(page.locator('[data-media-library-toolbar="true"]')).toBeVisible()
+    await expect(page.locator('[data-media-selection-mode-toggle="true"]')).toBeVisible()
+    await expect(page.locator('[data-media-trash-open="true"]')).toBeVisible()
     await expect(
         page.getByRole('button', { name: `View ${droppedMediaFilename}`, exact: true })
     ).toBeVisible()
@@ -915,6 +981,11 @@ test('supports media library search, viewing, and bulk actions', async ({ page }
     await expect(
         page.getByRole('button', { name: `View ${droppedMediaFilename}`, exact: true })
     ).toHaveCount(0)
+    await expect(page.locator('[data-media-library-toolbar="true"]')).toHaveCount(0)
+    await expect(page.locator('[data-media-filters="true"]')).toHaveCount(0)
+    await expect(page.locator('[data-media-selection-mode-toggle="true"]')).toHaveCount(0)
+    await expect(page.locator('[data-media-view-controls="true"]')).toHaveCount(0)
+    await expect(page.locator('[data-media-trash-open="true"]')).toBeVisible()
     await page.getByRole('button', { name: /^Trash/ }).click()
     await expect(page.getByRole('heading', { name: 'Trash', exact: true })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Import', exact: true })).toHaveCount(0)
