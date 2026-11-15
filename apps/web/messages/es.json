@@ -2549,7 +2549,6 @@
     "project_timezone_description": "Cambiar la zona horaria modifica cómo se muestran las horas sin mover las publicaciones programadas.",
     "project_timezone_search": "Buscar zonas horarias…",
     "project_timezone_empty": "No hay zonas horarias coincidentes",
-    "project_timezone_save": "Guardar zona horaria",
     "project_timezone_saved": "Zona horaria del proyecto actualizada",
     "project_timezone_viewer_note": "Se requiere acceso de editor o propietario para cambiar la zona horaria del proyecto.",
     "theme_option_light": "Claro",

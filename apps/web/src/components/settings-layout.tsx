@@ -85,18 +85,22 @@ export function SettingsCard({
 interface SettingsRowContent {
     readonly description?: ReactNode
     readonly icon?: ReactNode
+    /** An identity (avatar, brand mark) shown at its own size instead of an icon. */
+    readonly media?: ReactNode
     readonly title: ReactNode
 }
 
 function RowText({
     description,
     icon,
+    media,
     title,
     htmlFor,
 }: SettingsRowContent & { readonly htmlFor?: string }) {
     return (
         <span className="flex min-w-0 flex-1 items-center gap-3">
-            {icon ? (
+            {media ? <span className="shrink-0">{media}</span> : null}
+            {icon && !media ? (
                 <span
                     aria-hidden="true"
                     className="flex size-8 shrink-0 items-center justify-center rounded-md bg-surface-inset text-muted-foreground [&_svg]:size-[18px]">

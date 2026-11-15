@@ -14,6 +14,7 @@ import {
 } from '@postdot/ui/components/dropdown-menu'
 import { Field, FieldLabel } from '@postdot/ui/components/field'
 import { Input } from '@postdot/ui/components/input'
+import { GlobalIcon } from '@solar-icons/react/linear/global'
 import { useQueryClient } from '@tanstack/react-query'
 import { useRouter } from '@tanstack/react-router'
 import { useEffect, useId, useImperativeHandle, useRef, useState, type Ref } from 'react'
@@ -149,8 +150,17 @@ export function IdentityImageSection({
             <SettingsCard>
                 <SettingsRow
                     title={resource.name}
-                    control={
-                        <div className="flex items-center gap-4">
+                    description={
+                        change && change.kind !== 'upload'
+                            ? change.kind === 'url'
+                                ? m.identity_url_selected()
+                                : change.kind === 'favicon'
+                                  ? m.identity_icon_selected()
+                                  : m.identity_remove_selected()
+                            : undefined
+                    }
+                    media={
+                        <>
                             {target.kind === 'channel' ? (
                                 <ChannelAvatar
                                     size="lg"
@@ -170,6 +180,10 @@ export function IdentityImageSection({
                                     imageUrl={preview}
                                 />
                             )}
+                        </>
+                    }
+                    control={
+                        <div className="flex items-center gap-4">
                             <DropdownMenu>
                                 <DropdownMenuTrigger
                                     render={
@@ -228,50 +242,42 @@ export function IdentityImageSection({
                         </div>
                     }
                 />
-                {change && change.kind !== 'upload' ? (
-                    <p role="status" className="text-sm text-muted-foreground">
-                        {change.kind === 'url'
-                            ? m.identity_url_selected()
-                            : change.kind === 'favicon'
-                              ? m.identity_icon_selected()
-                              : m.identity_remove_selected()}
-                    </p>
-                ) : null}
                 <SettingsRow
                     title={m.identity_website()}
                     htmlFor={`${id}-website`}
+                    icon={<GlobalIcon />}
                     control={
-                        <Input
-                            id={`${id}-website`}
-                            type="url"
-                            value={website}
-                            disabled={busy}
-                            onChange={event => setWebsite(event.target.value)}
-                        />
+                        <div className="flex items-center gap-2">
+                            <Input
+                                id={`${id}-website`}
+                                type="url"
+                                className="w-64"
+                                placeholder="https://"
+                                value={website}
+                                disabled={busy}
+                                onChange={event => setWebsite(event.target.value)}
+                            />
+                            {!embedded && dirty ? (
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    disabled={busy}
+                                    onClick={() => void save().catch(() => {})}>
+                                    {m.common_save()}
+                                </Button>
+                            ) : null}
+                        </div>
                     }
                 />
                 {error ? (
-                    <p role="alert" className="text-sm text-destructive">
+                    <p role="alert" className="px-4 py-2.5 text-sm text-destructive">
                         {error}
                     </p>
                 ) : null}
                 {warning ? (
-                    <p role="status" className="text-sm text-muted-foreground">
+                    <p role="status" className="px-4 py-2.5 text-sm text-muted-foreground">
                         {warning}
                     </p>
-                ) : null}
-                {!embedded ? (
-                    <SettingsRow
-                        title={m.identity_image()}
-                        control={
-                            <Button
-                                type="button"
-                                disabled={busy || !dirty}
-                                onClick={() => void save().catch(() => {})}>
-                                {m.common_save()}
-                            </Button>
-                        }
-                    />
                 ) : null}
                 <Dialog open={urlOpen} onOpenChange={setUrlOpen}>
                     <DialogContent>

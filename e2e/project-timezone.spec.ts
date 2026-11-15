@@ -79,8 +79,11 @@ test('sets project scheduling timezone on creation and updates it in project acc
     })
     await expect(settingsTimeZoneTrigger).toContainText('America/New_York')
 
-    const saveButton = page.getByRole('button', { name: en.project_timezone_save, exact: true })
-    await expect(saveButton).toBeDisabled()
+    // Save appears only once the zone changed.
+    const saveButton = page
+        .getByRole('region', { name: en.project_timezone_title, exact: true })
+        .getByRole('button', { name: en.common_save, exact: true })
+    await expect(saveButton).toHaveCount(0)
 
     await settingsTimeZoneTrigger.click()
     await page
@@ -101,10 +104,10 @@ test('sets project scheduling timezone on creation and updates it in project acc
     ])
 
     await expect(page.locator('[data-slot="toast"]')).toContainText(en.project_timezone_saved)
-    await expect(saveButton).toBeDisabled()
+    await expect(saveButton).toHaveCount(0)
 
     // 3. Reload confirms persisted timezone.
     await page.reload()
     await expect(settingsTimeZoneTrigger).toContainText('Europe/Paris')
-    await expect(saveButton).toBeDisabled()
+    await expect(saveButton).toHaveCount(0)
 })

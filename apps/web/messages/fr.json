@@ -2549,7 +2549,6 @@
     "project_timezone_description": "Changer de fuseau horaire modifie l’affichage des heures sans déplacer les publications planifiées.",
     "project_timezone_search": "Rechercher un fuseau horaire…",
     "project_timezone_empty": "Aucun fuseau horaire correspondant",
-    "project_timezone_save": "Enregistrer le fuseau horaire",
     "project_timezone_saved": "Fuseau horaire du projet mis à jour",
     "project_timezone_viewer_note": "Un accès éditeur ou propriétaire est requis pour modifier le fuseau horaire du projet.",
     "theme_option_light": "Clair",

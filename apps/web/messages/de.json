@@ -2549,7 +2549,6 @@
     "project_timezone_description": "Eine andere Zeitzone ändert die angezeigten Uhrzeiten, ohne geplante Veröffentlichungen zu verschieben.",
     "project_timezone_search": "Zeitzonen suchen…",
     "project_timezone_empty": "Keine passende Zeitzone",
-    "project_timezone_save": "Zeitzone speichern",
     "project_timezone_saved": "Projektzeitzone aktualisiert",
     "project_timezone_viewer_note": "Zum Ändern der Projektzeitzone ist Bearbeiter- oder Eigentümerzugriff erforderlich.",
     "theme_option_light": "Hell",

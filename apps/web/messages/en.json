@@ -2549,7 +2549,6 @@
     "project_timezone_description": "Changing the time zone changes how times appear, without moving scheduled publications.",
     "project_timezone_search": "Search timezones…",
     "project_timezone_empty": "No matching timezone",
-    "project_timezone_save": "Save timezone",
     "project_timezone_saved": "Project timezone updated",
     "project_timezone_viewer_note": "Editor or owner access is required to change the project timezone.",
     "theme_option_light": "Light",

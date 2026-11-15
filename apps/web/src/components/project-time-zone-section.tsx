@@ -1,7 +1,7 @@
 import { Alert, AlertDescription } from '@postdot/ui/components/alert'
 import { Button } from '@postdot/ui/components/button'
-import { Field, FieldDescription, FieldLabel } from '@postdot/ui/components/field'
 import { toast } from '@postdot/ui/components/toast'
+import { ClockCircleIcon } from '@solar-icons/react/linear/clock-circle'
 import { useRouter } from '@tanstack/react-router'
 import { useEffect, useState, type FormEvent } from 'react'
 
@@ -57,14 +57,19 @@ export function ProjectTimeZoneSection() {
             title={m.project_timezone_title()}
             description={m.project_timezone_description()}>
             <SettingsCard>
-                <form className="space-y-3" onSubmit={e => void handleSubmit(e)}>
+                <form onSubmit={e => void handleSubmit(e)}>
+                    {/* One row: the choice, and its save only once something changed. */}
                     <SettingsRow
+                        description={
+                            !canEditRole && access.status === 'confirmed'
+                                ? m.project_timezone_viewer_note()
+                                : undefined
+                        }
+                        htmlFor="project-timezone"
+                        icon={<ClockCircleIcon />}
                         title={m.project_timezone_label()}
                         control={
-                            <Field className="gap-1.5">
-                                <FieldLabel className="sr-only" htmlFor="project-timezone">
-                                    {m.project_timezone_label()}
-                                </FieldLabel>
+                            <div className="flex items-center gap-2">
                                 <TimeZoneCombobox
                                     disabled={!canEdit || pending}
                                     id="project-timezone"
@@ -72,30 +77,18 @@ export function ProjectTimeZoneSection() {
                                     onValueChange={setTimeZone}
                                     value={timeZone}
                                 />
-                                {!canEditRole && access.status === 'confirmed' ? (
-                                    <FieldDescription>
-                                        {m.project_timezone_viewer_note()}
-                                    </FieldDescription>
+                                {canEditRole && isDirty ? (
+                                    <Button disabled={!canEdit || pending} size="sm" type="submit">
+                                        {m.common_save()}
+                                    </Button>
                                 ) : null}
-                            </Field>
+                            </div>
                         }
                     />
-
                     {error ? (
-                        <Alert role="alert" variant="destructive">
+                        <Alert className="m-4 mt-0 w-auto" role="alert" variant="destructive">
                             <AlertDescription>{error}</AlertDescription>
                         </Alert>
-                    ) : null}
-
-                    {canEditRole ? (
-                        <SettingsRow
-                            title={m.project_timezone_title()}
-                            control={
-                                <Button disabled={!canEdit || pending || !isDirty} type="submit">
-                                    {m.project_timezone_save()}
-                                </Button>
-                            }
-                        />
                     ) : null}
                 </form>
             </SettingsCard>

@@ -16,6 +16,7 @@ import { CloseIcon } from '@solar-icons/react/linear/close'
 import { EyeIcon } from '@solar-icons/react/linear/eye'
 import { EyeClosedIcon } from '@solar-icons/react/linear/eye-closed'
 import { KeyMinimalisticIcon } from '@solar-icons/react/linear/key-minimalistic'
+import { UserCircleIcon } from '@solar-icons/react/linear/user-circle'
 import { useRouter } from '@tanstack/react-router'
 import { useRef, useState, type FormEvent } from 'react'
 
@@ -73,31 +74,33 @@ export function UserAccountPage() {
                             void update(() => api.updateProfile(name), m.account_saved())
                         }}>
                         <SettingsRow
-                            title={m.account_change_photo()}
+                            description={<span className="break-all">{session.user.email}</span>}
+                            media={
+                                <UserAvatar
+                                    imageUrl={session.user.image}
+                                    name={session.user.name}
+                                    seed={session.user.id}
+                                    size="lg"
+                                />
+                            }
+                            title={session.user.name}
                             control={
-                                <div className="flex items-center gap-3">
-                                    <UserAvatar
-                                        imageUrl={session.user.image}
-                                        name={session.user.name}
-                                        seed={session.user.id}
-                                        size="lg"
-                                    />
-                                    <Button
-                                        aria-label={m.account_change_photo()}
-                                        disabled={pending}
-                                        onClick={() => fileInput.current?.click()}
-                                        size="sm"
-                                        type="button"
-                                        variant="outline">
-                                        <CameraIcon aria-hidden="true" />
-                                        {m.account_change_photo()}
-                                    </Button>
-                                </div>
+                                <Button
+                                    aria-label={m.account_change_photo()}
+                                    disabled={pending}
+                                    onClick={() => fileInput.current?.click()}
+                                    size="sm"
+                                    type="button"
+                                    variant="outline">
+                                    <CameraIcon aria-hidden="true" />
+                                    {m.account_change_photo()}
+                                </Button>
                             }
                         />
                         <SettingsRow
                             title={m.account_name()}
                             htmlFor="account-name"
+                            icon={<UserCircleIcon />}
                             control={
                                 <Input
                                     autoComplete="name"
@@ -112,9 +115,6 @@ export function UserAccountPage() {
                                     value={name}
                                 />
                             }
-                        />
-                        <SettingsRow
-                            title={<span className="break-all">{session.user.email}</span>}
                         />
                         <input
                             accept="image/png,image/jpeg,image/webp"

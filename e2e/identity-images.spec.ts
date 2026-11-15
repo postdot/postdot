@@ -35,9 +35,10 @@ test('uploads a project image and uses a channel website favicon throughout Stud
         .locator('input[type="file"]')
         .setInputFiles({ name: 'project.png', mimeType: 'image/png', buffer: Buffer.from(png) })
     await imageSection.getByRole('button', { name: en.common_save, exact: true }).click()
+    // Save shows only while something is unsaved.
     await expect(
         imageSection.getByRole('button', { name: en.common_save, exact: true })
-    ).toBeDisabled()
+    ).toHaveCount(0)
     const persisted = (await (await page.request.get('/api/projects')).json()).projects.find(
         (item: { id: string }) => item.id === project.id
     )
@@ -119,9 +120,10 @@ test('uploads a project image and uses a channel website favicon throughout Stud
         .fill(`http://127.0.0.1:${process.env.POSTDOT_E2E_RECEIVER_PORT}/identity/icon.png`)
     await imageUrlDialog.getByRole('button', { name: en.identity_choose, exact: true }).click()
     await workspaceSection.getByRole('button', { name: en.common_save, exact: true }).click()
+    // Save shows only while something is unsaved.
     await expect(
         workspaceSection.getByRole('button', { name: en.common_save, exact: true })
-    ).toBeDisabled()
+    ).toHaveCount(0)
     await expect(page.locator('[data-context-kind="workspace"] img')).toHaveAttribute(
         'src',
         updated.imageUrl
