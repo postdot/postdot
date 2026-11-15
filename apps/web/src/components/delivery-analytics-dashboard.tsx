@@ -1,4 +1,3 @@
-import { Button } from '@postdot/ui/components/button'
 import {
     Select,
     SelectContent,
@@ -10,6 +9,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { useMemo, useRef, useState } from 'react'
 
+import { EmptyState } from '@/components/empty-state'
 import { QueryErrorState } from '@/components/query-error-state'
 import { api } from '@/lib/api'
 import { useProjectDashboard } from '@/lib/dashboard-context'
@@ -46,6 +46,7 @@ export function DeliveryAnalyticsDashboard({
         queryFn: () => api.getProjectAnalytics(project.id, { days, channelId }),
         staleTime: 30_000,
         retry: 1,
+        refetchInterval: 30_000,
     })
     const report = query.data
     const comparisonQuery = useQuery({
@@ -94,75 +95,74 @@ export function DeliveryAnalyticsDashboard({
             className="mt-6 min-w-0 space-y-4">
             <div className="flex flex-wrap items-end justify-between gap-3">
                 <h2 id="delivery-analytics-heading" className="text-lg font-semibold">
-                    {m.delivery_title()}
+                    {m.delivery_results_heading()}
                 </h2>
-                <div className="flex max-w-full flex-wrap items-center gap-2 sm:flex-nowrap">
-                    <Select
-                        value={String(days)}
-                        onValueChange={value => {
-                            setSelectedDate(null)
-                            void navigate({
-                                search: current => ({
-                                    ...current,
-                                    days: Number(value) as DeliveryAnalyticsPeriod,
-                                }),
-                            })
-                        }}>
-                        <SelectTrigger aria-label={m.delivery_period()} className="w-auto">
-                            <SelectValue>{m.delivery_period_days({ days })}</SelectValue>
-                        </SelectTrigger>
-                        <SelectContent>
-                            {deliveryAnalyticsPeriods.map(period => (
-                                <SelectItem key={period} value={String(period)}>
-                                    {m.delivery_period_days({ days: period })}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                    <Select
-                        value={channelId ?? 'all'}
-                        onValueChange={value => {
-                            setSelectedDate(null)
-                            void navigate({
-                                search: current => ({
-                                    ...current,
-                                    deliveryChannel:
-                                        value === 'all' ? undefined : (value ?? undefined),
-                                }),
-                            })
-                        }}>
-                        <SelectTrigger
-                            aria-label={m.delivery_destination()}
-                            className="w-48 min-w-0 max-w-full">
-                            <SelectValue>
-                                {channelId
-                                    ? (channels.find(channel => channel.id === channelId)?.name ??
-                                      m.delivery_retired_destination())
-                                    : m.delivery_all_destinations()}
-                            </SelectValue>
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">{m.delivery_all_destinations()}</SelectItem>
-                            {channelId && !channels.some(channel => channel.id === channelId) ? (
-                                <SelectItem value={channelId}>
-                                    {m.delivery_retired_destination()}
-                                </SelectItem>
-                            ) : null}
-                            {channels.map(channel => (
-                                <SelectItem key={channel.id} value={channel.id}>
-                                    {channel.name}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        disabled={query.isFetching}
-                        onClick={() => void query.refetch()}>
-                        {query.isFetching && report ? m.realtime_refreshing() : m.delivery_reload()}
-                    </Button>
-                </div>
+                {(counters && Object.values(counters).some(Boolean)) || channelId || days !== 30 ? (
+                    <div className="flex max-w-full flex-wrap items-center gap-2 sm:flex-nowrap">
+                        <Select
+                            value={String(days)}
+                            onValueChange={value => {
+                                setSelectedDate(null)
+                                void navigate({
+                                    search: current => ({
+                                        ...current,
+                                        days: Number(value) as DeliveryAnalyticsPeriod,
+                                    }),
+                                })
+                            }}>
+                            <SelectTrigger aria-label={m.delivery_period()} className="w-auto">
+                                <SelectValue>{m.delivery_period_days({ days })}</SelectValue>
+                                <span className="text-xs text-muted-foreground">
+                                    {project.timeZone}
+                                </span>
+                            </SelectTrigger>
+                            <SelectContent>
+                                {deliveryAnalyticsPeriods.map(period => (
+                                    <SelectItem key={period} value={String(period)}>
+                                        {m.delivery_period_days({ days: period })}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <Select
+                            value={channelId ?? 'all'}
+                            onValueChange={value => {
+                                setSelectedDate(null)
+                                void navigate({
+                                    search: current => ({
+                                        ...current,
+                                        deliveryChannel:
+                                            value === 'all' ? undefined : (value ?? undefined),
+                                    }),
+                                })
+                            }}>
+                            <SelectTrigger
+                                aria-label={m.delivery_destination()}
+                                className="w-48 min-w-0 max-w-full">
+                                <SelectValue>
+                                    {channelId
+                                        ? (channels.find(channel => channel.id === channelId)
+                                              ?.name ?? m.delivery_retired_destination())
+                                        : m.delivery_all_destinations()}
+                                </SelectValue>
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">{m.delivery_all_destinations()}</SelectItem>
+                                {channelId &&
+                                !channels.some(channel => channel.id === channelId) ? (
+                                    <SelectItem value={channelId}>
+                                        {m.delivery_retired_destination()}
+                                    </SelectItem>
+                                ) : null}
+                                {channels.map(channel => (
+                                    <SelectItem key={channel.id} value={channel.id}>
+                                        {channel.name}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                ) : null}
             </div>
             {query.isError ? <QueryErrorState onRetry={() => void query.refetch()} /> : null}
             {!report && query.isPending ? (
@@ -170,7 +170,9 @@ export function DeliveryAnalyticsDashboard({
                     {m.common_loading()}
                 </p>
             ) : null}
-            {report && counters ? (
+            {report && counters && !Object.values(counters).some(Boolean) && !incomplete ? (
+                <EmptyState title={m.delivery_empty()} layout="compact" />
+            ) : report && counters ? (
                 <>
                     <p className="text-xs leading-5 text-muted-foreground">
                         {m.delivery_range({
@@ -195,29 +197,28 @@ export function DeliveryAnalyticsDashboard({
                                     {formatNumber(counters[key], locale)}
                                 </dd>
                                 <dd className="mt-1 text-xs text-muted-foreground">
-                                    {comparisonAvailable && previousCounters
-                                        ? m.delivery_comparison({
-                                              difference: formatNumber(
-                                                  counters[key] - previousCounters[key],
-                                                  locale,
-                                                  { signDisplay: 'exceptZero' }
-                                              ),
-                                          })
-                                        : comparisonQuery.isPending && !incomplete
-                                          ? m.common_loading()
-                                          : m.delivery_comparison_unavailable()}
+                                    {counters[key] === 0
+                                        ? null
+                                        : comparisonAvailable && previousCounters
+                                          ? m.delivery_comparison({
+                                                difference: formatNumber(
+                                                    counters[key] - previousCounters[key],
+                                                    locale,
+                                                    { signDisplay: 'exceptZero' }
+                                                ),
+                                            })
+                                          : comparisonQuery.isPending && !incomplete
+                                            ? m.common_loading()
+                                            : m.delivery_comparison_unavailable()}
                                 </dd>
                             </div>
                         ))}
                     </dl>
-                    <p className="text-xs leading-5 text-muted-foreground">{m.delivery_scope()}</p>
+
                     <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(18rem,1fr)]">
                         <div className="min-w-0">
                             <div className="flex flex-wrap items-baseline justify-between gap-2">
                                 <h3 className="text-sm font-medium">{m.delivery_daily()}</h3>
-                                <span className="text-xs text-muted-foreground">
-                                    {report.projectTimeZone}
-                                </span>
                             </div>
                             {daily.some(day => day.published || day.failed || day.ambiguous) ? (
                                 <>
@@ -325,22 +326,22 @@ export function DeliveryAnalyticsDashboard({
                                     data-delivery-destinations>
                                     <thead className="[&_th]:break-words">
                                         <tr className="text-xs text-muted-foreground">
-                                            <th scope="col" className="w-2/5 pb-2 font-normal">
+                                            <th scope="col" className="w-1/4 pb-2 font-normal">
                                                 {m.delivery_destination()}
                                             </th>
                                             <th
                                                 scope="col"
-                                                className="pb-2 pl-3 text-right font-normal">
+                                                className="pb-2 pl-2 text-right font-normal">
                                                 {m.delivery_published()}
                                             </th>
                                             <th
                                                 scope="col"
-                                                className="pb-2 pl-3 text-right font-normal">
+                                                className="pb-2 pl-2 text-right font-normal">
                                                 {m.delivery_failed()}
                                             </th>
                                             <th
                                                 scope="col"
-                                                className="pb-2 pl-3 text-right font-normal">
+                                                className="pb-2 pl-2 text-right font-normal">
                                                 {m.delivery_ambiguous()}
                                             </th>
                                         </tr>
@@ -355,13 +356,13 @@ export function DeliveryAnalyticsDashboard({
                                                     className="max-w-48 break-words py-3 font-normal">
                                                     {row.name ?? m.delivery_retired_destination()}
                                                 </th>
-                                                <td className="py-3 pl-3 text-right tabular-nums">
+                                                <td className="py-3 pl-2 text-right tabular-nums">
                                                     {formatNumber(row.published, locale)}
                                                 </td>
-                                                <td className="py-3 pl-3 text-right tabular-nums">
+                                                <td className="py-3 pl-2 text-right tabular-nums">
                                                     {formatNumber(row.failed, locale)}
                                                 </td>
-                                                <td className="py-3 pl-3 text-right tabular-nums">
+                                                <td className="py-3 pl-2 text-right tabular-nums">
                                                     {formatNumber(row.ambiguous, locale)}
                                                 </td>
                                             </tr>

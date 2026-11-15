@@ -1,4 +1,5 @@
 import { Button } from '@postdot/ui/components/button'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@postdot/ui/components/tabs'
 import { ChartSquareIcon } from '@solar-icons/react/linear/chart-square'
 import { RefreshIcon } from '@solar-icons/react/linear/refresh'
 import { useInfiniteQuery, useMutation, useQueries, useQueryClient } from '@tanstack/react-query'
@@ -94,6 +95,7 @@ export function PublicationPerformancePage({
     readonly deliveryDays?: DeliveryAnalyticsPeriod
     readonly deliveryChannel?: string
 }) {
+    const [view, setView] = useState('engagement')
     const { locale } = useLanguage()
     const { channels, project, projectRole } = useProjectDashboard()
     const queryClient = useQueryClient()
@@ -139,7 +141,8 @@ export function PublicationPerformancePage({
             }),
         initialPageParam: undefined as string | undefined,
         getNextPageParam: page => page.nextCursor ?? undefined,
-        staleTime: Number.POSITIVE_INFINITY,
+        staleTime: 30_000,
+        refetchInterval: 30_000,
         retry: 1,
     })
     const channelsById = new Map(channels.map(channel => [channel.id, channel]))
@@ -167,7 +170,8 @@ export function PublicationPerformancePage({
             ],
             queryFn: () =>
                 listLatestProviderAnalytics(batch.provider, project.id, batch.publicationIds),
-            staleTime: Number.POSITIVE_INFINITY,
+            staleTime: 30_000,
+            refetchInterval: 30_000,
             retry: 1,
         })),
     })
@@ -407,168 +411,187 @@ export function PublicationPerformancePage({
 
     return (
         <main className="min-w-0 px-4 py-7 sm:px-6 lg:px-8 lg:py-8">
-            <DashboardPageHeader title={m.performance_title()} />
-            <DeliveryAnalyticsDashboard days={deliveryDays} channelId={deliveryChannel} />
-            <div className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-6">
-                <h2 className="text-lg font-semibold">{m.delivery_engagement_title()}</h2>
-                {publicationsQuery.isSuccess &&
-                publications.length === 0 &&
-                !publicationsQuery.hasNextPage ? undefined : (
-                    <div className="flex items-center gap-2">
-                        {exportState === 'pending' ? (
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                    exportAbort.current?.abort()
-                                    setExportState('idle')
-                                }}>
-                                {m.performance_export_cancel()}
-                            </Button>
+            <DashboardPageHeader
+                title={m.performance_title()}
+                action={
+                    <>
+                        {view !== 'engagement' ||
+                        (publicationsQuery.isSuccess &&
+                            publications.length === 0 &&
+                            !publicationsQuery.hasNextPage) ? undefined : (
+                            <div className="flex items-center gap-2">
+                                {exportState === 'pending' ? (
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => {
+                                            exportAbort.current?.abort()
+                                            setExportState('idle')
+                                        }}>
+                                        {m.performance_export_cancel()}
+                                    </Button>
+                                ) : null}
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    aria-busy={exportState === 'pending'}
+                                    disabled={
+                                        exportState === 'pending' ||
+                                        publicationsQuery.isPending ||
+                                        publicationsQuery.isError
+                                    }
+                                    onClick={() => void exportCsv()}>
+                                    {exportState === 'pending'
+                                        ? m.performance_export_pending()
+                                        : m.performance_export_csv()}
+                                </Button>
+                            </div>
+                        )}
+                    </>
+                }
+            />
+            <Tabs value={view} onValueChange={value => setView(String(value))}>
+                <TabsList variant="line" aria-label={m.performance_title()}>
+                    <TabsTrigger value="engagement">{m.delivery_engagement_title()}</TabsTrigger>
+                    <TabsTrigger value="publishing">{m.delivery_title()}</TabsTrigger>
+                </TabsList>
+                <TabsContent value="publishing">
+                    <DeliveryAnalyticsDashboard days={deliveryDays} channelId={deliveryChannel} />
+                </TabsContent>
+                <TabsContent value="engagement">
+                    {exportState === 'failed' ? (
+                        <p role="alert" className="mt-2 text-sm text-state-failed">
+                            {m.performance_export_failed()}
+                        </p>
+                    ) : null}
+                    <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2">
+                        {tagCatalogQuery.isError ? (
+                            <div className="flex flex-wrap items-center gap-2">
+                                <p role="alert" className="text-xs text-state-failed">
+                                    {m.performance_tag_filter_catalog_failed()}
+                                </p>
+                                <Button
+                                    onClick={() => void tagCatalogQuery.refetch()}
+                                    size="sm"
+                                    variant="ghost">
+                                    {m.common_retry()}
+                                </Button>
+                            </div>
                         ) : null}
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            aria-busy={exportState === 'pending'}
-                            disabled={
-                                exportState === 'pending' ||
-                                publicationsQuery.isPending ||
-                                publicationsQuery.isError
-                            }
-                            onClick={() => void exportCsv()}>
-                            {exportState === 'pending'
-                                ? m.performance_export_pending()
-                                : m.performance_export_csv()}
-                        </Button>
+                        {(catalogTags.length > 0 && publications.length > 0) ||
+                        selectedTagIds.length > 0 ? (
+                            <PerformanceTagFilter
+                                disabled={tagCatalogQuery.isPending}
+                                onChange={handleTagChange}
+                                selectedTagIds={selectedTagIds}
+                                tags={catalogTags}
+                            />
+                        ) : null}
                     </div>
-                )}
-            </div>
-            <p className="mt-2 text-xs text-muted-foreground">{m.delivery_engagement_scope()}</p>
-            {exportState === 'failed' ? (
-                <p role="alert" className="mt-2 text-sm text-state-failed">
-                    {m.performance_export_failed()}
-                </p>
-            ) : null}
-            <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2">
-                {tagCatalogQuery.isError ? (
-                    <div className="flex flex-wrap items-center gap-2">
-                        <p role="alert" className="text-xs text-state-failed">
-                            {m.performance_tag_filter_catalog_failed()}
-                        </p>
-                        <Button
-                            onClick={() => void tagCatalogQuery.refetch()}
-                            size="sm"
-                            variant="ghost">
-                            {m.common_retry()}
-                        </Button>
-                    </div>
-                ) : null}
-                {catalogTags.length > 0 || selectedTagIds.length > 0 ? (
-                    <PerformanceTagFilter
-                        disabled={tagCatalogQuery.isPending}
-                        onChange={handleTagChange}
-                        selectedTagIds={selectedTagIds}
-                        tags={catalogTags}
-                    />
-                ) : null}
-            </div>
-            {selectedTagIds.length > 0 ? (
-                <p className="mt-2 text-xs text-muted-foreground">
-                    {m.performance_tag_filter_scope()}
-                </p>
-            ) : null}
-            {publicationsQuery.isError ? (
-                <QueryErrorState
-                    className="mt-4"
-                    onRetry={() => void publicationsQuery.refetch()}
-                />
-            ) : publicationsQuery.isPending ? (
-                <p className="py-8 text-sm text-muted-foreground" role="status">
-                    {m.common_loading()}
-                </p>
-            ) : publications.length === 0 ? (
-                <EmptyState
-                    className="mt-4"
-                    description={
-                        hasNoTagMatch
-                            ? m.performance_tag_filter_no_matches_description()
-                            : m.performance_empty_description()
-                    }
-                    icon={<ChartSquareIcon aria-hidden="true" className="size-5" />}
-                    layout="compact"
-                    title={
-                        hasNoTagMatch
-                            ? m.performance_tag_filter_no_matches_title()
-                            : m.performance_empty_title()
-                    }
-                    action={
-                        hasNoTagMatch ? (
-                            <Button onClick={() => handleTagChange([])} size="sm" variant="ghost">
-                                {m.taxonomy_clear_tags()}
-                            </Button>
-                        ) : publicationsQuery.hasNextPage ? (
-                            <Button
-                                disabled={publicationsQuery.isFetchingNextPage}
-                                onClick={() => void publicationsQuery.fetchNextPage()}
-                                size="sm"
-                                variant="ghost">
-                                {publicationsQuery.isFetchingNextPage
-                                    ? m.common_loading()
-                                    : m.performance_load_more()}
-                            </Button>
-                        ) : undefined
-                    }
-                />
-            ) : (
-                <>
-                    {analyticsQueries.some(query => query.isError) ? (
+
+                    <h2 className="mt-6 text-lg font-semibold">
+                        {m.performance_grouped_description()}
+                    </h2>
+                    <p className="mt-2 text-xs text-muted-foreground">
+                        {m.performance_empty_description()}
+                    </p>
+                    {publicationsQuery.isError ? (
                         <QueryErrorState
-                            className="mb-3"
-                            onRetry={() => {
-                                for (const query of analyticsQueries) {
-                                    if (query.isError) void query.refetch()
-                                }
-                            }}
+                            className="mt-4"
+                            onRetry={() => void publicationsQuery.refetch()}
                         />
-                    ) : null}
-                    <section aria-label={m.performance_title()} className="mt-4 space-y-1">
-                        <p className="mb-4 text-sm text-muted-foreground">
-                            {m.performance_grouped_description()}
+                    ) : publicationsQuery.isPending ? (
+                        <p className="py-8 text-sm text-muted-foreground" role="status">
+                            {m.common_loading()}
                         </p>
-                        {groups.map(group => (
-                            <section
-                                key={group.postId}
-                                className="space-y-2 pb-6"
-                                aria-labelledby={`performance-post-${group.postId}`}
-                                data-performance-post={group.postId}>
-                                <h2
-                                    id={`performance-post-${group.postId}`}
-                                    className="break-words text-base font-semibold">
-                                    <Link
-                                        to="/dashboard/projects/$projectId/posts/$postId"
-                                        params={{ projectId: project.id, postId: group.postId }}
-                                        className="hover:text-primary">
-                                        {publicationIdentityLabel(group.publications[0]!)}
-                                    </Link>
-                                </h2>
-                                {group.publications.map(renderPublication)}
+                    ) : publications.length === 0 ? (
+                        <EmptyState
+                            className="mt-4"
+                            description={
+                                hasNoTagMatch
+                                    ? m.performance_tag_filter_no_matches_description()
+                                    : undefined
+                            }
+                            icon={<ChartSquareIcon aria-hidden="true" className="size-5" />}
+                            layout="compact"
+                            title={
+                                hasNoTagMatch
+                                    ? m.performance_tag_filter_no_matches_title()
+                                    : m.performance_empty_title()
+                            }
+                            action={
+                                hasNoTagMatch ? (
+                                    <Button
+                                        onClick={() => handleTagChange([])}
+                                        size="sm"
+                                        variant="ghost">
+                                        {m.taxonomy_clear_tags()}
+                                    </Button>
+                                ) : publicationsQuery.hasNextPage ? (
+                                    <Button
+                                        disabled={publicationsQuery.isFetchingNextPage}
+                                        onClick={() => void publicationsQuery.fetchNextPage()}
+                                        size="sm"
+                                        variant="ghost">
+                                        {publicationsQuery.isFetchingNextPage
+                                            ? m.common_loading()
+                                            : m.performance_load_more()}
+                                    </Button>
+                                ) : undefined
+                            }
+                        />
+                    ) : (
+                        <>
+                            {analyticsQueries.some(query => query.isError) ? (
+                                <QueryErrorState
+                                    className="mb-3"
+                                    onRetry={() => {
+                                        for (const query of analyticsQueries) {
+                                            if (query.isError) void query.refetch()
+                                        }
+                                    }}
+                                />
+                            ) : null}
+                            <section aria-label={m.performance_title()} className="mt-4 space-y-1">
+                                {groups.map(group => (
+                                    <section
+                                        key={group.postId}
+                                        className="space-y-2 pb-6"
+                                        aria-labelledby={`performance-post-${group.postId}`}
+                                        data-performance-post={group.postId}>
+                                        <h2
+                                            id={`performance-post-${group.postId}`}
+                                            className="break-words text-base font-semibold">
+                                            <Link
+                                                to="/dashboard/projects/$projectId/posts/$postId"
+                                                params={{
+                                                    projectId: project.id,
+                                                    postId: group.postId,
+                                                }}
+                                                className="hover:text-primary">
+                                                {publicationIdentityLabel(group.publications[0]!)}
+                                            </Link>
+                                        </h2>
+                                        {group.publications.map(renderPublication)}
+                                    </section>
+                                ))}
                             </section>
-                        ))}
-                    </section>
-                    {publicationsQuery.hasNextPage ? (
-                        <div className="flex justify-center py-6">
-                            <Button
-                                disabled={publicationsQuery.isFetchingNextPage}
-                                onClick={() => void publicationsQuery.fetchNextPage()}
-                                variant="ghost">
-                                {publicationsQuery.isFetchingNextPage
-                                    ? m.common_loading()
-                                    : m.performance_load_more()}
-                            </Button>
-                        </div>
-                    ) : null}
-                </>
-            )}
+                            {publicationsQuery.hasNextPage ? (
+                                <div className="flex justify-center py-6">
+                                    <Button
+                                        disabled={publicationsQuery.isFetchingNextPage}
+                                        onClick={() => void publicationsQuery.fetchNextPage()}
+                                        variant="ghost">
+                                        {publicationsQuery.isFetchingNextPage
+                                            ? m.common_loading()
+                                            : m.performance_load_more()}
+                                    </Button>
+                                </div>
+                            ) : null}
+                        </>
+                    )}
+                </TabsContent>
+            </Tabs>
         </main>
     )
 }

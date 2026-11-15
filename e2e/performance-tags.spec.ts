@@ -160,11 +160,16 @@ test('filters real publication cohorts by current tags and retains selection acr
         fullPage: true,
         animations: 'disabled',
     })
+    await page.getByRole('tab', { name: 'Publishing', exact: true }).click()
+    await expect(trigger).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Export CSV', exact: true })).toHaveCount(0)
+    await page.getByRole('tab', { name: 'Engagement', exact: true }).click()
+    await expect(rows).toHaveCount(1)
     await page.setViewportSize({ width: 390, height: 844 })
     await openLanguageMenu(page)
     await page.getByRole('menuitem', { name: 'Français', exact: true }).click()
     await expect(
-        page.getByText(frenchTranslation('performance_tag_filter_scope'), { exact: true })
+        page.getByText(frenchTranslation('performance_grouped_description'), { exact: true })
     ).toBeVisible()
     await expect(rows).toHaveCount(1)
     expect(

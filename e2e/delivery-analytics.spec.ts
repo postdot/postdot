@@ -83,6 +83,7 @@ test('reports real manual outcomes, filters periods and destinations, and preser
     })
     await page.setViewportSize({ width: 1440, height: 1000 })
     await page.goto(`/dashboard/projects/${project.id}/performance`)
+    await page.getByRole('tab', { name: 'Publishing', exact: true }).click()
     const dashboard = page.locator('[data-delivery-dashboard]')
     await expect(dashboard.locator('[data-delivery-counter="published"]')).toHaveText('2')
     await expect(dashboard.locator('[data-delivery-counter="failed"]')).toHaveText('0')
@@ -105,6 +106,7 @@ test('reports real manual outcomes, filters periods and destinations, and preser
     await expect(dashboard.locator('[data-delivery-counter="published"]')).toHaveText('1')
     await expect(page).toHaveURL(new RegExp(`deliveryChannel=${channels[0]!.id}`))
     await page.reload()
+    await page.getByRole('tab', { name: 'Publishing', exact: true }).click()
     await expect(dashboard.locator('[data-delivery-counter="published"]')).toHaveText('1')
     await expect(dashboard.getByRole('combobox', { name: 'Delivery period' })).toContainText(
         'Last 7 days'
@@ -132,7 +134,7 @@ test('reports real manual outcomes, filters periods and destinations, and preser
             json: { error: { code: 'unavailable', message: 'Unavailable' } },
         })
     )
-    await dashboard.getByRole('button', { name: 'Refresh', exact: true }).click()
+    await page.evaluate(() => window.dispatchEvent(new Event('focus')))
     await expect(dashboard.getByRole('button', { name: 'Retry', exact: true })).toBeVisible()
     await expect(dashboard.locator('[data-delivery-counter="published"]')).toHaveText('1')
     expect(collectCalls).toBe(0)
@@ -151,12 +153,13 @@ test('shows an empty delivery period and keeps comparison failures separate from
         return route.continue()
     })
     await page.goto(`/dashboard/projects/${project.id}/performance`)
+    await page.getByRole('tab', { name: 'Publishing', exact: true }).click()
     const dashboard = page.locator('[data-delivery-dashboard]')
     await expect(
         dashboard.getByText('Nothing was published in this period.', { exact: true })
     ).toBeVisible()
-    await expect(dashboard.locator('[data-delivery-counter="published"]')).toHaveText('0')
-    await expect(dashboard.getByText('Comparison unavailable', { exact: true })).toHaveCount(4)
+    await expect(dashboard.locator('[data-delivery-counters]')).toHaveCount(0)
+    await expect(dashboard.getByText('Comparison unavailable', { exact: true })).toHaveCount(0)
     await expect(page.getByRole('button', { name: 'Export CSV', exact: true })).toHaveCount(0)
 })
 
@@ -171,6 +174,7 @@ test('warns about incomplete history and suppresses misleading period changes', 
         await route.fulfill({ response, json: report })
     })
     await page.goto(`/dashboard/projects/${project.id}/performance`)
+    await page.getByRole('tab', { name: 'Publishing', exact: true }).click()
     const dashboard = page.locator('[data-delivery-dashboard]')
     await expect(
         dashboard.getByText(
@@ -178,5 +182,5 @@ test('warns about incomplete history and suppresses misleading period changes', 
             { exact: true }
         )
     ).toBeVisible()
-    await expect(dashboard.getByText('Comparison unavailable', { exact: true })).toHaveCount(4)
+    await expect(dashboard.getByText('Comparison unavailable', { exact: true })).toHaveCount(0)
 })
