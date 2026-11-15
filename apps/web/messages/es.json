@@ -90,6 +90,16 @@
             }
         }
     ],
+    "common_scheduled_count": [
+        {
+            "declarations": ["input count", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": {
+                "countPlural=one": "{count} programada",
+                "countPlural=other": "{count} programadas"
+            }
+        }
+    ],
     "common_channel_count": [
         {
             "declarations": ["input count", "local countPlural = count: plural"],

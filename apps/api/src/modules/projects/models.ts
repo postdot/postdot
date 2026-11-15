@@ -38,6 +38,12 @@ import {
 } from './persistence-schemas'
 
 export const projectSchema = projectRowSchema
+export const projectListItemSchema = Type.Intersect([
+    projectSchema,
+    Type.Object({
+        upcomingScheduledCount: Type.Integer({ minimum: 0 }),
+    }),
+])
 const taxonomyStateSchema = Type.Union([Type.Literal('active'), Type.Literal('archived')])
 export const projectCategorySchema = Type.Object({
     id: Type.String({ minLength: 1 }),
@@ -652,6 +658,7 @@ export const publicationComposerDraftResponseSchema = Type.Object({
 })
 
 export type ProjectResponse = Static<typeof projectSchema>
+export type ProjectListItemResponse = Static<typeof projectListItemSchema>
 export type ChannelListItemResponse = Static<typeof channelListItemSchema>
 export type ChannelResponse = Static<typeof channelSchema>
 export type ChannelProfileVersionResponse = Static<typeof channelProfileVersionSchema>

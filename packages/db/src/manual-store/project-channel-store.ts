@@ -381,6 +381,34 @@ export function createProjectChannelStore(
             ).map(toProject)
         },
 
+        async countUpcomingScheduledPublications(
+            projectIds: readonly string[]
+        ): Promise<ReadonlyMap<string, number>> {
+            const uniqueProjectIds = [
+                ...new Set(projectIds.map(id => requireNonBlank(id, 'projectId'))),
+            ]
+            if (uniqueProjectIds.length === 0) return new Map()
+
+            const timestamp = requireTimestamp(options.now(), 'now')
+            const placeholders = uniqueProjectIds.map((_, index) => `?${index + 2}`).join(', ')
+            const rows = await sql
+                .statement<
+                    { readonly projectId: string; readonly count: number | bigint | string },
+                    [number, ...string[]]
+                >(`
+                    select project_id as projectId,
+                           count(*) as count
+                    from publications
+                    where state in ('scheduled', 'ready')
+                      and scheduled_at is not null
+                      and scheduled_at > ?1
+                      and project_id in (${placeholders})
+                    group by project_id
+                `)
+                .all(timestamp, ...uniqueProjectIds)
+            return new Map(rows.map(row => [row.projectId, Number(row.count)]))
+        },
+
         async updateProjectTimeZone(input: UpdateProjectTimeZoneInput): Promise<Project | null> {
             return updateProjectTimeZoneTransaction.immediate({
                 ...input,

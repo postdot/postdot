@@ -1556,6 +1556,7 @@ export type {
     PublicationEditorState,
     PublisherConnection,
     Project,
+    ProjectListItem,
     ProjectCategory,
     ProjectTag,
     Publication,

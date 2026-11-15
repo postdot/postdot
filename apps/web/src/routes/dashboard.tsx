@@ -19,7 +19,7 @@ import { EmptyState } from '@/components/empty-state'
 import { ChannelAvatar, ResourceAvatar } from '@/components/identity-visuals'
 import { PageColumn } from '@/components/page-column'
 import { ProjectCreationDialog } from '@/components/project-creation-dialog'
-import { api, formatApiError, type Project } from '@/lib/api'
+import { api, formatApiError, type Project, type ProjectListItem } from '@/lib/api'
 import type { ChannelIdentityPeer } from '@/lib/channel-identity'
 import { ChannelIdentityProvider } from '@/lib/channel-identity-context'
 import {
@@ -178,7 +178,7 @@ function DashboardSession() {
     useLanguage()
     const initialData = Route.useLoaderData()
     const routeSearch = Route.useSearch()
-    const [projects, setProjects] = useState<Project[]>(initialData.projects)
+    const [projects, setProjects] = useState<ProjectListItem[]>(initialData.projects)
     const [workspaces, setWorkspaces] = useState(initialData.workspaces)
     const categories = initialData.categories
     const [projectName, setProjectName] = useState('')
@@ -222,7 +222,7 @@ function DashboardSession() {
                 projectTimeZone,
                 selectedWorkspaceId ?? undefined
             )
-            setProjects(current => [...current, response.project])
+            setProjects(current => [...current, { ...response.project, upcomingScheduledCount: 0 }])
             setProjectName('')
             setProjectTimeZone(detectDefaultProjectTimeZone())
             await navigate({
@@ -299,7 +299,14 @@ function DashboardSession() {
         await runAction(async () => {
             const project = await api.setProjectPrimaryCategory(projectId, categoryId)
             setProjects(current =>
-                current.map(candidate => (candidate.id === project.id ? project : candidate))
+                current.map(candidate =>
+                    candidate.id === project.id
+                        ? {
+                              ...project,
+                              upcomingScheduledCount: candidate.upcomingScheduledCount,
+                          }
+                        : candidate
+                )
             )
         })
     }
@@ -524,7 +531,12 @@ function EmptyProjectShell({ global }: { readonly global: DashboardGlobalContext
 function ProjectDirectoryList({
     projects,
 }: {
-    projects: ReadonlyArray<{ id: string; name: string; workspaceId: string | null }>
+    projects: ReadonlyArray<{
+        id: string
+        name: string
+        workspaceId: string | null
+        upcomingScheduledCount: number
+    }>
 }) {
     const workspaceIds = useMemo(
         () =>
@@ -587,6 +599,10 @@ function ProjectDirectoryList({
                 const projectChannels = channelsByProjectId?.get(project.id) ?? []
                 const visibleChannels = projectChannels.slice(0, 5)
                 const hiddenChannelCount = projectChannels.length - visibleChannels.length
+                const scheduledText =
+                    project.upcomingScheduledCount > 0
+                        ? m.common_scheduled_count({ count: project.upcomingScheduledCount })
+                        : m.queue_no_scheduled_title()
                 return (
                     <Link
                         className="group flex items-center justify-between gap-4 rounded-md bg-muted px-4 py-3 shadow-surface transition-[background-color,transform] hover:-translate-y-px hover:bg-muted/75"
@@ -604,30 +620,31 @@ function ProjectDirectoryList({
                                 <span className="block truncate text-sm font-medium">
                                     {project.name}
                                 </span>
-                                {visibleChannels.length > 0 ? (
-                                    <ChannelIdentityProvider channels={projectChannels}>
-                                        <span
-                                            className="mt-1.5 flex items-center gap-1"
-                                            data-project-channels="">
-                                            {visibleChannels.map(channel => (
-                                                <ChannelAvatar
-                                                    channel={channel}
-                                                    key={channel.id}
-                                                    size="sm"
-                                                />
-                                            ))}
-                                            {hiddenChannelCount > 0 ? (
-                                                <span className="pl-1 text-xs font-medium text-muted-foreground tabular-nums">
-                                                    +{hiddenChannelCount}
-                                                </span>
-                                            ) : null}
-                                        </span>
-                                    </ChannelIdentityProvider>
-                                ) : channelsByProjectId !== undefined ? (
-                                    <span className="mt-1 block text-xs text-muted-foreground">
-                                        {m.nav_no_channels()}
-                                    </span>
-                                ) : null}
+                                <span className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                                    {visibleChannels.length > 0 ? (
+                                        <ChannelIdentityProvider channels={projectChannels}>
+                                            <span
+                                                className="flex items-center gap-1"
+                                                data-project-channels="">
+                                                {visibleChannels.map(channel => (
+                                                    <ChannelAvatar
+                                                        channel={channel}
+                                                        key={channel.id}
+                                                        size="sm"
+                                                    />
+                                                ))}
+                                                {hiddenChannelCount > 0 ? (
+                                                    <span className="pl-1 text-xs font-medium text-muted-foreground tabular-nums">
+                                                        +{hiddenChannelCount}
+                                                    </span>
+                                                ) : null}
+                                            </span>
+                                        </ChannelIdentityProvider>
+                                    ) : channelsByProjectId !== undefined ? (
+                                        <span>{m.nav_no_channels()}</span>
+                                    ) : null}
+                                    <span className="tabular-nums">{scheduledText}</span>
+                                </span>
                             </span>
                         </span>
                         <AltArrowRightIcon

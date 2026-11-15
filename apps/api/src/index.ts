@@ -113,6 +113,7 @@ export type {
     PublisherConnectionResponse,
     PublisherConnectionsResponse,
     ProjectResponse,
+    ProjectListItemResponse,
     PublicationResponse,
     PublicationSummaryResponse,
     PublicationSummaryPageResponse,

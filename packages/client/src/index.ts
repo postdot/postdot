@@ -35,6 +35,7 @@ import type {
     PublisherConnectionResponse,
     PublisherConnectionsResponse,
     ProjectResponse,
+    ProjectListItemResponse,
     PublicationResponse,
     PublicationApprovalRequestResponse,
     PublicationSummaryResponse,
@@ -336,6 +337,7 @@ export type ProjectTeamGrant = NonNullable<
 >['grants'][number]
 
 export type Project = ProjectResponse
+export type ProjectListItem = ProjectListItemResponse
 export type ProjectCategory = ProjectCategoryResponse
 export type ProjectTag = ProjectTagResponse
 export type ChannelListItem = ChannelListItemResponse

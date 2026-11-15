@@ -5,6 +5,7 @@ import {
     formatApiError,
     type Project,
     type ProjectCategory,
+    type ProjectListItem,
     type WorkspaceListItem,
 } from '@/lib/api'
 import { ProjectAccessContext, useProjectAccess } from '@/lib/project-access'
@@ -30,7 +31,7 @@ export interface DashboardGlobalContextValue {
     readonly projectName: string
     readonly projectTimeZone: string
     readonly workspaceName: string
-    readonly projects: readonly Project[]
+    readonly projects: readonly ProjectListItem[]
     readonly selectedWorkspaceId: string | null
     readonly session: {
         readonly user: {

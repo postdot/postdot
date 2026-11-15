@@ -90,6 +90,16 @@
             }
         }
     ],
+    "common_scheduled_count": [
+        {
+            "declarations": ["input count", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": {
+                "countPlural=one": "{count} planifiée",
+                "countPlural=other": "{count} planifiées"
+            }
+        }
+    ],
     "common_channel_count": [
         {
             "declarations": ["input count", "local countPlural = count: plural"],
