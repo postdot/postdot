@@ -160,12 +160,8 @@ export function PublicationBulkMoveDialog({
                     ) : null}
                     {valid ? (
                         <p className="text-sm text-muted-foreground" data-move-preview="true">
-                            {formatProjectDateTime(
-                                Math.min(...publications.map(p => p.scheduledAt!)),
-                                timeZone,
-                                locale
-                            )}{' '}
-                            → {formatProjectDateTime(Math.max(...values), timeZone, locale)}{' '}
+                            {formatProjectDateTime(Math.min(...values), timeZone, locale)} →{' '}
+                            {formatProjectDateTime(Math.max(...values), timeZone, locale)}{' '}
                             {timeZone !== getBrowserTimeZone() ? `· ${timeZone}` : null}
                         </p>
                     ) : null}
