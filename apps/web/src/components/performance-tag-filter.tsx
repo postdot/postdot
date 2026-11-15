@@ -11,7 +11,8 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@postdot/ui/components/dropdown-menu'
-import { CheckIcon } from '@solar-icons/react/linear/check'
+import { ArchiveIcon } from '@solar-icons/react/linear/archive'
+import { CloseCircleIcon } from '@solar-icons/react/linear/close-circle'
 import { TagIcon } from '@solar-icons/react/linear/tag'
 import { useState } from 'react'
 
@@ -102,6 +103,7 @@ export function PerformanceTagFilter({
                                 data-performance-tag-option={tag.id}
                                 disabled={!selectedIds.has(tag.id) && limitReached}
                                 onCheckedChange={checked => toggleTag(tag.id, checked)}>
+                                <TagIcon aria-hidden="true" />
                                 {tag.name}
                             </DropdownMenuCheckboxItem>
                         ))
@@ -122,17 +124,14 @@ export function PerformanceTagFilter({
                 {archivedTags.length > 0 ? (
                     <>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem
+                        <DropdownMenuCheckboxItem
+                            checked={includeArchived}
                             closeOnClick={false}
                             data-performance-tag-archived-toggle="true"
-                            onClick={() => setIncludeArchived(current => !current)}>
-                            {includeArchived ? (
-                                <CheckIcon aria-hidden="true" />
-                            ) : (
-                                <span aria-hidden="true" className="size-4" />
-                            )}
+                            onCheckedChange={checked => setIncludeArchived(checked)}>
+                            <ArchiveIcon aria-hidden="true" />
                             {m.performance_tag_filter_show_archived()}
-                        </DropdownMenuItem>
+                        </DropdownMenuCheckboxItem>
                     </>
                 ) : null}
                 {visibleArchivedTags.length > 0 ? (
@@ -147,6 +146,7 @@ export function PerformanceTagFilter({
                                     data-performance-tag-option={tag.id}
                                     disabled={!selectedIds.has(tag.id) && limitReached}
                                     onCheckedChange={checked => toggleTag(tag.id, checked)}>
+                                    <TagIcon aria-hidden="true" />
                                     {tag.name} · {m.common_archived()}
                                 </DropdownMenuCheckboxItem>
                             ))}
@@ -159,6 +159,7 @@ export function PerformanceTagFilter({
                         <DropdownMenuItem
                             data-performance-tag-clear="true"
                             onClick={() => onChange([])}>
+                            <CloseCircleIcon aria-hidden="true" />
                             {m.taxonomy_clear_tags()}
                         </DropdownMenuItem>
                     </>
