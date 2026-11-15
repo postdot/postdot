@@ -14,6 +14,7 @@ import {
 import { AddIcon } from '@solar-icons/react/linear/add'
 import { AltArrowLeftIcon } from '@solar-icons/react/linear/alt-arrow-left'
 import { ArchiveIcon } from '@solar-icons/react/linear/archive'
+import { BookIcon } from '@solar-icons/react/linear/book'
 import { ChartSquareIcon } from '@solar-icons/react/linear/chart-square'
 import { GalleryIcon } from '@solar-icons/react/linear/gallery'
 import { KeyMinimalisticIcon } from '@solar-icons/react/linear/key-minimalistic'
@@ -54,6 +55,7 @@ export type DashboardSection =
     | 'tags'
     | 'project-settings'
     | 'settings-archives'
+    | 'settings-help'
     | 'settings-access'
     | 'settings-provider-applications'
     | 'settings-workspace'
@@ -277,6 +279,14 @@ export function DashboardSidebar({
                                             projectId={selectedProjectId}
                                             workspaceId={selectedWorkspaceId}
                                         />
+                                        <WorkspaceMenuItem
+                                            active={activeSection === 'settings-help'}
+                                            destination="settings-help"
+                                            icon={<BookIcon aria-hidden="true" />}
+                                            label={m.help_title()}
+                                            projectId={selectedProjectId}
+                                            workspaceId={selectedWorkspaceId}
+                                        />
                                     </SidebarMenu>
                                 </nav>
                             </SidebarGroupContent>
@@ -477,6 +487,7 @@ export function workspaceSection(pathname: string): DashboardSection {
     if (pathname === '/dashboard/preferences/api-keys') return 'preferences-api-keys'
     if (pathname === '/dashboard/preferences') return 'preferences'
     if (pathname === '/dashboard/settings/archives') return 'settings-archives'
+    if (pathname === '/dashboard/settings/help') return 'settings-help'
     if (pathname.includes('/projects/') && pathname.endsWith('/settings')) return 'project-settings'
     if (pathname.includes('/settings/access')) return 'settings-access'
     if (pathname.includes('/settings/workspace/settings')) return 'settings-workspace-settings'
@@ -507,6 +518,7 @@ export function workspaceSectionLabel(section: DashboardSection) {
     if (section === 'tags') return m.taxonomy_tags()
     if (section === 'project-settings') return m.nav_project_configuration()
     if (section === 'settings-archives') return m.lifecycle_archives()
+    if (section === 'settings-help') return m.help_title()
     if (section === 'settings-access') return m.nav_instance_access()
     if (section === 'settings-provider-applications') return m.nav_instance_provider_apps()
     if (section === 'settings-workspace-settings') return m.nav_workspace_settings()
@@ -602,6 +614,18 @@ function workspaceLink(
         return (
             <Link
                 to="/dashboard/settings"
+                search={{ workspaceId: workspaceId ?? undefined, projectId: projectId ?? 'none' }}
+                activeOptions={{ exact: true }}
+                aria-label={ariaLabel}
+                aria-current={active ? 'page' : undefined}
+            />
+        )
+    }
+
+    if (destination === 'settings-help') {
+        return (
+            <Link
+                to="/dashboard/settings/help"
                 search={{ workspaceId: workspaceId ?? undefined, projectId: projectId ?? 'none' }}
                 activeOptions={{ exact: true }}
                 aria-label={ariaLabel}

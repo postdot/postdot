@@ -60,6 +60,7 @@ export function DashboardShell({
         activeSection === 'settings-workspace' || activeSection === 'settings-workspace-settings'
     const isInstanceSettings =
         activeSection === 'settings-archives' ||
+        activeSection === 'settings-help' ||
         activeSection === 'settings' ||
         activeSection === 'settings-access' ||
         activeSection === 'settings-provider-applications'

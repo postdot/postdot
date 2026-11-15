@@ -13,6 +13,7 @@ import { Kbd, KbdGroup } from '@postdot/ui/components/kbd'
 import { Switch } from '@postdot/ui/components/switch'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@postdot/ui/components/tooltip'
 import { ArchiveIcon } from '@solar-icons/react/linear/archive'
+import { BookIcon } from '@solar-icons/react/linear/book'
 import { CalendarAddIcon } from '@solar-icons/react/linear/calendar-add'
 import { CalendarMinimalisticIcon } from '@solar-icons/react/linear/calendar-minimalistic'
 import { ChartSquareIcon } from '@solar-icons/react/linear/chart-square'
@@ -182,6 +183,11 @@ export function DashboardSearch({
                   title: m.lifecycle_archives(),
                   href: `/dashboard/settings/archives?${context}`,
                   keywords: m.nav_resources(),
+              },
+              {
+                  title: m.help_title(),
+                  href: `/dashboard/settings/help?${context}`,
+                  keywords: m.search_aliases_help(),
               },
               ...(isInstanceAdmin
                   ? [
@@ -662,6 +668,7 @@ function pageIcon(href: string) {
     if (path.endsWith('/tags')) return TagIcon
     if (path.endsWith('/access') || path.endsWith('/people')) return UsersGroupTwoRoundedIcon
     if (path.endsWith('/settings/archives')) return ArchiveIcon
+    if (path.endsWith('/settings/help')) return BookIcon
     if (path.endsWith('/preferences/account')) return UserCircleIcon
     if (path.endsWith('/preferences/api-keys')) return KeyMinimalisticIcon
     if (path === '/dashboard/settings') return ServerIcon

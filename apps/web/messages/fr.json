@@ -2723,5 +2723,22 @@
     "identity_error_url": "Saisissez une adresse HTTP ou HTTPS sans identifiants.",
     "identity_error_network": "Cette adresse est bloquée. Choisissez une adresse publique.",
     "identity_error_remote": "L’image n’a pas pu être chargée. Vérifiez l’adresse ou importez un fichier.",
-    "identity_icon_unavailable": "Aucune icône compatible trouvée. Importez une image ou indiquez son URL."
+    "identity_icon_unavailable": "Aucune icône compatible trouvée. Importez une image ou indiquez son URL.",
+    "help_title": "Aide et communauté",
+    "help_learn_title": "Apprendre Postdot",
+    "help_learn_description": "Guides et actualités, écrits pour celles et ceux qui publient.",
+    "help_docs": "Documentation",
+    "help_docs_description": "Toutes les fonctions de Studio, de l’API, de la CLI et du MCP.",
+    "help_guides": "Votre première publication",
+    "help_guides_description": "D’un canal à un post publié, pas à pas.",
+    "help_releases": "Actualités",
+    "help_releases_description": "Ce qui a changé dans Postdot, et pourquoi.",
+    "help_community_title": "Communauté",
+    "help_community_description": "Postdot est open source. Suivez son avancée ou participez.",
+    "help_source": "Code source",
+    "help_source_description": "Le dépôt de Postdot sur GitHub.",
+    "help_issue": "Signaler un problème",
+    "help_issue_description": "Décrivez ce qui s’est passé ; l’équipe lit chaque signalement.",
+    "preferences_display_title": "Affichage",
+    "search_aliases_help": "aide documentation docs guide communauté github problème bug support"
 }

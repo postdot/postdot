@@ -402,6 +402,25 @@ building it; the current app contract must not silently decide those choices.
   sidebar rows are 36 px with 18 px icons.
 - A selection never reshapes a toolbar: selection actions float at the bottom
   of the viewport, as on the calendar.
+- Settings pages (owner review, 2026-11-15, after Twenty CRM): build them only
+  from `components/settings-layout.tsx`. A page is a stack of sections; a
+  section is a short heading, at most one sentence of consequence, then a card
+  of rows. A row is an icon, a title, a short description and its control on
+  the right, or a chevron (internal) / arrow (external) when it opens
+  something. Long forms open inside the card below their switch or in a
+  dialog. Reference pages: General, System, Help and community.
+- Patterns to hunt (owner review, 2026-11-15). Each is a defect wherever it
+  appears; fix it with the rule above rather than locally:
+  1. Content on a fill indistinguishable from the page, or a hover nobody can see.
+  2. Two tab styles on one page, or segmented controls used to switch content.
+  3. A compact one-line empty state where the whole page or tab is empty.
+  4. A wall of zeros, disclaimers or technical identity where nothing exists yet.
+  5. A toolbar that changes shape when something is selected.
+  6. Badges, prefixes, icon boxes or "Active" labels that state nothing new.
+  7. Rows of outline selects as the only filters, or controls shown with nothing to act on.
+  8. Menus whose items mix icons and no icons; a lone icon button among text buttons.
+  9. Pages of one area with different widths or header positions.
+  10. Places where people cannot tell where they are (shell, scope, settings).
 - Empty states (audit S12, 2026-11-15): one `EmptyState` component, two
   contexts. A page whose content is missing uses the default layout: centred,
   no surface, an illustration when one fits, and an action only when the page

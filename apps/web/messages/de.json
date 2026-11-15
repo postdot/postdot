@@ -2723,5 +2723,22 @@
     "identity_error_url": "Gib eine HTTP- oder HTTPS-Adresse ohne Zugangsdaten ein.",
     "identity_error_network": "Diese Adresse ist gesperrt. Wähle eine öffentliche Adresse.",
     "identity_error_remote": "Das Bild konnte nicht geladen werden. Prüfe die Adresse oder lade eine Datei hoch.",
-    "identity_icon_unavailable": "Kein unterstütztes Symbol gefunden. Lade ein Bild hoch oder gib seine URL ein."
+    "identity_icon_unavailable": "Kein unterstütztes Symbol gefunden. Lade ein Bild hoch oder gib seine URL ein.",
+    "help_title": "Hilfe und Community",
+    "help_learn_title": "Postdot kennenlernen",
+    "help_learn_description": "Anleitungen und Neuigkeiten für alle, die veröffentlichen.",
+    "help_docs": "Dokumentation",
+    "help_docs_description": "Alle Funktionen von Studio, API, CLI und MCP.",
+    "help_guides": "Ihre erste Veröffentlichung",
+    "help_guides_description": "Vom Kanal zum veröffentlichten Beitrag, Schritt für Schritt.",
+    "help_releases": "Neuigkeiten",
+    "help_releases_description": "Was sich in Postdot geändert hat und warum.",
+    "help_community_title": "Community",
+    "help_community_description": "Postdot ist Open Source. Verfolgen Sie die Arbeit oder machen Sie mit.",
+    "help_source": "Quellcode",
+    "help_source_description": "Das Postdot-Repository auf GitHub.",
+    "help_issue": "Problem melden",
+    "help_issue_description": "Beschreiben Sie, was passiert ist; das Team liest jede Meldung.",
+    "preferences_display_title": "Darstellung",
+    "search_aliases_help": "hilfe dokumentation docs anleitung community github problem fehler support"
 }

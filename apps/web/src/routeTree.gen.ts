@@ -26,6 +26,7 @@ import { Route as DashboardProjectsProjectIdRouteImport } from './routes/dashboa
 import { Route as DashboardSettingsIndexRouteImport } from './routes/dashboard/settings/index'
 import { Route as DashboardSettingsAccessRouteImport } from './routes/dashboard/settings/access'
 import { Route as DashboardSettingsArchivesRouteImport } from './routes/dashboard/settings/archives'
+import { Route as DashboardSettingsHelpRouteImport } from './routes/dashboard/settings/help'
 import { Route as DashboardSettingsProviderApplicationsRouteImport } from './routes/dashboard/settings/provider-applications'
 import { Route as DashboardSettingsWorkspaceRouteImport } from './routes/dashboard/settings/workspace'
 import { Route as DashboardWorkspaceChannelsRouteImport } from './routes/dashboard/workspace/channels'
@@ -135,6 +136,11 @@ const DashboardSettingsArchivesRoute =
     path: '/settings/archives',
     getParentRoute: () => DashboardRoute,
   } as any)
+const DashboardSettingsHelpRoute = DashboardSettingsHelpRouteImport.update({
+  id: '/settings/help',
+  path: '/settings/help',
+  getParentRoute: () => DashboardRoute,
+} as any)
 const DashboardSettingsProviderApplicationsRoute =
   DashboardSettingsProviderApplicationsRouteImport.update({
     id: '/settings/provider-applications',
@@ -260,6 +266,7 @@ export interface FileRoutesByFullPath {
   '/dashboard/projects/$projectId': typeof DashboardProjectsProjectIdRouteWithChildren
   '/dashboard/settings/access': typeof DashboardSettingsAccessRoute
   '/dashboard/settings/archives': typeof DashboardSettingsArchivesRoute
+  '/dashboard/settings/help': typeof DashboardSettingsHelpRoute
   '/dashboard/settings/provider-applications': typeof DashboardSettingsProviderApplicationsRoute
   '/dashboard/settings/workspace': typeof DashboardSettingsWorkspaceRouteWithChildren
   '/dashboard/workspace/channels': typeof DashboardWorkspaceChannelsRoute
@@ -296,6 +303,7 @@ export interface FileRoutesByTo {
   '/dashboard/projects/$projectId': typeof DashboardProjectsProjectIdRouteWithChildren
   '/dashboard/settings/access': typeof DashboardSettingsAccessRoute
   '/dashboard/settings/archives': typeof DashboardSettingsArchivesRoute
+  '/dashboard/settings/help': typeof DashboardSettingsHelpRoute
   '/dashboard/settings/provider-applications': typeof DashboardSettingsProviderApplicationsRoute
   '/dashboard/workspace/channels': typeof DashboardWorkspaceChannelsRoute
   '/dashboard/preferences': typeof DashboardPreferencesIndexRoute
@@ -333,6 +341,7 @@ export interface FileRoutesById {
   '/dashboard/projects/$projectId': typeof DashboardProjectsProjectIdRouteWithChildren
   '/dashboard/settings/access': typeof DashboardSettingsAccessRoute
   '/dashboard/settings/archives': typeof DashboardSettingsArchivesRoute
+  '/dashboard/settings/help': typeof DashboardSettingsHelpRoute
   '/dashboard/settings/provider-applications': typeof DashboardSettingsProviderApplicationsRoute
   '/dashboard/settings/workspace': typeof DashboardSettingsWorkspaceRouteWithChildren
   '/dashboard/workspace/channels': typeof DashboardWorkspaceChannelsRoute
@@ -372,6 +381,7 @@ export interface FileRouteTypes {
     | '/dashboard/projects/$projectId'
     | '/dashboard/settings/access'
     | '/dashboard/settings/archives'
+    | '/dashboard/settings/help'
     | '/dashboard/settings/provider-applications'
     | '/dashboard/settings/workspace'
     | '/dashboard/workspace/channels'
@@ -408,6 +418,7 @@ export interface FileRouteTypes {
     | '/dashboard/projects/$projectId'
     | '/dashboard/settings/access'
     | '/dashboard/settings/archives'
+    | '/dashboard/settings/help'
     | '/dashboard/settings/provider-applications'
     | '/dashboard/workspace/channels'
     | '/dashboard/preferences'
@@ -444,6 +455,7 @@ export interface FileRouteTypes {
     | '/dashboard/projects/$projectId'
     | '/dashboard/settings/access'
     | '/dashboard/settings/archives'
+    | '/dashboard/settings/help'
     | '/dashboard/settings/provider-applications'
     | '/dashboard/settings/workspace'
     | '/dashboard/workspace/channels'
@@ -596,6 +608,13 @@ declare module '@tanstack/react-router' {
       path: '/settings/archives'
       fullPath: '/dashboard/settings/archives'
       preLoaderRoute: typeof DashboardSettingsArchivesRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/dashboard/settings/help': {
+      id: '/dashboard/settings/help'
+      path: '/settings/help'
+      fullPath: '/dashboard/settings/help'
+      preLoaderRoute: typeof DashboardSettingsHelpRouteImport
       parentRoute: typeof DashboardRoute
     }
     '/dashboard/settings/provider-applications': {
@@ -813,6 +832,7 @@ interface DashboardRouteChildren {
   DashboardProjectsProjectIdRoute: typeof DashboardProjectsProjectIdRouteWithChildren
   DashboardSettingsAccessRoute: typeof DashboardSettingsAccessRoute
   DashboardSettingsArchivesRoute: typeof DashboardSettingsArchivesRoute
+  DashboardSettingsHelpRoute: typeof DashboardSettingsHelpRoute
   DashboardSettingsProviderApplicationsRoute: typeof DashboardSettingsProviderApplicationsRoute
   DashboardSettingsWorkspaceRoute: typeof DashboardSettingsWorkspaceRouteWithChildren
   DashboardWorkspaceChannelsRoute: typeof DashboardWorkspaceChannelsRoute
@@ -825,6 +845,7 @@ const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardProjectsProjectIdRoute: DashboardProjectsProjectIdRouteWithChildren,
   DashboardSettingsAccessRoute: DashboardSettingsAccessRoute,
   DashboardSettingsArchivesRoute: DashboardSettingsArchivesRoute,
+  DashboardSettingsHelpRoute: DashboardSettingsHelpRoute,
   DashboardSettingsProviderApplicationsRoute:
     DashboardSettingsProviderApplicationsRoute,
   DashboardSettingsWorkspaceRoute: DashboardSettingsWorkspaceRouteWithChildren,

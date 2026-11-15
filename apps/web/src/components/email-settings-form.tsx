@@ -2,9 +2,11 @@ import { Button } from '@postdot/ui/components/button'
 import { Field, FieldLabel } from '@postdot/ui/components/field'
 import { Input } from '@postdot/ui/components/input'
 import { Switch } from '@postdot/ui/components/switch'
+import { LetterIcon } from '@solar-icons/react/linear/letter'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState, type FormEvent } from 'react'
 
+import { SettingsCard, SettingsRow, SettingsSection } from '@/components/settings-layout'
 import { api, type EmailSettings, type EmailSettingsInput } from '@/lib/api'
 import * as m from '@/paraglide/messages.js'
 
@@ -91,115 +93,129 @@ function EmailSettingsFields({
         }
     }
     return (
-        <section
-            className="mt-10 w-full border-t border-border/50 pt-8"
-            aria-labelledby="smtp-title">
-            <h2 id="smtp-title" className="font-heading text-xl font-semibold">
-                {m.smtp_title()}
-            </h2>
-            <p className="mt-2 text-sm text-muted-foreground">{m.smtp_description()}</p>
-            {saved.source === 'deployment' && (
-                <p className="mt-2 text-sm text-muted-foreground">{m.smtp_deployment()}</p>
-            )}
-            <form className="mt-6 space-y-5" onSubmit={event => void save(event)}>
-                <fieldset className="space-y-5" disabled={pending !== null}>
-                    <Field orientation="horizontal">
-                        <Switch
-                            id="smtp-enabled"
-                            checked={form.enabled}
-                            onCheckedChange={enabled => update({ enabled })}
-                        />
-                        <FieldLabel htmlFor="smtp-enabled">{m.smtp_enabled()}</FieldLabel>
-                    </Field>
-                    {form.enabled ? (
-                        <>
-                            <div className="grid gap-4 sm:grid-cols-[1fr_7rem]">
-                                <Field>
-                                    <FieldLabel htmlFor="smtp-host">{m.smtp_host()}</FieldLabel>
-                                    <Input
-                                        id="smtp-host"
-                                        required
-                                        value={form.host}
-                                        onChange={event => update({ host: event.target.value })}
-                                        autoComplete="off"
-                                        placeholder="smtp.example.com"
-                                    />
-                                </Field>
-                                <Field>
-                                    <FieldLabel htmlFor="smtp-port">{m.smtp_port()}</FieldLabel>
-                                    <Input
-                                        id="smtp-port"
-                                        required
-                                        type="number"
-                                        min={1}
-                                        max={65535}
-                                        value={form.port}
-                                        onChange={event =>
-                                            update({ port: Number(event.target.value) })
-                                        }
-                                    />
-                                </Field>
-                            </div>
-                            <Field orientation="horizontal">
+        <SettingsSection
+            description={
+                saved.source === 'deployment'
+                    ? `${m.smtp_description()} ${m.smtp_deployment()}`
+                    : m.smtp_description()
+            }
+            id="smtp-title"
+            title={m.smtp_title()}>
+            <form className="space-y-4" onSubmit={event => void save(event)}>
+                <SettingsCard>
+                    <fieldset disabled={pending !== null}>
+                        <SettingsRow
+                            control={
                                 <Switch
-                                    id="smtp-secure"
-                                    checked={form.secure}
-                                    onCheckedChange={secure => update({ secure })}
+                                    id="smtp-enabled"
+                                    checked={form.enabled}
+                                    onCheckedChange={enabled => update({ enabled })}
                                 />
-                                <FieldLabel htmlFor="smtp-secure">{m.smtp_secure()}</FieldLabel>
-                            </Field>
-                            <p className="text-sm text-muted-foreground">{m.smtp_secure_hint()}</p>
-                            <Field>
-                                <FieldLabel htmlFor="smtp-from">{m.smtp_from()}</FieldLabel>
-                                <Input
-                                    id="smtp-from"
-                                    type="email"
-                                    required
-                                    value={form.from}
-                                    onChange={event => update({ from: event.target.value })}
-                                    autoComplete="off"
-                                />
-                            </Field>
-                            <div className="grid gap-4 sm:grid-cols-2">
+                            }
+                            htmlFor="smtp-enabled"
+                            icon={<LetterIcon />}
+                            title={m.smtp_enabled()}
+                        />
+                        {form.enabled ? (
+                            <div className="space-y-5 border-t border-border p-4">
+                                <div className="grid gap-4 sm:grid-cols-[1fr_7rem]">
+                                    <Field>
+                                        <FieldLabel htmlFor="smtp-host">{m.smtp_host()}</FieldLabel>
+                                        <Input
+                                            id="smtp-host"
+                                            required
+                                            value={form.host}
+                                            onChange={event => update({ host: event.target.value })}
+                                            autoComplete="off"
+                                            placeholder="smtp.example.com"
+                                        />
+                                    </Field>
+                                    <Field>
+                                        <FieldLabel htmlFor="smtp-port">{m.smtp_port()}</FieldLabel>
+                                        <Input
+                                            id="smtp-port"
+                                            required
+                                            type="number"
+                                            min={1}
+                                            max={65535}
+                                            value={form.port}
+                                            onChange={event =>
+                                                update({ port: Number(event.target.value) })
+                                            }
+                                        />
+                                    </Field>
+                                </div>
+                                <Field orientation="horizontal">
+                                    <Switch
+                                        id="smtp-secure"
+                                        checked={form.secure}
+                                        onCheckedChange={secure => update({ secure })}
+                                    />
+                                    <FieldLabel htmlFor="smtp-secure">{m.smtp_secure()}</FieldLabel>
+                                </Field>
+                                <p className="text-sm text-muted-foreground">
+                                    {m.smtp_secure_hint()}
+                                </p>
                                 <Field>
-                                    <FieldLabel htmlFor="smtp-user">{m.smtp_username()}</FieldLabel>
+                                    <FieldLabel htmlFor="smtp-from">{m.smtp_from()}</FieldLabel>
                                     <Input
-                                        id="smtp-user"
-                                        value={form.username}
-                                        onChange={event => update({ username: event.target.value })}
+                                        id="smtp-from"
+                                        type="email"
+                                        required
+                                        value={form.from}
+                                        onChange={event => update({ from: event.target.value })}
                                         autoComplete="off"
                                     />
                                 </Field>
-                                <Field>
-                                    <FieldLabel htmlFor="smtp-password">
-                                        {m.smtp_password()}
-                                    </FieldLabel>
-                                    <Input
-                                        id="smtp-password"
-                                        type="password"
-                                        value={form.password ?? ''}
-                                        onChange={event =>
-                                            update({ password: event.target.value || undefined })
-                                        }
-                                        autoComplete="new-password"
-                                        placeholder={
-                                            saved.hasPassword ? m.smtp_password_saved() : undefined
-                                        }
-                                    />
-                                </Field>
+                                <div className="grid gap-4 sm:grid-cols-2">
+                                    <Field>
+                                        <FieldLabel htmlFor="smtp-user">
+                                            {m.smtp_username()}
+                                        </FieldLabel>
+                                        <Input
+                                            id="smtp-user"
+                                            value={form.username}
+                                            onChange={event =>
+                                                update({ username: event.target.value })
+                                            }
+                                            autoComplete="off"
+                                        />
+                                    </Field>
+                                    <Field>
+                                        <FieldLabel htmlFor="smtp-password">
+                                            {m.smtp_password()}
+                                        </FieldLabel>
+                                        <Input
+                                            id="smtp-password"
+                                            type="password"
+                                            value={form.password ?? ''}
+                                            onChange={event =>
+                                                update({
+                                                    password: event.target.value || undefined,
+                                                })
+                                            }
+                                            autoComplete="new-password"
+                                            placeholder={
+                                                saved.hasPassword
+                                                    ? m.smtp_password_saved()
+                                                    : undefined
+                                            }
+                                        />
+                                    </Field>
+                                </div>
+                                {saved.hasPassword && (
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => update({ password: null, username: '' })}>
+                                        {m.smtp_clear_password()}
+                                    </Button>
+                                )}
                             </div>
-                            {saved.hasPassword && (
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => update({ password: null, username: '' })}>
-                                    {m.smtp_clear_password()}
-                                </Button>
-                            )}
-                        </>
-                    ) : null}
-                </fieldset>
+                        ) : null}
+                    </fieldset>
+                </SettingsCard>
                 {form.enabled ? (
                     <p className="text-sm text-muted-foreground">{m.smtp_save_hint()}</p>
                 ) : null}
@@ -229,6 +245,6 @@ function EmailSettingsFields({
                     </div>
                 ) : null}
             </form>
-        </section>
+        </SettingsSection>
     )
 }

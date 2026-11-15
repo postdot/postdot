@@ -217,6 +217,8 @@ const BANNED_PATTERNS_BY_LOCALE: Record<string, readonly string[]> = {
  * term is legitimate under ADR-103 §1. Every entry requires a non-empty reason.
  */
 export const VOCABULARY_ALLOWLIST = new Map<string, string>([
+    ['help_source', 'Help page names the open source code repository, not a post'],
+    ['help_community_description', 'Help page says Postdot is open source software'],
     ['account_profile', 'Account settings section legitimately names the user profile'],
     ['account_saved', 'Account settings confirmation legitimately refers to the user profile'],
     [

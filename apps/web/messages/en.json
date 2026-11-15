@@ -2723,5 +2723,22 @@
     "identity_error_url": "Enter an HTTP or HTTPS address without credentials.",
     "identity_error_network": "This address is blocked. Choose a public website or image address.",
     "identity_error_remote": "The image could not be loaded. Check the address or upload a file.",
-    "identity_icon_unavailable": "No supported icon was found. Upload an image or choose an image URL."
+    "identity_icon_unavailable": "No supported icon was found. Upload an image or choose an image URL.",
+    "help_title": "Help and community",
+    "help_learn_title": "Learn Postdot",
+    "help_learn_description": "Guides and news, written for people who publish.",
+    "help_docs": "Documentation",
+    "help_docs_description": "Every feature of Studio, the API, the CLI and MCP.",
+    "help_guides": "Your first publication",
+    "help_guides_description": "From a channel to a published post, step by step.",
+    "help_releases": "News",
+    "help_releases_description": "What changed in Postdot, and why.",
+    "help_community_title": "Community",
+    "help_community_description": "Postdot is open source. Follow its work or take part.",
+    "help_source": "Source code",
+    "help_source_description": "The Postdot repository on GitHub.",
+    "help_issue": "Report a problem",
+    "help_issue_description": "Describe what happened; the team reads every report.",
+    "preferences_display_title": "Display",
+    "search_aliases_help": "help documentation docs guide community github issue bug support"
 }
