@@ -543,7 +543,7 @@ export function PublicationPerformancePage({
                             description={
                                 hasActiveTagFilter
                                     ? m.performance_tag_filter_no_matches_description()
-                                    : undefined
+                                    : m.performance_never_published_description()
                             }
                             illustration="data"
                             title={

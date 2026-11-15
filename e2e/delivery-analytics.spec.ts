@@ -99,20 +99,18 @@ test('reports real manual outcomes, filters periods and destinations, and preser
         'aria-pressed',
         'true'
     )
-    await dashboard.getByRole('combobox', { name: 'Delivery period', exact: true }).click()
-    await page.getByRole('option', { name: 'Last 7 days', exact: true }).click()
+    await dashboard.locator('[data-delivery-period="true"]').click()
+    await page.getByRole('menuitemradio', { name: 'Last 7 days', exact: true }).click()
     await expect(page).toHaveURL(/days=7/)
     await expect(dashboard.locator('[data-delivery-counter="published"]')).toHaveText('2')
-    await dashboard.getByRole('combobox', { name: 'Channel', exact: true }).click()
-    await page.getByRole('option', { name: 'Manual desk', exact: true }).click()
+    await dashboard.locator('[data-filter-menu="true"]').click()
+    await page.getByRole('menuitemradio', { name: 'Manual desk', exact: true }).click()
     await expect(dashboard.locator('[data-delivery-counter="published"]')).toHaveText('1')
     await expect(page).toHaveURL(new RegExp(`deliveryChannel=${channels[0]!.id}`))
     await page.reload()
     await page.getByRole('tab', { name: 'Publishing', exact: true }).click()
     await expect(dashboard.locator('[data-delivery-counter="published"]')).toHaveText('1')
-    await expect(dashboard.getByRole('combobox', { name: 'Delivery period' })).toContainText(
-        'Last 7 days'
-    )
+    await expect(dashboard.locator('[data-delivery-period="true"]')).toContainText('Last 7 days')
     await page.screenshot({ path: info.outputPath('delivery-desktop.png'), fullPage: true })
     await page.setViewportSize({ width: 390, height: 844 })
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
@@ -123,8 +121,8 @@ test('reports real manual outcomes, filters periods and destinations, and preser
         path: info.outputPath('delivery-mobile-destinations.png'),
         fullPage: true,
     })
-    await dashboard.getByRole('combobox', { name: 'Delivery period', exact: true }).click()
-    await page.getByRole('option', { name: 'Last 90 days', exact: true }).click()
+    await dashboard.locator('[data-delivery-period="true"]').click()
+    await page.getByRole('menuitemradio', { name: 'Last 90 days', exact: true }).click()
     await expect(page).toHaveURL(/days=90/)
     await expect.poll(() => dashboard.locator('[data-delivery-day]').count()).toBeGreaterThan(80)
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
@@ -160,8 +158,8 @@ test('shows an empty delivery period and keeps comparison failures separate from
     await expect(
         dashboard.getByText('Nothing was published in this period', { exact: true })
     ).toBeVisible()
-    await expect(dashboard.getByRole('combobox', { name: 'Delivery period' })).toHaveCount(0)
-    await expect(dashboard.getByRole('combobox', { name: 'Channel', exact: true })).toHaveCount(0)
+    await expect(dashboard.locator('[data-delivery-period="true"]')).toHaveCount(0)
+    await expect(dashboard.locator('[data-filter-menu="true"]')).toHaveCount(0)
     await expect(dashboard.locator('[data-delivery-counters]')).toHaveCount(0)
     await expect(dashboard.getByText('Comparison unavailable', { exact: true })).toHaveCount(0)
     await expect(page.getByRole('button', { name: 'Export CSV', exact: true })).toHaveCount(0)
@@ -170,7 +168,10 @@ test('shows an empty delivery period and keeps comparison failures separate from
 test('warns about incomplete history and suppresses misleading period changes', async ({
     page,
 }) => {
-    const { base, project } = await setup(page)
+    // Incompleteness is reported once something was published; an empty
+    // project only learns when results will appear (DESIGN.md pattern 4).
+    const { base, project, channels } = await setup(page)
+    await publishManually(page, base, channels[0]!.id)
     await page.route(`**${base}/analytics?*`, async route => {
         const response = await route.fetch()
         const report = await response.json()
@@ -200,8 +201,8 @@ test('keeps publishing filters available when a channel has no results', async (
     await expect(
         dashboard.getByText('Nothing was published in this period', { exact: true })
     ).toBeVisible()
-    await expect(dashboard.getByRole('combobox', { name: 'Delivery period' })).toBeVisible()
-    await expect(dashboard.getByRole('combobox', { name: 'Channel', exact: true })).toBeVisible()
+    await expect(dashboard.locator('[data-delivery-period="true"]')).toBeVisible()
+    await expect(dashboard.locator('[data-filter-menu="true"]')).toBeVisible()
     await expect(dashboard.locator('[data-delivery-counters]')).toHaveCount(0)
 })
 
@@ -250,8 +251,8 @@ test('hides destination filter for a single channel, adapts non-zero counters, a
     await page.goto(`/dashboard/projects/${project.id}/performance`)
     await page.getByRole('tab', { name: 'Publishing', exact: true }).click()
     const dashboard = page.locator('[data-delivery-dashboard]')
-    await expect(dashboard.getByRole('combobox', { name: 'Delivery period' })).toBeVisible()
-    await expect(dashboard.getByRole('combobox', { name: 'Channel', exact: true })).toHaveCount(0)
+    await expect(dashboard.locator('[data-delivery-period="true"]')).toBeVisible()
+    await expect(dashboard.locator('[data-filter-menu="true"]')).toHaveCount(0)
     await expect(dashboard.locator('[data-delivery-counter="published"]')).toHaveText('0')
     await expect(dashboard.locator('[data-delivery-counter="failed"]')).toHaveText('2')
     await expect(dashboard.locator('[data-delivery-counter="retries"]')).toHaveText('1')

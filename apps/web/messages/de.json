@@ -2501,7 +2501,6 @@
     "delivery_retries": "Geplante Wiederholungen",
     "delivery_range": "{from} bis {to}",
     "delivery_comparison": "{difference} gegenüber dem vorherigen Zeitraum",
-    "delivery_comparison_unavailable": "Vergleich nicht verfügbar",
     "delivery_incomplete": "Einige gespeicherte Ereignisse konnten nicht ausgewertet werden. Summen können unvollständig sein; Vergleiche sind nicht verfügbar.",
     "delivery_daily": "Veröffentlichungen pro Tag",
     "delivery_day_label": "{date}: {published} veröffentlicht, {failed} fehlgeschlagen, {ambiguous} unbestätigt",
@@ -2733,5 +2732,6 @@
     "filter_remove": "Filter {name} entfernen",
     "filter_clear_all": "Filter zurücksetzen",
     "sort_label": "Sortieren nach",
-    "sort_menu_label": "Sortierung: {order}"
+    "sort_menu_label": "Sortierung: {order}",
+    "performance_never_published_description": "Likes, Reposts und Antworten erscheinen hier, sobald ein Post auf Bluesky, DEV.to oder Mastodon veröffentlicht ist."
 }

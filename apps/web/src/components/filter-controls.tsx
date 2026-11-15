@@ -177,30 +177,45 @@ export interface SortOption {
     readonly value: string
 }
 
-/** One sort menu; its button names the order in force. */
-export function SortMenu({
+/**
+ * One choice that shapes the whole list without filtering it out (an order, a
+ * period): a quiet button naming the choice in force, and a menu of the others.
+ */
+export function ChoiceMenu({
+    ariaLabel,
+    detail,
+    heading,
+    icon,
     onChange,
     options,
     value,
+    ...rest
 }: {
+    readonly ariaLabel: string
+    /** A short qualifier after the label, such as a time zone. */
+    readonly detail?: ReactNode
+    readonly heading: string
+    readonly icon: ReactNode
     readonly onChange: (value: string) => void
     readonly options: readonly SortOption[]
     readonly value: string
+    readonly [data: `data-${string}`]: string
 }) {
     if (options.length < 2) return null
     const current = options.find(option => option.value === value) ?? options[0]
     return (
         <DropdownMenu>
             <DropdownMenuTrigger
-                aria-label={m.sort_menu_label({ order: current?.label ?? '' })}
-                data-sort-menu="true"
-                render={<Button size="sm" variant="ghost" />}>
-                <SortVerticalIcon aria-hidden="true" />
+                aria-label={ariaLabel}
+                render={<Button size="sm" variant="ghost" />}
+                {...rest}>
+                {icon}
                 {current?.label}
+                {detail ? <span className="text-xs text-muted-foreground">{detail}</span> : null}
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
                 <DropdownMenuGroup>
-                    <DropdownMenuLabel>{m.sort_label()}</DropdownMenuLabel>
+                    <DropdownMenuLabel>{heading}</DropdownMenuLabel>
                     <DropdownMenuRadioGroup
                         onValueChange={next => onChange(String(next))}
                         value={value}>
@@ -216,5 +231,29 @@ export function SortMenu({
                 </DropdownMenuGroup>
             </DropdownMenuContent>
         </DropdownMenu>
+    )
+}
+
+/** One sort menu; its button names the order in force. */
+export function SortMenu({
+    onChange,
+    options,
+    value,
+}: {
+    readonly onChange: (value: string) => void
+    readonly options: readonly SortOption[]
+    readonly value: string
+}) {
+    const current = options.find(option => option.value === value) ?? options[0]
+    return (
+        <ChoiceMenu
+            ariaLabel={m.sort_menu_label({ order: current?.label ?? '' })}
+            data-sort-menu="true"
+            heading={m.sort_label()}
+            icon={<SortVerticalIcon aria-hidden="true" />}
+            onChange={onChange}
+            options={options}
+            value={value}
+        />
     )
 }

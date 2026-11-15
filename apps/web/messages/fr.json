@@ -2501,7 +2501,6 @@
     "delivery_retries": "Nouvelles tentatives",
     "delivery_range": "Du {from} au {to}",
     "delivery_comparison": "{difference} par rapport à la période précédente",
-    "delivery_comparison_unavailable": "Comparaison indisponible",
     "delivery_incomplete": "Certains événements enregistrés n’ont pas pu être interprétés. Les totaux peuvent être incomplets ; les comparaisons sont indisponibles.",
     "delivery_daily": "Publications par jour",
     "delivery_day_label": "{date} : {published} publiées, {failed} en échec, {ambiguous} non confirmées",
@@ -2733,5 +2732,6 @@
     "filter_remove": "Retirer le filtre {name}",
     "filter_clear_all": "Effacer les filtres",
     "sort_label": "Trier par",
-    "sort_menu_label": "Tri : {order}"
+    "sort_menu_label": "Tri : {order}",
+    "performance_never_published_description": "Les mentions J'aime, partages et réponses apparaissent ici dès qu'un post est publié sur Bluesky, DEV.to ou Mastodon."
 }

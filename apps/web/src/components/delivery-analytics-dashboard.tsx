@@ -1,15 +1,15 @@
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@postdot/ui/components/select'
+import { CalendarIcon } from '@solar-icons/react/linear/calendar'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { useMemo, useRef, useState } from 'react'
 
 import { EmptyState } from '@/components/empty-state'
+import {
+    ActiveFilters,
+    ChoiceMenu,
+    type FilterGroup,
+    FilterMenu,
+} from '@/components/filter-controls'
 import { QueryErrorState } from '@/components/query-error-state'
 import { api } from '@/lib/api'
 import { useProjectDashboard } from '@/lib/dashboard-context'
@@ -108,6 +108,31 @@ export function DeliveryAnalyticsDashboard({
               : visibleCounterKeys.length === 3
                 ? 'grid-cols-1 sm:grid-cols-3 [&>div:nth-child(n+2)]:border-t sm:[&>div:nth-child(n+2)]:border-t-0 sm:[&>div:nth-child(n+2)]:border-l'
                 : 'grid-cols-2 lg:grid-cols-4 [&>div:nth-child(n+2)]:lg:border-l [&>div:nth-child(2n)]:border-l [&>div:nth-child(n+3)]:border-t [&>div:nth-child(n+3)]:lg:border-t-0'
+    const destinationFilter: FilterGroup[] = [
+        {
+            anyValue: 'all',
+            id: 'destination',
+            label: m.delivery_destination(),
+            onChange: values => {
+                setSelectedDate(null)
+                const value = values[0]
+                void navigate({
+                    search: current => ({
+                        ...current,
+                        deliveryChannel: value === undefined || value === 'all' ? undefined : value,
+                    }),
+                })
+            },
+            options: [
+                { label: m.delivery_all_destinations(), value: 'all' },
+                ...(channelId && !channels.some(channel => channel.id === channelId)
+                    ? [{ label: m.delivery_retired_destination(), value: channelId }]
+                    : []),
+                ...channels.map(channel => ({ label: channel.name, value: channel.id })),
+            ],
+            selected: [channelId ?? 'all'],
+        },
+    ]
     const hasDailyBars = daily.some(day => day.published || day.failed || day.ambiguous)
     return (
         <section
@@ -115,14 +140,22 @@ export function DeliveryAnalyticsDashboard({
             data-delivery-dashboard
             className="mt-6 min-w-0 space-y-4">
             <div className="flex flex-wrap items-end justify-between gap-3">
-                <h2 id="delivery-analytics-heading" className="text-lg font-semibold">
+                {/* With nothing to report the tab name already says it; the heading stays for readers. */}
+                <h2
+                    id="delivery-analytics-heading"
+                    className={showControls ? 'text-lg font-semibold' : 'sr-only'}>
                     {m.delivery_results_heading()}
                 </h2>
                 {showControls ? (
-                    <div className="flex max-w-full flex-wrap items-center gap-2 sm:flex-nowrap">
-                        <Select
-                            value={String(days)}
-                            onValueChange={value => {
+                    <div className="flex max-w-full flex-wrap items-center gap-1">
+                        {/* A period is not a filter: it keeps its own control (DESIGN.md "Filters"). */}
+                        <ChoiceMenu
+                            ariaLabel={m.delivery_period()}
+                            data-delivery-period="true"
+                            detail={project.timeZone}
+                            heading={m.delivery_period()}
+                            icon={<CalendarIcon aria-hidden="true" />}
+                            onChange={value => {
                                 setSelectedDate(null)
                                 void navigate({
                                     search: current => ({
@@ -130,65 +163,22 @@ export function DeliveryAnalyticsDashboard({
                                         days: Number(value) as DeliveryAnalyticsPeriod,
                                     }),
                                 })
-                            }}>
-                            <SelectTrigger aria-label={m.delivery_period()} className="w-auto">
-                                <SelectValue>{m.delivery_period_days({ days })}</SelectValue>
-                                <span className="text-xs text-muted-foreground">
-                                    {project.timeZone}
-                                </span>
-                            </SelectTrigger>
-                            <SelectContent>
-                                {deliveryAnalyticsPeriods.map(period => (
-                                    <SelectItem key={period} value={String(period)}>
-                                        {m.delivery_period_days({ days: period })}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                        {showDestinationSelect ? (
-                            <Select
-                                value={channelId ?? 'all'}
-                                onValueChange={value => {
-                                    setSelectedDate(null)
-                                    void navigate({
-                                        search: current => ({
-                                            ...current,
-                                            deliveryChannel:
-                                                value === 'all' ? undefined : (value ?? undefined),
-                                        }),
-                                    })
-                                }}>
-                                <SelectTrigger
-                                    aria-label={m.delivery_destination()}
-                                    className="w-48 min-w-0 max-w-full">
-                                    <SelectValue>
-                                        {channelId
-                                            ? (channels.find(channel => channel.id === channelId)
-                                                  ?.name ?? m.delivery_retired_destination())
-                                            : m.delivery_all_destinations()}
-                                    </SelectValue>
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">
-                                        {m.delivery_all_destinations()}
-                                    </SelectItem>
-                                    {channelId &&
-                                    !channels.some(channel => channel.id === channelId) ? (
-                                        <SelectItem value={channelId}>
-                                            {m.delivery_retired_destination()}
-                                        </SelectItem>
-                                    ) : null}
-                                    {channels.map(channel => (
-                                        <SelectItem key={channel.id} value={channel.id}>
-                                            {channel.name}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        ) : null}
+                            }}
+                            options={deliveryAnalyticsPeriods.map(period => ({
+                                label: m.delivery_period_days({ days: period }),
+                                value: String(period),
+                            }))}
+                            value={String(days)}
+                        />
+                        {showDestinationSelect ? <FilterMenu groups={destinationFilter} /> : null}
                     </div>
                 ) : null}
             </div>
+            {showControls ? (
+                <div className="empty:hidden">
+                    <ActiveFilters groups={destinationFilter} />
+                </div>
+            ) : null}
             {query.isError ? <QueryErrorState onRetry={() => void query.refetch()} /> : null}
             {!report && query.isPending ? (
                 <p role="status" className="py-6 text-sm text-muted-foreground">
@@ -199,10 +189,11 @@ export function DeliveryAnalyticsDashboard({
                 <EmptyState
                     className="mt-2"
                     description={
-                        incomplete
-                            ? m.delivery_incomplete()
-                            : neverPublished
-                              ? m.delivery_empty_description()
+                        // Nothing exists yet: say when results come, not what the log lacks (pattern 4).
+                        neverPublished
+                            ? m.delivery_empty_description()
+                            : incomplete
+                              ? m.delivery_incomplete()
                               : null
                     }
                     illustration="data"
@@ -236,21 +227,18 @@ export function DeliveryAnalyticsDashboard({
                                     data-delivery-counter={key}>
                                     {formatNumber(counters[key], locale)}
                                 </dd>
-                                <dd className="mt-1 text-xs text-muted-foreground">
-                                    {counters[key] === 0
-                                        ? null
-                                        : comparisonAvailable && previousCounters
-                                          ? m.delivery_comparison({
-                                                difference: formatNumber(
-                                                    counters[key] - previousCounters[key],
-                                                    locale,
-                                                    { signDisplay: 'exceptZero' }
-                                                ),
-                                            })
-                                          : comparisonQuery.isPending && !incomplete
-                                            ? m.common_loading()
-                                            : m.delivery_comparison_unavailable()}
-                                </dd>
+                                {/* A comparison shows only when one exists (pattern 4). */}
+                                {counters[key] !== 0 && comparisonAvailable && previousCounters ? (
+                                    <dd className="mt-1 text-xs text-muted-foreground">
+                                        {m.delivery_comparison({
+                                            difference: formatNumber(
+                                                counters[key] - previousCounters[key],
+                                                locale,
+                                                { signDisplay: 'exceptZero' }
+                                            ),
+                                        })}
+                                    </dd>
+                                ) : null}
                             </div>
                         ))}
                     </dl>

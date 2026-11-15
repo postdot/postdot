@@ -2501,7 +2501,6 @@
     "delivery_retries": "Retries scheduled",
     "delivery_range": "{from} – {to}",
     "delivery_comparison": "{difference} vs previous period",
-    "delivery_comparison_unavailable": "Comparison unavailable",
     "delivery_incomplete": "Some recorded events could not be interpreted. Totals may be incomplete; comparisons are unavailable.",
     "delivery_daily": "Published per day",
     "delivery_day_label": "{date}: {published} published, {failed} failed, {ambiguous} unconfirmed",
@@ -2733,5 +2732,6 @@
     "filter_remove": "Remove filter {name}",
     "filter_clear_all": "Clear filters",
     "sort_label": "Sort by",
-    "sort_menu_label": "Sort: {order}"
+    "sort_menu_label": "Sort: {order}",
+    "performance_never_published_description": "Likes, reposts and replies appear here once a post goes out on Bluesky, DEV.to or Mastodon."
 }
