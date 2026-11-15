@@ -325,19 +325,38 @@ export function PublicationCalendarPage({
                             <section aria-labelledby="calendar-title" className="mt-7 min-w-0">
                                 <PublicationCalendar
                                     filterControl={
-                                        <PublicationCalendarFilter
-                                            channels={channels}
-                                            states={[
-                                                ...new Set(
-                                                    calendarPublications.map(p =>
-                                                        calendarFilterState(p, dueIds)
-                                                    )
-                                                ),
-                                            ]}
-                                            channelIds={filterChannels}
-                                            selectedStates={filterStates}
-                                            onChange={changeFilters}
-                                        />
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            <PublicationCalendarFilter
+                                                channels={channels}
+                                                states={[
+                                                    ...new Set(
+                                                        calendarPublications.map(p =>
+                                                            calendarFilterState(p, dueIds)
+                                                        )
+                                                    ),
+                                                ]}
+                                                channelIds={filterChannels}
+                                                selectedStates={filterStates}
+                                                onChange={changeFilters}
+                                            />
+                                            {hiddenCount > 0 ||
+                                            filterChannels.length > 0 ||
+                                            filterStates.length > 0 ? (
+                                                <p className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
+                                                    {hiddenCount > 0
+                                                        ? m.calendar_filter_hidden({
+                                                              count: hiddenCount,
+                                                          })
+                                                        : null}{' '}
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() => changeFilters([], [])}>
+                                                        {m.calendar_filter_clear()}
+                                                    </Button>
+                                                </p>
+                                            ) : null}
+                                        </div>
                                     }
                                     channels={channels}
                                     occupancy={occupancy.filter(
@@ -360,21 +379,6 @@ export function PublicationCalendarPage({
                                     selectedPublicationIds={selectedPublicationIds}
                                     timeZone={project.timeZone}
                                 />
-                                {hiddenCount > 0 ||
-                                filterChannels.length > 0 ||
-                                filterStates.length > 0 ? (
-                                    <p className="mt-3 text-xs text-muted-foreground">
-                                        {hiddenCount > 0
-                                            ? m.calendar_filter_hidden({ count: hiddenCount })
-                                            : null}{' '}
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={() => changeFilters([], [])}>
-                                            {m.calendar_filter_clear()}
-                                        </Button>
-                                    </p>
-                                ) : null}
                                 {occupancy.length > 0 ? (
                                     <p className="mt-3 text-xs text-muted-foreground">
                                         {m.calendar_occupied_note()}

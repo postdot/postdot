@@ -49,6 +49,9 @@ export function PublicationCalendarFilter({
         <DropdownMenu>
             <DropdownMenuTrigger render={<Button size="sm" variant="ghost" />}>
                 {m.calendar_filter()}
+                {channelIds.length + selectedStates.length > 0
+                    ? ` · ${channelIds.length + selectedStates.length}`
+                    : null}
             </DropdownMenuTrigger>
             <DropdownMenuContent className="max-h-80 w-64 max-w-[calc(100vw-2rem)] overflow-y-auto">
                 {channels.length > 1 ? (

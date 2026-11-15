@@ -6,7 +6,6 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@postdot/ui/components/dialog'
-import { Field, FieldLabel } from '@postdot/ui/components/field'
 import { Input } from '@postdot/ui/components/input'
 import {
     Select,
@@ -18,7 +17,12 @@ import {
 import { useState } from 'react'
 
 import type { PublicationSummary } from '@/lib/api'
-import { formatProjectDateTime } from '@/lib/date-time'
+import {
+    dateTimeLocalErrorMessage,
+    getBrowserTimeZone,
+    moveProjectSchedule,
+    formatProjectDateTime,
+} from '@/lib/date-time'
 import { useLanguage } from '@/lib/i18n'
 import * as m from '@/paraglide/messages.js'
 
@@ -42,16 +46,34 @@ export function PublicationBulkMoveDialog({
     const [unit, setUnit] = useState('24')
     const [direction, setDirection] = useState('1')
     const [expired, setExpired] = useState(false)
-    const offset = Number(amount) * Number(unit) * Number(direction) * 3_600_000
+    const results = publications.map(
+        p =>
+            [
+                p.id,
+                p.scheduledAt === null
+                    ? null
+                    : moveProjectSchedule(
+                          p.scheduledAt,
+                          Number(amount) * Number(direction),
+                          unit,
+                          timeZone
+                      ),
+            ] as const
+    )
+    const error = results.find(([, at]) => typeof at === 'string')?.[1]
     const valid =
-        Number.isSafeInteger(offset) &&
         Number.isSafeInteger(Number(amount)) &&
         Number(amount) > 0 &&
         publications.length > 0 &&
-        publications.every(
-            p => p.scheduledAt !== null && Math.abs(p.scheduledAt + offset) <= 8_640_000_000_000_000
+        results.every(
+            ([, at]) =>
+                typeof at === 'number' &&
+                Number.isFinite(at) &&
+                Math.abs(at) <= 8_640_000_000_000_000
         )
-    const times = Object.fromEntries(publications.map(p => [p.id, (p.scheduledAt ?? 0) + offset]))
+    const times = Object.fromEntries(
+        results.map(([id, at]) => [id, typeof at === 'number' ? at : 0])
+    )
     const values = Object.values(times)
     const blocked = valid ? publications.filter(p => times[p.id]! <= Date.now()) : []
     return (
@@ -61,10 +83,12 @@ export function PublicationBulkMoveDialog({
                     <DialogTitle>{m.calendar_move_by()}</DialogTitle>
                 </DialogHeader>
                 <div className="min-h-0 space-y-4 overflow-y-auto">
-                    <Field>
-                        <FieldLabel htmlFor="move-amount">{m.calendar_move_amount()}</FieldLabel>
+                    <div className="flex flex-wrap items-center gap-2">
+                        <span>{m.calendar_move_action()}</span>
                         <Input
                             id="move-amount"
+                            aria-label={m.calendar_move_amount()}
+                            className="w-16"
                             type="number"
                             min="1"
                             step="1"
@@ -75,15 +99,17 @@ export function PublicationBulkMoveDialog({
                             }}
                             disabled={pending}
                         />
-                    </Field>
-                    <Field>
-                        <FieldLabel htmlFor="move-unit">{m.calendar_move_unit()}</FieldLabel>
+
                         <Select
                             value={unit}
                             onValueChange={v => {
                                 if (v) setUnit(v)
                             }}>
-                            <SelectTrigger id="move-unit" disabled={pending}>
+                            <SelectTrigger
+                                id="move-unit"
+                                aria-label={m.calendar_move_unit()}
+                                className="w-auto"
+                                disabled={pending}>
                                 <SelectValue>
                                     {unit === '1'
                                         ? m.calendar_move_hours()
@@ -104,17 +130,17 @@ export function PublicationBulkMoveDialog({
                                 ))}
                             </SelectContent>
                         </Select>
-                    </Field>
-                    <Field>
-                        <FieldLabel htmlFor="move-direction">
-                            {m.calendar_move_direction()}
-                        </FieldLabel>
+
                         <Select
                             value={direction}
                             onValueChange={v => {
                                 if (v) setDirection(v)
                             }}>
-                            <SelectTrigger id="move-direction" disabled={pending}>
+                            <SelectTrigger
+                                id="move-direction"
+                                aria-label={m.calendar_move_direction()}
+                                className="w-auto"
+                                disabled={pending}>
                                 <SelectValue>
                                     {direction === '1'
                                         ? m.calendar_move_forward()
@@ -126,14 +152,21 @@ export function PublicationBulkMoveDialog({
                                 <SelectItem value="-1">{m.calendar_move_back()}</SelectItem>
                             </SelectContent>
                         </Select>
-                    </Field>
+                    </div>
+                    {typeof error === 'string' ? (
+                        <p role="alert" className="text-sm text-destructive">
+                            {dateTimeLocalErrorMessage(error)}
+                        </p>
+                    ) : null}
                     {valid ? (
                         <p className="text-sm text-muted-foreground" data-move-preview="true">
-                            {m.calendar_move_range({
-                                first: formatProjectDateTime(Math.min(...values), timeZone, locale),
-                                last: formatProjectDateTime(Math.max(...values), timeZone, locale),
-                            })}{' '}
-                            · {timeZone}
+                            {formatProjectDateTime(
+                                Math.min(...publications.map(p => p.scheduledAt!)),
+                                timeZone,
+                                locale
+                            )}{' '}
+                            → {formatProjectDateTime(Math.max(...values), timeZone, locale)}{' '}
+                            {timeZone !== getBrowserTimeZone() ? `· ${timeZone}` : null}
                         </p>
                     ) : null}
                     {blocked.length > 0 || expired ? (
@@ -162,7 +195,9 @@ export function PublicationBulkMoveDialog({
                                 if (ok) onOpenChange(false)
                             })
                         }}>
-                        {m.queue_reschedule_submit()}
+                        {publications.length === 1
+                            ? m.calendar_move_submit_one()
+                            : m.calendar_move_submit_many({ count: publications.length })}
                     </Button>
                 </DialogFooter>
             </DialogContent>

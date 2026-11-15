@@ -2,6 +2,7 @@ import { describe, expect, it } from 'bun:test'
 
 import {
     detectDefaultProjectTimeZone,
+    moveProjectSchedule,
     formatCivilSchedule,
     formatProjectDateTime,
     listSupportedProjectTimeZones,
@@ -80,5 +81,29 @@ describe('civil schedule display', () => {
         for (const value of ['', 'broken', '2026-02-30T12:00', '2026-10-04T12:00Z']) {
             expect(formatCivilSchedule(value, 'en')).toBe('')
         }
+    })
+})
+
+describe('moving project schedules', () => {
+    it('keeps 09:00 across spring and autumn DST changes for days and weeks', () => {
+        for (const [from, to, hours] of [
+            ['2027-03-27T09:00', '2027-03-28T09:00', 23],
+            ['2027-10-30T09:00', '2027-10-31T09:00', 25],
+        ] as const) {
+            const start = parseDateTimeLocal(from, 'Europe/Paris') as number
+            const end = parseDateTimeLocal(to, 'Europe/Paris') as number
+            expect(moveProjectSchedule(start, 1, '24', 'Europe/Paris')).toBe(end)
+            expect(end - start).toBe(hours * 3_600_000)
+            expect(moveProjectSchedule(end, -1, '24', 'Europe/Paris')).toBe(start)
+            expect(moveProjectSchedule(start, 24, '1', 'Europe/Paris')).toBe(start + 86_400_000)
+            const week = moveProjectSchedule(start, 1, '168', 'Europe/Paris') as number
+            expect(toDateTimeLocal(week, 'Europe/Paris').slice(-5)).toBe('09:00')
+        }
+    })
+    it('rejects nonexistent and ambiguous destination times', () => {
+        const spring = parseDateTimeLocal('2027-03-27T02:30', 'Europe/Paris') as number
+        const autumn = parseDateTimeLocal('2027-10-30T02:30', 'Europe/Paris') as number
+        expect(moveProjectSchedule(spring, 1, '24', 'Europe/Paris')).toBe('nonexistent')
+        expect(moveProjectSchedule(autumn, 1, '24', 'Europe/Paris')).toBe('ambiguous')
     })
 })

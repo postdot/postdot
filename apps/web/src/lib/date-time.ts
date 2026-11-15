@@ -258,3 +258,18 @@ export function formatCivilSchedule(value: string, locale: string): string {
         timeZone: 'UTC',
     }).format(date)
 }
+
+// Calendar days preserve civil time; the existing parser rejects DST gaps and overlaps.
+export function moveProjectSchedule(
+    timestamp: number,
+    amount: number,
+    unit: string,
+    timeZone: string
+): DateTimeLocalResult {
+    if (unit === '1') return timestamp + amount * 3_600_000
+    const parts = getZonedDateTimeParts(timestamp, timeZone)
+    const civil = new Date(toUtcTimestamp(parts))
+    civil.setUTCDate(civil.getUTCDate() + amount * (unit === '168' ? 7 : 1))
+    const result = parseDateTimeLocal(toDateTimeLocal(civil.getTime(), 'UTC'), timeZone)
+    return typeof result === 'number' ? result + (((timestamp % 60_000) + 60_000) % 60_000) : result
+}

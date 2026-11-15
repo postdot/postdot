@@ -2675,13 +2675,15 @@
     "calendar_move_days": "Tage",
     "calendar_move_weeks": "Wochen",
     "calendar_move_direction": "Richtung",
-    "calendar_move_forward": "Nach vorn",
-    "calendar_move_back": "Zurück",
-    "calendar_move_range": "Erste: {first}. Letzte: {last}.",
+    "calendar_move_forward": "später",
+    "calendar_move_back": "früher",
     "calendar_move_past": "Nichts wurde verschoben. Diese Posts würden in der Vergangenheit liegen; wählen Sie einen kleineren Schritt zurück oder verschieben Sie nach vorn.",
     "calendar_filter": "Filtern",
     "calendar_filter_channels": "Kanäle",
     "calendar_filter_states": "Status",
     "calendar_filter_hidden": "{count} Veröffentlichungen ausgeblendet.",
-    "calendar_filter_clear": "Filter zurücksetzen"
+    "calendar_filter_clear": "Filter zurücksetzen",
+    "calendar_move_action": "Verschieben",
+    "calendar_move_submit_one": "1 Veröffentlichung verschieben",
+    "calendar_move_submit_many": "{count} Veröffentlichungen verschieben"
 }
