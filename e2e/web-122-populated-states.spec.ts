@@ -142,7 +142,11 @@ test('uses the calendar as the project overview and keeps Queue distinct', async
             publicationIds: [publications[1]!.id, publications[2]!.id],
         })
     await expect(calendarBulkActionBar).toHaveCount(0)
-    await overviewCalendar.getByRole('button', { name: 'Done', exact: true }).click()
+    // The selection toggle keeps its label; it only reports its pressed state.
+    const selectToggle = overviewCalendar.getByRole('button', { name: 'Select', exact: true })
+    await expect(selectToggle).toHaveAttribute('aria-pressed', 'true')
+    await selectToggle.click()
+    await expect(selectToggle).toHaveAttribute('aria-pressed', 'false')
 
     await page.setViewportSize({ width: 390, height: 844 })
     await expect(page.locator('[data-calendar-view="agenda"]')).toBeVisible()

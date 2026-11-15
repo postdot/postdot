@@ -273,7 +273,11 @@ async function mockCalendarPublications(
             await route.fulfill({
                 status: 200,
                 contentType: 'application/json',
-                body: JSON.stringify({ nextCursor: null, publications }),
+                body: JSON.stringify({
+                    nextCursor: null,
+                    publications,
+                    summary: { total: 1, manual: 0, automatic: 1, scheduled: 1, draft: 0 },
+                }),
             })
         }
     )

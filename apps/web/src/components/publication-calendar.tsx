@@ -3,7 +3,6 @@ import { Kbd } from '@postdot/ui/components/kbd'
 import { cn } from '@postdot/ui/lib/utils'
 import { AltArrowLeftIcon } from '@solar-icons/react/linear/alt-arrow-left'
 import { AltArrowRightIcon } from '@solar-icons/react/linear/alt-arrow-right'
-import { CalendarMinimalisticIcon } from '@solar-icons/react/linear/calendar-minimalistic'
 import { CheckIcon } from '@solar-icons/react/linear/check'
 import type { RegisterableHotkey } from '@tanstack/hotkeys'
 import { useHotkeys } from '@tanstack/react-hotkeys'
@@ -20,6 +19,7 @@ import {
     type RefObject,
 } from 'react'
 
+import { EmptyState } from '@/components/empty-state'
 import { ChannelAvatar } from '@/components/identity-visuals'
 import { PublicationCalendarPreview } from '@/components/publication-calendar-preview'
 import {
@@ -302,7 +302,6 @@ export function PublicationCalendar({
     return (
         <div className="min-w-0" data-calendar="reui" ref={calendarShellRef} tabIndex={-1}>
             <EventCalendar<PublicationCalendarEventData>
-                className="rounded-lg bg-surface-inset p-1 shadow-surface"
                 date={calendarDate}
                 defaultView="month"
                 defaultViewSettings={{
@@ -336,26 +335,30 @@ export function PublicationCalendar({
                 view={view}
                 // C6: the past recedes; today and the future carry the weight.
                 dayClassName={day =>
-                    toDateKey(day, timeZone) < todayKey ? 'bg-surface-inset/70' : undefined
+                    toDateKey(day, timeZone) < todayKey
+                        ? '!bg-background text-muted-foreground'
+                        : undefined
                 }
                 views={CALENDAR_VIEWS}
                 weekStartsOn={1}
                 renderEvent={renderEvent}
                 classNames={{
                     dayAddButton: 'rounded-sm shadow-control',
-                    event: 'inset-ring-0 !shadow-none !bg-surface-field dark:!bg-surface-field hover:!bg-muted dark:hover:!bg-muted data-selected:!bg-primary/15 dark:data-selected:!bg-primary/20 data-selected:!inset-ring-primary/55 rounded-sm',
+                    event: 'inset-ring-0 !shadow-none !bg-transparent dark:!bg-transparent hover:!bg-surface-hover dark:hover:!bg-surface-hover data-selected:!bg-primary/15 dark:data-selected:!bg-primary/20 data-selected:!inset-ring-primary/55 rounded-sm',
                     monthBar: 'px-0.5',
                     monthBarOverlay: 'pt-8',
                     // C3/C5: one hairline grid with equal rows instead of 35 separate tiles.
                     monthBody: 'gap-px',
-                    monthCell: '!border-0 rounded-none bg-background min-h-[7.25rem]',
+                    monthCell: '!border-0 rounded-none bg-surface-raised min-h-[7.25rem]',
                     monthCellContent: 'gap-0.5 px-1 pt-1 pb-1',
                     monthCellFooter: 'px-1 pt-0.5',
-                    monthDayHeader: '!border-0 rounded-none bg-muted/70 px-2 py-1.5',
+                    monthDayHeader:
+                        '!border-0 rounded-none bg-surface-raised px-2 py-1.5 text-muted-foreground',
                     monthDayNumber: '!size-auto !rounded-none px-0.5 font-medium',
                     monthHeader: '!border-0 gap-px',
                     monthRow: '!border-0 gap-px',
-                    monthView: '!border-0 overflow-hidden rounded-md bg-border',
+                    timeGrid: 'overflow-hidden rounded-lg border border-border bg-surface-raised',
+                    monthView: '!border !border-border overflow-hidden rounded-lg bg-border',
                     moreIndicator: 'px-1.5 text-foreground',
                 }}>
                 <EventCalendarToolbar
@@ -368,7 +371,6 @@ export function PublicationCalendar({
                     selectionAvailable={!readOnly}
                     selectionMode={selectionMode}
                     selectLabel={m.calendar_select()}
-                    doneLabel={m.calendar_done()}
                     shortcutsEnabled={previewPublicationId === null}
                 />
                 <CalendarBody
@@ -399,7 +401,6 @@ export function PublicationCalendar({
 
 function EventCalendarToolbar({
     filterControl,
-    doneLabel,
     hotkeyTarget,
     onSelectionModeChange,
     selectLabel,
@@ -408,7 +409,6 @@ function EventCalendarToolbar({
     shortcutsEnabled,
 }: {
     readonly filterControl?: React.ReactNode
-    readonly doneLabel: string
     readonly hotkeyTarget: RefObject<HTMLDivElement | null>
     readonly onSelectionModeChange: (enabled: boolean) => void
     readonly selectLabel: string
@@ -455,7 +455,10 @@ function EventCalendarToolbar({
 
     return (
         <div className="mb-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
-            <div className="flex shrink-0 items-center gap-1.5">
+            {/* One date control: the arrows belong to Today, not beside it (pattern 8). */}
+            <div
+                className="flex shrink-0 items-center divide-x divide-border overflow-hidden rounded-md border border-border bg-surface-raised [&>button]:rounded-none"
+                role="group">
                 <Button
                     aria-label={settings.i18n.labels.previous}
                     aria-keyshortcuts="["
@@ -492,10 +495,11 @@ function EventCalendarToolbar({
                     <Button
                         aria-pressed={selectionMode}
                         onClick={() => onSelectionModeChange(!selectionMode)}
+                        className="aria-pressed:bg-surface-hover aria-pressed:text-foreground"
                         size="sm"
-                        variant={selectionMode ? 'secondary' : 'ghost'}>
+                        variant="ghost">
                         <CheckIcon aria-hidden="true" />
-                        {selectionMode ? doneLabel : selectLabel}
+                        {selectLabel}
                     </Button>
                 ) : null}
                 <div
@@ -642,12 +646,12 @@ function PublicationCalendarAgenda({
 
     if (groups.length === 0) {
         return (
-            <div className="flex min-h-44 items-center justify-center rounded-md bg-surface-inset px-4 py-12 text-sm text-muted-foreground shadow-surface">
-                <span className="flex items-center gap-2">
-                    <CalendarMinimalisticIcon aria-hidden="true" className="size-4" />
-                    {settings.i18n.labels.noEvents}
-                </span>
-            </div>
+            <EmptyState
+                className="py-16"
+                data-calendar-agenda-empty="true"
+                illustration="event"
+                title={settings.i18n.labels.noEvents}
+            />
         )
     }
 
@@ -659,12 +663,10 @@ function PublicationCalendarAgenda({
     })
 
     return (
-        <div className="overflow-hidden rounded-lg bg-surface-inset p-1 shadow-surface">
+        <div className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-surface-raised">
             {groups.map(group => (
-                <section
-                    className="rounded-md bg-background p-3 shadow-field"
-                    key={toDateKey(group.date, timeZone)}>
-                    <h3 className="px-1 pb-2 font-heading text-sm font-medium capitalize">
+                <section className="p-2" key={toDateKey(group.date, timeZone)}>
+                    <h3 className="px-2 pt-1 pb-1.5 text-xs font-medium text-muted-foreground capitalize">
                         {dateFormatter.format(group.date)}
                     </h3>
                     <div className="grid gap-1">
@@ -675,7 +677,7 @@ function PublicationCalendarAgenda({
                                 if (taken === undefined) return null
                                 return (
                                     <div
-                                        className="flex min-w-0 items-center gap-3 rounded-md bg-surface-inset px-3 py-2.5 text-muted-foreground italic"
+                                        className="flex min-w-0 items-center gap-3 rounded-md px-2 py-2 text-muted-foreground italic"
                                         data-occupancy="true"
                                         key={occurrence.key}>
                                         <span
@@ -705,9 +707,9 @@ function PublicationCalendarAgenda({
                                     aria-label={`${occurrence.event.title} — ${channelLabel} — ${time}`}
                                     aria-pressed={selectionMode ? selected : undefined}
                                     className={cn(
-                                        'group flex min-w-0 items-center gap-3 rounded-md bg-surface-field px-3 py-2.5 text-left shadow-field transition-[background-color,box-shadow,transform] hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring',
+                                        'group flex min-w-0 items-center gap-3 rounded-md px-2 py-2 text-left transition-colors hover:bg-surface-hover focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring',
                                         selected &&
-                                            'bg-primary/15 shadow-control hover:bg-primary/20 dark:bg-primary/20 dark:hover:bg-primary/25'
+                                            'bg-primary/15 hover:bg-primary/20 dark:bg-primary/20 dark:hover:bg-primary/25'
                                     )}
                                     data-selected={selected || undefined}
                                     key={occurrence.key}

@@ -90,10 +90,12 @@ export function PublicationCalendarPreview({
                         <p className="text-sm text-muted-foreground">{copy.unavailable}</p>
                     ) : (
                         <>
-                            <ul aria-label={copy.channel} className="grid gap-1">
+                            <ul
+                                aria-label={copy.channel}
+                                className="divide-y divide-border overflow-hidden rounded-lg border border-border">
                                 {group.map(item => (
                                     <li
-                                        className="flex min-w-0 items-center gap-2.5 rounded-md bg-surface-field px-2.5 py-2 text-sm shadow-field"
+                                        className="flex min-w-0 items-center gap-2.5 px-3 py-2 text-sm"
                                         data-calendar-preview-channel={item.channelId}
                                         key={item.id}>
                                         <ChannelAvatar

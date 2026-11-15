@@ -437,7 +437,6 @@
     "overview_load_failed": "Projekt konnte nicht geladen werden",
     "workspace_action_failed": "Arbeitsbereich konnte nicht aktualisiert werden",
     "calendar_select": "Auswählen",
-    "calendar_done": "Fertig",
     "calendar_selection_actions": "Aktionen für Kalenderveröffentlichungen",
     "calendar_selected_publications": [
         {

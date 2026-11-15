@@ -437,7 +437,6 @@
     "overview_load_failed": "Unable to load the project",
     "workspace_action_failed": "Couldn’t update the workspace",
     "calendar_select": "Select",
-    "calendar_done": "Done",
     "calendar_selection_actions": "Calendar publication actions",
     "calendar_selected_publications": [
         {

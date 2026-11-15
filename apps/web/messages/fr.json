@@ -437,7 +437,6 @@
     "overview_load_failed": "Impossible de charger le projet",
     "workspace_action_failed": "Impossible de mettre à jour l’espace de travail",
     "calendar_select": "Sélectionner",
-    "calendar_done": "Terminer",
     "calendar_selection_actions": "Actions sur les publications du calendrier",
     "calendar_selected_publications": [
         {

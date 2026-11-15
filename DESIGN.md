@@ -415,10 +415,12 @@ building it; the current app contract must not silently decide those choices.
   2. Two tab styles on one page, or segmented controls used to switch content.
   3. A compact one-line empty state where the whole page or tab is empty.
   4. A wall of zeros, disclaimers or technical identity where nothing exists yet.
-  5. A toolbar that changes shape when something is selected.
+  5. A toolbar that changes shape when something is selected (a selection toggle keeps
+     its label and shows only its pressed state; actions float in the selection bar).
   6. Badges, prefixes, icon boxes or "Active" labels that state nothing new.
   7. Rows of outline selects as the only filters, or controls shown with nothing to act on.
-  8. Menus whose items mix icons and no icons; a lone icon button among text buttons.
+  8. Menus whose items mix icons and no icons; a lone icon button among text buttons
+     (a date stepper joins its arrows and `Today` in one bordered control).
   9. Pages of one area with different widths or header positions.
   10. Places where people cannot tell where they are (shell, scope, settings).
 - Empty states (audit S12, 2026-11-15): one `EmptyState` component, two
