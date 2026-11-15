@@ -2704,5 +2704,7 @@
             },
             "selectors": ["countPlural"]
         }
-    ]
+    ],
+    "lifecycle_posts_retained": "Alle Beiträge und Medien bleiben für eine Wiederherstellung erhalten.",
+    "lifecycle_posts_deleted": "Alle lokalen Beiträge werden endgültig gelöscht; veröffentlichte Beiträge bleiben online."
 }

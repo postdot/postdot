@@ -2704,5 +2704,7 @@
             },
             "selectors": ["countPlural"]
         }
-    ]
+    ],
+    "lifecycle_posts_retained": "All posts and media are kept for restoration.",
+    "lifecycle_posts_deleted": "All local posts will be permanently deleted; published posts stay online."
 }

@@ -183,26 +183,14 @@ export function ResourceLifecycleSection({
                         {inArchives ? data.name : m.lifecycle_title()}
                     </span>
                 </h2>
-                {!inArchives ? (
-                    <Link
-                        className="text-sm underline"
-                        search={archiveContext}
-                        to="/dashboard/settings/archives">
-                        {m.lifecycle_archives()}
-                    </Link>
-                ) : null}
             </div>
-            <p className="mt-2 flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground">
-                <span>
-                    {inArchives
-                        ? kind === 'project'
-                            ? m.nav_project()
-                            : m.nav_workspace()
-                        : data.name}
-                </span>
-                <span aria-hidden="true">·</span>
-                <StatusText tone={stateTone(data.state)}>{stateLabel(data.state)}</StatusText>
-            </p>
+            {inArchives ? (
+                <p className="mt-2 flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground">
+                    <span>{kind === 'project' ? m.nav_project() : m.nav_workspace()}</span>
+                    <span aria-hidden="true">·</span>
+                    <StatusText tone={stateTone(data.state)}>{stateLabel(data.state)}</StatusText>
+                </p>
+            ) : null}
             {impact.isError && action === null ? (
                 <QueryErrorState className="mt-4" onRetry={() => void impact.refetch()} />
             ) : null}
@@ -286,15 +274,19 @@ export function ResourceLifecycleSection({
                                             })}
                                 </p>
                                 <p>
-                                    {action === 'delete'
-                                        ? m.lifecycle_media_deleted({
-                                              count: media,
-                                              total: formatNumber(media, locale),
-                                          })
-                                        : m.lifecycle_media_retained({
-                                              count: media,
-                                              total: formatNumber(media, locale),
-                                          })}
+                                    {media === 0
+                                        ? action === 'delete'
+                                            ? m.lifecycle_posts_deleted()
+                                            : m.lifecycle_posts_retained()
+                                        : action === 'delete'
+                                          ? m.lifecycle_media_deleted({
+                                                count: media,
+                                                total: formatNumber(media, locale),
+                                            })
+                                          : m.lifecycle_media_retained({
+                                                count: media,
+                                                total: formatNumber(media, locale),
+                                            })}
                                 </p>
                             </DialogDescription>
                         )}

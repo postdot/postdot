@@ -2704,5 +2704,7 @@
             },
             "selectors": ["countPlural"]
         }
-    ]
+    ],
+    "lifecycle_posts_retained": "Todas las publicaciones y los medios se conservan para restaurarlos.",
+    "lifecycle_posts_deleted": "Todas las publicaciones locales se eliminarán definitivamente; las publicadas siguen en línea."
 }
