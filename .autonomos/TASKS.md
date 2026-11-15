@@ -9,6 +9,8 @@
 
 - [/] **[PUB-627]** Complete GitHub profile, application releases and clean-install acceptance `Priority: 🟠` `Complexity: L`
 
+- [x] **[UX-663]** Identity images for projects, workspaces and channels (owner feedback, 2026-11-15) `Priority: 🔵` `Complexity: L`
+
 ## Current direction
 
 Shared-channel implementation follows [ADR-095](decisions/ADR-095-workspace-channels-and-project-attachments.md)

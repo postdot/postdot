@@ -460,3 +460,40 @@ For `instance bootstrap`, supply the bootstrap token via `--bootstrap-token-file
 lines). For `settings recovery resume`, `@postdot/cli` takes `--token <token>`
 while `bun run postdot` accepts `--recovery-token <token>` so it does not collide
 with its global `--token` API-key flag.
+
+## Identity images
+
+Projects, workspaces and channels support the same five commands:
+
+| Command            | Input                          | Result                                                                                         |
+| ------------------ | ------------------------------ | ---------------------------------------------------------------------------------------------- |
+| `set-website`      | `--url <website>` or `--clear` | Save or clear the website; resolve its icon unless an uploaded/imported image takes precedence |
+| `upload-image`     | `--file <path>`                | Upload a local raster image                                                                    |
+| `import-image-url` | `--url <image>`                | Copy a remote image into Postdot                                                               |
+| `use-website-icon` | No image input                 | Replace the current image with the saved website's icon                                        |
+| `remove-image`     | No image input                 | Restore the monogram, keeping the website                                                      |
+
+```sh
+postdot projects set-website --project "$PROJECT_ID" --url https://example.com
+postdot projects upload-image --project "$PROJECT_ID" --file logo.png
+postdot workspaces import-image-url --workspace "$WORKSPACE_ID" --url https://example.com/logo.png
+postdot channels set-website --project "$PROJECT_ID" --channel "$CHANNEL_ID" --url https://example.com
+postdot channels use-website-icon --project "$PROJECT_ID" --channel "$CHANNEL_ID" --expected-revision 3
+postdot channels remove-image --project "$PROJECT_ID" --channel "$CHANNEL_ID" --expected-revision 4
+```
+
+Use `--project` for projects, `--workspace` for workspaces, and both `--project`
+and `--channel` for channels. Channel operations accept `--expected-revision`;
+read the current channel and resolve a conflict before retrying. Shared channel
+images require live management authority. Platform logos keep their brand mark.
+
+Project mutations require `project:manage`, workspace mutations require
+`workspace:manage`, and channel mutations require `channel:manage`, in addition
+to the owner's current role and the key's project scope. A project-scoped key
+cannot administer workspace images.
+
+Files must be nonempty and at most 2 MB. The server sniffs PNG, JPEG, WebP, GIF or
+ICO bytes and re-encodes them as a square WebP at most 256 × 256 pixels. Remote
+URLs follow the outbound network policy on every redirect. A successful response
+includes the resource's `websiteUrl`, `imageUrl` and `imageSource`; `--json` also
+preserves any favicon warning. Image changes do not publish content.
