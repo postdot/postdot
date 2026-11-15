@@ -1,11 +1,20 @@
 import { Button } from '@postdot/ui/components/button'
 import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogDescription,
+} from '@postdot/ui/components/dialog'
+import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@postdot/ui/components/dropdown-menu'
+import { Input } from '@postdot/ui/components/input'
+import { toast } from '@postdot/ui/components/toast'
 import {
     Tooltip,
     TooltipContent,
@@ -18,14 +27,14 @@ import { ClipboardCheckIcon } from '@solar-icons/react/linear/clipboard-check'
 import { CopyIcon } from '@solar-icons/react/linear/copy'
 import { EyeIcon } from '@solar-icons/react/linear/eye'
 import { GalleryIcon } from '@solar-icons/react/linear/gallery'
+import { LinkIcon } from '@solar-icons/react/linear/link'
 import { MenuDotsVerticalIcon } from '@solar-icons/react/linear/menu-dots-vertical'
 import { PenIcon } from '@solar-icons/react/linear/pen'
 import { RestartIcon } from '@solar-icons/react/linear/restart'
 import { TrashBinMinimalisticIcon } from '@solar-icons/react/linear/trash-bin-minimalistic'
 import { Link } from '@tanstack/react-router'
-import { useEffect, useRef, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 
-import { CopyPublicationLink } from '@/components/copy-publication-link'
 import { StatusText, type StatusTone } from '@/components/status-text'
 import { api, type PublicationSummary } from '@/lib/api'
 import { useOptionalProjectDashboard } from '@/lib/dashboard-context'
@@ -329,10 +338,6 @@ function PublicationListItem({
                     selectionEnabled={selectionEnabled}
                     action={
                         <div className="flex flex-wrap items-center justify-end gap-1">
-                            <CopyPublicationLink
-                                projectId={publication.projectId}
-                                publicationId={publication.id}
-                            />
                             {showPostLink ? (
                                 <Link
                                     className="px-2 py-1 text-xs text-muted-foreground hover:text-foreground hover:underline"
@@ -432,55 +437,14 @@ function PublicationListItem({
                                                   : m.common_view()}
                                         </span>
                                     </Button>
-                                    {publication.state === 'draft' &&
-                                    (onDeleteDraft !== undefined ||
-                                        onDuplicateDraft !== undefined) ? (
-                                        <DropdownMenu modal={false}>
-                                            <DropdownMenuTrigger
-                                                render={
-                                                    <Button
-                                                        aria-label={m.queue_draft_actions()}
-                                                        data-publication-draft-actions="true"
-                                                        disabled={pending}
-                                                        size="icon-sm"
-                                                        type="button"
-                                                        variant="ghost">
-                                                        <MenuDotsVerticalIcon aria-hidden="true" />
-                                                    </Button>
-                                                }
-                                            />
-                                            <DropdownMenuContent align="end" className="min-w-40">
-                                                {onDuplicateDraft !== undefined ? (
-                                                    <DropdownMenuItem
-                                                        disabled={pending}
-                                                        onClick={() =>
-                                                            onDuplicateDraft(publication.id)
-                                                        }>
-                                                        <CopyIcon aria-hidden="true" />
-                                                        {m.queue_duplicate_draft()}
-                                                    </DropdownMenuItem>
-                                                ) : null}
-                                                {onDeleteDraft !== undefined ? (
-                                                    <>
-                                                        {onDuplicateDraft !== undefined ? (
-                                                            <DropdownMenuSeparator />
-                                                        ) : null}
-                                                        <DropdownMenuItem
-                                                            disabled={pending}
-                                                            onClick={() =>
-                                                                onDeleteDraft(publication)
-                                                            }
-                                                            variant="destructive">
-                                                            <TrashBinMinimalisticIcon aria-hidden="true" />
-                                                            {m.queue_delete_draft()}
-                                                        </DropdownMenuItem>
-                                                    </>
-                                                ) : null}
-                                            </DropdownMenuContent>
-                                        </DropdownMenu>
-                                    ) : null}
                                 </div>
                             )}
+                            <PublicationRowMenu
+                                publication={publication}
+                                pending={pending}
+                                onDeleteDraft={onDeleteDraft}
+                                onDuplicateDraft={onDuplicateDraft}
+                            />
                         </div>
                     }
                     due={due}
@@ -491,6 +455,103 @@ function PublicationListItem({
                 />
             </div>
         </div>
+    )
+}
+
+function PublicationRowMenu({
+    publication,
+    pending,
+    onDeleteDraft,
+    onDuplicateDraft,
+}: {
+    readonly publication: PublicationSummary
+    readonly pending: boolean
+    readonly onDeleteDraft?: (publication: PublicationSummary) => void
+    readonly onDuplicateDraft?: (publicationId: string) => void
+}) {
+    const [fallbackUrl, setFallbackUrl] = useState<string | null>(null)
+    const input = useRef<HTMLInputElement>(null)
+    const isDraft = publication.state === 'draft'
+    async function copyLink() {
+        const url = new URL(
+            `/dashboard/projects/${encodeURIComponent(publication.projectId)}/publications/${encodeURIComponent(publication.id)}`,
+            window.location.origin
+        ).href
+        try {
+            if (!navigator.clipboard?.writeText) {
+                setFallbackUrl(url)
+                return
+            }
+            await navigator.clipboard.writeText(url)
+            toast.add({ title: m.publication_link_copied(), type: 'success' })
+        } catch {
+            setFallbackUrl(url)
+        }
+    }
+    return (
+        <>
+            <DropdownMenu modal={false}>
+                <DropdownMenuTrigger
+                    render={
+                        <Button
+                            aria-label={isDraft ? m.queue_draft_actions() : m.queue_bulk_actions()}
+                            data-publication-draft-actions={isDraft ? 'true' : undefined}
+                            data-publication-row-actions="true"
+                            disabled={pending}
+                            size="icon-sm"
+                            type="button"
+                            variant="ghost">
+                            <MenuDotsVerticalIcon aria-hidden="true" />
+                        </Button>
+                    }
+                />
+                <DropdownMenuContent align="end" className="min-w-40">
+                    <DropdownMenuItem onClick={() => void copyLink()}>
+                        <LinkIcon aria-hidden="true" />
+                        {m.publication_copy_link()}
+                    </DropdownMenuItem>
+                    {isDraft && onDuplicateDraft ? (
+                        <DropdownMenuItem
+                            disabled={pending}
+                            onClick={() => onDuplicateDraft(publication.id)}>
+                            <CopyIcon aria-hidden="true" />
+                            {m.queue_duplicate_draft()}
+                        </DropdownMenuItem>
+                    ) : null}
+                    {isDraft && onDeleteDraft ? (
+                        <>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                                disabled={pending}
+                                onClick={() => onDeleteDraft(publication)}
+                                variant="destructive">
+                                <TrashBinMinimalisticIcon aria-hidden="true" />
+                                {m.queue_delete_draft()}
+                            </DropdownMenuItem>
+                        </>
+                    ) : null}
+                </DropdownMenuContent>
+            </DropdownMenu>
+            <Dialog
+                open={fallbackUrl !== null}
+                onOpenChange={open => {
+                    if (!open) setFallbackUrl(null)
+                }}>
+                <DialogContent initialFocus={input}>
+                    <DialogHeader>
+                        <DialogTitle>{m.publication_copy_link()}</DialogTitle>
+                        <DialogDescription>{m.publication_link_manual_copy()}</DialogDescription>
+                    </DialogHeader>
+                    <Input
+                        aria-label={m.publication_link_label()}
+                        onFocus={event => event.currentTarget.select()}
+                        readOnly
+                        ref={input}
+                        value={fallbackUrl ?? ''}
+                    />
+                </DialogContent>
+            </Dialog>
+        </>
     )
 }
 

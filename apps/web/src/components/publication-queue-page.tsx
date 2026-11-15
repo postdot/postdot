@@ -16,9 +16,9 @@ import { useNavigate } from '@tanstack/react-router'
 import { useEffect, useMemo, useState } from 'react'
 
 import { BulkActionBar } from '@/components/bulk-action-bar'
-import { DashboardPageHeader } from '@/components/dashboard-page-header'
 import { PublicationList } from '@/components/dashboard-publication-parts'
 import type { EmptyStateIllustration } from '@/components/empty-state'
+import { ProjectPage } from '@/components/project-page'
 import { PublicationApprovalRequests } from '@/components/publication-approval-requests'
 import { PublicationBulkCancellationDialog } from '@/components/publication-bulk-cancellation-dialog'
 import { PublicationBulkScheduleDialog } from '@/components/publication-bulk-schedule-dialog'
@@ -102,7 +102,8 @@ export function PublicationQueuePage({
         setSelectedPublicationIds(new Set())
     }, [initialTagIdsKey])
     const duePublicationIds = useMemo(() => new Set(due.map(publication => publication.id)), [due])
-    const queueHasWork = publicationSummary.total > 0 || tagIds.length > 0 || filter !== 'all'
+    const hasActiveFilters = tagIds.length > 0 || filter === 'manual'
+    const queueHasWork = publicationSummary.total > 0 || hasActiveFilters || filter !== 'all'
     const serverState =
         filter === 'draft' || filter === 'scheduled' || filter === 'published' ? filter : undefined
     const useServerQueue = serverState !== undefined || tagIds.length > 0 || sort !== 'queue'
@@ -244,43 +245,41 @@ export function PublicationQueuePage({
     }
 
     return (
-        <main className="min-w-0 px-4 py-7 sm:px-6 lg:px-8 lg:py-8">
-            <DashboardPageHeader
-                action={
-                    canEditProject ? (
-                        needsFirstChannel ? (
-                            <Button
-                                nativeButton={false}
-                                render={
-                                    <Link
-                                        params={{ projectId: project.id }}
-                                        search={{ add: true }}
-                                        to="/dashboard/projects/$projectId/channels"
-                                    />
-                                }>
-                                <AddIcon aria-hidden="true" />
-                                {m.channel_add()}
-                            </Button>
-                        ) : (
-                            <Button
-                                className={channels.length > 0 ? 'md:hidden' : undefined}
-                                nativeButton={false}
-                                render={
-                                    <Link
-                                        params={{ projectId: project.id }}
-                                        search={{ date: undefined }}
-                                        to="/dashboard/projects/$projectId/publications/new"
-                                    />
-                                }>
-                                <AddIcon aria-hidden="true" />
-                                {m.overview_new_publication()}
-                            </Button>
-                        )
-                    ) : undefined
-                }
-                title={m.queue_title()}
-            />
-
+        <ProjectPage
+            width="full"
+            action={
+                canEditProject ? (
+                    needsFirstChannel ? (
+                        <Button
+                            nativeButton={false}
+                            render={
+                                <Link
+                                    params={{ projectId: project.id }}
+                                    search={{ add: true }}
+                                    to="/dashboard/projects/$projectId/channels"
+                                />
+                            }>
+                            <AddIcon aria-hidden="true" />
+                            {m.channel_add()}
+                        </Button>
+                    ) : (
+                        <Button
+                            className={channels.length > 0 ? 'md:hidden' : undefined}
+                            nativeButton={false}
+                            render={
+                                <Link
+                                    params={{ projectId: project.id }}
+                                    search={{ date: undefined }}
+                                    to="/dashboard/projects/$projectId/publications/new"
+                                />
+                            }>
+                            <AddIcon aria-hidden="true" />
+                            {m.overview_new_publication()}
+                        </Button>
+                    )
+                ) : undefined
+            }
+            title={m.queue_title()}>
             {canEditProject ? (
                 <PublicationApprovalRequests projectId={project.id} timeZone={project.timeZone} />
             ) : null}
@@ -368,120 +367,127 @@ export function PublicationQueuePage({
                         </Tabs>
                     </div>
 
-                    <div
-                        aria-label={m.queue_delivery_filter()}
-                        className="mt-4 flex min-w-0 flex-wrap items-center gap-2"
-                        role="toolbar">
-                        {/* Q1: a visible two-state switch instead of an unlabelled menu. */}
+                    {visiblePublications.length > 0 || hasActiveFilters ? (
                         <div
-                            aria-label={m.queue_view_label()}
-                            className="flex items-center rounded-md bg-muted p-0.5"
-                            role="group">
-                            {(['posts', 'queue'] as const).map(option => (
-                                <Button
-                                    aria-pressed={view === option}
-                                    className={
-                                        view === option
-                                            ? 'bg-surface-raised font-semibold text-foreground shadow-none hover:bg-surface-raised'
-                                            : 'text-muted-foreground'
-                                    }
-                                    key={option}
-                                    onClick={() => {
-                                        setView(option)
-                                        void navigate({
-                                            search: current => ({
-                                                ...current,
-                                                view: option === 'queue' ? 'channels' : undefined,
-                                            }),
-                                        })
-                                    }}
-                                    size="sm"
-                                    type="button"
-                                    variant="ghost">
-                                    {option === 'posts'
-                                        ? m.queue_view_posts()
-                                        : m.queue_view_queue()}
-                                </Button>
-                            ))}
-                        </div>
-                        <Select
-                            value={filter === 'manual' ? 'manual' : 'all'}
-                            onValueChange={value => {
-                                if (value === 'manual') changeFilter('manual')
-                                else if (value === 'all') changeFilter('all')
-                            }}>
-                            <SelectTrigger
-                                aria-label={m.queue_delivery_filter()}
-                                className="w-fit min-w-32"
-                                data-queue-delivery-filter="true"
-                                size="sm">
-                                <SelectValue>
-                                    {filter === 'manual'
-                                        ? m.queue_manual_delivery_mode()
-                                        : m.queue_all_delivery_modes()}
-                                </SelectValue>
-                            </SelectTrigger>
-                            <SelectContent align="start">
-                                <SelectItem value="all">{m.queue_all_delivery_modes()}</SelectItem>
-                                <SelectItem value="manual">
-                                    {m.queue_manual_delivery_mode()}
-                                </SelectItem>
-                            </SelectContent>
-                        </Select>
-
-                        <Select
-                            value={sort}
-                            onValueChange={value => {
-                                if (value === null || !isPublicationQueueSort(value)) return
-                                setSort(value)
-                                clearPublicationSelection()
-                                void navigate({
-                                    search: current => ({
-                                        ...current,
-                                        sort: value === 'queue' ? undefined : value,
-                                    }),
-                                })
-                            }}>
-                            <SelectTrigger
-                                aria-label={m.queue_sort_label()}
-                                className="w-fit min-w-36"
-                                data-queue-sort="true"
-                                size="sm">
-                                <SelectValue>
-                                    {queueSortOptions(filter).find(option => option.value === sort)
-                                        ?.label ?? m.queue_sort_queue()}
-                                </SelectValue>
-                            </SelectTrigger>
-                            <SelectContent align="start">
-                                {queueSortOptions(filter).map(option => (
-                                    <SelectItem key={option.value} value={option.value}>
-                                        {option.label}
-                                    </SelectItem>
+                            aria-label={m.queue_delivery_filter()}
+                            className="mt-4 flex min-w-0 flex-wrap items-center gap-2"
+                            role="toolbar">
+                            {/* Q1: a visible two-state switch instead of an unlabelled menu. */}
+                            <div
+                                aria-label={m.queue_view_label()}
+                                className="flex items-center rounded-md bg-muted p-0.5"
+                                role="group">
+                                {(['posts', 'queue'] as const).map(option => (
+                                    <Button
+                                        aria-pressed={view === option}
+                                        className={
+                                            view === option
+                                                ? 'bg-surface-raised font-semibold text-foreground shadow-none hover:bg-surface-raised'
+                                                : 'text-muted-foreground'
+                                        }
+                                        key={option}
+                                        onClick={() => {
+                                            setView(option)
+                                            void navigate({
+                                                search: current => ({
+                                                    ...current,
+                                                    view:
+                                                        option === 'queue' ? 'channels' : undefined,
+                                                }),
+                                            })
+                                        }}
+                                        size="sm"
+                                        type="button"
+                                        variant="ghost">
+                                        {option === 'posts'
+                                            ? m.queue_view_posts()
+                                            : m.queue_view_queue()}
+                                    </Button>
                                 ))}
-                            </SelectContent>
-                        </Select>
+                            </div>
+                            <Select
+                                value={filter === 'manual' ? 'manual' : 'all'}
+                                onValueChange={value => {
+                                    if (value === 'manual') changeFilter('manual')
+                                    else if (value === 'all') changeFilter('all')
+                                }}>
+                                <SelectTrigger
+                                    aria-label={m.queue_delivery_filter()}
+                                    className="w-fit min-w-32"
+                                    data-queue-delivery-filter="true"
+                                    size="sm">
+                                    <SelectValue>
+                                        {filter === 'manual'
+                                            ? m.queue_manual_delivery_mode()
+                                            : m.queue_all_delivery_modes()}
+                                    </SelectValue>
+                                </SelectTrigger>
+                                <SelectContent align="start">
+                                    <SelectItem value="all">
+                                        {m.queue_all_delivery_modes()}
+                                    </SelectItem>
+                                    <SelectItem value="manual">
+                                        {m.queue_manual_delivery_mode()}
+                                    </SelectItem>
+                                </SelectContent>
+                            </Select>
 
-                        {projectTags.length > 0 ? (
-                            <PublicationTagPicker
-                                ariaLabel={m.taxonomy_filter_tags()}
-                                emptyLabel={m.taxonomy_no_tags()}
-                                label={m.taxonomy_filter_tags()}
-                                onChange={nextTagIds => {
-                                    setTagIds(nextTagIds)
+                            <Select
+                                value={sort}
+                                onValueChange={value => {
+                                    if (value === null || !isPublicationQueueSort(value)) return
+                                    setSort(value)
                                     clearPublicationSelection()
                                     void navigate({
                                         search: current => ({
                                             ...current,
-                                            tagIds: nextTagIds.length > 0 ? nextTagIds : undefined,
+                                            sort: value === 'queue' ? undefined : value,
                                         }),
                                     })
-                                }}
-                                selectedTagIds={tagIds}
-                                selectedLabel={count => m.taxonomy_selected_tags({ count })}
-                                tags={projectTags}
-                            />
-                        ) : null}
-                    </div>
+                                }}>
+                                <SelectTrigger
+                                    aria-label={m.queue_sort_label()}
+                                    className="w-fit min-w-36"
+                                    data-queue-sort="true"
+                                    size="sm">
+                                    <SelectValue>
+                                        {queueSortOptions(filter).find(
+                                            option => option.value === sort
+                                        )?.label ?? m.queue_sort_queue()}
+                                    </SelectValue>
+                                </SelectTrigger>
+                                <SelectContent align="start">
+                                    {queueSortOptions(filter).map(option => (
+                                        <SelectItem key={option.value} value={option.value}>
+                                            {option.label}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+
+                            {projectTags.length > 0 ? (
+                                <PublicationTagPicker
+                                    ariaLabel={m.taxonomy_filter_tags()}
+                                    emptyLabel={m.taxonomy_no_tags()}
+                                    label={m.taxonomy_filter_tags()}
+                                    onChange={nextTagIds => {
+                                        setTagIds(nextTagIds)
+                                        clearPublicationSelection()
+                                        void navigate({
+                                            search: current => ({
+                                                ...current,
+                                                tagIds:
+                                                    nextTagIds.length > 0 ? nextTagIds : undefined,
+                                            }),
+                                        })
+                                    }}
+                                    selectedTagIds={tagIds}
+                                    selectedLabel={count => m.taxonomy_selected_tags({ count })}
+                                    tags={projectTags}
+                                />
+                            ) : null}
+                        </div>
+                    ) : null}
 
                     {/* The selection floats like the calendar's; the toolbar never changes shape. */}
                     {selectedCount > 0 ? (
@@ -528,7 +534,29 @@ export function PublicationQueuePage({
                 ) : (
                     <PublicationList
                         emptyAction={
-                            filter === 'all' ? null : (
+                            hasActiveFilters ? (
+                                <Button
+                                    onClick={() => {
+                                        const nextFilter = filter === 'manual' ? 'all' : filter
+                                        setTagIds([])
+                                        setFilter(nextFilter)
+                                        setSort(defaultPublicationQueueSort(nextFilter))
+                                        clearPublicationSelection()
+                                        void navigate({
+                                            search: current => ({
+                                                ...current,
+                                                filter:
+                                                    nextFilter === 'all' ? undefined : nextFilter,
+                                                sort: undefined,
+                                                tagIds: undefined,
+                                            }),
+                                        })
+                                    }}
+                                    size="sm"
+                                    variant="ghost">
+                                    {m.filter_clear_all()}
+                                </Button>
+                            ) : filter === 'all' ? null : (
                                 <Button
                                     onClick={() => {
                                         setFilter('all')
@@ -633,7 +661,7 @@ export function PublicationQueuePage({
                 }}
                 pending={pending}
             />
-        </main>
+        </ProjectPage>
     )
 }
 
