@@ -33,6 +33,16 @@ const channelSchema = Type.Object({
     ]),
     state: Type.Union([Type.Literal('active'), Type.Literal('archived')]),
     archivedAt: Type.Union([Type.Integer(), Type.Null()]),
+    websiteUrl: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+    imageUrl: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+    imageSource: Type.Optional(
+        Type.Union([
+            Type.Literal('upload'),
+            Type.Literal('url'),
+            Type.Literal('favicon'),
+            Type.Null(),
+        ])
+    ),
     revision: Type.Integer(),
     createdAt: Type.Integer(),
     updatedAt: Type.Integer(),

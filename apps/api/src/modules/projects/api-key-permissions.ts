@@ -160,6 +160,10 @@ export function requiredApiKeyCapability(
         return segments.length === 2 && normalizedMethod === 'GET' ? 'project:read' : null
     }
 
+    if (segments[1] === 'identity-images') {
+        return segments.length === 3 && normalizedMethod === 'GET' ? 'project:read' : null
+    }
+
     if (segments[1] === 'settings') {
         if (segments[2] === 'email') {
             if (segments.length === 3 && (normalizedMethod === 'GET' || normalizedMethod === 'PUT'))
@@ -194,6 +198,25 @@ export function requiredApiKeyCapability(
         }
         if (segments.length === 3) {
             return normalizedMethod === 'GET' ? 'project:read' : null
+        }
+        if (segments[3] === 'website') {
+            return segments.length === 4 && normalizedMethod === 'PUT' ? 'workspace:manage' : null
+        }
+        if (segments[3] === 'image') {
+            if (
+                segments.length === 4 &&
+                (normalizedMethod === 'POST' || normalizedMethod === 'DELETE')
+            ) {
+                return 'workspace:manage'
+            }
+            if (
+                segments.length === 5 &&
+                ['url', 'favicon'].includes(segments[4] ?? '') &&
+                normalizedMethod === 'POST'
+            ) {
+                return 'workspace:manage'
+            }
+            return null
         }
         if (segments[3] === 'lifecycle') {
             if (segments.length === 4 && normalizedMethod === 'GET') return 'project:read'
@@ -275,6 +298,24 @@ export function requiredApiKeyCapability(
         return normalizedMethod === 'PATCH' ? 'project:manage' : null
     }
 
+    if (resource === 'website') {
+        return detail.length === 0 && normalizedMethod === 'PUT' ? 'project:manage' : null
+    }
+
+    if (resource === 'image') {
+        if (detail.length === 0 && (normalizedMethod === 'POST' || normalizedMethod === 'DELETE')) {
+            return 'project:manage'
+        }
+        if (
+            detail.length === 1 &&
+            ['url', 'favicon'].includes(detail[0] ?? '') &&
+            normalizedMethod === 'POST'
+        ) {
+            return 'project:manage'
+        }
+        return null
+    }
+
     if (resource === 'membership') {
         return detail.length === 0 && normalizedMethod === 'GET' ? 'project:read' : null
     }
@@ -327,6 +368,25 @@ export function requiredApiKeyCapability(
         if (detail.length === 0) {
             if (normalizedMethod === 'GET') return 'project:read'
             return normalizedMethod === 'POST' ? 'channel:manage' : null
+        }
+
+        if (detail.length === 2 && detail[1] === 'website' && normalizedMethod === 'PUT') {
+            return 'channel:manage'
+        }
+        if (
+            detail.length === 2 &&
+            detail[1] === 'image' &&
+            (normalizedMethod === 'POST' || normalizedMethod === 'DELETE')
+        ) {
+            return 'channel:manage'
+        }
+        if (
+            detail.length === 3 &&
+            detail[1] === 'image' &&
+            ['url', 'favicon'].includes(detail[2] ?? '') &&
+            normalizedMethod === 'POST'
+        ) {
+            return 'channel:manage'
         }
 
         // Sharing is its own capability: it grants no connection management, dispatch or secret access.

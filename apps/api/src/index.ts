@@ -20,6 +20,7 @@ import {
     createDatabase,
     createPostgresDatabase,
     createAccessStore,
+    createIdentityImageStore,
     createMediaAssetStore,
     createUserAvatarStore,
     createNotificationStore,
@@ -43,6 +44,7 @@ import { printMaintenanceHelp, runMaintenanceCommand } from './maintenance'
 import { createPostdotAuthEmailDelivery } from './modules/email/delivery'
 import { createEmailSettingsService } from './modules/email/settings'
 import type { InstanceTopology } from './modules/health/routes'
+import { createIdentityImageResolver } from './modules/identity-images/resolver'
 import { createMediaPublicDelivery } from './modules/media/public-delivery'
 import {
     createConfiguredMediaStore,
@@ -316,6 +318,10 @@ async function startServerWithRuntimeLock(
     })
     const objectStorage = resourceLifecycle.wrapMedia(createConfiguredMediaStore(config.media))
     const avatars = createUserAvatarStore(database, objectStorage)
+    const identityImages = createIdentityImageStore(database)
+    const identityImageResolver = createIdentityImageResolver({
+        privateDestinations: config.network.privateDestinations,
+    })
     const posterExtractor = createVideoPosterExtractor(objectStorage)
     let posterRuntime: ReturnType<typeof createVideoPosterRuntime> | undefined
     const media = createMediaAssetStore(database, objectStorage, {
@@ -343,6 +349,7 @@ async function startServerWithRuntimeLock(
     const reconcileAtStart = async () => {
         if (recovery.held()) return
         await media.reconcile()
+        await identityImages.cleanupUnreferenced()
         await resourceLifecycle.reconcile(objectStorage)
     }
     if (coordination.mode === 'single') await reconcileAtStart()
@@ -350,6 +357,7 @@ async function startServerWithRuntimeLock(
         reconcile: async () => {
             const result = await media.reconcile()
             await avatars.reconcile()
+            await identityImages.cleanupUnreferenced()
             await resourceLifecycle.reconcile(objectStorage)
             return result
         },
@@ -458,6 +466,8 @@ async function startServerWithRuntimeLock(
         publisher,
         media,
         avatars,
+        identityImages,
+        identityImageResolver,
         accountOrigins: [config.web.origin, config.auth.baseURL],
         mcp: { enabled: config.mcp.enabled },
         mediaUrlImporter,
