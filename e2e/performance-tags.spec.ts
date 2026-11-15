@@ -147,6 +147,10 @@ test('filters real publication cohorts by current tags and retains selection acr
         ).status()
     ).toBe(200)
     await expect(rows).toHaveCount(0)
+    await expect(page.locator('[data-empty-state="data"]')).toHaveAttribute(
+        'data-empty-layout',
+        'default'
+    )
     await page.getByRole('button', { name: 'Clear tags', exact: true }).click()
     await expect(rows).toHaveCount(3)
     await trigger.click()

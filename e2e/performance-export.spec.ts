@@ -25,6 +25,15 @@ test('exports all filtered stored results and handles cancellation or incomplete
     ).json()
     await page.goto(`/dashboard/projects/${project.id}/performance`)
     await expect(page.getByRole('status').filter({ hasText: 'No engagement yet' })).toBeVisible()
+    await expect(
+        page.getByRole('heading', { name: 'Latest engagement by post and channel', exact: true })
+    ).toHaveCount(0)
+    await expect(
+        page.getByText('Available for posts published on Bluesky, DEV.to and Mastodon.', {
+            exact: true,
+        })
+    ).toHaveCount(0)
+    await expect(page.locator('[data-performance-tag-filter]')).toHaveCount(0)
     await expect(page.getByRole('button', { name: 'Export CSV', exact: true })).toHaveCount(0)
     await expect(page.getByText('This project has no tags yet.', { exact: true })).toHaveCount(0)
     const base = `/api/projects/${project.id}`
