@@ -31,14 +31,16 @@
     --surface-overlay: #ffffff;
     --surface-inset: #ededed;
     --surface-selected: #e4e4e4;
+    /* A row under the pointer must read as such on a raised surface. */
+    --surface-hover: #f0f0f0;
     --grid-edge: #dedede;
-    --surface-field: #f4f4f4;
+    --surface-field: #ffffff;
     --surface-control: #f4f4f4;
     --surface-control-hover: #ededed;
     --surface-sidebar: #eaeaea;
     --surface-sidebar-hover: #ededed;
     --surface-shadow: none;
-    --shell-shadow: inset 0 0 0 1px #ededed;
+    --shell-shadow: inset 0 0 0 1px #e2e2e2;
     --overlay-shadow: 0 8px 24px rgb(0 0 0 / 0.12);
     --field-shadow: none;
     --control-shadow: none;
@@ -60,8 +62,8 @@
     --accent-foreground: #1c1c1c;
     --destructive: oklch(0.577 0.245 27.325);
     --destructive-foreground: oklch(0.45 0.16 28);
-    --border: #ededed;
-    --input: #ededed;
+    --border: #e2e2e2;
+    --input: #dcdcdc;
     --ring: #2457d6;
     --chart-1: oklch(0.87 0 0);
     --chart-2: oklch(0.556 0 0);
@@ -77,11 +79,22 @@
     --sidebar-accent-foreground: var(--foreground);
     --sidebar-border: #ededed;
     --sidebar-ring: #2457d6;
-    --state-attention: oklch(0.5 0.11 75);
+    --state-attention: oklch(0.55 0.16 45);
     --state-queued: oklch(0.5 0.09 195);
     --state-draft: oklch(0.48 0.006 95);
     --state-published: oklch(0.5 0.11 150);
     --state-failed: oklch(0.52 0.16 28);
+}
+
+/*
+ * Reading sizes (owner review, 2026-11-15): Host Grotesk runs small, so the two
+ * workhorse sizes are a half step larger than Tailwind's defaults.
+ */
+@theme {
+    --text-xs: 0.78125rem;
+    --text-xs--line-height: 1.6;
+    --text-sm: 0.90625rem;
+    --text-sm--line-height: 1.5;
 }
 
 @theme inline {
@@ -93,6 +106,7 @@
     --color-surface-overlay: var(--surface-overlay);
     --color-surface-inset: var(--surface-inset);
     --color-surface-selected: var(--surface-selected);
+    --color-surface-hover: var(--surface-hover);
     --shadow-grid-cell: inset 0 0 0 1px var(--grid-edge);
     --color-surface-field: var(--surface-field);
     --color-surface-control: var(--surface-control);
@@ -168,6 +182,7 @@
     --surface-overlay: #202020;
     --surface-inset: #252525;
     --surface-selected: #323232;
+    --surface-hover: #292929;
     --grid-edge: #303030;
     --surface-field: #171717;
     --surface-control: #2e2e2e;
@@ -213,7 +228,7 @@
     --sidebar-accent-foreground: var(--foreground);
     --sidebar-border: #2e2e2e;
     --sidebar-ring: #94b5ff;
-    --state-attention: oklch(0.77 0.13 75);
+    --state-attention: oklch(0.76 0.14 52);
     --state-queued: oklch(0.74 0.1 195);
     --state-draft: oklch(0.68 0.004 95);
     --state-published: oklch(0.72 0.12 150);
