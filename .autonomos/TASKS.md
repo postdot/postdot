@@ -9,14 +9,6 @@
 
 - [/] **[PUB-627]** Complete GitHub profile, application releases and clean-install acceptance `Priority: 🟠` `Complexity: L`
 
-- [/] **[UX-651]** Studio experience overhaul from the 2026-11-14 audit (umbrella) `Priority: 🔴` `Complexity: XL` — [audit](reviews/2026-11-14-studio-experience-audit.md), [ADR-103](decisions/ADR-103-studio-experience-principles.md); children DESIGN-652 to UX-662.
-
-- [/] **[COPY-653]** Apply the user vocabulary and useful errors to both catalogs (audit W1–W7, F1) `Priority: 🔴` `Complexity: L`
-
-- [/] **[UX-654]** One page anatomy: header, empty state, dialog, status, buttons, time format (audit S8–S15) `Priority: 🔴` `Complexity: L`
-
-- [/] **[UX-660]** Channels, media, performance, settings and first run (audit F2–F4, H, M, R, T) `Priority: 🔵` `Complexity: L`
-
 ## Current direction
 
 Shared-channel implementation follows [ADR-095](decisions/ADR-095-workspace-channels-and-project-attachments.md)
