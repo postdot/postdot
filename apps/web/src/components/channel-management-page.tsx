@@ -1,6 +1,5 @@
 import { Alert, AlertDescription, AlertTitle } from '@postdot/ui/components/alert'
-import { Button, buttonVariants } from '@postdot/ui/components/button'
-import { AltArrowLeftIcon } from '@solar-icons/react/linear/alt-arrow-left'
+import { Button } from '@postdot/ui/components/button'
 import { CloseIcon } from '@solar-icons/react/linear/close'
 import { InfoCircleIcon } from '@solar-icons/react/linear/info-circle'
 import { LinkIcon } from '@solar-icons/react/linear/link'
@@ -15,10 +14,9 @@ import {
 import { ChannelProfileEditorDialog } from '@/components/channel-profile-editor-dialog'
 import { ChannelScopeSwitch } from '@/components/channel-scope-switch'
 import { ChannelSharingDialog } from '@/components/channel-sharing-dialog'
-import { DashboardPageHeader } from '@/components/dashboard-page-header'
 import { EmptyState } from '@/components/empty-state'
 import { FacebookPagePickerDialog } from '@/components/facebook-page-picker-dialog'
-import { PageColumn } from '@/components/page-column'
+import { ProjectPage } from '@/components/project-page'
 import { PublisherConnectionPanel } from '@/components/publisher-connection-panel'
 import type { Channel } from '@/lib/api'
 import { useDashboardGlobal, useProjectDashboard } from '@/lib/dashboard-context'
@@ -77,9 +75,6 @@ export function ChannelManagementPage({
             sourceMedia,
         }) ||
             readPublicationRecovery(project.id, session.user.id) !== null)
-    const backLabel = canResumeComposition
-        ? m.publication_resume_composition()
-        : m.nav_back_to_overview()
     const [profileChannel, setProfileChannel] = useState<Channel | null>(null)
     const [cadenceChannel, setCadenceChannel] = useState<Channel | null>(null)
     const [sharingChannel, setSharingChannel] = useState<Channel | null>(null)
@@ -106,7 +101,21 @@ export function ChannelManagementPage({
     }
 
     return (
-        <main className="min-w-0 px-4 py-7 sm:px-6 lg:px-8 lg:py-8">
+        <ProjectPage
+            width="wide"
+            action={
+                canEditProject ? (
+                    <ChannelCreationDialog
+                        projectId={project.id}
+                        channels={channels}
+                        onCreate={onCreateChannel}
+                        pending={pending}
+                        defaultOpen={startCreating}
+                    />
+                ) : undefined
+            }
+            headerChildren={<ChannelScopeSwitch scope="project" projectId={project.id} />}
+            title={m.channels_title()}>
             {facebookSelection && canEditProject ? (
                 <FacebookPagePickerDialog
                     key={facebookSelection.selection}
@@ -124,97 +133,53 @@ export function ChannelManagementPage({
                     }}
                 />
             ) : null}
-            <DashboardPageHeader
-                column="management"
-                action={
-                    canEditProject ? (
-                        <ChannelCreationDialog
-                            projectId={project.id}
-                            channels={channels}
-                            onCreate={onCreateChannel}
-                            pending={pending}
-                            defaultOpen={startCreating}
-                        />
-                    ) : undefined
-                }
-                back={
-                    canResumeComposition ? (
-                        <Link
-                            aria-label={backLabel}
-                            className={buttonVariants({
-                                variant: 'ghost',
-                                size: 'icon',
-                                className: canResumeComposition
-                                    ? 'w-auto justify-self-start gap-1.5 px-2.5 text-muted-foreground hover:text-foreground'
-                                    : 'justify-self-start text-muted-foreground hover:text-foreground lg:w-auto lg:gap-1.5 lg:px-2.5',
-                            })}
-                            params={{ projectId: project.id }}
-                            to={
-                                canResumeComposition
-                                    ? '/dashboard/projects/$projectId/publications/new'
-                                    : '/dashboard/projects/$projectId/overview'
-                            }>
-                            <AltArrowLeftIcon aria-hidden="true" />
-                            <span className={canResumeComposition ? undefined : 'hidden lg:inline'}>
-                                {backLabel}
-                            </span>
-                        </Link>
-                    ) : undefined
-                }
-                title={m.channels_title()}>
-                <ChannelScopeSwitch scope="project" projectId={project.id} />
-            </DashboardPageHeader>
 
-            <PageColumn variant="management">
-                {error && lifecycle === null ? (
-                    <Alert
-                        variant="destructive"
-                        className="mb-6 rounded-md border-state-failed/35 bg-state-failed/10">
-                        <AlertTitle>{m.channels_action_failed()}</AlertTitle>
-                        <AlertDescription>{error}</AlertDescription>
-                    </Alert>
-                ) : null}
+            {error && lifecycle === null ? (
+                <Alert
+                    variant="destructive"
+                    className="mb-6 rounded-md border-state-failed/35 bg-state-failed/10">
+                    <AlertTitle>{m.channels_action_failed()}</AlertTitle>
+                    <AlertDescription>{error}</AlertDescription>
+                </Alert>
+            ) : null}
 
-                {publisherFeedback ? (
-                    <PublisherCallbackFeedback
-                        canResumeComposition={canResumeComposition}
-                        channelId={publisherFeedback.channelId}
-                        onDismiss={onDismissPublisherFeedback}
-                        onRefreshProject={onRefreshProject}
-                        projectId={project.id}
-                        result={publisherFeedback.result}
+            {publisherFeedback ? (
+                <PublisherCallbackFeedback
+                    canResumeComposition={canResumeComposition}
+                    channelId={publisherFeedback.channelId}
+                    onDismiss={onDismissPublisherFeedback}
+                    onRefreshProject={onRefreshProject}
+                    projectId={project.id}
+                    result={publisherFeedback.result}
+                />
+            ) : null}
+
+            <section id="channels" className="scroll-mt-20">
+                {channels.length > 0 ? (
+                    <PublisherConnectionPanel
+                        channels={channels}
+                        connections={connections}
+                        pending={pending}
+                        onEditProfile={setProfileChannel}
+                        onLifecycleAction={(action, channel) => setLifecycle({ action, channel })}
+                        onCadence={setCadenceChannel}
+                        onShare={canEditProject ? setSharingChannel : undefined}
+                        onPublisherConnected={onPublisherConnected}
+                        onConnectCustomHttpPublisher={onConnectCustomHttpPublisher}
+                        onDisconnectPublisher={onDisconnectPublisher}
+                        isInstanceAdmin={isInstanceAdmin}
+                        readOnly={!canEditProject}
                     />
-                ) : null}
-
-                <section id="channels" className="scroll-mt-20">
-                    {channels.length > 0 ? (
-                        <PublisherConnectionPanel
-                            channels={channels}
-                            connections={connections}
-                            pending={pending}
-                            onEditProfile={setProfileChannel}
-                            onLifecycleAction={(action, channel) =>
-                                setLifecycle({ action, channel })
-                            }
-                            onCadence={setCadenceChannel}
-                            onShare={canEditProject ? setSharingChannel : undefined}
-                            onPublisherConnected={onPublisherConnected}
-                            onConnectCustomHttpPublisher={onConnectCustomHttpPublisher}
-                            onDisconnectPublisher={onDisconnectPublisher}
-                            isInstanceAdmin={isInstanceAdmin}
-                            readOnly={!canEditProject}
-                        />
-                    ) : (
-                        <EmptyState
-                            className="mt-4"
-                            description={m.channels_empty_description()}
-                            icon={<LinkIcon aria-hidden="true" />}
-                            layout="default"
-                            title={m.channels_empty_title()}
-                        />
-                    )}
-                </section>
-            </PageColumn>
+                ) : (
+                    <EmptyState
+                        className="mt-4"
+                        description={m.channels_empty_description()}
+                        icon={<LinkIcon aria-hidden="true" />}
+                        layout="default"
+                        title={m.channels_empty_title()}
+                    />
+                )}
+            </section>
 
             {cadenceChannel ? (
                 <ChannelCadenceDialog
@@ -265,7 +230,7 @@ export function ChannelManagementPage({
                     }}
                 />
             ) : null}
-        </main>
+        </ProjectPage>
     )
 }
 
@@ -310,7 +275,14 @@ function PublisherCallbackFeedback({
             <AlertTitle>{copy.title}</AlertTitle>
             <AlertDescription className="flex flex-wrap items-center gap-x-3 gap-y-1">
                 <span>{copy.description}</span>
-                {isSuccess && !canResumeComposition ? (
+                {canResumeComposition ? (
+                    <Link
+                        className="font-medium text-foreground underline-offset-4 hover:underline"
+                        params={{ projectId }}
+                        to="/dashboard/projects/$projectId/publications/new">
+                        {m.publication_resume_composition()}
+                    </Link>
+                ) : isSuccess ? (
                     <Button
                         nativeButton={false}
                         render={

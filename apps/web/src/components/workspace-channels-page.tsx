@@ -21,7 +21,7 @@ import { ChannelSharingDialog } from '@/components/channel-sharing-dialog'
 import { DashboardPageHeader } from '@/components/dashboard-page-header'
 import { channelProfileLabel } from '@/components/dashboard-publication-parts'
 import { EmptyState } from '@/components/empty-state'
-import { PageColumn } from '@/components/page-column'
+import { ProjectPage } from '@/components/project-page'
 import {
     api,
     ApiError,
@@ -41,7 +41,7 @@ export function WorkspaceChannelsPage({ projectId }: { readonly projectId?: stri
     useLanguage()
     if (!global.selectedWorkspaceId)
         return (
-            <main className="px-4 py-8">
+            <main className="min-w-0 px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
                 <DashboardPageHeader column="management" title={m.channels_title()} />
             </main>
         )
@@ -119,21 +119,19 @@ function WorkspaceChannelContent({
         }
     }
     return (
-        <main className="min-w-0 px-4 py-7 sm:px-6 lg:px-8 lg:py-8">
-            <DashboardPageHeader
-                column="management"
-                title={m.channels_title()}
-                action={
-                    canCreate.length ? (
-                        <Button onClick={() => setCreating(value => !value)}>
-                            {creating ? null : <AddIcon aria-hidden="true" />}
-                            {creating ? m.common_cancel() : m.channel_add()}
-                        </Button>
-                    ) : undefined
-                }>
-                <ChannelScopeSwitch scope="workspace" projectId={projectId} />
-            </DashboardPageHeader>
-            <PageColumn variant="management" className="space-y-5">
+        <ProjectPage
+            width="wide"
+            title={m.channels_title()}
+            action={
+                canCreate.length ? (
+                    <Button onClick={() => setCreating(value => !value)}>
+                        {creating ? null : <AddIcon aria-hidden="true" />}
+                        {creating ? m.common_cancel() : m.channel_add()}
+                    </Button>
+                ) : undefined
+            }
+            headerChildren={<ChannelScopeSwitch scope="workspace" projectId={projectId} />}>
+            <div className="space-y-5">
                 {creating ? (
                     <section
                         className="max-w-xl space-y-3"
@@ -278,7 +276,7 @@ function WorkspaceChannelContent({
                             : m.workspace_channels_show_archived({ count: archivedCount })}
                     </Button>
                 ) : null}
-            </PageColumn>
+            </div>
             {sharingChannel ? (
                 <ChannelSharingDialog
                     key={sharingChannel.id}
@@ -301,6 +299,6 @@ function WorkspaceChannelContent({
                     onChanged={refresh}
                 />
             ) : null}
-        </main>
+        </ProjectPage>
     )
 }

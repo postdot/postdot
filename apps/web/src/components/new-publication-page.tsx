@@ -1009,7 +1009,7 @@ export function NewPublicationPage({
     }, [recovery, autosaveState, serverDraftReady, serverDraftLoadFailed, discardingRecovery])
 
     return (
-        <main className="min-w-0 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+        <main className="min-w-0 px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
             {/* ADR-103 §2: "New post" is a sidebar destination, so it has no return control. */}
             <div className="mx-auto mb-6 max-w-6xl">
                 <DashboardPageHeader title={m.publication_new_title()} />

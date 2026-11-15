@@ -80,7 +80,7 @@ function PostRoute() {
         projectRole !== 'viewer' &&
         query.data?.membership.role !== 'viewer'
     return (
-        <main className="min-w-0 px-4 py-6 sm:px-6 lg:px-8">
+        <main className="min-w-0 px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
             <DashboardPageHeader
                 column="management"
                 title={

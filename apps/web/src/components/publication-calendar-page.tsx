@@ -7,9 +7,9 @@ import { Link, useNavigate } from '@tanstack/react-router'
 import { useEffect, useMemo, useState } from 'react'
 
 import { BulkActionBar } from '@/components/bulk-action-bar'
-import { DashboardPageHeader } from '@/components/dashboard-page-header'
 import { EmptyState } from '@/components/empty-state'
 import { ActiveFilters, FilterMenu } from '@/components/filter-controls'
+import { ProjectPage } from '@/components/project-page'
 import { PublicationBulkCancellationDialog } from '@/components/publication-bulk-cancellation-dialog'
 import { PublicationBulkMoveDialog } from '@/components/publication-bulk-move-dialog'
 import { PublicationBulkScheduleDialog } from '@/components/publication-bulk-schedule-dialog'
@@ -217,28 +217,26 @@ export function PublicationCalendarPage({
     const readOnly = !canEditProject
 
     return (
-        <main className="min-w-0 px-4 py-7 sm:px-6 lg:px-8 lg:py-8">
-            <DashboardPageHeader
-                action={
-                    noChannels || !canEditProject ? undefined : (
-                        <Button
-                            className="md:hidden"
-                            nativeButton={false}
-                            render={
-                                <Link
-                                    params={{ projectId: project.id }}
-                                    search={{ date: todayDate }}
-                                    to="/dashboard/projects/$projectId/publications/new"
-                                />
-                            }>
-                            <AddIcon aria-hidden="true" />
-                            {m.overview_new_publication()}
-                        </Button>
-                    )
-                }
-                title={m.overview_title()}
-            />
-
+        <ProjectPage
+            width="full"
+            action={
+                noChannels || !canEditProject ? undefined : (
+                    <Button
+                        className="md:hidden"
+                        nativeButton={false}
+                        render={
+                            <Link
+                                params={{ projectId: project.id }}
+                                search={{ date: todayDate }}
+                                to="/dashboard/projects/$projectId/publications/new"
+                            />
+                        }>
+                        <AddIcon aria-hidden="true" />
+                        {m.overview_new_publication()}
+                    </Button>
+                )
+            }
+            title={m.overview_title()}>
             {noChannels ? (
                 <EmptyState
                     action={
@@ -395,7 +393,7 @@ export function PublicationCalendarPage({
                 pending={pending}
                 selectedCount={selectedCount}
             />
-        </main>
+        </ProjectPage>
     )
 }
 

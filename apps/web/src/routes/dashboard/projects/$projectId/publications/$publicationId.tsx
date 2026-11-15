@@ -312,7 +312,7 @@ function AccessTechnicalErrorNotice({ onRetry }: { readonly onRetry: () => void 
 function AccessRemovedSurface() {
     useLanguage()
     return (
-        <main className="w-full px-4 py-6 sm:px-6 lg:px-8 lg:py-7">
+        <main className="w-full px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
             <EmptyState
                 action={
                     <Link
@@ -337,7 +337,7 @@ function PublicationUnavailable({ error, reset }: ErrorComponentProps) {
     const router = useRouter()
     const unavailable = error instanceof ApiError && (error.status === 403 || error.status === 404)
     return (
-        <main className="min-w-0 px-4 py-6 sm:px-6 lg:px-8">
+        <main className="min-w-0 px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
             <div className="mx-auto grid max-w-md justify-items-center gap-4 px-6 py-12 text-center">
                 <h1 className="font-heading text-xl font-semibold">
                     {unavailable ? m.notifications_subject_unavailable() : m.common_error_title()}
