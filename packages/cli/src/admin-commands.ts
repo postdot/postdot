@@ -11,7 +11,7 @@ import {
     publicClient,
     resolveWebsiteOption,
     result,
-    uploadIdentityImage,
+    readIdentityImageFile,
     type Options,
 } from './context'
 import { commaSeparatedIds, nonnegativeInteger, readJsonObject } from './input'
@@ -839,12 +839,13 @@ export function registerAdminCommands(program: Command) {
         .requiredOption('--file <path>', 'Readable, nonempty local image file (maximum 2 MB)')
         .action(async (_options, command: Command) => {
             const options = command.optsWithGlobals<Options & { workspace: string; file: string }>()
-            const body = await uploadIdentityImage<{
-                workspace: { id: string; imageUrl?: string | null }
-            }>(
-                options,
-                `/api/workspaces/${encodeURIComponent(options.workspace)}/image`,
-                options.file
+            const client = connection(options)
+            const file = await readIdentityImageFile(options.file)
+            const body = await result(
+                client.api.workspaces({ workspaceId: options.workspace }).image.post(undefined, {
+                    headers: { 'content-type': 'application/octet-stream' },
+                    fetch: { body: file },
+                })
             )
             output(
                 body,

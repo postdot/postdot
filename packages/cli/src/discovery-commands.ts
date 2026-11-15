@@ -7,7 +7,7 @@ import {
     projectConnection,
     resolveWebsiteOption,
     result,
-    uploadIdentityImage,
+    readIdentityImageFile,
     type Options,
 } from './context'
 
@@ -60,10 +60,14 @@ export function registerDiscoveryCommands(program: Command) {
         .requiredOption('--file <path>', 'Readable, nonempty local image file (maximum 2 MB)')
         .action(async (_options, command: Command) => {
             const options = command.optsWithGlobals<Options & { file: string }>()
-            const { projectId } = projectConnection(options)
-            const body = await uploadIdentityImage<{
-                project: { id: string; imageUrl?: string | null }
-            }>(options, `/api/projects/${encodeURIComponent(projectId)}/image`, options.file)
+            const { client, projectId } = projectConnection(options)
+            const file = await readIdentityImageFile(options.file)
+            const body = await result(
+                client.api.projects({ projectId }).image.post(undefined, {
+                    headers: { 'content-type': 'application/octet-stream' },
+                    fetch: { body: file },
+                })
+            )
             output(
                 body,
                 `Uploaded image for project ${body.project.id}: ${body.project.imageUrl ?? ''}.`,
@@ -194,17 +198,17 @@ export function registerDiscoveryCommands(program: Command) {
             const options = command.optsWithGlobals<
                 Options & { channel: string; file: string; expectedRevision?: number }
             >()
-            const { projectId } = projectConnection(options)
-            const query =
-                options.expectedRevision !== undefined
-                    ? `?expectedRevision=${options.expectedRevision}`
-                    : ''
-            const body = await uploadIdentityImage<{
-                channel: { id: string; imageUrl?: string | null }
-            }>(
-                options,
-                `/api/projects/${encodeURIComponent(projectId)}/channels/${encodeURIComponent(options.channel)}/image${query}`,
-                options.file
+            const { client, projectId } = projectConnection(options)
+            const file = await readIdentityImageFile(options.file)
+            const body = await result(
+                client.api
+                    .projects({ projectId })
+                    .channels({ channelId: options.channel })
+                    .image.post(undefined, {
+                        query: { expectedRevision: options.expectedRevision },
+                        headers: { 'content-type': 'application/octet-stream' },
+                        fetch: { body: file },
+                    })
             )
             output(
                 body,
@@ -258,9 +262,7 @@ export function registerDiscoveryCommands(program: Command) {
                     .channels({ channelId: options.channel })
                     .image.favicon.post(undefined, {
                         query: {
-                            ...(options.expectedRevision !== undefined
-                                ? { expectedRevision: options.expectedRevision }
-                                : {}),
+                            expectedRevision: options.expectedRevision,
                         },
                     })
             )
@@ -287,9 +289,7 @@ export function registerDiscoveryCommands(program: Command) {
                     .channels({ channelId: options.channel })
                     .image.delete(undefined, {
                         query: {
-                            ...(options.expectedRevision !== undefined
-                                ? { expectedRevision: options.expectedRevision }
-                                : {}),
+                            expectedRevision: options.expectedRevision,
                         },
                     })
             )
