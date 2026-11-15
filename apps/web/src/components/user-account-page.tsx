@@ -19,8 +19,13 @@ import { KeyMinimalisticIcon } from '@solar-icons/react/linear/key-minimalistic'
 import { useRouter } from '@tanstack/react-router'
 import { useRef, useState, type FormEvent } from 'react'
 
-import { DashboardPageHeader } from '@/components/dashboard-page-header'
 import { UserAvatar } from '@/components/identity-visuals'
+import {
+    SettingsPage,
+    SettingsSection,
+    SettingsCard,
+    SettingsRow,
+} from '@/components/settings-layout'
 import { api, ApiError, formatApiError } from '@/lib/api'
 import { useDashboardGlobal } from '@/lib/dashboard-context'
 import { useLanguage } from '@/lib/i18n'
@@ -58,61 +63,59 @@ export function UserAccountPage() {
     }
 
     return (
-        <main className="min-w-0 px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
-            <DashboardPageHeader column="reading" title={m.nav_preferences_account()} />
-            <div className="mx-auto grid max-w-xl gap-5">
-                <section
-                    aria-label={m.account_profile()}
-                    className="rounded-md bg-surface-raised p-5 shadow-surface sm:p-6">
+        <SettingsPage title={m.nav_preferences_account()}>
+            <SettingsSection id="account-profile" title={m.account_profile()}>
+                <SettingsCard>
                     <form
                         aria-busy={pending}
                         onSubmit={(event: FormEvent) => {
                             event.preventDefault()
                             void update(() => api.updateProfile(name), m.account_saved())
                         }}>
-                        <div className="flex items-start gap-4 sm:gap-5">
-                            <div className="relative size-16 shrink-0 [&_[data-slot=avatar]]:size-16">
-                                <UserAvatar
-                                    imageUrl={session.user.image}
-                                    name={session.user.name}
-                                    seed={session.user.id}
-                                    size="lg"
-                                />
-                                <Button
-                                    aria-label={m.account_change_photo()}
-                                    title={m.account_change_photo()}
-                                    className="absolute -right-1 -bottom-1 bg-surface-control shadow-control"
-                                    disabled={pending}
-                                    onClick={() => fileInput.current?.click()}
-                                    size="icon-sm"
-                                    type="button"
-                                    variant="secondary">
-                                    <CameraIcon aria-hidden="true" />
-                                </Button>
-                            </div>
-                            <div className="min-w-0 flex-1">
-                                <Field>
-                                    <FieldLabel htmlFor="account-name">
-                                        {m.account_name()}
-                                    </FieldLabel>
-                                    <Input
-                                        autoComplete="name"
-                                        disabled={pending}
-                                        id="account-name"
-                                        maxLength={100}
-                                        onChange={event => {
-                                            setName(event.target.value)
-                                            setNotice(null)
-                                        }}
-                                        required
-                                        value={name}
+                        <SettingsRow
+                            title={m.account_change_photo()}
+                            control={
+                                <div className="flex items-center gap-3">
+                                    <UserAvatar
+                                        imageUrl={session.user.image}
+                                        name={session.user.name}
+                                        seed={session.user.id}
+                                        size="lg"
                                     />
-                                </Field>
-                                <p className="mt-2 break-all text-sm text-muted-foreground">
-                                    {session.user.email}
-                                </p>
-                            </div>
-                        </div>
+                                    <Button
+                                        aria-label={m.account_change_photo()}
+                                        disabled={pending}
+                                        onClick={() => fileInput.current?.click()}
+                                        size="sm"
+                                        type="button"
+                                        variant="outline">
+                                        <CameraIcon aria-hidden="true" />
+                                        {m.account_change_photo()}
+                                    </Button>
+                                </div>
+                            }
+                        />
+                        <SettingsRow
+                            title={m.account_name()}
+                            htmlFor="account-name"
+                            control={
+                                <Input
+                                    autoComplete="name"
+                                    disabled={pending}
+                                    id="account-name"
+                                    maxLength={100}
+                                    onChange={event => {
+                                        setName(event.target.value)
+                                        setNotice(null)
+                                    }}
+                                    required
+                                    value={name}
+                                />
+                            }
+                        />
+                        <SettingsRow
+                            title={<span className="break-all">{session.user.email}</span>}
+                        />
                         <input
                             accept="image/png,image/jpeg,image/webp"
                             aria-label={m.account_change_photo()}
@@ -176,21 +179,18 @@ export function UserAccountPage() {
                             </p>
                         ) : null}
                     </form>
-                </section>
-                <section
-                    aria-label={m.account_security()}
-                    className="flex flex-wrap items-center justify-between gap-3 rounded-md bg-surface-raised p-5 shadow-surface sm:p-6">
-                    <h2 className="flex items-center gap-2 font-heading text-base font-medium">
-                        <KeyMinimalisticIcon
-                            aria-hidden="true"
-                            className="size-5 text-muted-foreground"
-                        />
-                        {m.account_security()}
-                    </h2>
-                    <PasswordChangeDialog />
-                </section>
-            </div>
-        </main>
+                </SettingsCard>
+            </SettingsSection>
+            <SettingsSection id="account-security" title={m.account_security()}>
+                <SettingsCard>
+                    <SettingsRow
+                        icon={<KeyMinimalisticIcon />}
+                        title={m.account_change_password()}
+                        control={<PasswordChangeDialog />}
+                    />
+                </SettingsCard>
+            </SettingsSection>
+        </SettingsPage>
     )
 }
 
