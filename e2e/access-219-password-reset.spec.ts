@@ -176,7 +176,7 @@ test('opts into project outcome email through the preferences and real SMTP rela
     await page.goto(`/dashboard/projects/${projectId}/overview`)
     await page.getByRole('button', { name: 'Open notifications', exact: true }).click()
     await page.getByRole('button', { name: 'Open notification preferences', exact: true }).click()
-    const toggle = page.getByRole('switch', { name: 'Email outcome alerts', exact: true })
+    const toggle = page.getByRole('switch', { name: 'Email status alerts', exact: true })
     await expect(toggle).toBeDisabled()
     await page.getByRole('button', { name: 'Send verification link', exact: true }).click()
     await expect(

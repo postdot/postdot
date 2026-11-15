@@ -199,7 +199,7 @@ test('recovers composition text, target formatting and media through the existin
     await expect(
         sourceBody
             .locator('xpath=ancestor::section[1]')
-            .getByRole('button', { name: 'Source', exact: true })
+            .getByRole('button', { name: 'Markup', exact: true })
     ).toHaveCount(0)
     const sourceSaved = page.waitForResponse(
         response =>
@@ -301,11 +301,11 @@ test('recovers composition text, target formatting and media through the existin
     await page.getByRole('button', { name: 'Update to the new text', exact: true }).click()
     const discordField = page.locator('[data-target-field="text"]')
     await openCustomization(page, discordField)
-    await discordField.getByRole('button', { name: 'Source', exact: true }).click()
+    await discordField.getByRole('button', { name: 'Markup', exact: true }).click()
     await discordField
-        .getByRole('textbox', { name: 'Source text', exact: true })
+        .getByRole('textbox', { name: 'Markup text', exact: true })
         .fill('x'.repeat(2000))
-    await discordField.getByRole('button', { name: 'Source', exact: true }).click()
+    await discordField.getByRole('button', { name: 'Markup', exact: true }).click()
     const discordBody = discordField.locator('[contenteditable="true"]')
     await discordBody.press('Control+End')
     await discordBody.pressSequentially('a')

@@ -164,7 +164,7 @@ for (const provider of ['bluesky', 'mastodon'] as const)
         expect(refreshes).toBe(1)
         await panel.getByRole('button', { name: 'Refresh comments', exact: true }).click()
         await expect(panel.getByRole('alert')).toHaveText(
-            'Refresh failed. The previous snapshot is still displayed.'
+            'Refresh failed. Previous replies are still displayed.'
         )
         await expect(panel.getByText('@reader.test', { exact: true })).toBeVisible()
         expect(refreshes).toBe(2)

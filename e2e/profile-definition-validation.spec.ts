@@ -133,7 +133,7 @@ test('explains profile errors by field and preserves work until a valid draft is
     await expect(alert).toContainText(en.profile_definition_invalid)
     // The reason is stated in words; the internal field path stays out of Studio.
     await expect(alert).not.toContainText('/capabilities/textFields/0/bindingId')
-    await expect(alert).toContainText('Reference an ID declared in fieldBindings.')
+    await expect(alert).toContainText('Reference a field identifier defined in the channel rules.')
     await expect(alert).not.toContainText('FAKE_SENTINEL')
     await expect(alert).not.toContainText(
         'Something went wrong. Check your connection and try again.'

@@ -186,7 +186,7 @@ for (const provider of ['bluesky', 'mastodon'] as const) {
         await field.fill('A second reply')
         await panel.getByRole('button', { name: 'Send reply', exact: true }).click()
         await expect(
-            panel.getByRole('status').filter({ hasText: /^Outcome uncertain$/ })
+            panel.getByRole('status').filter({ hasText: /^Could not confirm$/ })
         ).toBeVisible()
         await expect(
             panel.getByText('The reply may have been sent.', { exact: false })

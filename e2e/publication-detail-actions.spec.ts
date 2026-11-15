@@ -342,7 +342,7 @@ test('shows the active-profile refusal when promotion rejects a superseded draft
 
     await expect(
         page.getByText(
-            'The active channel profile changed after this draft was saved. The draft still uses the previous profile, so normal promotion cannot apply it. The saved content and selected target are unchanged.',
+            'This channel’s content rules changed after this draft was saved. The draft still uses the previous rules, so saving cannot apply it directly. Your saved content and selected channel version are unchanged.',
             { exact: true }
         )
     ).toBeVisible()
@@ -483,8 +483,8 @@ test('adapts a draft explicitly without changing its source or selecting a publi
     ).toBe(200)
     let before = (await (await page.request.get(`${apiUrl}/editor`)).json()).editor
     await page.goto(`/dashboard/projects/${projectId}/publications/${publicationId}`)
-    await page.getByRole('button', { name: 'Adapt to current profile', exact: true }).click()
-    const adaptation = page.getByRole('region', { name: 'Adapt to current profile', exact: true })
+    await page.getByRole('button', { name: 'Adapt to current rules', exact: true }).click()
+    const adaptation = page.getByRole('region', { name: 'Adapt to current rules', exact: true })
     await expect(
         adaptation.getByRole('button', { name: 'Save adapted draft', exact: true })
     ).toBeDisabled()
@@ -565,7 +565,7 @@ test('adapts a draft explicitly without changing its source or selecting a publi
     await page.getByRole('menuitem', { name: 'English', exact: true }).click()
     await adaptation.getByRole('button', { name: 'Cancel', exact: true }).click()
     expect((await (await page.request.get(`${apiUrl}/editor`)).json()).editor).toEqual(before)
-    await page.getByRole('button', { name: 'Adapt to current profile', exact: true }).click()
+    await page.getByRole('button', { name: 'Adapt to current rules', exact: true }).click()
     await adaptation.getByRole('button', { name: 'Reuse previous Body', exact: true }).click()
     await adaptation.getByRole('button', { name: 'Reuse previous Media', exact: true }).click()
     await adaptation.getByRole('button', { name: 'Validate adaptation', exact: true }).click()
@@ -603,7 +603,7 @@ test('adapts a draft explicitly without changing its source or selecting a publi
         'Previous destination'
     )
     await adaptation
-        .getByRole('button', { name: 'Review latest draft and profile', exact: true })
+        .getByRole('button', { name: 'Review latest draft and rules', exact: true })
         .click()
     await expect(adaptation.getByRole('alert')).toHaveCount(0)
     await expect(

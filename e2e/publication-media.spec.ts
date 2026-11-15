@@ -909,7 +909,7 @@ test('supports media library search, viewing, and bulk actions', async ({ page }
     await searchResponse
     await page.unroute('**/api/projects/*/media*')
     await mediaSearch.fill(`missing-${suffix}`)
-    await expect(page.getByText('No media matches this search.', { exact: true })).toBeVisible()
+    await expect(page.getByText('No media matches this search', { exact: true })).toBeVisible()
     await mediaSearch.fill('')
     await expect(
         page.getByRole('button', { name: `View ${droppedMediaFilename}`, exact: true })

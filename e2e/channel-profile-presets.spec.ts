@@ -31,9 +31,12 @@ test('offers provider profiles as custom channel starters with read-only provide
     await page.getByRole('option', { name: 'Bluesky', exact: true }).click()
 
     await expect(
-        page.getByText('A copy of the provider profile. Edit it to fit this custom channel.', {
-            exact: true,
-        })
+        page.getByText(
+            'A copy of the platform’s content rules. Edit them to fit this custom channel.',
+            {
+                exact: true,
+            }
+        )
     ).toBeVisible()
     // A provider copy keeps the provider's own limits: the starter is not editable.
     const body = bodyGroup(page)
@@ -379,8 +382,8 @@ test('confirms stricter rules, preserves affected work, and exposes explicit ada
         .getByRole('link', { name: 'Open', exact: true })
         .click()
     await expect(page).toHaveURL(new RegExp(`/publications/${long.id}$`))
-    await page.getByRole('button', { name: 'Adapt to current profile', exact: true }).click()
-    const adaptation = page.getByRole('region', { name: 'Adapt to current profile', exact: true })
+    await page.getByRole('button', { name: 'Adapt to current rules', exact: true }).click()
+    const adaptation = page.getByRole('region', { name: 'Adapt to current rules', exact: true })
     await adaptation.getByRole('button', { name: 'Reuse previous Body', exact: true }).click()
     await adaptation.getByRole('button', { name: 'Reuse previous Media', exact: true }).click()
     await adaptation.locator('[data-target-field="body"] textarea').fill('Fixed')

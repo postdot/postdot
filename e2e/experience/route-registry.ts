@@ -224,6 +224,6 @@ export const experienceRoutes: readonly ExperienceRoute[] = [
         scope: 'installation',
         shell: 'settings',
         widthClass: 'reading-column',
-        job: 'Configure provider OAuth applications',
+        job: 'Configure platform setup',
     },
 ]

@@ -170,15 +170,15 @@ for (const [provider, metrics] of [
         await expect(history.locator('[data-history-point]')).toHaveCount(2)
         await expect(history.locator('[data-history-segment]')).toHaveCount(2)
         await expect(history.locator('[data-history-difference]')).toHaveCount(0)
-        await history.getByRole('button', { name: 'Older snapshots', exact: true }).click()
+        await history.getByRole('button', { name: 'Older readings', exact: true }).click()
         await expect(history.locator('[data-history-value]')).toHaveText(['0'])
         await expect(
             history.getByText(
-                'One snapshot is saved. Another comparable snapshot is needed to show a change.',
+                'One reading is saved. Another comparable reading is needed to show a change.',
                 { exact: true }
             )
         ).toBeVisible()
-        await history.getByRole('button', { name: 'Newer snapshots', exact: true }).click()
+        await history.getByRole('button', { name: 'Newer readings', exact: true }).click()
         await expect(history.locator('[data-history-value]')).toHaveText(['12', '—', '0'])
         await history.getByRole('combobox', { name: 'Engagement metric', exact: true }).click()
         await page.getByRole('option').nth(1).click()
