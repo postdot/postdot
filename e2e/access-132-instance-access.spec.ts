@@ -81,7 +81,8 @@ test('an instance admin can create, copy, revoke, and accept invitations', async
     await page.getByRole('button', { name: 'Copy invitation link', exact: true }).click()
 
     const pendingInvitation = page.locator('li').filter({ hasText: pendingEmail })
-    await pendingInvitation.getByRole('button', { name: 'Revoke', exact: true }).click()
+    await pendingInvitation.getByRole('button', { name: /Actions for/ }).click()
+    await page.getByRole('menuitem', { name: 'Revoke', exact: true }).click()
     await expect(pendingInvitation).toHaveCount(0)
     await expect(page.locator('code')).toHaveCount(0)
 
