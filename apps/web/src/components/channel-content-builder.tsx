@@ -23,6 +23,7 @@ import {
     type BuilderReason,
 } from '@/lib/channel-content-builder'
 import { useLanguage } from '@/lib/i18n'
+import { parseLocalizedNumber } from '@/lib/localized-number'
 import { getTargetEditorFields } from '@/lib/target-editor'
 import * as m from '@/paraglide/messages.js'
 
@@ -60,6 +61,7 @@ export function ChannelContentBuilder({
         [profile, locale]
     )
     const savedTitle = useRef<unknown>(null)
+    const lastMediaMaximum = useRef<Record<string, number>>({})
     const [preview, setPreview] = useState<Record<string, unknown>>({})
     const [invalid, setInvalid] = useState<Record<string, boolean>>({})
     const [requestValid, setRequestValid] = useState(true)
@@ -92,76 +94,84 @@ export function ChannelContentBuilder({
         : 'absent'
     const titleItems = {
         absent: m.builder_title_absent(),
-        optional: m.builder_title_optional(),
-        required: m.builder_title_required(),
+        optional: m.builder_optional(),
+        required: m.builder_required(),
     }
+    const titleControl = (
+        <Field className="gap-1.5">
+            <FieldLabel htmlFor={`${instanceId}-title-mode`} className="sr-only">
+                {m.builder_title()}
+            </FieldLabel>
+            <Select
+                items={titleItems}
+                value={titleMode}
+                disabled={
+                    disabled ||
+                    Boolean(headline?.reason) ||
+                    (builderRecord(profile?.execution) && profile.execution.kind === 'built_in')
+                }
+                onValueChange={mode => {
+                    if (!mode) return
+                    if (headline && mode === 'absent') savedTitle.current = structuredClone(profile)
+                    const result = setBuilderTitleMode(
+                        profile,
+                        mode as BuilderTitleMode,
+                        savedTitle.current
+                    )
+                    if (result.ok) {
+                        setError(null)
+                        if (mode === 'absent')
+                            setInvalid(current =>
+                                Object.fromEntries(
+                                    Object.entries(current).filter(
+                                        ([key]) => !key.startsWith(`${headline?.id ?? 'headline'}-`)
+                                    )
+                                )
+                            )
+                        onChange(JSON.stringify(result.profile, null, 2))
+                    } else
+                        setError(
+                            reasonLabel(result.reason === 'bounds' ? 'complex' : result.reason)
+                        )
+                }}>
+                <SelectTrigger id={`${instanceId}-title-mode`}>
+                    <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                    {Object.entries(titleItems).map(([key, label]) => (
+                        <SelectItem key={key} value={key}>
+                            {label}
+                        </SelectItem>
+                    ))}
+                </SelectContent>
+            </Select>
+        </Field>
+    )
+    const orderedFields = [...fields].sort(
+        (left, right) =>
+            Number(right.semantic === 'headline') - Number(left.semantic === 'headline')
+    )
     return (
         <div data-channel-content-builder className="grid min-w-0 gap-6 lg:grid-cols-[1fr_0.9fr]">
             <div className="min-w-0 space-y-5">
-                <Field>
-                    <FieldLabel htmlFor={`${instanceId}-title-mode`}>
-                        {m.editor_source_headline()}
-                    </FieldLabel>
-                    <Select
-                        items={titleItems}
-                        value={titleMode}
-                        disabled={
-                            disabled ||
-                            Boolean(headline?.reason) ||
-                            (builderRecord(profile?.execution) &&
-                                profile.execution.kind === 'built_in')
-                        }
-                        onValueChange={mode => {
-                            if (!mode) return
-                            if (headline && mode === 'absent')
-                                savedTitle.current = structuredClone(profile)
-                            const result = setBuilderTitleMode(
-                                profile,
-                                mode as BuilderTitleMode,
-                                savedTitle.current
-                            )
-                            if (result.ok) {
-                                setError(null)
-                                if (mode === 'absent')
-                                    setInvalid(current =>
-                                        Object.fromEntries(
-                                            Object.entries(current).filter(
-                                                ([key]) =>
-                                                    !key.startsWith(
-                                                        `${headline?.id ?? 'headline'}-`
-                                                    )
-                                            )
-                                        )
-                                    )
-                                onChange(JSON.stringify(result.profile, null, 2))
-                            } else
-                                setError(
-                                    reasonLabel(
-                                        result.reason === 'bounds' ? 'complex' : result.reason
-                                    )
-                                )
-                        }}>
-                        <SelectTrigger id={`${instanceId}-title-mode`}>
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {Object.entries(titleItems).map(([key, label]) => (
-                                <SelectItem key={key} value={key}>
-                                    {label}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                </Field>
+                {headline === undefined ? (
+                    <fieldset className="min-w-0 space-y-3 rounded-sm border border-border p-3">
+                        <legend className="px-1 text-sm font-medium">{m.builder_title()}</legend>
+                        {titleControl}
+                    </fieldset>
+                ) : null}
                 {fields.length === 0 ? (
                     <Alert>
                         <AlertTitle>{m.builder_preserved()}</AlertTitle>
                         <AlertDescription>{m.builder_complex()}</AlertDescription>
                     </Alert>
                 ) : null}
-                {fields.map(field => {
+                {orderedFields.map(field => {
                     const label =
-                        previewFields.find(item => item.bindingId === field.id)?.label ?? field.id
+                        field.semantic === 'headline'
+                            ? m.builder_title()
+                            : (previewFields.find(item => item.bindingId === field.id)?.label ??
+                              field.id)
                     const locked = disabled || field.reason !== undefined
                     const id = `${instanceId}-${field.id}`
                     const controls = (
@@ -169,6 +179,7 @@ export function ChannelContentBuilder({
                             key={field.id}
                             className="min-w-0 space-y-3 rounded-sm border border-border p-3">
                             <legend className="px-1 text-sm font-medium">{label}</legend>
+                            {field.semantic === 'headline' ? titleControl : null}
                             {field.reason ? (
                                 <p className="text-xs leading-5 text-muted-foreground">
                                     {reasonLabel(field.reason)}
@@ -189,20 +200,51 @@ export function ChannelContentBuilder({
                                     />
                                 </label>
                             ) : null}
-                            <BuilderNumber
-                                key={`${field.id}-maximum`}
-                                id={`${id}-maximum`}
-                                label={
-                                    field.kind === 'media'
-                                        ? m.builder_max_files()
-                                        : m.builder_max_length()
-                                }
-                                value={field.maximum}
-                                minimum={Math.max(field.minimum, field.kind === 'text' ? 1 : 0)}
-                                disabled={locked}
-                                onValid={valid => validity(`${field.id}-maximum`, valid)}
-                                onChange={maximum => update(field.id, { maximum: maximum! })}
-                            />
+                            {field.kind === 'media' ? (
+                                <label
+                                    className="flex items-center justify-between gap-3 text-sm"
+                                    htmlFor={`${id}-allowed`}>
+                                    <span>{m.builder_media_allowed()}</span>
+                                    <Switch
+                                        id={`${id}-allowed`}
+                                        checked={field.maximum > 0}
+                                        disabled={locked || field.minimum > 0}
+                                        onCheckedChange={checked =>
+                                            update(field.id, {
+                                                maximum: checked
+                                                    ? (lastMediaMaximum.current[field.id] ?? 4)
+                                                    : 0,
+                                            })
+                                        }
+                                    />
+                                </label>
+                            ) : null}
+                            {field.kind === 'media' && field.maximum === 0 ? null : (
+                                <BuilderNumber
+                                    key={`${field.id}-maximum`}
+                                    id={`${id}-maximum`}
+                                    label={
+                                        field.kind === 'media'
+                                            ? m.builder_max_files()
+                                            : m.builder_max_length()
+                                    }
+                                    unit={
+                                        field.kind === 'media'
+                                            ? m.builder_unit_files()
+                                            : m.builder_unit_characters()
+                                    }
+                                    locale={locale}
+                                    value={field.maximum}
+                                    minimum={Math.max(field.minimum, field.kind === 'text' ? 1 : 0)}
+                                    disabled={locked}
+                                    onValid={valid => validity(`${field.id}-maximum`, valid)}
+                                    onChange={maximum => {
+                                        if (field.kind === 'media' && maximum)
+                                            lastMediaMaximum.current[field.id] = maximum
+                                        update(field.id, { maximum: maximum! })
+                                    }}
+                                />
+                            )}
                             {field.kind === 'text' ? (
                                 field.semantic === 'language' ? null : (
                                     <details>
@@ -241,7 +283,7 @@ export function ChannelContentBuilder({
                                         </div>
                                     </details>
                                 )
-                            ) : (
+                            ) : field.maximum === 0 ? null : (
                                 <>
                                     <div className="flex flex-wrap gap-x-4 gap-y-2">
                                         {(['image', 'video', 'audio', 'document'] as const).map(
@@ -281,6 +323,8 @@ export function ChannelContentBuilder({
                                         <BuilderNumber
                                             id={`${id}-bytes`}
                                             label={m.builder_max_bytes()}
+                                            unit="MB"
+                                            locale={locale}
                                             value={
                                                 field.maxBytes === undefined
                                                     ? null
@@ -303,14 +347,21 @@ export function ChannelContentBuilder({
                                     </details>
                                 </>
                             )}
-                            {field.maxGraphemes !== undefined ? (
-                                <p className="text-xs text-muted-foreground">
-                                    {m.builder_graphemes({ count: field.maxGraphemes })}
-                                </p>
-                            ) : null}
                             {field.maxWeightedLength !== undefined ? (
                                 <p className="text-xs text-muted-foreground">
-                                    {m.builder_weighted({ count: field.maxWeightedLength })}
+                                    {m.builder_weighted({
+                                        count: new Intl.NumberFormat(locale).format(
+                                            field.maxWeightedLength
+                                        ),
+                                    })}
+                                </p>
+                            ) : field.maxGraphemes !== undefined ? (
+                                <p className="text-xs text-muted-foreground">
+                                    {m.builder_graphemes({
+                                        count: new Intl.NumberFormat(locale).format(
+                                            field.maxGraphemes
+                                        ),
+                                    })}
                                 </p>
                             ) : null}
                         </fieldset>
@@ -381,6 +432,8 @@ function familyLabel(family: string) {
 function BuilderNumber({
     id,
     label,
+    locale,
+    unit,
     value,
     minimum,
     disabled,
@@ -391,6 +444,8 @@ function BuilderNumber({
 }: {
     readonly id: string
     readonly label: string
+    readonly locale: string
+    readonly unit: string
     readonly value: number | null
     readonly minimum: number
     readonly disabled: boolean
@@ -399,41 +454,60 @@ function BuilderNumber({
     readonly nullable?: boolean
     readonly decimal?: boolean
 }) {
-    const [text, setText] = useState(value === null ? '' : String(value))
+    const format = (input: number | null) =>
+        input === null
+            ? ''
+            : new Intl.NumberFormat(locale, { maximumFractionDigits: 6 }).format(input)
+    const [text, setText] = useState(format(value))
     const [invalid, setInvalid] = useState(false)
+    const editing = useRef(false)
     useEffect(() => {
-        setText(value === null ? '' : String(value))
+        if (editing.current) return
+        setText(format(value))
         setInvalid(false)
-    }, [value])
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [value, locale])
     return (
         <Field className="gap-1.5">
             <FieldLabel htmlFor={id}>{label}</FieldLabel>
-            <Input
-                id={id}
-                type="number"
-                min={minimum}
-                step={decimal ? 'any' : 1}
-                value={text}
-                disabled={disabled}
-                aria-invalid={invalid}
-                aria-describedby={invalid ? `${id}-error` : undefined}
-                onChange={event => {
-                    const next = event.target.value
-                    setText(next)
-                    const numeric = Number(next)
-                    const valid =
-                        next === ''
-                            ? nullable
-                            : Number.isFinite(numeric) &&
-                              numeric >= minimum &&
-                              (decimal
-                                  ? Number.isSafeInteger(Math.round(numeric * 1_000_000))
-                                  : Number.isSafeInteger(numeric))
-                    setInvalid(!valid)
-                    onValid(valid)
-                    if (valid) onChange(next === '' ? null : numeric)
-                }}
-            />
+            <div className="flex items-center gap-2">
+                <Input
+                    id={id}
+                    type="text"
+                    inputMode={decimal ? 'decimal' : 'numeric'}
+                    className="max-w-40 tabular-nums"
+                    value={text}
+                    disabled={disabled}
+                    aria-invalid={invalid}
+                    aria-describedby={invalid ? `${id}-error` : `${id}-unit`}
+                    onFocus={() => {
+                        editing.current = true
+                    }}
+                    onBlur={() => {
+                        editing.current = false
+                        if (!invalid) setText(format(value))
+                    }}
+                    onChange={event => {
+                        const next = event.target.value
+                        setText(next)
+                        const numeric = parseLocalizedNumber(next, locale)
+                        const valid =
+                            next.trim() === ''
+                                ? nullable
+                                : Number.isFinite(numeric) &&
+                                  numeric >= minimum &&
+                                  (decimal
+                                      ? Number.isSafeInteger(Math.round(numeric * 1_000_000))
+                                      : Number.isSafeInteger(numeric))
+                        setInvalid(!valid)
+                        onValid(valid)
+                        if (valid) onChange(next.trim() === '' ? null : numeric)
+                    }}
+                />
+                <span id={`${id}-unit`} className="text-sm text-muted-foreground">
+                    {unit}
+                </span>
+            </div>
             {invalid ? (
                 <FieldDescription id={`${id}-error`} className="text-destructive">
                     {m.builder_invalid_number()}

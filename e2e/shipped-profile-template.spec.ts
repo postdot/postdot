@@ -50,12 +50,13 @@ test('loads a shipped template locally and preserves explicit impact and activat
     await page.getByRole('button', { name: 'Manage Bluesky updates', exact: true }).click()
     await page.getByRole('menuitem', { name: 'Content rules', exact: true }).click()
     const dialog = page.getByRole('dialog')
-    await dialog.getByRole('button', { name: 'Load shipped template', exact: true }).click()
+    await dialog.getByRole('button', { name: 'Restore the default rules', exact: true }).click()
     let state = await (await page.request.get(profileUrl)).json()
     expect(state.active).toEqual(original)
     expect(state.draft).toBeNull()
-    await dialog.getByRole('button', { name: 'Save draft', exact: true }).click()
-    await expect(dialog.getByRole('button', { name: 'Preview impact', exact: true })).toBeEnabled()
+    // One publication would need review, so saving asks before applying.
+    await dialog.getByRole('button', { name: 'Save', exact: true }).click()
+    await expect(dialog.getByRole('button', { name: 'Apply rules', exact: true })).toBeEnabled()
     state = await (await page.request.get(profileUrl)).json()
     expect(state.active).toEqual(original)
     expect(state.draft.profile.capabilities.textFields[0].maxGraphemes).toBe(200)
@@ -63,14 +64,14 @@ test('loads a shipped template locally and preserves explicit impact and activat
     await expect(dialog).toHaveCount(0)
     await page.getByRole('button', { name: 'Manage Bluesky updates', exact: true }).click()
     await page.getByRole('menuitem', { name: 'Content rules', exact: true }).click()
-    await expect(dialog.getByRole('button', { name: 'Preview impact', exact: true })).toBeEnabled()
+    await expect(dialog.getByRole('button', { name: 'Save', exact: true })).toBeEnabled()
     await expect(
-        dialog.getByRole('button', { name: 'Load shipped template', exact: true })
+        dialog.getByRole('button', { name: 'Restore the default rules', exact: true })
     ).toHaveCount(0)
     const preview = page.waitForResponse(
         reply => reply.url().endsWith('/preview') && reply.request().method() === 'POST'
     )
-    await dialog.getByRole('button', { name: 'Preview impact', exact: true }).click()
+    await dialog.getByRole('button', { name: 'Save', exact: true }).click()
     const { assessment } = await (await preview).json()
     expect(assessment.workingDrafts).toEqual(
         expect.arrayContaining([
@@ -78,10 +79,9 @@ test('loads a shipped template locally and preserves explicit impact and activat
             expect.objectContaining({ id: publicationIds[1], state: 'compatible' }),
         ])
     )
-    await dialog.getByRole('button', { name: 'Review activation', exact: true }).click()
-    await dialog.getByRole('button', { name: 'Confirm activation', exact: true }).click()
+    await dialog.getByRole('button', { name: 'Apply rules', exact: true }).click()
     await expect(
-        dialog.getByRole('heading', { name: 'Bluesky updates profile activated', exact: true })
+        dialog.getByRole('heading', { name: 'New rules apply to Bluesky updates', exact: true })
     ).toBeVisible()
     state = await (await page.request.get(profileUrl)).json()
     expect(state.active.profile.capabilities.textFields[0].maxGraphemes).toBe(200)

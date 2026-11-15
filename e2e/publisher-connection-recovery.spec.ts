@@ -4,6 +4,7 @@ import AxeBuilder from '@axe-core/playwright'
 import { expect, test, type Page } from '@playwright/test'
 
 import en from '../apps/web/messages/en.json' with { type: 'json' }
+import { switchTheme } from './locale'
 
 test('makes a revoked publisher connection actionable', async ({ page }) => {
     test.setTimeout(45_000)
@@ -202,9 +203,7 @@ test('targets connection repair from automatic publication detail without changi
         )
         for (const theme of ['dark', 'light'] as const) {
             if (!(await page.locator('html').getAttribute('class'))?.split(' ').includes(theme)) {
-                await page
-                    .getByRole('button', { name: `Switch to ${theme} theme`, exact: true })
-                    .click()
+                await switchTheme(page, theme)
             }
             for (const width of [1280, 820, 390]) {
                 await page.setViewportSize({ width, height: 900 })
@@ -286,7 +285,7 @@ test('uses active execution for custom channel readiness and connection actions'
     await expect(
         page
             .locator(`#publisher-connection-${ids['custom-manual']}`)
-            .getByText('Manual', { exact: true })
+            .getByText('Published by hand', { exact: true })
     ).toBeVisible()
     const manualDefinition = await page.request.get(`${path}/${ids['custom-manual']}/profile`)
     expect(manualDefinition.status()).toBe(200)
@@ -339,14 +338,14 @@ test('uses active execution for custom channel readiness and connection actions'
     const webhook = page.locator(`#publisher-connection-${ids['custom-webhook']}`)
     const native = page.locator(`#publisher-connection-${ids['custom-native']}`)
     const future = page.locator(`#publisher-connection-${ids['custom-future']}`)
-    await expect(manual.getByText('Manual', { exact: true })).toBeVisible()
+    await expect(manual.getByText('Published by hand', { exact: true })).toBeVisible()
     await expect(manual.getByRole('button', { name: /Connect|Reconnect/ })).toHaveCount(0)
     await expect(manual).not.toContainText('Not connected')
     await expect(manual).not.toContainText('declarative HTTP')
     await expect(webhook.getByRole('button', { name: 'Connect HTTP', exact: true })).toBeVisible()
     await expect(native.getByRole('button', { name: 'Connect DEV.to', exact: true })).toBeVisible()
     await expect(native.getByRole('button', { name: 'Connect HTTP', exact: true })).toHaveCount(0)
-    await expect(future).toContainText('No connection setup is available')
+    await expect(future).toContainText(en.publisher_unsupported_contract)
     await expect(future.getByRole('button', { name: /Connect|Reconnect/ })).toHaveCount(0)
     for (const width of [1280, 820, 390]) {
         await page.setViewportSize({ width, height: 900 })
@@ -369,7 +368,7 @@ test('uses active execution for custom channel readiness and connection actions'
     await rename.getByRole('textbox').fill('Renamed manual')
     await rename.getByRole('button', { name: 'Rename channel', exact: true }).click()
     await expect(manual).toContainText('Renamed manual')
-    await expect(manual.getByText('Manual', { exact: true })).toBeVisible()
+    await expect(manual.getByText('Published by hand', { exact: true })).toBeVisible()
     await manual.getByRole('button', { name: 'Manage Renamed manual', exact: true }).click()
     await page.getByRole('menuitem', { name: 'Archive', exact: true }).click()
     await page
@@ -384,7 +383,7 @@ test('uses active execution for custom channel readiness and connection actions'
         .getByRole('dialog', { name: 'Restore channel', exact: true })
         .getByRole('button', { name: 'Restore channel', exact: true })
         .click()
-    await expect(manual.getByText('Manual', { exact: true })).toBeVisible()
+    await expect(manual.getByText('Published by hand', { exact: true })).toBeVisible()
 
     await page.goto(`/dashboard/projects/${projectId}/publications/new`)
     const content = page.getByRole('textbox', {

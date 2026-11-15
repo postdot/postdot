@@ -194,8 +194,11 @@ below. It changes styling of existing surfaces, not page layouts or workflows.
   current manual work or an upcoming scheduled publication; the entire summary
   stays hidden when neither exists. Its calendar remains the primary surface.
   Compose creates and reviews one source fan-out; Queue prioritizes lifecycle
-  and human-action work; Channels manages destination identity and connection
-  readiness; Media manages reusable verified assets. These surfaces must not
+  and human-action work; Channels manages channel identity and connection
+  readiness on one list surface, where each row states its platform or
+  account, one status word (`StatusText`) and its single next action (connect,
+  reconnect, or set up the platform for an administrator); Media manages
+  reusable verified assets. These surfaces must not
   converge into interchangeable publication-empty dashboards.
 - Composer interaction contract: `Publish to` controls only destination
   inclusion; a separate editor scope chooses shared or channel-specific copy.
@@ -369,9 +372,10 @@ building it; the current app contract must not silently decide those choices.
 
 ## Content and state contract
 
-- Vocabulary and voice: direct English operational language. Prefer `Post`,
-  `Publication`, `Channel`, `Source`, `Destination`, `Queued`, `Draft`,
-  `Published`, and `Needs attention` over invented marketing labels.
+- Vocabulary and voice: direct operational language in the ADR-103 glossary:
+  `Post`, `Publication`, `Channel`, `Channel version`, `Content rules`,
+  `Draft`, `Scheduled`, `Published`, `Needs attention`. Not `Source`,
+  `Destination`, `Queued` or invented marketing labels.
 - Required content: show the source post, destination channel, publication
   state, schedule, and the next meaningful action wherever the surface's job
   requires them.
@@ -384,6 +388,13 @@ building it; the current app contract must not silently decide those choices.
 - User feedback and destructive actions: show save, recovery, conflict,
   publish, and failure states with explicit status and reversible paths where
   the domain allows them.
+- Configuration saves once (audit H4, 2026-11-15): a settings dialog has one
+  `Save`. A preview or impact step appears only when the change affects
+  existing work (for content rules, a publication that would need review), and
+  then as a confirmation of that consequence, never as a mandatory stage.
+  Limits read as sentences with units (`At most _ posts per day`), numbers use
+  the locale's grouping, and every invalid field shows its own message beside
+  it, all at once.
 
 ## Anti-default tests
 

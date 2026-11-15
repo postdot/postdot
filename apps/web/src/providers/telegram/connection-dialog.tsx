@@ -7,7 +7,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@postdot/ui/components/dialog'
-import { Field, FieldLabel } from '@postdot/ui/components/field'
+import { Field, FieldError, FieldLabel } from '@postdot/ui/components/field'
 import { Input } from '@postdot/ui/components/input'
 import { Popover, PopoverContent, PopoverTrigger } from '@postdot/ui/components/popover'
 import { InfoCircleIcon } from '@solar-icons/react/linear/info-circle'
@@ -40,26 +40,34 @@ export function TelegramConnectionDialog({
     const [botToken, setBotToken] = useState('')
     const [targetChannelId, setTargetChannelId] = useState('')
     const { submitting, error, setError, run } = useConnectionAction()
+    const [fieldErrors, setFieldErrors] = useState<{
+        channel?: string
+        token?: string
+    }>({})
 
     function reset() {
         setBotToken('')
         setTargetChannelId('')
         setError(null)
+        setFieldErrors({})
     }
 
     async function submit() {
         if (disabled || submitting) return
-        if (
-            !(
+        const nextErrors = {
+            channel:
                 isTelegramChannelId(targetChannelId.trim()) ||
                 /^@[A-Za-z][A-Za-z0-9_]{4,31}$/.test(targetChannelId.trim())
-            )
-        ) {
-            setError(m.provider_telegram_channel_invalid())
-            return
+                    ? undefined
+                    : m.provider_telegram_channel_invalid(),
+            token:
+                /^\d+:[A-Za-z0-9_-]+$/.test(botToken) && botToken.length <= 512
+                    ? undefined
+                    : m.provider_bot_token_required(),
         }
-        if (!/^\d+:[A-Za-z0-9_-]+$/.test(botToken) || botToken.length > 512) {
-            setError(m.provider_bot_token_required())
+        setFieldErrors(nextErrors)
+        if (nextErrors.channel || nextErrors.token) {
+            setError(null)
             return
         }
 
@@ -100,6 +108,7 @@ export function TelegramConnectionDialog({
                     aria-describedby={undefined}
                     className="max-h-[min(42rem,calc(100dvh-2rem))] w-[calc(100%-2rem)] max-w-sm overflow-hidden bg-background sm:max-w-sm">
                     <form
+                        noValidate
                         className="flex min-h-0 flex-col gap-4"
                         onSubmit={event => {
                             event.preventDefault()
@@ -123,12 +132,27 @@ export function TelegramConnectionDialog({
                                     id={`telegram-channel-${channel.id}`}
                                     autoFocus
                                     value={targetChannelId}
+                                    aria-invalid={fieldErrors.channel !== undefined}
+                                    aria-describedby={
+                                        fieldErrors.channel
+                                            ? `telegram-channel-${channel.id}-error`
+                                            : undefined
+                                    }
                                     onChange={event => {
                                         setTargetChannelId(event.target.value)
                                         setError(null)
+                                        setFieldErrors(current => ({
+                                            ...current,
+                                            channel: undefined,
+                                        }))
                                     }}
                                     placeholder={m.provider_telegram_channel_placeholder()}
                                 />
+                                {fieldErrors.channel ? (
+                                    <FieldError id={`telegram-channel-${channel.id}-error`}>
+                                        {fieldErrors.channel}
+                                    </FieldError>
+                                ) : null}
                             </Field>
                             <Field className="gap-1.5">
                                 <div className="flex items-center gap-1">
@@ -160,11 +184,26 @@ export function TelegramConnectionDialog({
                                     type="password"
                                     autoComplete="off"
                                     value={botToken}
+                                    aria-invalid={fieldErrors.token !== undefined}
+                                    aria-describedby={
+                                        fieldErrors.token
+                                            ? `telegram-token-${channel.id}-error`
+                                            : undefined
+                                    }
                                     onChange={event => {
                                         setBotToken(event.target.value)
                                         setError(null)
+                                        setFieldErrors(current => ({
+                                            ...current,
+                                            token: undefined,
+                                        }))
                                     }}
                                 />
+                                {fieldErrors.token ? (
+                                    <FieldError id={`telegram-token-${channel.id}-error`}>
+                                        {fieldErrors.token}
+                                    </FieldError>
+                                ) : null}
                             </Field>
                             {error === null ? null : (
                                 <p className="text-sm text-destructive" role="alert">

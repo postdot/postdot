@@ -119,13 +119,13 @@ test('projects custom channel definition errors in the creation dialog', async (
     await dialog.getByRole('textbox', { name: en.channel_name, exact: true }).fill('UX332 probe')
     await dialog.getByRole('button', { name: en.builder_configure_channel, exact: true }).click()
     const body = dialog.getByRole('group', { name: 'Body', exact: true })
-    const maximum = body.getByLabel('Maximum characters', { exact: true })
-    await expect(maximum).toHaveValue('1000000')
+    const maximum = body.getByLabel('Maximum length', { exact: true })
+    await expect(maximum).toHaveValue('1,000,000')
 
     await dialog.getByRole('button', { name: en.channel_create_button, exact: true }).click()
     const alert = dialog.getByRole('alert')
     await expect(alert).toContainText(en.profile_definition_invalid)
-    await expect(alert).toContainText('/capabilities/textFields/0/bindingId')
+    await expect(alert).not.toContainText('/capabilities/textFields/0/bindingId')
     await expect(alert).toContainText(en.profile_issue_binding)
     await expect(alert).not.toContainText('FAKE_SENTINEL')
     // Definition errors stay inside the dialog: no second, generic page banner.
@@ -150,7 +150,7 @@ test('projects custom channel definition errors in the creation dialog', async (
 
     // The same refusal is cleared by editing the definition.
     await dialog.getByRole('button', { name: en.builder_configure_channel, exact: true }).click()
-    await expect(maximum).toHaveValue('1000000')
+    await expect(maximum).toHaveValue('1,000,000')
     await dialog.getByRole('button', { name: en.channel_create_button, exact: true }).click()
     await expect(alert).toContainText(en.profile_definition_invalid)
     await maximum.fill('900')
@@ -178,7 +178,7 @@ test('projects custom channel definition errors in the creation dialog', async (
         .click()
     const frenchAlert = frenchDialog.getByRole('alert')
     await expect(frenchAlert).toContainText(frenchTranslation('profile_definition_invalid'))
-    await expect(frenchAlert).toContainText('/capabilities/textFields/0/bindingId')
+    await expect(frenchAlert).not.toContainText('/capabilities/textFields/0/bindingId')
     await expect(frenchAlert).toContainText(frenchTranslation('profile_issue_binding'))
     await expect(frenchAlert).not.toContainText('FAKE_SENTINEL')
     expect(await count()).toBe(before)

@@ -1,5 +1,4 @@
 import { Alert, AlertDescription } from '@postdot/ui/components/alert'
-import { Badge } from '@postdot/ui/components/badge'
 import { Button } from '@postdot/ui/components/button'
 import {
     Dialog,
@@ -9,7 +8,16 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@postdot/ui/components/dialog'
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@postdot/ui/components/dropdown-menu'
 import { toast } from '@postdot/ui/components/toast'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@postdot/ui/components/tooltip'
+import { AddCircleIcon } from '@solar-icons/react/linear/add-circle'
+import { CloseIcon } from '@solar-icons/react/linear/close'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 
@@ -50,7 +58,10 @@ export function ChannelSharingDialog({
     })
     const [pending, setPending] = useState(false)
     const [error, setError] = useState<string | null>(null)
-    const [lastProject, setLastProject] = useState<{ id: string; name: string } | null>(null)
+    const [lastProject, setLastProject] = useState<{
+        id: string
+        name: string
+    } | null>(null)
 
     if (channel === null) return null
     const view = sharing.data
@@ -70,7 +81,9 @@ export function ChannelSharingDialog({
         setError(null)
         try {
             await operation()
-            await queryClient.invalidateQueries({ queryKey: sharingKey(projectId, channelId) })
+            await queryClient.invalidateQueries({
+                queryKey: sharingKey(projectId, channelId),
+            })
             await onChanged()
             toast.add({ title: success, type: 'success' })
             setLastProject(null)
@@ -118,7 +131,7 @@ export function ChannelSharingDialog({
 
                     {view ? (
                         <>
-                            {managerLabel ? (
+                            {managerLabel && !canChange ? (
                                 <p className="text-xs text-muted-foreground">{managerLabel}</p>
                             ) : null}
                             {canChange ? null : (
@@ -131,61 +144,131 @@ export function ChannelSharingDialog({
                                 <h3 id="channel-share-used" className="text-sm font-medium">
                                     {m.channel_share_used_by()}
                                 </h3>
+                                <ul className="divide-y divide-border/60 rounded-md border border-border/60">
+                                    {active.map(usage => {
+                                        const manages =
+                                            manager?.kind === 'project' &&
+                                            manager.project?.id === usage.projectId
+                                        return (
+                                            <li
+                                                key={usage.projectId}
+                                                className="flex min-h-11 items-center justify-between gap-3 py-1.5 pr-1.5 pl-3">
+                                                <span className="min-w-0">
+                                                    <span className="block truncate text-sm">
+                                                        {usage.name}
+                                                    </span>
+                                                    {manages ? (
+                                                        <span className="block text-xs text-muted-foreground">
+                                                            {m.channel_share_manages()}
+                                                        </span>
+                                                    ) : null}
+                                                </span>
+                                                {canChange ? (
+                                                    <Tooltip>
+                                                        <TooltipTrigger
+                                                            render={
+                                                                <Button
+                                                                    type="button"
+                                                                    size="icon-sm"
+                                                                    variant="ghost"
+                                                                    disabled={pending}
+                                                                    aria-label={m.channel_share_withdraw(
+                                                                        {
+                                                                            project: usage.name,
+                                                                        }
+                                                                    )}
+                                                                    onClick={() =>
+                                                                        void run(
+                                                                            () =>
+                                                                                api.withdrawChannel(
+                                                                                    projectId,
+                                                                                    channel.id,
+                                                                                    usage.projectId,
+                                                                                    {
+                                                                                        expectedRevision:
+                                                                                            revision,
+                                                                                    }
+                                                                                ),
+                                                                            m.channel_share_withdrawn(
+                                                                                {
+                                                                                    project:
+                                                                                        usage.name,
+                                                                                    channel:
+                                                                                        channel.name,
+                                                                                }
+                                                                            ),
+                                                                            () =>
+                                                                                setLastProject({
+                                                                                    id: usage.projectId,
+                                                                                    name: usage.name,
+                                                                                })
+                                                                        )
+                                                                    }>
+                                                                    <CloseIcon aria-hidden="true" />
+                                                                </Button>
+                                                            }
+                                                        />
+                                                        <TooltipContent>
+                                                            {m.channel_share_withdraw({
+                                                                project: usage.name,
+                                                            })}
+                                                        </TooltipContent>
+                                                    </Tooltip>
+                                                ) : null}
+                                            </li>
+                                        )
+                                    })}
+                                </ul>
                                 {canChange && active.length > 0 ? (
-                                    <p className="text-sm text-muted-foreground">
+                                    <p className="text-xs text-muted-foreground">
                                         {m.channel_share_withdraw_consequence()}
                                     </p>
                                 ) : null}
-                                <ul className="divide-y rounded-md border">
-                                    {active.map(usage => (
-                                        <li
-                                            key={usage.projectId}
-                                            className="flex items-center justify-between gap-3 px-3 py-2">
-                                            <span className="min-w-0 truncate text-sm">
-                                                {usage.name}
-                                                {usage.projectId === projectId ? (
-                                                    <Badge variant="outline" className="ml-2">
-                                                        {m.channel_shared_badge()}
-                                                    </Badge>
-                                                ) : null}
-                                            </span>
-                                            {canChange ? (
-                                                <Button
-                                                    type="button"
-                                                    size="sm"
-                                                    variant="ghost"
-                                                    disabled={pending}
-                                                    aria-label={m.channel_share_withdraw({
-                                                        project: usage.name,
-                                                    })}
-                                                    onClick={() =>
-                                                        void run(
-                                                            () =>
-                                                                api.withdrawChannel(
-                                                                    projectId,
-                                                                    channel.id,
-                                                                    usage.projectId,
-                                                                    { expectedRevision: revision }
-                                                                ),
-                                                            m.channel_share_withdrawn({
-                                                                project: usage.name,
-                                                                channel: channel.name,
-                                                            }),
-                                                            () =>
-                                                                setLastProject({
-                                                                    id: usage.projectId,
-                                                                    name: usage.name,
+                                {canChange ? (
+                                    available.length === 0 ? (
+                                        <p className="text-xs text-muted-foreground">
+                                            {m.channel_share_none_available()}
+                                        </p>
+                                    ) : (
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger
+                                                render={
+                                                    <Button
+                                                        type="button"
+                                                        size="sm"
+                                                        variant="outline"
+                                                        disabled={pending}>
+                                                        <AddCircleIcon aria-hidden="true" />
+                                                        {m.channel_share_available()}
+                                                    </Button>
+                                                }
+                                            />
+                                            <DropdownMenuContent align="start">
+                                                {available.map(candidate => (
+                                                    <DropdownMenuItem
+                                                        key={candidate.id}
+                                                        onClick={() =>
+                                                            void run(
+                                                                () =>
+                                                                    api.attachChannel(
+                                                                        projectId,
+                                                                        channel.id,
+                                                                        candidate.id,
+                                                                        revision
+                                                                    ),
+                                                                m.channel_share_added({
+                                                                    project: candidate.name,
+                                                                    channel: channel.name,
                                                                 })
-                                                        )
-                                                    }>
-                                                    {m.channel_share_withdraw({
-                                                        project: usage.name,
-                                                    })}
-                                                </Button>
-                                            ) : null}
-                                        </li>
-                                    ))}
-                                </ul>
+                                                            )
+                                                        }>
+                                                        {candidate.name}
+                                                    </DropdownMenuItem>
+                                                ))}
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                    )
+                                ) : null}
                             </section>
 
                             {lastProject ? (
@@ -227,6 +310,7 @@ export function ChannelSharingDialog({
 
                             {canChange ? (
                                 <ChannelManagementTransfer
+                                    managerLabel={managerLabel}
                                     pending={pending}
                                     projects={active
                                         .filter(
@@ -235,7 +319,10 @@ export function ChannelSharingDialog({
                                                 (manager?.kind !== 'project' ||
                                                     manager.project?.id !== usage.projectId)
                                         )
-                                        .map(usage => ({ id: usage.projectId, name: usage.name }))}
+                                        .map(usage => ({
+                                            id: usage.projectId,
+                                            name: usage.name,
+                                        }))}
                                     onTransfer={async targetId => {
                                         let success = false
                                         await run(async () => {
@@ -250,61 +337,6 @@ export function ChannelSharingDialog({
                                         return success
                                     }}
                                 />
-                            ) : null}
-                            {canChange ? (
-                                <section
-                                    aria-labelledby="channel-share-available"
-                                    className="space-y-2">
-                                    <h3
-                                        id="channel-share-available"
-                                        className="text-sm font-medium">
-                                        {m.channel_share_available()}
-                                    </h3>
-                                    {available.length === 0 ? (
-                                        <p className="text-sm text-muted-foreground">
-                                            {m.channel_share_none_available()}
-                                        </p>
-                                    ) : (
-                                        <ul className="divide-y rounded-md border">
-                                            {available.map(candidate => (
-                                                <li
-                                                    key={candidate.id}
-                                                    className="flex items-center justify-between gap-3 px-3 py-2">
-                                                    <span className="min-w-0 truncate text-sm">
-                                                        {candidate.name}
-                                                    </span>
-                                                    <Button
-                                                        type="button"
-                                                        size="sm"
-                                                        variant="outline"
-                                                        disabled={pending}
-                                                        aria-label={m.channel_share_add({
-                                                            project: candidate.name,
-                                                        })}
-                                                        onClick={() =>
-                                                            void run(
-                                                                () =>
-                                                                    api.attachChannel(
-                                                                        projectId,
-                                                                        channel.id,
-                                                                        candidate.id,
-                                                                        revision
-                                                                    ),
-                                                                m.channel_share_added({
-                                                                    project: candidate.name,
-                                                                    channel: channel.name,
-                                                                })
-                                                            )
-                                                        }>
-                                                        {m.channel_share_add({
-                                                            project: candidate.name,
-                                                        })}
-                                                    </Button>
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    )}
-                                </section>
                             ) : null}
                         </>
                     ) : null}

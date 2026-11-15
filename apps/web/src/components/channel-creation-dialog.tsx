@@ -388,9 +388,6 @@ export function ChannelCreationDialog({
                                     <ul className="space-y-2">
                                         {definitionIssues.map((issue, index) => (
                                             <li key={`${issue.path}:${issue.code}:${index}`}>
-                                                <code className="block break-all text-xs">
-                                                    {issue.path || m.profile_definition_root()}
-                                                </code>
                                                 <span>{profileIssueMessage(issue.code)}</span>
                                             </li>
                                         ))}

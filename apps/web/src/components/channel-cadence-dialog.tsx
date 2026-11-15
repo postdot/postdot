@@ -13,6 +13,7 @@ import { Label } from '@postdot/ui/components/label'
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 
+import { TimeZoneCombobox } from '@/components/time-zone-combobox'
 import { api, ApiError, formatApiError, type Channel } from '@/lib/api'
 import * as m from '@/paraglide/messages.js'
 
@@ -106,36 +107,32 @@ function CadenceForm({
     const [error, setError] = useState<string | null>(null)
     const [pending, setPending] = useState(false)
     const [stale, setStale] = useState(false)
-    const fields = [
-        {
-            id: 'cadence-timezone',
-            label: m.cadence_timezone(),
-            value: zone,
-            set: setZone,
-            type: 'text',
-        },
-        {
-            id: 'cadence-daily',
-            label: m.cadence_daily(),
-            value: daily,
-            set: setDaily,
-            type: 'number',
-        },
-        {
-            id: 'cadence-weekly',
-            label: m.cadence_weekly(),
-            value: weekly,
-            set: setWeekly,
-            type: 'number',
-        },
-        {
-            id: 'cadence-spacing',
-            label: m.cadence_spacing(),
-            value: spacing,
-            set: setSpacing,
-            type: 'number',
-        },
-    ]
+    const disabled = pending || !data.canManage
+    const limit = (
+        id: string,
+        label: string,
+        before: string,
+        after: string,
+        value: string,
+        set: (value: string) => void
+    ) => (
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+            <span>{before}</span>
+            <Input
+                id={id}
+                aria-label={label}
+                type="number"
+                inputMode="numeric"
+                min={1}
+                step={1}
+                className="w-20 tabular-nums"
+                value={value}
+                disabled={disabled}
+                onChange={event => set(event.target.value)}
+            />
+            <span>{after}</span>
+        </div>
+    )
     return (
         <form
             className="flex min-h-0 flex-col gap-5"
@@ -160,34 +157,47 @@ function CadenceForm({
                     setPending(false)
                 }
             }}>
-            <div className="min-h-0 space-y-4 overflow-y-auto">
-                <p className="text-sm text-muted-foreground">{m.cadence_empty_disables()}</p>
-                {fields.map(field => (
-                    <div key={field.id} className="space-y-2">
-                        <Label htmlFor={field.id}>{field.label}</Label>
-                        <Input
-                            id={field.id}
-                            type={field.type}
-                            min={
-                                field.id === 'cadence-spacing'
-                                    ? 1 / 60000
-                                    : field.type === 'number'
-                                      ? 1
-                                      : undefined
-                            }
-                            step={
-                                field.id === 'cadence-spacing'
-                                    ? 'any'
-                                    : field.type === 'number'
-                                      ? 1
-                                      : undefined
-                            }
-                            value={field.value}
-                            disabled={pending || !data.canManage}
-                            onChange={event => field.set(event.target.value)}
-                        />
-                    </div>
-                ))}
+            <div className="min-h-0 space-y-5 overflow-y-auto px-0.5 pb-1">
+                <div className="space-y-3">
+                    {limit(
+                        'cadence-daily',
+                        m.cadence_daily(),
+                        m.cadence_at_most(),
+                        m.cadence_unit_day(),
+                        daily,
+                        setDaily
+                    )}
+                    {limit(
+                        'cadence-weekly',
+                        m.cadence_weekly(),
+                        m.cadence_at_most(),
+                        m.cadence_unit_week(),
+                        weekly,
+                        setWeekly
+                    )}
+                    <p className="text-xs text-muted-foreground">{m.cadence_limits_hint()}</p>
+                </div>
+                <div className="space-y-2">
+                    {limit(
+                        'cadence-spacing',
+                        m.cadence_spacing(),
+                        m.cadence_at_least(),
+                        m.cadence_unit_minutes(),
+                        spacing,
+                        setSpacing
+                    )}
+                    <p className="text-xs text-muted-foreground">{m.cadence_spacing_hint()}</p>
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="cadence-timezone">{m.cadence_timezone()}</Label>
+                    <TimeZoneCombobox
+                        id="cadence-timezone"
+                        label={m.cadence_timezone()}
+                        value={zone}
+                        disabled={disabled}
+                        onValueChange={setZone}
+                    />
+                </div>
                 {error ? (
                     <Alert variant="destructive" role="alert">
                         <AlertDescription>{error}</AlertDescription>

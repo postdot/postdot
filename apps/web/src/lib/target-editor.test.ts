@@ -26,7 +26,7 @@ describe('schema-aware target editor metadata', () => {
         ])
         expect(getTargetEditorFields(profile, 'en').map(field => field.label)).toEqual([
             'Body',
-            'Headline',
+            'Title',
             'Language',
             'Media',
         ])

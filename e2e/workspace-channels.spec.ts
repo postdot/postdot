@@ -77,7 +77,7 @@ for (const [locale, messages] of [
         ).toHaveCount(0)
         const row = page.locator(`[data-workspace-channel="${channel.id}"]`)
         await expect(row).toBeVisible()
-        await row.locator('summary').focus()
+        await row.locator('summary').first().focus()
         await page.keyboard.press('Enter')
         await row.getByRole('button', { name: messages.channel_share_action, exact: true }).click()
         await row
@@ -86,6 +86,7 @@ for (const [locale, messages] of [
                 exact: true,
             })
             .click()
+        await row.locator('[data-channel-transfer] > summary').click()
         await row.getByRole('combobox', { name: messages.channel_transfer_project }).click()
         await page.getByRole('option', { name: `Target ${suffix}`, exact: true }).click()
         // A concurrent attachment changes the channel revision after the selection.
@@ -159,7 +160,7 @@ for (const [locale, messages] of [
         // Repeat through history to cover an already loaded destination as well.
         await page.goBack()
         await expect(row).toBeVisible()
-        await row.locator('summary').click()
+        await row.locator('summary').first().click()
         await row.getByRole('link', { name: `Target ${suffix}`, exact: true }).click()
         await expect(page).toHaveURL(new RegExp(`/projects/${target.id}/channels$`))
         await expect(page.locator(`[id="publisher-connection-${channel.id}"]`)).toBeVisible()
@@ -174,6 +175,7 @@ for (const [locale, messages] of [
             .click()
         await page.getByRole('menuitem', { name: messages.channel_share_action }).click()
         const sharing = page.locator('[data-slot="dialog-content"]')
+        await sharing.locator('[data-channel-transfer] > summary').click()
         await sharing.getByRole('combobox', { name: messages.channel_transfer_project }).click()
         await page.getByRole('option', { name: `Source ${suffix}`, exact: true }).click()
         await sharing
@@ -209,7 +211,7 @@ for (const [locale, messages] of [
         ).toBeVisible()
         await page.getByRole('switch', { name: messages.workspace_channels_archived }).click()
         await expect(row).toContainText(messages.channel_archived)
-        await row.locator('summary').click()
+        await row.locator('summary').first().click()
         await expect(
             row.getByText(messages.workspace_channel_detached, { exact: true })
         ).toHaveCount(3)

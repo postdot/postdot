@@ -26,6 +26,7 @@ import { Link } from '@tanstack/react-router'
 import { useEffect, useRef, type ReactNode } from 'react'
 
 import { CopyPublicationLink } from '@/components/copy-publication-link'
+import { StatusText, type StatusTone } from '@/components/status-text'
 import { api, type PublicationSummary } from '@/lib/api'
 import { useOptionalProjectDashboard } from '@/lib/dashboard-context'
 import { formatProjectDateTime } from '@/lib/date-time'
@@ -577,7 +578,11 @@ export function PublicationRow({
     // ADR-103 §3: every listed publication shows its channel's mark.
     const channel = useOptionalProjectDashboard()?.channels.find(
         item => item.id === publication.channelId
-    ) ?? { id: publication.channelId, name: publication.channelName, profileId: '' }
+    ) ?? {
+        id: publication.channelId,
+        name: publication.channelName,
+        profileId: '',
+    }
     const identityLabel = publicationIdentityLabel(publication)
     const createdAt = normalizePublicationTimestamp(publication.createdAt)
     const lastEditedAt =
@@ -596,7 +601,10 @@ export function PublicationRow({
             )}>
             <Link
                 to="/dashboard/projects/$projectId/publications/$publicationId"
-                params={{ projectId: publication.projectId, publicationId: publication.id }}
+                params={{
+                    projectId: publication.projectId,
+                    publicationId: publication.id,
+                }}
                 data-publication-edit-link="true"
                 className={cn(
                     'col-start-1 row-start-1 group min-w-0',
@@ -753,16 +761,18 @@ export function PublicationStatus({
     readonly state: PublicationState
 }) {
     useLanguage()
-    const label = due ? m.publication_due_manual() : publicationStateLabel(state)
-    return (
-        <span
-            className={cn(
-                'inline-flex items-center gap-1.5 text-xs font-medium',
-                due ? 'text-state-attention' : statusClass(state)
-            )}>
-            {label}
-        </span>
+    return due ? (
+        <StatusText tone="attention">{m.publication_due_manual()}</StatusText>
+    ) : (
+        <StatusText tone={publicationStatusTone(state)}>{publicationStateLabel(state)}</StatusText>
     )
+}
+
+function publicationStatusTone(state: PublicationState): StatusTone {
+    if (state === 'failed' || state === 'ambiguous') return 'critical'
+    if (state === 'published') return 'positive'
+    if (state === 'scheduled' || state === 'ready' || state === 'publishing') return 'progress'
+    return 'neutral'
 }
 
 export function channelMarkerClass(profileId: string) {
@@ -793,13 +803,4 @@ export function publicationStateLabel(state: PublicationState) {
     if (state === 'ambiguous') return m.publication_state_needs_review()
     if (state === 'cancelled') return m.publication_state_cancelled()
     return m.publication_state_draft()
-}
-
-function statusClass(state: PublicationState) {
-    if (state === 'failed' || state === 'ambiguous') return 'text-state-failed'
-    if (state === 'published') return 'text-state-published'
-    if (state === 'scheduled' || state === 'ready' || state === 'publishing') {
-        return 'text-state-queued'
-    }
-    return 'text-state-draft'
 }

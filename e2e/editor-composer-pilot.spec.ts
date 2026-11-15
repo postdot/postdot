@@ -171,7 +171,7 @@ test('recovers composition text, target formatting and media through the existin
     const headline = page.locator('[data-target-field="title"]')
     await openCustomization(page, headline)
     await expect(headline.getByRole('textbox')).toHaveAttribute('aria-invalid', 'true')
-    await expect(headline).toContainText('Enter Headline.')
+    await expect(headline).toContainText('Enter Title.')
     for (const width of [1280, 390]) {
         await page.setViewportSize({ width, height: 900 })
         expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([])
@@ -1302,32 +1302,33 @@ test('upgrades LinkedIn explicitly and composes multiple images without changing
     await page.getByRole('button', { name: 'Manage LinkedIn images', exact: true }).click()
     await page.getByRole('menuitem', { name: 'Content rules', exact: true }).click()
     const dialog = page.getByRole('dialog')
-    await dialog.getByRole('button', { name: 'Load latest LinkedIn template', exact: true }).click()
+    await dialog.getByRole('button', { name: 'Use the latest LinkedIn rules', exact: true }).click()
     // The loaded template is a local edit in the structured controls: the media
     // limit already shows the latest template value.
-    await expect(dialog.getByLabel('Maximum files (0 = none)', { exact: true })).toHaveValue('20')
-    // Loading the template is a local draft action, never an activation.
+    await expect(dialog.getByLabel('Up to', { exact: true })).toHaveValue('20')
+    // Loading the template is a local edit, never an activation.
     const profileUrl = `/api/projects/${projectId}/channels/${channelId}/profile`
     expect(
         (await (await page.request.get(profileUrl)).json()).active.profile.execution.revision
     ).toBe('member-post-v2')
-    await dialog.getByRole('button', { name: 'Save draft', exact: true }).click()
-    await dialog.getByRole('button', { name: 'Preview impact', exact: true }).click()
-    await expect(
-        dialog.getByRole('button', { name: 'Review activation', exact: true })
-    ).toBeEnabled()
-    await dialog.getByRole('button', { name: 'Review activation', exact: true }).click()
-    await dialog.getByRole('button', { name: 'Confirm activation', exact: true }).click()
-    await expect(
-        dialog.getByRole('heading', { name: 'LinkedIn images profile activated', exact: true })
-    ).toBeVisible()
+    await dialog.getByRole('button', { name: 'Save', exact: true }).click()
+    // One save applies the rules; it asks first only when a publication needs review.
+    const apply = dialog.getByRole('button', { name: 'Apply rules', exact: true })
+    const saved = page.getByText('Content rules saved for LinkedIn images', { exact: true })
+    await expect(apply.or(saved)).toBeVisible()
+    if (await apply.isVisible()) {
+        await apply.click()
+        await expect(
+            dialog.getByRole('heading', { name: 'New rules apply to LinkedIn images', exact: true })
+        ).toBeVisible()
+        await dialog.getByRole('button', { name: 'Close', exact: true }).click()
+    }
     expect(
         (await (await page.request.get(profileUrl)).json()).active.profile.execution.revision
     ).toBe('member-post-v4')
     expect(
         (await (await page.request.get(`${historicalUrl}/editor`)).json()).editor.selectedTarget
     ).toEqual(selected)
-    await dialog.getByRole('button', { name: 'Close', exact: true }).click()
     await page.goto(`/dashboard/projects/${projectId}/publications/new`)
     await page.getByRole('textbox', { name: 'Content', exact: true }).fill('Three images in order')
     await page.getByRole('button', { name: 'Add media', exact: true }).click()

@@ -7,6 +7,9 @@ import en from '../apps/web/messages/en.json' with { type: 'json' }
 import fr from '../apps/web/messages/fr.json' with { type: 'json' }
 import { switchTheme } from './locale'
 
+const fill = (template: string, values: Record<string, string>) =>
+    template.replace(/\{(\w+)\}/g, (_, key: string) => values[key] ?? '')
+
 test('creates manual channels with defaults and explains provider setup before connection', async ({
     page,
 }, info) => {
@@ -37,9 +40,12 @@ test('creates manual channels with defaults and explains provider setup before c
     await dialog.getByLabel(en.channel_name).fill('X setup test')
     await dialog.getByRole('button', { name: en.channel_create_button, exact: true }).click()
     const row = page.getByRole('article').filter({ hasText: 'X setup test' })
-    await row.getByRole('button', { name: en.publisher_setup_required, exact: true }).click()
-    await expect(dialog).toContainText(en.channel_provider_setup_explanation)
-    const settings = dialog.getByRole('link', { name: en.provider_apps_title, exact: true })
+    // The row states the missing setup and offers it directly to the administrator.
+    await expect(row.getByText(en.publisher_setup_required, { exact: true })).toBeVisible()
+    const settings = row.getByRole('link', {
+        name: fill(en.channel_setup_platform, { platform: 'X' }),
+        exact: true,
+    })
     await expect(settings).toHaveAttribute('href', /settings\/provider-applications/)
     for (const width of [1280, 820, 390]) {
         await page.setViewportSize({ width, height: 844 })
@@ -53,14 +59,14 @@ test('creates manual channels with defaults and explains provider setup before c
     await expect(page).toHaveURL(/settings\/provider-applications/)
     await page.evaluate(() => localStorage.setItem('PARAGLIDE_LOCALE', 'fr'))
     await page.goto(`/dashboard/projects/${projectId}/channels`)
-    await page
-        .getByRole('article')
-        .filter({ hasText: 'X setup test' })
-        .getByRole('button', { name: fr.publisher_setup_required, exact: true })
-        .click()
-    await expect(dialog).toContainText(fr.channel_provider_setup_explanation)
     await expect(
-        dialog.getByRole('link', { name: fr.provider_apps_title, exact: true })
+        page
+            .getByRole('article')
+            .filter({ hasText: 'X setup test' })
+            .getByRole('link', {
+                name: fill(fr.channel_setup_platform, { platform: 'X' }),
+                exact: true,
+            })
     ).toBeVisible()
     await page.screenshot({ path: info.outputPath('provider-setup-fr-390.png') })
 })
@@ -83,16 +89,10 @@ test('explains missing provider setup to a project owner without installation ad
         ).status()
     ).toBe(201)
     await page.goto(`/dashboard/projects/${projectId}/channels`)
-    await page
-        .getByRole('article')
-        .filter({ hasText: 'Needs administrator' })
-        .getByRole('button', { name: en.publisher_setup_required, exact: true })
-        .click()
-    const dialog = page.getByRole('dialog')
-    await expect(dialog).toContainText(en.publisher_oauth_contact_admin)
-    await expect(
-        dialog.getByRole('link', { name: en.provider_apps_title, exact: true })
-    ).toHaveCount(0)
+    const row = page.getByRole('article').filter({ hasText: 'Needs administrator' })
+    await expect(row.getByText(en.publisher_setup_required, { exact: true })).toBeVisible()
+    await expect(row).toContainText(fill(en.channel_setup_waiting, { platform: 'X' }))
+    await expect(row.getByRole('link')).toHaveCount(0)
 })
 
 test('distinguishes repeated platforms and creates a channel without leaving the composition', async ({
@@ -318,7 +318,12 @@ test('keeps Bluesky connection failures inside the dialog and preserves the hand
         })
     )
     await page.goto(`/dashboard/projects/${projectId}/channels`)
-    await expect(page.getByText(en.publisher_oauth_setup_required, { exact: true })).toBeVisible()
+    await expect(
+        page
+            .getByRole('article')
+            .filter({ hasText: 'Bluesky test' })
+            .getByText(en.publisher_setup_required, { exact: true })
+    ).toBeVisible()
     await expect(page.getByRole('button', { name: 'Connect Bluesky', exact: true })).toHaveCount(0)
     await page.route('**/publishers', async route => {
         const response = await route.fetch()

@@ -7,7 +7,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@postdot/ui/components/dialog'
-import { Field, FieldDescription, FieldLabel } from '@postdot/ui/components/field'
+import { Field, FieldDescription, FieldError, FieldLabel } from '@postdot/ui/components/field'
 import { Input } from '@postdot/ui/components/input'
 import {
     Select,
@@ -41,6 +41,12 @@ interface CustomHttpConnectionDialogProps {
     readonly reconnect?: boolean
 }
 
+interface FieldErrors {
+    readonly endpoint?: string
+    readonly header?: string
+    readonly secret?: string
+}
+
 export function CustomHttpConnectionDialog({
     channel,
     disabled,
@@ -57,6 +63,7 @@ export function CustomHttpConnectionDialog({
     const [externalAccountName, setExternalAccountName] = useState('')
     const [secret, setSecret] = useState('')
     const { submitting, error, setError, run } = useConnectionAction()
+    const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
 
     const profile = useQuery({
         queryKey: ['project', channel.projectId, 'http-connection-profile', channel.id],
@@ -81,20 +88,22 @@ export function CustomHttpConnectionDialog({
         setExternalAccountName('')
         setSecret('')
         setError(null)
+        setFieldErrors({})
     }
 
     async function submit() {
         if (disabled || submitting || !profileReady || selectedAuthentication === undefined) return
-        if (endpointUrl.trim() === '') {
-            setError(m.provider_endpoint_required())
-            return
+        const nextErrors: FieldErrors = {
+            endpoint: endpointUrl.trim() === '' ? m.provider_endpoint_required() : undefined,
+            header:
+                selectedAuthentication === 'header' && headerName.trim() === ''
+                    ? m.provider_header_auth_required()
+                    : undefined,
+            secret: secret.length < 32 ? m.provider_secret_min_length() : undefined,
         }
-        if (secret.length < 32) {
-            setError(m.provider_secret_min_length())
-            return
-        }
-        if (selectedAuthentication === 'header' && headerName.trim() === '') {
-            setError(m.provider_header_auth_required())
+        setFieldErrors(nextErrors)
+        if (nextErrors.endpoint || nextErrors.header || nextErrors.secret) {
+            setError(null)
             return
         }
 
@@ -138,6 +147,7 @@ export function CustomHttpConnectionDialog({
                 }}>
                 <DialogContent className="max-h-[min(42rem,calc(100dvh-2rem))] w-[calc(100%-2rem)] max-w-sm flex min-h-0 flex-col overflow-hidden bg-background sm:max-w-sm">
                     <form
+                        noValidate
                         className="grid min-h-0 grid-rows-[auto_minmax(0,1fr)_auto] gap-4 overflow-hidden"
                         onSubmit={event => {
                             event.preventDefault()
@@ -167,12 +177,27 @@ export function CustomHttpConnectionDialog({
                                     type="url"
                                     required
                                     value={endpointUrl}
+                                    aria-invalid={fieldErrors.endpoint !== undefined}
+                                    aria-describedby={
+                                        fieldErrors.endpoint
+                                            ? `custom-http-endpoint-${channel.id}-error`
+                                            : undefined
+                                    }
                                     onChange={event => {
                                         setEndpointUrl(event.target.value)
                                         setError(null)
+                                        setFieldErrors(current => ({
+                                            ...current,
+                                            endpoint: undefined,
+                                        }))
                                     }}
                                     placeholder={m.provider_endpoint_placeholder()}
                                 />
+                                {fieldErrors.endpoint ? (
+                                    <FieldError id={`custom-http-endpoint-${channel.id}-error`}>
+                                        {fieldErrors.endpoint}
+                                    </FieldError>
+                                ) : null}
                             </Field>
                             <Field className="gap-1.5">
                                 <FieldLabel htmlFor={`custom-http-auth-${channel.id}`}>
@@ -225,12 +250,27 @@ export function CustomHttpConnectionDialog({
                                         disabled={disabled || submitting}
                                         id={`custom-http-header-${channel.id}`}
                                         value={headerName}
+                                        aria-invalid={fieldErrors.header !== undefined}
+                                        aria-describedby={
+                                            fieldErrors.header
+                                                ? `custom-http-header-${channel.id}-error`
+                                                : undefined
+                                        }
                                         onChange={event => {
                                             setHeaderName(event.target.value)
                                             setError(null)
+                                            setFieldErrors(current => ({
+                                                ...current,
+                                                header: undefined,
+                                            }))
                                         }}
                                         placeholder={m.provider_header_name_placeholder()}
                                     />
+                                    {fieldErrors.header ? (
+                                        <FieldError id={`custom-http-header-${channel.id}-error`}>
+                                            {fieldErrors.header}
+                                        </FieldError>
+                                    ) : null}
                                 </Field>
                             ) : null}
                             {selectedAuthentication === 'path' ? (
@@ -263,12 +303,30 @@ export function CustomHttpConnectionDialog({
                                     minLength={32}
                                     required
                                     value={secret}
+                                    aria-invalid={fieldErrors.secret !== undefined}
+                                    aria-describedby={
+                                        fieldErrors.secret
+                                            ? `custom-http-secret-${channel.id}-error`
+                                            : undefined
+                                    }
                                     onChange={event => {
                                         setSecret(event.target.value)
                                         setError(null)
+                                        setFieldErrors(current => ({
+                                            ...current,
+                                            secret: undefined,
+                                        }))
                                     }}
                                 />
-                                <FieldDescription>{m.provider_http_secret_help()}</FieldDescription>
+                                {fieldErrors.secret ? (
+                                    <FieldError id={`custom-http-secret-${channel.id}-error`}>
+                                        {fieldErrors.secret}
+                                    </FieldError>
+                                ) : (
+                                    <FieldDescription>
+                                        {m.provider_http_secret_help()}
+                                    </FieldDescription>
+                                )}
                             </Field>
                             {profile.isPending ? (
                                 <p role="status" className="text-sm text-muted-foreground">

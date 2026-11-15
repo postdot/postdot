@@ -8,9 +8,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@postdot/ui/components/dialog'
-import { CheckIcon } from '@solar-icons/react/linear/check'
-import { CodeFileIcon } from '@solar-icons/react/linear/code-file'
-import { RefreshIcon } from '@solar-icons/react/linear/refresh'
+import { toast } from '@postdot/ui/components/toast'
 import { useEffect, useRef, useState } from 'react'
 
 import { ChannelContentBuilder } from '@/components/channel-content-builder'
@@ -49,7 +47,6 @@ export function ChannelProfileEditorDialog({
     const [shippedTemplateText, setShippedTemplateText] = useState<string | null>(null)
     const [savedProfileText, setSavedProfileText] = useState('')
     const [activeDefinition, setActiveDefinition] = useState<unknown>(null)
-    const [metadata, setMetadata] = useState<Record<string, unknown> | null>(null)
     const session = useRef(0)
     const titleRef = useRef<HTMLHeadingElement>(null)
     const [draftId, setDraftId] = useState<string | null>(null)
@@ -81,7 +78,6 @@ export function ChannelProfileEditorDialog({
         setLoading(true)
         setProfileText('')
         setSavedProfileText('')
-        setMetadata(null)
         setActiveDefinition(null)
         setLatestTemplateAvailable(false)
         setShippedTemplateText(null)
@@ -102,7 +98,6 @@ export function ChannelProfileEditorDialog({
                 const presentation = profilePresentation(version.profile)
                 setProfileText(presentation.text)
                 setSavedProfileText(presentation.text)
-                setMetadata(presentation.metadata)
                 const execution = Object.fromEntries(Object.entries(version.profile)).execution
                 setLatestTemplateAvailable(
                     state.draft === null &&
@@ -154,27 +149,29 @@ export function ChannelProfileEditorDialog({
     if (channel === null) return null
     const currentChannel = channel
 
-    async function saveDraft() {
-        if (!builderValid) return
+    async function saveDraft(): Promise<{
+        id: string
+        revision: number | undefined
+    } | null> {
+        if (!builderValid) return null
         let profile: Record<string, unknown>
         try {
             const parsed: unknown = JSON.parse(profileText)
             if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
                 setError(m.profile_must_be_object())
-                return
+                return null
             }
             if (profileMetadataKeys.some(key => Object.hasOwn(parsed, key))) {
                 setError(m.profile_metadata_managed())
-                return
+                return null
             }
             profile = parsed as Record<string, unknown>
         } catch {
             setError(m.profile_invalid_json())
-            return
+            return null
         }
 
         const epoch = session.current
-        setSaving(true)
         setError(null)
         setAssessment(null)
         try {
@@ -184,7 +181,7 @@ export function ChannelProfileEditorDialog({
                 profile,
                 draftRevision
             )
-            if (epoch !== session.current) return
+            if (epoch !== session.current) return null
             setDraftId(response.profile.id)
             setDraftRevision(response.profile.revision)
             setShippedTemplateText(null)
@@ -192,7 +189,7 @@ export function ChannelProfileEditorDialog({
             const presentation = profilePresentation(response.profile.profile)
             setProfileText(presentation.text)
             setSavedProfileText(presentation.text)
-            setMetadata(presentation.metadata)
+            return { id: response.profile.id, revision: response.profile.revision }
         } catch (caughtError) {
             if (epoch === session.current) {
                 if (
@@ -206,28 +203,36 @@ export function ChannelProfileEditorDialog({
                     setDefinitionIssueCount(caughtError.profileIssueCount)
                 } else setError(formatApiError(caughtError))
             }
-        } finally {
-            if (epoch === session.current) setSaving(false)
+            return null
         }
     }
 
-    async function previewDraft(confirm = false) {
-        if (draftId === null || profileText !== savedProfileText) {
-            setError(m.profile_save_before_preview())
-            return
-        }
+    /**
+     * One save (ADR-103 §5): store the rules, check what they change, and apply
+     * them at once unless a publication would need review.
+     */
+    async function save() {
         const epoch = session.current
         setSaving(true)
         setError(null)
         try {
+            const saved =
+                draftId !== null && !unsaved
+                    ? { id: draftId, revision: draftRevision }
+                    : await saveDraft()
+            if (saved === null || epoch !== session.current) return
             const response = await api.previewChannelProfileActivation(
                 currentChannel.projectId,
                 currentChannel.id,
-                draftId
+                saved.id
             )
             if (epoch !== session.current) return
-            setAssessment(response.assessment)
-            setStage(confirm ? 'confirm' : 'edit')
+            if (response.assessment.hasReviewRequired) {
+                setAssessment(response.assessment)
+                setStage('confirm')
+                return
+            }
+            await activate(saved.id, saved.revision, false)
         } catch (caughtError) {
             if (epoch === session.current) setError(formatApiError(caughtError))
         } finally {
@@ -235,33 +240,30 @@ export function ChannelProfileEditorDialog({
         }
     }
 
-    async function activateDraft() {
-        if (
-            draftId === null ||
-            assessment === null ||
-            stage !== 'confirm' ||
-            profileText !== savedProfileText
-        ) {
-            setError(m.profile_preview_before_activate())
-            return
-        }
+    async function activate(id: string, revision: number | undefined, showResult: boolean) {
         const epoch = session.current
-        setSaving(true)
-        setError(null)
         try {
             const result = await api.activateChannelProfile(
                 currentChannel.projectId,
                 currentChannel.id,
-                draftId,
-                draftRevision
+                id,
+                revision
             )
             if (epoch !== session.current) return
-            setAssessment(result.assessment)
-            setStage('activated')
+            if (showResult) {
+                setAssessment(result.assessment)
+                setStage('activated')
+            } else {
+                toast.add({
+                    title: m.profile_saved({ channel: currentChannel.name }),
+                    type: 'success',
+                })
+                onOpenChange(false)
+            }
             try {
                 await onRefreshProject()
             } catch (caughtError) {
-                if (epoch === session.current) setError(formatApiError(caughtError))
+                if (epoch === session.current && showResult) setError(formatApiError(caughtError))
             }
         } catch (caughtError) {
             if (epoch === session.current) {
@@ -270,8 +272,20 @@ export function ChannelProfileEditorDialog({
                 setAssessment(null)
                 setReloadRequired(true)
             }
+        }
+    }
+
+    async function confirmActivation() {
+        if (draftId === null || stage !== 'confirm' || unsaved) {
+            setError(m.profile_preview_before_activate())
+            return
+        }
+        setSaving(true)
+        setError(null)
+        try {
+            await activate(draftId, draftRevision, true)
         } finally {
-            if (epoch === session.current) setSaving(false)
+            setSaving(false)
         }
     }
 
@@ -319,7 +333,6 @@ export function ChannelProfileEditorDialog({
             const presentation = profilePresentation(version.profile)
             setProfileText(presentation.text)
             setSavedProfileText(presentation.text)
-            setMetadata(presentation.metadata)
             setDraftId(state.draft?.id ?? null)
             setDraftRevision(state.draft?.revision)
             setAssessment(null)
@@ -343,7 +356,9 @@ export function ChannelProfileEditorDialog({
                 <DialogHeader className="shrink-0">
                     <DialogTitle ref={titleRef} tabIndex={-1} className="pr-6 outline-none">
                         {stage === 'confirm'
-                            ? m.profile_activation_confirm_title({ channel: currentChannel.name })
+                            ? m.profile_activation_confirm_title({
+                                  channel: currentChannel.name,
+                              })
                             : stage === 'activated'
                               ? m.profile_activated_title({ channel: currentChannel.name })
                               : m.profile_editor_title({ channel: currentChannel.name })}
@@ -387,31 +402,8 @@ export function ChannelProfileEditorDialog({
                         />
                     ) : null}
 
-                    {activeDefinition !== null && stage !== 'activated' ? (
+                    {activeDefinition !== null && stage === 'confirm' ? (
                         <ChannelContentChanges before={activeDefinition} after={profileText} />
-                    ) : null}
-
-                    {stage === 'edit' && metadata ? (
-                        <details data-profile-metadata>
-                            <summary className="cursor-pointer text-sm font-medium">
-                                {m.profile_metadata_title()}
-                            </summary>
-                            <p className="mt-2 text-xs text-muted-foreground">
-                                {m.profile_metadata_description()}
-                            </p>
-                            <dl className="mt-3 grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2 text-xs">
-                                {profileMetadataKeys.map(key => (
-                                    <div key={key} className="contents">
-                                        <dt className="text-muted-foreground">
-                                            <code>{key}</code>
-                                        </dt>
-                                        <dd className="min-w-0 break-all font-mono">
-                                            {String(metadata[key])}
-                                        </dd>
-                                    </div>
-                                ))}
-                            </dl>
-                        </details>
                     ) : null}
 
                     {error ? (
@@ -429,9 +421,6 @@ export function ChannelProfileEditorDialog({
                                         <ul className="space-y-2">
                                             {definitionIssues.map((issue, index) => (
                                                 <li key={`${issue.path}:${issue.code}:${index}`}>
-                                                    <code className="block break-all text-xs">
-                                                        {issue.path || m.profile_definition_root()}
-                                                    </code>
                                                     <span>{profileIssueMessage(issue.code)}</span>
                                                 </li>
                                             ))}
@@ -474,60 +463,56 @@ export function ChannelProfileEditorDialog({
                 </div>
 
                 {stage !== 'activated' ? (
-                    <DialogFooter className="flex-wrap sm:justify-between">
+                    <DialogFooter>
                         {stage === 'confirm' ? (
-                            <Button
-                                type="button"
-                                variant="outline"
-                                disabled={busy}
-                                onClick={() => setStage('edit')}>
-                                {m.profile_activation_back()}
-                            </Button>
-                        ) : (
-                            <div className="flex flex-wrap gap-2">
+                            <>
                                 <Button
                                     type="button"
                                     variant="outline"
-                                    onClick={() => void saveDraft()}
-                                    disabled={busy || !builderValid || reloadRequired}>
-                                    <CodeFileIcon aria-hidden="true" />
-                                    {m.profile_save_draft()}
+                                    disabled={busy}
+                                    onClick={() => {
+                                        setStage('edit')
+                                        setAssessment(null)
+                                    }}>
+                                    {m.profile_activation_back()}
                                 </Button>
                                 <Button
                                     type="button"
+                                    disabled={busy || reloadRequired}
+                                    onClick={() => void confirmActivation()}>
+                                    {m.profile_activation_confirm()}
+                                </Button>
+                            </>
+                        ) : (
+                            <>
+                                <Button
+                                    type="button"
                                     variant="outline"
-                                    onClick={() => void previewDraft()}
+                                    disabled={saving}
+                                    onClick={() => onOpenChange(false)}>
+                                    {m.common_cancel()}
+                                </Button>
+                                <Button
+                                    type="button"
+                                    onClick={() => void save()}
                                     disabled={
                                         busy ||
                                         !builderValid ||
-                                        draftId === null ||
-                                        unsaved ||
-                                        reloadRequired
+                                        reloadRequired ||
+                                        (draftId === null && !unsaved)
                                     }>
-                                    <RefreshIcon aria-hidden="true" />
-                                    {m.profile_preview_impact()}
+                                    {m.common_save()}
                                 </Button>
-                            </div>
+                            </>
                         )}
-                        <Button
-                            type="button"
-                            onClick={() =>
-                                stage === 'confirm' ? void activateDraft() : void previewDraft(true)
-                            }
-                            disabled={
-                                busy ||
-                                !builderValid ||
-                                assessment === null ||
-                                unsaved ||
-                                reloadRequired
-                            }>
-                            <CheckIcon aria-hidden="true" />
-                            {stage === 'confirm'
-                                ? m.profile_activation_confirm()
-                                : m.profile_activation_review()}
+                    </DialogFooter>
+                ) : (
+                    <DialogFooter>
+                        <Button type="button" onClick={() => onOpenChange(false)}>
+                            {m.common_done()}
                         </Button>
                     </DialogFooter>
-                ) : null}
+                )}
             </DialogContent>
         </Dialog>
     )
@@ -536,12 +521,10 @@ export function ChannelProfileEditorDialog({
 const profileMetadataKeys = ['id', 'origin', 'version', 'schemaHash', 'profileHash'] as const
 
 function profilePresentation(profile: object) {
-    const fields = Object.fromEntries(Object.entries(profile))
-    const metadata = Object.fromEntries(profileMetadataKeys.map(key => [key, fields[key]]))
     const editable = Object.fromEntries(
         Object.entries(profile).filter(([key]) => !profileMetadataKeys.some(field => field === key))
     )
-    return { text: JSON.stringify(editable, null, 2), metadata }
+    return { text: JSON.stringify(editable, null, 2) }
 }
 
 function canonicalProfileValue(value: unknown): string {
