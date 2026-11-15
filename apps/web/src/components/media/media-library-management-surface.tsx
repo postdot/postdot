@@ -264,7 +264,7 @@ export function MediaLibraryManagementSurface({
             ) : assets.length === 0 ? (
                 hasActiveQuery ? (
                     <EmptyState
-                        className="mt-4 min-h-48 bg-surface-field px-4 py-6 shadow-none"
+                        className="mt-4"
                         description={null}
                         illustration="result"
                         illustrationClassName="w-32"
@@ -272,7 +272,7 @@ export function MediaLibraryManagementSurface({
                     />
                 ) : (
                     <EmptyState
-                        className="mt-2 min-h-72 bg-surface-raised/70"
+                        className="mt-6"
                         description={view === 'trash' ? null : (emptyDescription ?? null)}
                         icon={
                             view === 'trash' ? (

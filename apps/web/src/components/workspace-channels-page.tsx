@@ -208,7 +208,7 @@ function WorkspaceChannelContent({
                         icon={<LinkIcon aria-hidden="true" />}
                         title={m.workspace_channels_empty()}
                         description={m.workspace_channels_visibility()}
-                        layout="compact"
+                        layout="default"
                     />
                 ) : null}
                 {visibleChannels.length ? (

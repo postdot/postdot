@@ -149,7 +149,7 @@ export function ProjectTagsPage() {
                             className="mt-8"
                             description={m.project_tags_empty_description()}
                             icon={<TagIcon aria-hidden="true" />}
-                            layout="compact"
+                            layout="default"
                             title={m.project_tags_empty_title()}
                         />
                     ) : (

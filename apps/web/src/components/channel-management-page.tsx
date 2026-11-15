@@ -209,7 +209,7 @@ export function ChannelManagementPage({
                             className="mt-4"
                             description={m.channels_empty_description()}
                             icon={<LinkIcon aria-hidden="true" />}
-                            layout="compact"
+                            layout="default"
                             title={m.channels_empty_title()}
                         />
                     )}

@@ -572,7 +572,7 @@ export function PublicationQueuePage({
                                 : queueEmptyDescription(filter)
                         }
                         emptyIllustration={queueEmptyIllustration(filter)}
-                        emptyLayout="compact"
+                        emptyLayout="default"
                         emptyTitle={
                             needsFirstChannel && filter === 'all'
                                 ? m.overview_setup_channels_title()

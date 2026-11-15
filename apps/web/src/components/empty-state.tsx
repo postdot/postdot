@@ -61,18 +61,20 @@ export function EmptyState({
     title,
     ...props
 }: EmptyStateProps) {
+    // One empty state, two contexts (ADR-103 §2, audit S12). A page whose
+    // content is missing gets the centred state, with an illustration when one
+    // fits; a section inside a page gets the compact row, which never carries
+    // an illustration. Callers choose the context, never a look.
     const compact = layout === 'compact'
-    const media = illustration ? (
-        <EmptyIllustration
-            className={cn(illustrationClassName, compact && 'w-28 sm:w-40')}
-            name={illustration}
-        />
+    const media = compact ? (
+        icon
+    ) : illustration ? (
+        <EmptyIllustration className={illustrationClassName} name={illustration} />
     ) : (
         icon
     )
     const hasMedia = media !== undefined && media !== null
     const hasDescription = description !== undefined && description !== null
-    const compactIllustration = compact && illustration !== undefined
 
     return (
         <Empty
@@ -80,18 +82,20 @@ export function EmptyState({
             aria-live="polite"
             className={cn(
                 compact
-                    ? compactIllustration
-                        ? 'min-h-0 flex-none flex-col items-start justify-start gap-3 rounded-lg bg-surface-inset/45 px-4 py-3 text-left shadow-surface sm:flex-row sm:items-center'
-                        : 'min-h-0 flex-none flex-row items-center justify-start gap-3 rounded-lg bg-surface-inset/45 px-4 py-3 text-left shadow-surface'
-                    : 'min-h-64 gap-5 rounded-lg bg-surface-inset/35 px-6 py-10 shadow-surface sm:min-h-72 sm:py-12',
+                    ? 'min-h-0 flex-none flex-row items-center justify-start gap-3 rounded-lg bg-surface-inset/45 px-4 py-3 text-left shadow-surface'
+                    : 'min-h-0 flex-none gap-4 rounded-none border-0 bg-transparent px-6 py-14 shadow-none',
                 className
             )}
             data-empty-state={illustration ?? 'generic'}
+            data-empty-layout={layout}
             role="status">
             {hasMedia ? (
                 <EmptyMedia
-                    className={cn('mb-0', !illustration ? 'size-8 bg-surface-control' : undefined)}
-                    variant={illustration ? 'default' : 'icon'}>
+                    className={cn(
+                        'mb-0',
+                        compact || !illustration ? 'size-8 bg-surface-control' : undefined
+                    )}
+                    variant={!compact && illustration ? 'default' : 'icon'}>
                     {media}
                 </EmptyMedia>
             ) : null}
@@ -105,13 +109,7 @@ export function EmptyState({
             </EmptyHeader>
             {action ? (
                 <EmptyContent
-                    className={cn(
-                        'w-auto max-w-none',
-                        compact &&
-                            (compactIllustration
-                                ? 'items-start sm:ml-auto sm:shrink-0 sm:items-end'
-                                : 'ml-auto shrink-0 items-end')
-                    )}>
+                    className={cn('w-auto max-w-none', compact && 'ml-auto shrink-0 items-end')}>
                     {action}
                 </EmptyContent>
             ) : null}
@@ -131,7 +129,7 @@ export function EmptyIllustration({
     return (
         <span
             aria-hidden="true"
-            className={cn('block w-40 shrink-0 sm:w-44', className)}
+            className={cn('block w-32 shrink-0 sm:w-36', className)}
             data-empty-illustration={name}
             data-publication-empty-illustration="true">
             <img

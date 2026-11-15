@@ -37,7 +37,7 @@
     "taxonomy_filter_tags": "Filtrar por etiquetas",
     "taxonomy_assignment_failed": "Publicación creada, pero no se pudieron guardar sus etiquetas.",
     "project_tags_title": "Etiquetas",
-    "project_tags_description": "Crea etiquetas internas para organizar y filtrar las publicaciones de este proyecto (no se envían a plataformas externas). Las etiquetas archivadas permanecen en las publicaciones que ya las usan.",
+    "project_tags_description": "Las etiquetas ordenan y filtran tus publicaciones en Postdot. Nunca se envían a las plataformas.",
     "project_tags_read_only": "Solo los propietarios y editores del proyecto pueden cambiar las etiquetas.",
     "project_tags_create": "Crear etiqueta",
     "project_tags_create_title": "Crear etiqueta",

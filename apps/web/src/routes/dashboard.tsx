@@ -501,7 +501,7 @@ function EmptyProjectShell({ global }: { readonly global: DashboardGlobalContext
                             }
                             className="mt-8 w-full"
                             illustration="data"
-                            layout="compact"
+                            layout="default"
                             title={m.overview_no_projects()}
                         />
                         <ProjectCreationDialog
@@ -587,7 +587,7 @@ function ProjectDirectoryList({
                 className="mt-4 w-full"
                 description={m.overview_create_first_project_description()}
                 illustration="data"
-                layout="compact"
+                layout="default"
                 title={m.overview_no_projects()}
             />
         )

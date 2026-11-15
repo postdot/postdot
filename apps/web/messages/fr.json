@@ -37,7 +37,7 @@
     "taxonomy_filter_tags": "Filtrer par étiquettes",
     "taxonomy_assignment_failed": "Publication créée, mais ses étiquettes n’ont pas pu être enregistrées.",
     "project_tags_title": "Étiquettes",
-    "project_tags_description": "Créez des étiquettes pour organiser et filtrer les publications de ce projet (non envoyées aux plateformes externes). Les étiquettes archivées restent sur les publications qui les utilisent déjà.",
+    "project_tags_description": "Les étiquettes trient et filtrent vos publications dans Postdot. Elles ne sont jamais envoyées aux plateformes.",
     "project_tags_read_only": "Seuls les propriétaires et les éditeurs du projet peuvent modifier les étiquettes.",
     "project_tags_create": "Créer une étiquette",
     "project_tags_create_title": "Créer une étiquette",

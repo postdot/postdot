@@ -342,7 +342,7 @@ export function NotificationInbox({ projectId, projects }: NotificationInboxProp
                                 <NotificationLoadingState />
                             ) : notifications.length === 0 ? (
                                 <EmptyState
-                                    className="min-h-56 bg-surface-inset/55 px-5 py-8 shadow-none"
+                                    className="py-10"
                                     description={null}
                                     illustration="notifications"
                                     illustrationClassName="w-32"

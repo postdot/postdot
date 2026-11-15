@@ -37,7 +37,7 @@
     "taxonomy_filter_tags": "Nach Tags filtern",
     "taxonomy_assignment_failed": "Veröffentlichung erstellt, aber die Tags konnten nicht gespeichert werden.",
     "project_tags_title": "Tags",
-    "project_tags_description": "Erstellen Sie interne Tags, um die Veröffentlichungen dieses Projekts zu organisieren und zu filtern (werden nicht an externe Plattformen gesendet). Archivierte Tags bleiben an Veröffentlichungen erhalten, die sie bereits verwenden.",
+    "project_tags_description": "Tags sortieren und filtern Ihre Veröffentlichungen in Postdot. Sie werden nie an Plattformen gesendet.",
     "project_tags_read_only": "Nur Projektinhaber und -editoren können Tags ändern.",
     "project_tags_create": "Tag erstellen",
     "project_tags_create_title": "Tag erstellen",

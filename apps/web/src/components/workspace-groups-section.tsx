@@ -642,7 +642,7 @@ export function WorkspaceGroupsSection({ workspaceId }: WorkspaceGroupsSectionPr
 
                             {workspace.teams.length === 0 ? (
                                 <EmptyState
-                                    className="mt-5 min-h-48"
+                                    className="mt-5"
                                     icon={<UsersGroupTwoRoundedIcon aria-hidden="true" />}
                                     layout="compact"
                                     title={m.access_workspace_groups_empty()}

@@ -37,7 +37,7 @@
     "taxonomy_filter_tags": "Filter by tags",
     "taxonomy_assignment_failed": "Publication created, but its tags could not be saved.",
     "project_tags_title": "Tags",
-    "project_tags_description": "Create internal tags to organize and filter this project’s publications (not sent to external platforms). Archived tags stay on the publications that already use them.",
+    "project_tags_description": "Tags sort and filter your publications in Postdot. They are never sent to platforms.",
     "project_tags_read_only": "Only project owners and editors can change tags.",
     "project_tags_create": "Create tag",
     "project_tags_create_title": "Create tag",

@@ -254,7 +254,7 @@ export function PublicationCalendarPage({
                     className="w-full"
                     description={m.overview_setup_channels_description()}
                     illustration="network"
-                    layout="compact"
+                    layout="default"
                     title={m.overview_setup_channels_title()}
                 />
             ) : (

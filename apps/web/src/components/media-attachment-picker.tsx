@@ -1846,7 +1846,7 @@ function MediaAttachmentPickerView({
                         ) : assets.length === 0 ? (
                             normalizedSearchQuery !== '' ? (
                                 <EmptyState
-                                    className="mt-4 min-h-48 bg-surface-field px-4 py-6 shadow-none"
+                                    className="mt-4"
                                     description={null}
                                     illustration="result"
                                     illustrationClassName="w-32"
@@ -1854,7 +1854,7 @@ function MediaAttachmentPickerView({
                                 />
                             ) : (
                                 <EmptyState
-                                    className="mt-4 min-h-28 bg-surface-field px-4 py-5 shadow-none"
+                                    className="mt-4 py-8"
                                     description={emptyDescription ?? null}
                                     illustration="image"
                                     illustrationClassName="w-28"
