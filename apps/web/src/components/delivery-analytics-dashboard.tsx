@@ -91,6 +91,24 @@ export function DeliveryAnalyticsDashboard({
         ambiguous: m.delivery_ambiguous(),
         retries: m.delivery_retries(),
     }
+    const isReportEmpty =
+        report !== undefined && counters !== null && !Object.values(counters).some(Boolean)
+    const showControls = !neverPublished || (report !== undefined && !isReportEmpty)
+    const showDestinationSelect = channels.length > 1 || channelId !== undefined
+    const visibleCounterKeys = counters
+        ? (Object.keys(labels) as (keyof typeof labels)[]).filter(
+              key => key === 'published' || counters[key] > 0
+          )
+        : []
+    const counterGridClass =
+        visibleCounterKeys.length === 1
+            ? 'grid-cols-1'
+            : visibleCounterKeys.length === 2
+              ? 'grid-cols-2 [&>div:nth-child(2)]:border-l'
+              : visibleCounterKeys.length === 3
+                ? 'grid-cols-1 sm:grid-cols-3 [&>div:nth-child(n+2)]:border-t sm:[&>div:nth-child(n+2)]:border-t-0 sm:[&>div:nth-child(n+2)]:border-l'
+                : 'grid-cols-2 lg:grid-cols-4 [&>div:nth-child(n+2)]:lg:border-l [&>div:nth-child(2n)]:border-l [&>div:nth-child(n+3)]:border-t [&>div:nth-child(n+3)]:lg:border-t-0'
+    const hasDailyBars = daily.some(day => day.published || day.failed || day.ambiguous)
     return (
         <section
             aria-labelledby="delivery-analytics-heading"
@@ -100,7 +118,7 @@ export function DeliveryAnalyticsDashboard({
                 <h2 id="delivery-analytics-heading" className="text-lg font-semibold">
                     {m.delivery_results_heading()}
                 </h2>
-                {!neverPublished ? (
+                {showControls ? (
                     <div className="flex max-w-full flex-wrap items-center gap-2 sm:flex-nowrap">
                         <Select
                             value={String(days)}
@@ -127,43 +145,47 @@ export function DeliveryAnalyticsDashboard({
                                 ))}
                             </SelectContent>
                         </Select>
-                        <Select
-                            value={channelId ?? 'all'}
-                            onValueChange={value => {
-                                setSelectedDate(null)
-                                void navigate({
-                                    search: current => ({
-                                        ...current,
-                                        deliveryChannel:
-                                            value === 'all' ? undefined : (value ?? undefined),
-                                    }),
-                                })
-                            }}>
-                            <SelectTrigger
-                                aria-label={m.delivery_destination()}
-                                className="w-48 min-w-0 max-w-full">
-                                <SelectValue>
-                                    {channelId
-                                        ? (channels.find(channel => channel.id === channelId)
-                                              ?.name ?? m.delivery_retired_destination())
-                                        : m.delivery_all_destinations()}
-                                </SelectValue>
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">{m.delivery_all_destinations()}</SelectItem>
-                                {channelId &&
-                                !channels.some(channel => channel.id === channelId) ? (
-                                    <SelectItem value={channelId}>
-                                        {m.delivery_retired_destination()}
+                        {showDestinationSelect ? (
+                            <Select
+                                value={channelId ?? 'all'}
+                                onValueChange={value => {
+                                    setSelectedDate(null)
+                                    void navigate({
+                                        search: current => ({
+                                            ...current,
+                                            deliveryChannel:
+                                                value === 'all' ? undefined : (value ?? undefined),
+                                        }),
+                                    })
+                                }}>
+                                <SelectTrigger
+                                    aria-label={m.delivery_destination()}
+                                    className="w-48 min-w-0 max-w-full">
+                                    <SelectValue>
+                                        {channelId
+                                            ? (channels.find(channel => channel.id === channelId)
+                                                  ?.name ?? m.delivery_retired_destination())
+                                            : m.delivery_all_destinations()}
+                                    </SelectValue>
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">
+                                        {m.delivery_all_destinations()}
                                     </SelectItem>
-                                ) : null}
-                                {channels.map(channel => (
-                                    <SelectItem key={channel.id} value={channel.id}>
-                                        {channel.name}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                                    {channelId &&
+                                    !channels.some(channel => channel.id === channelId) ? (
+                                        <SelectItem value={channelId}>
+                                            {m.delivery_retired_destination()}
+                                        </SelectItem>
+                                    ) : null}
+                                    {channels.map(channel => (
+                                        <SelectItem key={channel.id} value={channel.id}>
+                                            {channel.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        ) : null}
                     </div>
                 ) : null}
             </div>
@@ -173,7 +195,7 @@ export function DeliveryAnalyticsDashboard({
                     {m.common_loading()}
                 </p>
             ) : null}
-            {report && counters && !Object.values(counters).some(Boolean) ? (
+            {report && counters && isReportEmpty ? (
                 <EmptyState
                     className="mt-2"
                     description={
@@ -204,9 +226,9 @@ export function DeliveryAnalyticsDashboard({
                         </p>
                     ) : null}
                     <dl
-                        className="grid grid-cols-2 overflow-hidden rounded-lg border border-border bg-surface-raised lg:grid-cols-4 [&>div]:border-border [&>div]:p-4 [&>div:nth-child(n+2)]:lg:border-l [&>div:nth-child(2n)]:border-l [&>div:nth-child(n+3)]:border-t [&>div:nth-child(n+3)]:lg:border-t-0"
+                        className={`grid overflow-hidden rounded-lg border border-border bg-surface-raised [&>div]:border-border [&>div]:p-4 ${counterGridClass}`}
                         data-delivery-counters>
-                        {(Object.keys(labels) as (keyof typeof labels)[]).map(key => (
+                        {visibleCounterKeys.map(key => (
                             <div key={key}>
                                 <dt className="text-xs text-muted-foreground">{labels[key]}</dt>
                                 <dd
@@ -233,13 +255,16 @@ export function DeliveryAnalyticsDashboard({
                         ))}
                     </dl>
 
-                    <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(18rem,1fr)]">
-                        <div className="min-w-0 rounded-lg border border-border bg-surface-raised p-4">
-                            <div className="flex flex-wrap items-baseline justify-between gap-2">
-                                <h3 className="text-sm font-medium">{m.delivery_daily()}</h3>
-                            </div>
-                            {daily.some(day => day.published || day.failed || day.ambiguous) ? (
-                                <>
+                    {hasDailyBars || destinations.length > 0 ? (
+                        <div
+                            className={`grid min-w-0 gap-4 ${hasDailyBars && destinations.length > 0 ? 'xl:grid-cols-[minmax(0,1.4fr)_minmax(18rem,1fr)]' : 'grid-cols-1'}`}>
+                            {hasDailyBars ? (
+                                <div className="min-w-0 rounded-lg border border-border bg-surface-raised p-4">
+                                    <div className="flex flex-wrap items-baseline justify-between gap-2">
+                                        <h3 className="text-sm font-medium">
+                                            {m.delivery_daily()}
+                                        </h3>
+                                    </div>
                                     <div className="mt-4 overflow-x-auto pb-2">
                                         <div
                                             className="flex h-40 items-end gap-1 border-b border-border"
@@ -327,69 +352,66 @@ export function DeliveryAnalyticsDashboard({
                                               })
                                             : ''}
                                     </p>
-                                </>
-                            ) : (
-                                <p className="py-8 text-sm text-muted-foreground">
-                                    {m.delivery_empty()}
-                                </p>
-                            )}
-                        </div>
-                        {destinations.length ? (
-                            <div className="min-w-0 rounded-lg border border-border bg-surface-raised p-4">
-                                <h3 className="mb-3 text-sm font-medium">
-                                    {m.delivery_by_destination()}
-                                </h3>
-                                <table
-                                    className="w-full table-fixed text-left text-sm"
-                                    data-delivery-destinations>
-                                    <thead className="[&_th]:break-words">
-                                        <tr className="text-xs text-muted-foreground">
-                                            <th scope="col" className="w-1/4 pb-2 font-normal">
-                                                {m.delivery_destination()}
-                                            </th>
-                                            <th
-                                                scope="col"
-                                                className="pb-2 pl-2 text-right font-normal">
-                                                {m.delivery_published()}
-                                            </th>
-                                            <th
-                                                scope="col"
-                                                className="pb-2 pl-2 text-right font-normal">
-                                                {m.delivery_failed()}
-                                            </th>
-                                            <th
-                                                scope="col"
-                                                className="pb-2 pl-2 text-right font-normal">
-                                                {m.delivery_ambiguous()}
-                                            </th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {destinations.map((row, index) => (
-                                            <tr
-                                                key={row.channelId ?? `unknown-${index}`}
-                                                className="border-t border-border">
-                                                <th
-                                                    scope="row"
-                                                    className="max-w-48 break-words py-3 font-normal">
-                                                    {row.name ?? m.delivery_retired_destination()}
+                                </div>
+                            ) : null}
+                            {destinations.length ? (
+                                <div className="min-w-0 rounded-lg border border-border bg-surface-raised p-4">
+                                    <h3 className="mb-3 text-sm font-medium">
+                                        {m.delivery_by_destination()}
+                                    </h3>
+                                    <table
+                                        className="w-full table-fixed text-left text-sm"
+                                        data-delivery-destinations>
+                                        <thead className="[&_th]:break-words">
+                                            <tr className="text-xs text-muted-foreground">
+                                                <th scope="col" className="w-1/4 pb-2 font-normal">
+                                                    {m.delivery_destination()}
                                                 </th>
-                                                <td className="py-3 pl-2 text-right tabular-nums">
-                                                    {formatNumber(row.published, locale)}
-                                                </td>
-                                                <td className="py-3 pl-2 text-right tabular-nums">
-                                                    {formatNumber(row.failed, locale)}
-                                                </td>
-                                                <td className="py-3 pl-2 text-right tabular-nums">
-                                                    {formatNumber(row.ambiguous, locale)}
-                                                </td>
+                                                <th
+                                                    scope="col"
+                                                    className="pb-2 pl-2 text-right font-normal">
+                                                    {m.delivery_published()}
+                                                </th>
+                                                <th
+                                                    scope="col"
+                                                    className="pb-2 pl-2 text-right font-normal">
+                                                    {m.delivery_failed()}
+                                                </th>
+                                                <th
+                                                    scope="col"
+                                                    className="pb-2 pl-2 text-right font-normal">
+                                                    {m.delivery_ambiguous()}
+                                                </th>
                                             </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        ) : null}
-                    </div>
+                                        </thead>
+                                        <tbody>
+                                            {destinations.map((row, index) => (
+                                                <tr
+                                                    key={row.channelId ?? `unknown-${index}`}
+                                                    className="border-t border-border">
+                                                    <th
+                                                        scope="row"
+                                                        className="max-w-48 break-words py-3 font-normal">
+                                                        {row.name ??
+                                                            m.delivery_retired_destination()}
+                                                    </th>
+                                                    <td className="py-3 pl-2 text-right tabular-nums">
+                                                        {formatNumber(row.published, locale)}
+                                                    </td>
+                                                    <td className="py-3 pl-2 text-right tabular-nums">
+                                                        {formatNumber(row.failed, locale)}
+                                                    </td>
+                                                    <td className="py-3 pl-2 text-right tabular-nums">
+                                                        {formatNumber(row.ambiguous, locale)}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            ) : null}
+                        </div>
+                    ) : null}
                 </>
             ) : null}
         </section>

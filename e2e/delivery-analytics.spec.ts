@@ -86,7 +86,9 @@ test('reports real manual outcomes, filters periods and destinations, and preser
     await page.getByRole('tab', { name: 'Publishing', exact: true }).click()
     const dashboard = page.locator('[data-delivery-dashboard]')
     await expect(dashboard.locator('[data-delivery-counter="published"]')).toHaveText('2')
-    await expect(dashboard.locator('[data-delivery-counter="failed"]')).toHaveText('0')
+    await expect(dashboard.locator('[data-delivery-counter="failed"]')).toHaveCount(0)
+    await expect(dashboard.locator('[data-delivery-counter="ambiguous"]')).toHaveCount(0)
+    await expect(dashboard.locator('[data-delivery-counter="retries"]')).toHaveCount(0)
     await expect(dashboard.getByText('+2 vs previous period', { exact: true })).toBeVisible()
     await expect(dashboard.locator('[data-delivery-destinations]')).toContainText('Manual desk')
     await dashboard.locator('[data-delivery-day]').last().focus()
@@ -158,6 +160,8 @@ test('shows an empty delivery period and keeps comparison failures separate from
     await expect(
         dashboard.getByText('Nothing was published in this period', { exact: true })
     ).toBeVisible()
+    await expect(dashboard.getByRole('combobox', { name: 'Delivery period' })).toHaveCount(0)
+    await expect(dashboard.getByRole('combobox', { name: 'Channel', exact: true })).toHaveCount(0)
     await expect(dashboard.locator('[data-delivery-counters]')).toHaveCount(0)
     await expect(dashboard.getByText('Comparison unavailable', { exact: true })).toHaveCount(0)
     await expect(page.getByRole('button', { name: 'Export CSV', exact: true })).toHaveCount(0)
@@ -199,4 +203,63 @@ test('keeps publishing filters available when a channel has no results', async (
     await expect(dashboard.getByRole('combobox', { name: 'Delivery period' })).toBeVisible()
     await expect(dashboard.getByRole('combobox', { name: 'Channel', exact: true })).toBeVisible()
     await expect(dashboard.locator('[data-delivery-counters]')).toHaveCount(0)
+})
+
+test('hides destination filter for a single channel, adapts non-zero counters, and omits empty daily panels', async ({
+    page,
+}) => {
+    await page.addInitScript(() => {
+        localStorage.setItem('PARAGLIDE_LOCALE', 'en')
+        localStorage.setItem('postdot-theme', 'dark')
+    })
+    expect(
+        (
+            await page.request.post('/api/auth/sign-up/email', {
+                data: {
+                    name: 'Single channel operator',
+                    email: `single-channel-${randomUUID()}@postdot.local`,
+                    password: 'delivery-analytics-password',
+                },
+            })
+        ).status()
+    ).toBe(200)
+    const { project } = await (
+        await page.request.post('/api/projects', {
+            data: { name: 'Single channel delivery', timeZone: 'UTC' },
+        })
+    ).json()
+    const base = `/api/projects/${project.id}`
+    const channelResponse = await page.request.post(`${base}/channels`, {
+        data: { name: 'Solo desk' },
+    })
+    expect(channelResponse.status()).toBe(201)
+    const { channel } = await channelResponse.json()
+    await publishManually(page, base, channel.id)
+
+    await page.route(`**${base}/analytics?*`, async route => {
+        if (new URL(route.request().url()).searchParams.has('from')) return route.continue()
+        const response = await route.fetch()
+        const report = await response.json()
+        report.historical.publications.published = 0
+        report.historical.publications.failed = 2
+        report.historical.retries.scheduled = 1
+        report.historical.buckets = []
+        await route.fulfill({ response, json: report })
+    })
+
+    await page.goto(`/dashboard/projects/${project.id}/performance`)
+    await page.getByRole('tab', { name: 'Publishing', exact: true }).click()
+    const dashboard = page.locator('[data-delivery-dashboard]')
+    await expect(dashboard.getByRole('combobox', { name: 'Delivery period' })).toBeVisible()
+    await expect(dashboard.getByRole('combobox', { name: 'Channel', exact: true })).toHaveCount(0)
+    await expect(dashboard.locator('[data-delivery-counter="published"]')).toHaveText('0')
+    await expect(dashboard.locator('[data-delivery-counter="failed"]')).toHaveText('2')
+    await expect(dashboard.locator('[data-delivery-counter="retries"]')).toHaveText('1')
+    await expect(dashboard.locator('[data-delivery-counter="ambiguous"]')).toHaveCount(0)
+    await expect(
+        dashboard.getByRole('heading', { name: 'Published per day', exact: true })
+    ).toHaveCount(0)
+    await expect(
+        dashboard.getByText('Nothing was published in this period', { exact: true })
+    ).toHaveCount(0)
 })
