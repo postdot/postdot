@@ -102,7 +102,7 @@ export function DeliveryAnalyticsDashboard({
         : []
     const counterGridClass =
         visibleCounterKeys.length === 1
-            ? 'grid-cols-1'
+            ? 'grid-cols-1 sm:w-fit sm:min-w-64'
             : visibleCounterKeys.length === 2
               ? 'grid-cols-2 [&>div:nth-child(2)]:border-l'
               : visibleCounterKeys.length === 3

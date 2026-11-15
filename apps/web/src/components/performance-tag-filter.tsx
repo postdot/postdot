@@ -103,7 +103,6 @@ export function PerformanceTagFilter({
                                 data-performance-tag-option={tag.id}
                                 disabled={!selectedIds.has(tag.id) && limitReached}
                                 onCheckedChange={checked => toggleTag(tag.id, checked)}>
-                                <TagIcon aria-hidden="true" />
                                 {tag.name}
                             </DropdownMenuCheckboxItem>
                         ))
@@ -146,7 +145,6 @@ export function PerformanceTagFilter({
                                     data-performance-tag-option={tag.id}
                                     disabled={!selectedIds.has(tag.id) && limitReached}
                                     onCheckedChange={checked => toggleTag(tag.id, checked)}>
-                                    <TagIcon aria-hidden="true" />
                                     {tag.name} · {m.common_archived()}
                                 </DropdownMenuCheckboxItem>
                             ))}
