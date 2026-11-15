@@ -3,6 +3,12 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import { useState } from 'react'
 
+import {
+    SettingsSection,
+    SettingsCard,
+    SettingsRow,
+    SettingsLinkRow,
+} from '@/components/settings-layout'
 import { api } from '@/lib/api'
 import * as m from '@/paraglide/messages.js'
 
@@ -53,34 +59,42 @@ export function RecoverySettings() {
         )
     if (!state.data.held) return null
     return (
-        <section
-            className="mt-10 w-full border-t border-border/50 pt-8"
-            aria-labelledby="recovery-title">
-            <h2 id="recovery-title" className="font-heading text-xl font-semibold">
-                {m.recovery_title()}
-            </h2>
-            <p className="mt-2 text-sm text-muted-foreground">{m.recovery_description()}</p>
-            <Link to="/dashboard" className="mt-4 inline-block text-sm underline">
-                {m.recovery_review()}
-            </Link>
-            <label className="mt-5 flex items-start gap-3 text-sm">
-                <input
-                    type="checkbox"
-                    className="mt-1 size-4 accent-primary"
-                    checked={confirmed}
-                    onChange={event => setConfirmed(event.target.checked)}
-                    disabled={pending}
+        <SettingsSection
+            id="recovery-title"
+            title={m.recovery_title()}
+            description={m.recovery_description()}>
+            <SettingsCard>
+                <SettingsLinkRow href="/dashboard" title={m.recovery_review()} />
+                <SettingsRow
+                    title={m.recovery_confirmation()}
+                    htmlFor="recovery-confirmation"
+                    control={
+                        <label className="flex items-start gap-3 text-sm">
+                            <input
+                                id="recovery-confirmation"
+                                type="checkbox"
+                                className="mt-1 size-4 accent-primary"
+                                checked={confirmed}
+                                onChange={event => setConfirmed(event.target.checked)}
+                                disabled={pending}
+                            />
+                        </label>
+                    }
                 />
-                <span>{m.recovery_confirmation()}</span>
-            </label>
-            {error && (
-                <p role="alert" className="mt-3 text-sm text-destructive">
-                    {m.recovery_resume_failed()}
-                </p>
-            )}
-            <Button className="mt-4" disabled={!confirmed || pending} onClick={() => void resume()}>
-                {pending ? m.common_loading() : m.recovery_resume()}
-            </Button>
-        </section>
+                {error && (
+                    <p role="alert" className="mt-3 text-sm text-destructive">
+                        {m.recovery_resume_failed()}
+                    </p>
+                )}
+                <SettingsRow
+                    title={m.recovery_resume()}
+                    control={
+                        <Button disabled={!confirmed || pending} onClick={() => void resume()}>
+                            {pending ? m.common_loading() : m.recovery_resume()}
+                        </Button>
+                    }
+                />
+            </SettingsCard>
+        </SettingsSection>
     )
 }

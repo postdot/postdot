@@ -2012,7 +2012,7 @@
     "recovery_settings_link": "Revisar recuperación",
     "recovery_load_failed": "No se pudo cargar el estado de recuperación.",
     "recovery_title": "Reanudar tras la restauración",
-    "recovery_description": "Restaurar Postdot no anula las publicaciones ni los correos ya enviados. Revisa las tareas pendientes antes de reiniciar las entregas y la limpieza de medios.",
+    "recovery_description": "Restaurar Postdot no anula las publicaciones ni los correos ya enviados.",
     "recovery_review": "Inspeccionar proyectos y publicaciones pendientes",
     "recovery_confirmation": "He revisado el trabajo pendiente y acepto el riesgo de repetir entregas realizadas tras la copia de seguridad.",
     "recovery_resume": "Reanudar Postdot",

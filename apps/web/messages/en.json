@@ -2012,7 +2012,7 @@
     "recovery_settings_link": "Review recovery",
     "recovery_load_failed": "Recovery status could not be loaded.",
     "recovery_title": "Resume after restoration",
-    "recovery_description": "Restoring Postdot does not undo publications or emails already sent. Review outstanding work before restarting delivery and media cleanup.",
+    "recovery_description": "Restoring Postdot does not undo publications or emails already sent.",
     "recovery_review": "Inspect projects and outstanding publications",
     "recovery_confirmation": "I have reviewed outstanding work and accept the risk of repeating deliveries made after the backup.",
     "recovery_resume": "Resume Postdot",

@@ -2012,7 +2012,7 @@
     "recovery_settings_link": "Wiederherstellung überprüfen",
     "recovery_load_failed": "Wiederherstellungsstatus konnte nicht geladen werden.",
     "recovery_title": "Nach Wiederherstellung fortsetzen",
-    "recovery_description": "Das Wiederherstellen von Postdot macht bereits gesendete Veröffentlichungen oder E-Mails nicht rückgängig. Überprüfen Sie ausstehende Aufgaben, bevor Sie die Bereitstellung und Medienbereinigung neu starten.",
+    "recovery_description": "Das Wiederherstellen von Postdot macht bereits gesendete Veröffentlichungen oder E-Mails nicht rückgängig.",
     "recovery_review": "Projekte und ausstehende Veröffentlichungen prüfen",
     "recovery_confirmation": "Ich habe die ausstehenden Aufgaben überprüft und akzeptiere das Risiko, dass nach dem Backup durchgeführte Bereitstellungen wiederholt werden.",
     "recovery_resume": "Postdot fortsetzen",
