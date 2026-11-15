@@ -109,6 +109,22 @@ describe('MCP endpoint', () => {
             ])
                 expect(names).not.toContain(hidden)
 
+            for (const scope of ['project', 'workspace', 'project_channel']) {
+                for (const operation of [
+                    `set_${scope}_website`,
+                    `upload_${scope}_image`,
+                    `import_${scope}_image_url`,
+                    `use_${scope}_website_icon`,
+                    `remove_${scope}_image`,
+                ])
+                    expect(names).toContain(operation)
+                expect(
+                    tools.find(tool => tool.name === `upload_${scope}_image`)?.inputSchema
+                ).toMatchObject({
+                    required: expect.arrayContaining(['base64']),
+                    properties: { base64: { type: 'string' } },
+                })
+            }
             for (const adminTool of [
                 'list_access_members',
                 'create_access_member',
@@ -550,4 +566,44 @@ describe('MCP endpoint', () => {
             await closeTestDatabase(database)
         }
     })
+})
+
+it('uploads identity image bytes through MCP using the same API normalization and authorization', async () => {
+    const f = await setup()
+    const projectId = await f.project('MCP identity')
+    const token = await f.apiKey({
+        name: 'Identity editor',
+        capabilities: ['project:read', 'project:manage'],
+        projectIds: [projectId],
+    })
+    const { client } = await connect(f.app, token)
+    try {
+        // cspell:disable-next-line
+        const png =
+            'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aX1sAAAAASUVORK5CYII='
+        const uploaded = await client.callTool({
+            name: 'upload_project_image',
+            arguments: { projectId, base64: png },
+        })
+        expect(uploaded.isError).toBe(false)
+        expect(JSON.parse(textOf(uploaded))).toMatchObject({
+            project: {
+                imageSource: 'upload',
+                imageUrl: expect.stringMatching(/^\/api\/identity-images\/[a-f0-9]{64}$/),
+            },
+        })
+        const refused = await client.callTool({
+            name: 'upload_project_image',
+            arguments: { projectId, base64: 'AAAA' },
+        })
+        expect(refused.isError).toBe(true)
+        const removed = await client.callTool({
+            name: 'remove_project_image',
+            arguments: { projectId },
+        })
+        expect(removed.isError).toBe(false)
+    } finally {
+        await client.close()
+        await closeTestDatabase(f.database)
+    }
 })

@@ -55,6 +55,7 @@
         "@prometheus-io/client": "0.16.1",
         "@sinclair/typebox": "^0.34.52",
         "elysia": "^2.0.0-exp.64",
+        "entities": "4.5.0",
         "exact-mirror": "1.2.6",
         "nodemailer": "^10.0.13",
         "openapi-types": "12.1.3",

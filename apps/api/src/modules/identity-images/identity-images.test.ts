@@ -297,8 +297,9 @@ describe('identity image and website API routes', () => {
             const imgRes = await jsonRequest(app, websiteBody.project.imageUrl!, cookie)
             expect(imgRes.status).toBe(200)
             expect(imgRes.headers.get('content-type')).toBe('image/webp')
-            expect(imgRes.headers.get('cache-control')).toBe('public, max-age=31536000, immutable')
+            expect(imgRes.headers.get('cache-control')).toBe('private, max-age=31536000, immutable')
             expect(imgRes.headers.get('x-content-type-options')).toBe('nosniff')
+            expect(imgRes.headers.get('vary')).toBe('Cookie, Authorization')
             const servedBytes = new Uint8Array(await imgRes.arrayBuffer())
             const servedMeta = await new Bun.Image(servedBytes).metadata()
             expect(servedMeta.width).toBe(64)
@@ -791,4 +792,169 @@ describe('identity image and website API routes', () => {
             await closeTestDatabase(database)
         }
     })
+})
+
+it('ignores commented and scripted icon markup and resolves the document base and entities', () => {
+    const candidates = selectHtmlIconCandidates(
+        `<!doctype html><head>
+        <!-- <link rel="icon" href="http://127.0.0.1/private"> -->
+        <script>const example = '<link rel="icon" href="/fake.png">'</script>
+        <base href="/assets/">
+        <link rel="icon" sizes="64x64" href="brand.png?a=1&amp;b=2">
+        <link rel="icon" type="image/svg+xml" href="script.svg">
+    </head>`,
+        new URL('https://example.com/blog')
+    )
+    expect(candidates.map(item => item.url.href)).toEqual([
+        'https://example.com/assets/brand.png?a=1&b=2',
+    ])
+})
+
+it('checks live channel management, scopes image reads, and validates base64 uploads', async () => {
+    const { app, access, database } = await createFixture()
+    try {
+        const owner = await signUpWithUser(app)
+        const outsider = await signUpWithUser(app, 'image-outsider@postdot.local')
+        await database.sql
+            .statement("update member set role = 'member' where user_id = ?")
+            .run(outsider.userId)
+        const post = (body: unknown) => ({ method: 'POST', body: JSON.stringify(body) })
+        const { project } = (await (
+            await jsonRequest(app, '/api/projects', owner.cookie, post({ name: 'Identity scope' }))
+        ).json()) as { project: { id: string } }
+        const { channel } = (await (
+            await jsonRequest(
+                app,
+                `/api/projects/${project.id}/channels`,
+                owner.cookie,
+                post({ name: 'Custom site' })
+            )
+        ).json()) as { channel: { id: string; revision: number } }
+        const path = `/api/projects/${project.id}/channels/${channel.id}`
+        const { project: image } = (await (
+            await jsonRequest(
+                app,
+                `/api/projects/${project.id}/image`,
+                owner.cookie,
+                post({ base64: Buffer.from(onePixelPng).toString('base64') })
+            )
+        ).json()) as { project: { imageUrl: string } }
+        expect((await jsonRequest(app, image.imageUrl, outsider.cookie)).status).toBe(404)
+        const channelUpload = await jsonRequest(
+            app,
+            `${path}/image`,
+            owner.cookie,
+            post({ base64: Buffer.from(altPixelPng).toString('base64') })
+        )
+        expect(channelUpload.status).toBe(200)
+        const channelImage = (await channelUpload.json()) as { channel: { imageUrl: string } }
+        expect(
+            (await jsonRequest(app, channelImage.channel.imageUrl, outsider.cookie)).status
+        ).toBe(404)
+        const { project: otherProject } = (await (
+            await jsonRequest(
+                app,
+                '/api/projects',
+                owner.cookie,
+                post({ name: 'Other image scope' })
+            )
+        ).json()) as { project: { id: string } }
+        const { token } = (await (
+            await jsonRequest(
+                app,
+                '/api/api-keys',
+                owner.cookie,
+                post({
+                    name: 'Other project reader',
+                    projectIds: [otherProject.id],
+                    capabilities: ['project:read'],
+                })
+            )
+        ).json()) as { token: string }
+        expect(
+            (
+                await jsonRequest(app, image.imageUrl, '', {
+                    headers: { authorization: `Bearer ${token}` },
+                })
+            ).status
+        ).toBe(404)
+
+        expect(
+            (await jsonRequest(app, '/api/identity-images/../../secret', owner.cookie)).status
+        ).not.toBe(200)
+        const corrupt = await jsonRequest(
+            app,
+            `/api/projects/${project.id}/image`,
+            owner.cookie,
+            post({ base64: 'AA==junk' })
+        )
+        expect(corrupt.status).toBe(400)
+        await access.grantProjectUserAccess({
+            projectId: project.id,
+            userId: outsider.userId,
+            role: 'viewer',
+        })
+        expect(
+            (
+                await jsonRequest(
+                    app,
+                    `/api/projects/${project.id}/image`,
+                    outsider.cookie,
+                    post({ base64: Buffer.from(onePixelPng).toString('base64') })
+                )
+            ).status
+        ).toBe(403)
+        await access.grantProjectUserAccess({
+            projectId: project.id,
+            userId: outsider.userId,
+            role: 'editor',
+        })
+        // Workspace management owns this channel; an editor grant alone grants no management.
+        await database.sql
+            .statement('delete from channel_managers where channel_id = ?')
+            .run(channel.id)
+        for (const [suffix, init] of [
+            ['/website', { method: 'PUT', body: JSON.stringify({ websiteUrl: null }) }],
+            ['/image', post({ base64: Buffer.from(onePixelPng).toString('base64') })],
+            ['/image/url', post({ url: 'https://example.com/image.png' })],
+            ['/image/favicon', { method: 'POST' }],
+            ['/image', { method: 'DELETE' }],
+        ] as const) {
+            expect((await jsonRequest(app, `${path}${suffix}`, outsider.cookie, init)).status).toBe(
+                404
+            )
+        }
+        const stale = await jsonRequest(
+            app,
+            `${path}/image?expectedRevision=999`,
+            owner.cookie,
+            post({ base64: Buffer.from(onePixelPng).toString('base64') })
+        )
+        expect(stale.status).toBe(409)
+        const spoofed = await app.handle(
+            new Request(`${baseURL}/api/projects/${project.id}/image`, {
+                method: 'POST',
+                headers: { cookie: owner.cookie, 'content-type': 'image/png' },
+                body: '<svg onload="alert(1)"></svg>',
+            })
+        )
+        expect(spoofed.status).toBe(415)
+    } finally {
+        await closeTestDatabase(database)
+    }
+})
+
+it('bounds the complete remote fetch even when DNS or a fetcher does not observe cancellation', async () => {
+    const resolver = createIdentityImageResolver({
+        requestTimeoutMs: 10,
+        fetcher: () => new Promise(() => {}),
+    })
+    await Promise.all([
+        expect(resolver.fetchImageFromUrl('https://example.com/logo.png')).rejects.toMatchObject({
+            code: 'identity_remote_unavailable',
+        }),
+        expect(resolver.resolveWebsiteFavicon('https://example.com')).rejects.toMatchObject({
+            code: 'identity_remote_unavailable',
+        }),
+    ])
 })

@@ -9,6 +9,7 @@ import { filterSequential } from '@postdot/db'
 import { Type } from 'typebox'
 
 import { sessionSecurity, type AuthenticatedElysia } from '../../plugins/auth'
+import { workspaceSchema } from './workspace-schema'
 
 const errorResponse = Type.Object({
     error: Type.Object({
@@ -40,22 +41,6 @@ const workspaceRoleSchema = Type.Union([
     Type.Literal('admin'),
     Type.Literal('member'),
 ])
-const workspaceSchema = Type.Object({
-    id: Type.String({ minLength: 1 }),
-    name: Type.String({ minLength: 1 }),
-    slug: Type.String({ minLength: 1 }),
-    isDefault: Type.Boolean(),
-    websiteUrl: Type.Union([Type.String({ minLength: 1 }), Type.Null()]),
-    imageUrl: Type.Union([Type.String({ minLength: 1 }), Type.Null()]),
-    imageSource: Type.Union([
-        Type.Literal('upload'),
-        Type.Literal('url'),
-        Type.Literal('favicon'),
-        Type.Null(),
-    ]),
-    createdAt: Type.Integer({ minimum: 0 }),
-    updatedAt: Type.Integer({ minimum: 0 }),
-})
 const workspaceListItemSchema = Type.Intersect([
     workspaceSchema,
     Type.Object({ role: workspaceRoleSchema }),

@@ -12,6 +12,7 @@ import {
     processIdentityImage,
     type ProcessedIdentityImage,
 } from '@postdot/db'
+import { decodeHTMLAttribute } from 'entities'
 
 const MAX_HTML_BYTES = 512 * 1024
 const DEFAULT_MAX_REDIRECTS = 3
@@ -53,28 +54,6 @@ export interface HtmlIconCandidate {
     readonly rel: string
     readonly type: string | null
     readonly maxDimension: number | null
-}
-
-function parseAttributes(tagContent: string): ReadonlyMap<string, string> {
-    const attributes = new Map<string, string>()
-    const pattern =
-        /([a-zA-Z_:][-a-zA-Z0-9_:.]*)\s*(?:=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+)))?/g
-    for (const match of tagContent.matchAll(pattern)) {
-        const name = match[1]?.toLowerCase()
-        if (!name || name === 'link') continue
-        const rawValue = match[2] ?? match[3] ?? match[4] ?? ''
-        attributes.set(name, decodeHtmlEntities(rawValue.trim()))
-    }
-    return attributes
-}
-
-function decodeHtmlEntities(value: string): string {
-    return value
-        .replace(/&amp;/gi, '&')
-        .replace(/&quot;/gi, '"')
-        .replace(/&#39;/gi, "'")
-        .replace(/&lt;/gi, '<')
-        .replace(/&gt;/gi, '>')
 }
 
 function isSupportedIconRel(relValue: string): boolean {
@@ -143,9 +122,37 @@ export function selectHtmlIconCandidates(
     html: string,
     baseUrl: URL
 ): readonly { readonly url: URL; readonly candidate: HtmlIconCandidate }[] {
-    const headEndIndex = html.search(/<\/head\s*>/i)
-    const searchRegion = headEndIndex >= 0 ? html.slice(0, headEndIndex) : html.slice(0, 131_072)
-    const linkPattern = /<link\b([^>]*?)>/gi
+    const links: Map<string, string>[] = []
+    let documentBase = baseUrl
+    let hasBase = false
+    new HTMLRewriter()
+        .on('base[href]', {
+            element(element) {
+                if (hasBase) return
+                hasBase = true
+                try {
+                    documentBase = new URL(
+                        decodeHTMLAttribute(element.getAttribute('href')!),
+                        baseUrl
+                    )
+                } catch {
+                    /* Keep the final page URL. */
+                }
+            },
+        })
+        .on('link', {
+            element(element) {
+                links.push(
+                    new Map(
+                        Array.from(element.attributes, ([name, value]) => [
+                            name,
+                            decodeHTMLAttribute(value),
+                        ])
+                    )
+                )
+            },
+        })
+        .transform(html)
     const indexedCandidates: {
         readonly index: number
         readonly url: URL
@@ -154,8 +161,7 @@ export function selectHtmlIconCandidates(
     }[] = []
 
     let matchIndex = 0
-    for (const match of searchRegion.matchAll(linkPattern)) {
-        const attrs = parseAttributes(match[1] ?? '')
+    for (const attrs of links) {
         const rel = attrs.get('rel') ?? ''
         const href = attrs.get('href') ?? ''
         if (!isSupportedIconRel(rel) || href.length === 0) continue
@@ -165,7 +171,7 @@ export function selectHtmlIconCandidates(
 
         let resolvedUrl: URL
         try {
-            resolvedUrl = new URL(href, baseUrl)
+            resolvedUrl = new URL(href, documentBase)
         } catch {
             continue
         }
@@ -297,7 +303,8 @@ export function createIdentityImageResolver(
         initialUrl: URL,
         accept: string,
         maxBytes: number,
-        invalidCode: 'identity_image_url_invalid' | 'identity_website_invalid'
+        invalidCode: 'identity_image_url_invalid' | 'identity_website_invalid',
+        deadline: number
     ): Promise<{
         readonly finalUrl: URL
         readonly status: number
@@ -306,19 +313,37 @@ export function createIdentityImageResolver(
     }> {
         let currentUrl = initialUrl
         for (let redirectCount = 0; ; redirectCount += 1) {
+            const remainingMs = deadline - Date.now()
+            if (remainingMs <= 0)
+                throw new IdentityImageRemoteError(
+                    'identity_remote_unavailable',
+                    502,
+                    'The remote request timed out'
+                )
             const controller = new AbortController()
-            const timeout = setTimeout(() => controller.abort(), requestTimeoutMs)
+            let timeout: ReturnType<typeof setTimeout> | undefined
+            // DNS authorization precedes the abort-aware socket request. Race the entire
+            // fetch so a stalled lookup also respects the shared operation deadline.
+            const timedOut = new Promise<never>((_, reject) => {
+                timeout = setTimeout(() => {
+                    controller.abort()
+                    reject(new Error('Identity image request timed out'))
+                }, remainingMs)
+            })
             let response: Awaited<ReturnType<NetworkControlledBinaryFetcher>>
             try {
-                response = await binaryFetcher(currentUrl, {
-                    method: 'GET',
-                    redirect: 'manual',
-                    signal: controller.signal,
-                    headers: {
-                        accept,
-                        'user-agent': 'Postdot identity image resolver',
-                    },
-                })
+                response = await Promise.race([
+                    binaryFetcher(currentUrl, {
+                        method: 'GET',
+                        redirect: 'manual',
+                        signal: controller.signal,
+                        headers: {
+                            accept,
+                            'user-agent': 'Postdot identity image resolver',
+                        },
+                    }),
+                    timedOut,
+                ])
             } catch (error) {
                 if (error instanceof CustomHttpPolicyError) {
                     throw new IdentityImageRemoteError(
@@ -416,13 +441,15 @@ export function createIdentityImageResolver(
 
     async function downloadAndProcessIcon(
         url: URL,
-        invalidCode: 'identity_image_url_invalid' | 'identity_website_invalid'
+        invalidCode: 'identity_image_url_invalid' | 'identity_website_invalid',
+        deadline = Date.now() + requestTimeoutMs
     ): Promise<ProcessedIdentityImage> {
         const response = await performControlledGet(
             url,
             'image/png, image/webp, image/jpeg, image/gif, image/x-icon, image/vnd.microsoft.icon;q=0.9, */*;q=0.5',
             identityImageMaxBytes,
-            invalidCode
+            invalidCode,
+            deadline
         )
         if (response.status < 200 || response.status >= 300) {
             throw new IdentityImageRemoteError(
@@ -463,11 +490,13 @@ export function createIdentityImageResolver(
             'identity_website_invalid',
             'Website URL'
         )
+        const deadline = Date.now() + requestTimeoutMs
         const pageResponse = await performControlledGet(
             initialUrl,
             'text/html, application/xhtml+xml;q=0.9',
             MAX_HTML_BYTES,
-            'identity_website_invalid'
+            'identity_website_invalid',
+            deadline
         )
 
         const candidateUrls: URL[] = []
@@ -501,7 +530,11 @@ export function createIdentityImageResolver(
         let lastSpecificError: IdentityImageRemoteError | null = null
         for (const candidateUrl of candidateUrls) {
             try {
-                return await downloadAndProcessIcon(candidateUrl, 'identity_website_invalid')
+                return await downloadAndProcessIcon(
+                    candidateUrl,
+                    'identity_website_invalid',
+                    deadline
+                )
             } catch (error) {
                 // Never swallow an outbound network policy refusal on an icon link or redirect.
                 if (
