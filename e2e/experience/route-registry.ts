@@ -158,7 +158,7 @@ export const experienceRoutes: readonly ExperienceRoute[] = [
             `/dashboard/settings/workspace/people?workspaceId=${workspaceId}`,
         scope: 'workspace',
         shell: 'settings',
-        widthClass: 'management-column',
+        widthClass: 'reading-column',
         job: 'Manage workspace people, invitations and groups',
     },
     {
@@ -199,7 +199,7 @@ export const experienceRoutes: readonly ExperienceRoute[] = [
         path: () => '/dashboard/settings/archives',
         scope: 'installation',
         shell: 'settings',
-        widthClass: 'management-column',
+        widthClass: 'reading-column',
         job: 'Restore manageable archived resources or inspect their removal progress',
     },
     {

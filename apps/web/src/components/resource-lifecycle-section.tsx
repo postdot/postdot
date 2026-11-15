@@ -23,14 +23,19 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useRouter, useNavigate, useSearch, useParams } from '@tanstack/react-router'
 import { useState, type ReactNode } from 'react'
 
-import { AccessPageHeader } from '@/components/access-page-header'
 import { EmptyState } from '@/components/empty-state'
 import { ResourceAvatar } from '@/components/identity-visuals'
-import { PageColumn } from '@/components/page-column'
 import { QueryErrorState } from '@/components/query-error-state'
+import {
+    SettingsPage,
+    SettingsSection,
+    SettingsCard,
+    SettingsRow,
+} from '@/components/settings-layout'
 import { StatusText, type StatusTone } from '@/components/status-text'
 import { ApiError, api, formatApiError } from '@/lib/api'
 import { useDashboardGlobal } from '@/lib/dashboard-context'
+import { formatProjectDate } from '@/lib/date-time'
 import { formatNumber } from '@/lib/format'
 import { useLanguage } from '@/lib/i18n'
 import { useOptionalProjectAccess } from '@/lib/project-access'
@@ -175,29 +180,52 @@ export function ResourceLifecycleSection({
         setError(null)
         void impact.refetch()
     }
-    return (
-        <section className="mt-10 border-t border-border pt-6" aria-label={m.lifecycle_title()}>
-            <div className="flex flex-wrap items-center justify-between gap-3">
-                <h2 className="flex min-w-0 items-center gap-3 font-heading text-lg font-medium">
-                    {inArchives ? (
+    const content = (
+        <>
+            {inArchives ? (
+                <SettingsRow
+                    icon={
                         <ResourceAvatar
                             imageUrl={data.imageUrl}
                             kind={kind}
                             name={data.name}
                             seed={id}
                         />
-                    ) : null}
-                    <span className="break-words">
-                        {inArchives ? data.name : m.lifecycle_title()}
-                    </span>
-                </h2>
-            </div>
-            {inArchives ? (
-                <p className="mt-2 flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground">
-                    <span>{kind === 'project' ? m.nav_project() : m.nav_workspace()}</span>
-                    <span aria-hidden="true">·</span>
-                    <StatusText tone={stateTone(data.state)}>{stateLabel(data.state)}</StatusText>
-                </p>
+                    }
+                    control={
+                        !busy && !removed ? (
+                            <div className="flex flex-col items-end gap-2 sm:flex-row sm:items-center">
+                                <Button variant="outline" onClick={() => open('restore')}>
+                                    {m.lifecycle_restore()}
+                                </Button>
+                                <Button
+                                    variant="ghost"
+                                    className="text-muted-foreground"
+                                    onClick={() => open('delete')}>
+                                    {m.lifecycle_delete()}
+                                </Button>
+                            </div>
+                        ) : null
+                    }
+                    title={
+                        <span role="heading" aria-level={3}>
+                            {data.name}
+                        </span>
+                    }
+                    description={
+                        <>
+                            <StatusText tone={stateTone(data.state)}>
+                                {stateLabel(data.state)}
+                            </StatusText>
+                            {' · '}
+                            {formatProjectDate(
+                                data.changedAt,
+                                Intl.DateTimeFormat().resolvedOptions().timeZone,
+                                locale
+                            )}
+                        </>
+                    }
+                />
             ) : null}
             {impact.isError && action === null ? (
                 <QueryErrorState className="mt-4" onRetry={() => void impact.refetch()} />
@@ -212,27 +240,34 @@ export function ResourceLifecycleSection({
                         ? m.lifecycle_cleanup_waiting()
                         : m.lifecycle_waiting()}
                 </p>
-            ) : (
-                <div className="mt-4 space-y-6">
-                    {data.state === 'active' ? (
-                        <Button variant="outline" onClick={() => open('archive')}>
-                            {archiveLabel}
-                        </Button>
-                    ) : (
-                        <Button variant="outline" onClick={() => open('restore')}>
-                            {m.lifecycle_restore()}
-                        </Button>
-                    )}
-                    <div className="border-t border-border pt-4">
-                        <Button
-                            variant="ghost"
-                            className="text-muted-foreground"
-                            onClick={() => open('delete')}>
-                            {m.lifecycle_delete()}
-                        </Button>
-                    </div>
-                </div>
+            ) : inArchives ? null : (
+                <>
+                    <SettingsRow
+                        title={data.state === 'active' ? archiveLabel : m.lifecycle_restore()}
+                        control={
+                            <Button
+                                variant="outline"
+                                onClick={() =>
+                                    open(data.state === 'active' ? 'archive' : 'restore')
+                                }>
+                                {data.state === 'active' ? archiveLabel : m.lifecycle_restore()}
+                            </Button>
+                        }
+                    />
+                    <SettingsRow
+                        title={m.lifecycle_delete()}
+                        control={
+                            <Button
+                                variant="ghost"
+                                className="text-muted-foreground"
+                                onClick={() => open('delete')}>
+                                {m.lifecycle_delete()}
+                            </Button>
+                        }
+                    />
+                </>
             )}
+
             <Dialog
                 open={action !== null}
                 onOpenChange={value => {
@@ -402,7 +437,16 @@ export function ResourceLifecycleSection({
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
-        </section>
+        </>
+    )
+    return inArchives ? (
+        <div role="region" aria-label={m.lifecycle_title()}>
+            {content}
+        </div>
+    ) : (
+        <SettingsSection id={`lifecycle-${kind}-${id}`} title={m.lifecycle_title()}>
+            <SettingsCard>{content}</SettingsCard>
+        </SettingsSection>
     )
 }
 
@@ -414,32 +458,33 @@ export function ResourceArchives() {
         retry: false,
     })
     return (
-        <main className="min-w-0 px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
-            <AccessPageHeader column="reading" title={m.lifecycle_archives()} />
-            <PageColumn variant="reading">
-                {resources.isPending ? (
-                    <p role="status">{m.common_loading()}</p>
-                ) : resources.isError ? (
-                    <QueryErrorState onRetry={() => void resources.refetch()} />
-                ) : resources.data.length === 0 ? (
-                    <EmptyState
-                        className="mt-2"
-                        description={m.lifecycle_empty_description()}
-                        illustration="data"
-                        title={m.lifecycle_empty()}
-                    />
-                ) : (
-                    resources.data.map(resource => (
-                        <ResourceLifecycleSection
-                            key={`${resource.kind}:${resource.id}`}
-                            kind={resource.kind}
-                            id={resource.id}
-                            inArchives
-                        />
-                    ))
-                )}
-            </PageColumn>
-        </main>
+        <SettingsPage title={m.lifecycle_archives()}>
+            {resources.isPending ? (
+                <p role="status">{m.common_loading()}</p>
+            ) : resources.isError ? (
+                <QueryErrorState onRetry={() => void resources.refetch()} />
+            ) : resources.data.length === 0 ? (
+                <EmptyState
+                    className="mt-2"
+                    description={m.lifecycle_empty_description()}
+                    illustration="data"
+                    title={m.lifecycle_empty()}
+                />
+            ) : (
+                <SettingsSection id="archived-resources" title={m.lifecycle_archives()}>
+                    <SettingsCard>
+                        {resources.data.map(resource => (
+                            <ResourceLifecycleSection
+                                key={`${resource.kind}:${resource.id}`}
+                                kind={resource.kind}
+                                id={resource.id}
+                                inArchives
+                            />
+                        ))}
+                    </SettingsCard>
+                </SettingsSection>
+            )}
+        </SettingsPage>
     )
 }
 

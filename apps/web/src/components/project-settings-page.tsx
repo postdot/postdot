@@ -1,8 +1,7 @@
-import { AccessPageHeader } from '@/components/access-page-header'
 import { IdentityImageSection } from '@/components/identity-image-section'
-import { PageColumn } from '@/components/page-column'
 import { ProjectTimeZoneSection } from '@/components/project-time-zone-section'
 import { ResourceLifecycleSection } from '@/components/resource-lifecycle-section'
+import { SettingsPage } from '@/components/settings-layout'
 import { useProjectDashboard } from '@/lib/dashboard-context'
 import { useLanguage } from '@/lib/i18n'
 import * as m from '@/paraglide/messages.js'
@@ -13,19 +12,16 @@ export function ProjectSettingsPage() {
     const { project, projectRole, access } = useProjectDashboard()
 
     return (
-        <main className="min-w-0 px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
-            <AccessPageHeader column="reading" title={m.nav_project_configuration()} />
-            <PageColumn variant="reading">
-                <IdentityImageSection
-                    key={project.id}
-                    target={{ kind: 'project', id: project.id }}
-                    resource={project}
-                    disabled={!['owner', 'editor'].includes(projectRole) || !access.canWrite()}
-                    onRefusal={access.reportRefusal}
-                />
-                <ProjectTimeZoneSection />
-                <ResourceLifecycleSection kind="project" id={project.id} />
-            </PageColumn>
-        </main>
+        <SettingsPage title={m.nav_project_configuration()}>
+            <IdentityImageSection
+                key={project.id}
+                target={{ kind: 'project', id: project.id }}
+                resource={project}
+                disabled={!['owner', 'editor'].includes(projectRole) || !access.canWrite()}
+                onRefusal={access.reportRefusal}
+            />
+            <ProjectTimeZoneSection />
+            <ResourceLifecycleSection kind="project" id={project.id} />
+        </SettingsPage>
     )
 }

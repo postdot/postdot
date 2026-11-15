@@ -1,10 +1,9 @@
 import { UsersGroupTwoRoundedIcon } from '@solar-icons/react/linear/users-group-two-rounded'
 
-import { AccessPageHeader } from '@/components/access-page-header'
 import { EmptyState } from '@/components/empty-state'
 import { IdentityImageSection } from '@/components/identity-image-section'
-import { PageColumn } from '@/components/page-column'
 import { ResourceLifecycleSection } from '@/components/resource-lifecycle-section'
+import { SettingsPage } from '@/components/settings-layout'
 import { WorkspaceGroupsSection } from '@/components/workspace-groups-section'
 import { useDashboardGlobal } from '@/lib/dashboard-context'
 import { useLanguage } from '@/lib/i18n'
@@ -20,20 +19,17 @@ export function WorkspaceAdministrationPage({ view }: { readonly view: 'people' 
             candidate.id === selectedWorkspaceId && ['owner', 'admin'].includes(candidate.role)
     )
     return (
-        <main className="min-w-0 px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
+        <>
             {workspace && view === 'people' ? (
                 <WorkspaceGroupsSection key={workspace.id} workspaceId={workspace.id} />
             ) : (
                 <>
-                    <AccessPageHeader
-                        column={view === 'people' ? 'management' : 'reading'}
+                    <SettingsPage
                         title={
                             view === 'people'
                                 ? m.access_workspace_title()
                                 : m.nav_workspace_settings()
-                        }
-                    />
-                    <PageColumn variant={view === 'people' ? 'management' : 'reading'}>
+                        }>
                         {workspace ? (
                             <>
                                 <IdentityImageSection
@@ -55,9 +51,9 @@ export function WorkspaceAdministrationPage({ view }: { readonly view: 'people' 
                                 title={m.access_workspace_unavailable()}
                             />
                         )}
-                    </PageColumn>
+                    </SettingsPage>
                 </>
             )}
-        </main>
+        </>
     )
 }

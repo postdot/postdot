@@ -50,7 +50,7 @@ for (const [locale, copy, theme] of [
         await expect(
             page.locator('[data-slot="sidebar-menu-button"][aria-current="page"]')
         ).toHaveText(copy.lifecycle_archives)
-        await expect(page.locator('[data-page-column="management"]')).toBeVisible()
+        await expect(page.locator('[data-page-column="reading"]')).toBeVisible()
         await page.getByRole('button', { name: copy.search_open, exact: true }).click()
         await page
             .getByRole('combobox', { name: copy.search_open, exact: true })
@@ -70,6 +70,7 @@ for (const [locale, copy, theme] of [
             ).status()
         ).toBe(200)
         await page.goto(`/dashboard/projects/${current.id}/settings`)
+        await page.getByRole('link', { name: copy.nav_settings, exact: true }).click()
         await page.getByRole('link', { name: copy.lifecycle_archives, exact: true }).click()
         await expect(page).toHaveURL(/\/dashboard\/settings\/archives\?/)
         await expect(

@@ -19,6 +19,7 @@ import { useRouter } from '@tanstack/react-router'
 import { useEffect, useId, useImperativeHandle, useRef, useState, type Ref } from 'react'
 
 import { ChannelAvatar, ResourceAvatar } from '@/components/identity-visuals'
+import { SettingsSection, SettingsCard, SettingsRow } from '@/components/settings-layout'
 import { ApiError, formatApiError } from '@/lib/api'
 import {
     changeIdentityImage,
@@ -144,147 +145,164 @@ export function IdentityImageSection({
     const preview = change?.kind === 'remove' ? null : (filePreview ?? saved.imageUrl)
     const busy = disabled || pending
     return (
-        <section className="space-y-4" aria-labelledby={`${id}-title`}>
-            <h2 id={`${id}-title`} className="font-heading text-lg font-medium">
-                {m.identity_image()}
-            </h2>
-            <div className="flex items-center gap-4">
-                {target.kind === 'channel' ? (
-                    <ChannelAvatar
-                        size="lg"
-                        channel={{
-                            id: resource.id,
-                            name: resource.name,
-                            profileId: resource.profileId ?? 'manual-message',
-                            imageUrl: preview,
-                        }}
-                    />
-                ) : (
-                    <ResourceAvatar
-                        kind={target.kind}
-                        name={resource.name}
-                        seed={resource.id}
-                        size="lg"
-                        imageUrl={preview}
-                    />
-                )}
-                <DropdownMenu>
-                    <DropdownMenuTrigger
-                        render={
-                            <Button type="button" variant="outline" size="sm" disabled={busy} />
-                        }>
-                        {m.identity_change_image()}
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start">
-                        <DropdownMenuItem onClick={() => fileInput.current?.click()}>
-                            {m.identity_upload()}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => setUrlOpen(true)}>
-                            {m.identity_from_url()}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                            disabled={!website.trim()}
-                            onClick={() => {
-                                setChange({ kind: 'favicon' })
-                                setError(null)
-                            }}>
-                            {m.identity_use_icon()}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                            onClick={() => {
-                                setChange({ kind: 'remove' })
-                                setError(null)
-                            }}>
-                            {m.identity_remove()}
-                        </DropdownMenuItem>
-                    </DropdownMenuContent>
-                </DropdownMenu>
-                <input
-                    ref={fileInput}
-                    className="sr-only"
-                    type="file"
-                    accept="image/png,image/jpeg,image/webp,image/gif,image/x-icon,image/vnd.microsoft.icon"
-                    tabIndex={-1}
-                    aria-label={m.identity_upload()}
-                    onChange={event => {
-                        const file = event.target.files?.[0]
-                        event.target.value = ''
-                        if (!file) return
-                        if (file.size > 2 * 1024 * 1024) {
-                            setError(m.identity_error_size())
-                            return
-                        }
-                        setChange({ kind: 'upload', file })
-                        setError(null)
-                    }}
+        <SettingsSection id={`${id}-title`} title={m.identity_image()}>
+            <SettingsCard>
+                <SettingsRow
+                    title={resource.name}
+                    control={
+                        <div className="flex items-center gap-4">
+                            {target.kind === 'channel' ? (
+                                <ChannelAvatar
+                                    size="lg"
+                                    channel={{
+                                        id: resource.id,
+                                        name: resource.name,
+                                        profileId: resource.profileId ?? 'manual-message',
+                                        imageUrl: preview,
+                                    }}
+                                />
+                            ) : (
+                                <ResourceAvatar
+                                    kind={target.kind}
+                                    name={resource.name}
+                                    seed={resource.id}
+                                    size="lg"
+                                    imageUrl={preview}
+                                />
+                            )}
+                            <DropdownMenu>
+                                <DropdownMenuTrigger
+                                    render={
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            disabled={busy}
+                                        />
+                                    }>
+                                    {m.identity_change_image()}
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="start">
+                                    <DropdownMenuItem onClick={() => fileInput.current?.click()}>
+                                        {m.identity_upload()}
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => setUrlOpen(true)}>
+                                        {m.identity_from_url()}
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                        disabled={!website.trim()}
+                                        onClick={() => {
+                                            setChange({ kind: 'favicon' })
+                                            setError(null)
+                                        }}>
+                                        {m.identity_use_icon()}
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                        onClick={() => {
+                                            setChange({ kind: 'remove' })
+                                            setError(null)
+                                        }}>
+                                        {m.identity_remove()}
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                            <input
+                                ref={fileInput}
+                                className="sr-only"
+                                type="file"
+                                accept="image/png,image/jpeg,image/webp,image/gif,image/x-icon,image/vnd.microsoft.icon"
+                                tabIndex={-1}
+                                aria-label={m.identity_upload()}
+                                onChange={event => {
+                                    const file = event.target.files?.[0]
+                                    event.target.value = ''
+                                    if (!file) return
+                                    if (file.size > 2 * 1024 * 1024) {
+                                        setError(m.identity_error_size())
+                                        return
+                                    }
+                                    setChange({ kind: 'upload', file })
+                                    setError(null)
+                                }}
+                            />
+                        </div>
+                    }
                 />
-            </div>
-            {change && change.kind !== 'upload' ? (
-                <p role="status" className="text-sm text-muted-foreground">
-                    {change.kind === 'url'
-                        ? m.identity_url_selected()
-                        : change.kind === 'favicon'
-                          ? m.identity_icon_selected()
-                          : m.identity_remove_selected()}
-                </p>
-            ) : null}
-            <Field>
-                <FieldLabel htmlFor={`${id}-website`}>{m.identity_website()}</FieldLabel>
-                <Input
-                    id={`${id}-website`}
-                    type="url"
-                    value={website}
-                    disabled={busy}
-                    onChange={event => setWebsite(event.target.value)}
-                />
-            </Field>
-            {error ? (
-                <p role="alert" className="text-sm text-destructive">
-                    {error}
-                </p>
-            ) : null}
-            {warning ? (
-                <p role="status" className="text-sm text-muted-foreground">
-                    {warning}
-                </p>
-            ) : null}
-            {!embedded ? (
-                <Button
-                    type="button"
-                    disabled={busy || !dirty}
-                    onClick={() => void save().catch(() => {})}>
-                    {m.common_save()}
-                </Button>
-            ) : null}
-            <Dialog open={urlOpen} onOpenChange={setUrlOpen}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>{m.identity_from_url()}</DialogTitle>
-                    </DialogHeader>
-                    <Field>
-                        <FieldLabel htmlFor={`${id}-url`}>{m.identity_image_url()}</FieldLabel>
+                {change && change.kind !== 'upload' ? (
+                    <p role="status" className="text-sm text-muted-foreground">
+                        {change.kind === 'url'
+                            ? m.identity_url_selected()
+                            : change.kind === 'favicon'
+                              ? m.identity_icon_selected()
+                              : m.identity_remove_selected()}
+                    </p>
+                ) : null}
+                <SettingsRow
+                    title={m.identity_website()}
+                    htmlFor={`${id}-website`}
+                    control={
                         <Input
-                            id={`${id}-url`}
+                            id={`${id}-website`}
                             type="url"
-                            value={imageUrl}
-                            onChange={event => setImageUrl(event.target.value)}
+                            value={website}
+                            disabled={busy}
+                            onChange={event => setWebsite(event.target.value)}
                         />
-                    </Field>
-                    <DialogFooter>
-                        <Button
-                            type="button"
-                            disabled={!/^https?:\/\//i.test(imageUrl.trim())}
-                            onClick={() => {
-                                setChange({ kind: 'url', url: imageUrl.trim() })
-                                setUrlOpen(false)
-                                setError(null)
-                            }}>
-                            {m.identity_choose()}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-        </section>
+                    }
+                />
+                {error ? (
+                    <p role="alert" className="text-sm text-destructive">
+                        {error}
+                    </p>
+                ) : null}
+                {warning ? (
+                    <p role="status" className="text-sm text-muted-foreground">
+                        {warning}
+                    </p>
+                ) : null}
+                {!embedded ? (
+                    <SettingsRow
+                        title={m.identity_image()}
+                        control={
+                            <Button
+                                type="button"
+                                disabled={busy || !dirty}
+                                onClick={() => void save().catch(() => {})}>
+                                {m.common_save()}
+                            </Button>
+                        }
+                    />
+                ) : null}
+                <Dialog open={urlOpen} onOpenChange={setUrlOpen}>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>{m.identity_from_url()}</DialogTitle>
+                        </DialogHeader>
+                        <Field>
+                            <FieldLabel htmlFor={`${id}-url`}>{m.identity_image_url()}</FieldLabel>
+                            <Input
+                                id={`${id}-url`}
+                                type="url"
+                                value={imageUrl}
+                                onChange={event => setImageUrl(event.target.value)}
+                            />
+                        </Field>
+                        <DialogFooter>
+                            <Button
+                                type="button"
+                                disabled={!/^https?:\/\//i.test(imageUrl.trim())}
+                                onClick={() => {
+                                    setChange({ kind: 'url', url: imageUrl.trim() })
+                                    setUrlOpen(false)
+                                    setError(null)
+                                }}>
+                                {m.identity_choose()}
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
+            </SettingsCard>
+        </SettingsSection>
     )
 }
 

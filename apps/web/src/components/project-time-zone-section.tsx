@@ -5,6 +5,7 @@ import { toast } from '@postdot/ui/components/toast'
 import { useRouter } from '@tanstack/react-router'
 import { useEffect, useState, type FormEvent } from 'react'
 
+import { SettingsSection, SettingsCard, SettingsRow } from '@/components/settings-layout'
 import { TimeZoneCombobox } from '@/components/time-zone-combobox'
 import { api, formatApiError } from '@/lib/api'
 import { useProjectDashboard } from '@/lib/dashboard-context'
@@ -51,49 +52,53 @@ export function ProjectTimeZoneSection() {
     }
 
     return (
-        <section
-            aria-labelledby="project-timezone-title"
-            className="mt-8 border-t border-border pt-6">
-            <h2 className="font-heading text-lg font-medium" id="project-timezone-title">
-                {m.project_timezone_title()}
-            </h2>
-            <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-                {m.project_timezone_description()}
-            </p>
-
-            <form
-                className="mt-4 flex max-w-md flex-col gap-3"
-                onSubmit={e => void handleSubmit(e)}>
-                <Field className="gap-1.5">
-                    <FieldLabel className="sr-only" htmlFor="project-timezone">
-                        {m.project_timezone_label()}
-                    </FieldLabel>
-                    <TimeZoneCombobox
-                        disabled={!canEdit || pending}
-                        id="project-timezone"
-                        label={m.project_timezone_label()}
-                        onValueChange={setTimeZone}
-                        value={timeZone}
+        <SettingsSection
+            id="project-timezone-title"
+            title={m.project_timezone_title()}
+            description={m.project_timezone_description()}>
+            <SettingsCard>
+                <form className="space-y-3" onSubmit={e => void handleSubmit(e)}>
+                    <SettingsRow
+                        title={m.project_timezone_label()}
+                        control={
+                            <Field className="gap-1.5">
+                                <FieldLabel className="sr-only" htmlFor="project-timezone">
+                                    {m.project_timezone_label()}
+                                </FieldLabel>
+                                <TimeZoneCombobox
+                                    disabled={!canEdit || pending}
+                                    id="project-timezone"
+                                    label={m.project_timezone_label()}
+                                    onValueChange={setTimeZone}
+                                    value={timeZone}
+                                />
+                                {!canEditRole && access.status === 'confirmed' ? (
+                                    <FieldDescription>
+                                        {m.project_timezone_viewer_note()}
+                                    </FieldDescription>
+                                ) : null}
+                            </Field>
+                        }
                     />
-                    {!canEditRole && access.status === 'confirmed' ? (
-                        <FieldDescription>{m.project_timezone_viewer_note()}</FieldDescription>
+
+                    {error ? (
+                        <Alert role="alert" variant="destructive">
+                            <AlertDescription>{error}</AlertDescription>
+                        </Alert>
                     ) : null}
-                </Field>
 
-                {error ? (
-                    <Alert role="alert" variant="destructive">
-                        <AlertDescription>{error}</AlertDescription>
-                    </Alert>
-                ) : null}
-
-                {canEditRole ? (
-                    <div>
-                        <Button disabled={!canEdit || pending || !isDirty} type="submit">
-                            {m.project_timezone_save()}
-                        </Button>
-                    </div>
-                ) : null}
-            </form>
-        </section>
+                    {canEditRole ? (
+                        <SettingsRow
+                            title={m.project_timezone_title()}
+                            control={
+                                <Button disabled={!canEdit || pending || !isDirty} type="submit">
+                                    {m.project_timezone_save()}
+                                </Button>
+                            }
+                        />
+                    ) : null}
+                </form>
+            </SettingsCard>
+        </SettingsSection>
     )
 }
