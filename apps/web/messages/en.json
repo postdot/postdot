@@ -2586,7 +2586,7 @@
     "delivery_comparison_unavailable": "Comparison unavailable",
     "delivery_incomplete": "Some recorded events could not be interpreted. Totals may be incomplete; comparisons are unavailable.",
     "delivery_daily": "Published per day",
-    "delivery_day_label": "{date}: {published} published, {failed} failed, {ambiguous} uncertain",
+    "delivery_day_label": "{date}: {published} published, {failed} failed, {ambiguous} unconfirmed",
     "delivery_empty": "Nothing was published in this period.",
     "delivery_by_destination": "By channel",
     "delivery_engagement_title": "Engagement",
@@ -2664,5 +2664,5 @@
     "channel_share_manages": "Manages this channel",
     "publisher_unsupported_contract": "This platform can’t be connected from Studio yet.",
     "delivery_reload": "Refresh",
-    "delivery_results_heading": "Publishing results (including retries)"
+    "delivery_results_heading": "Publishing results"
 }

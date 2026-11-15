@@ -13,6 +13,7 @@ import { EmptyState } from '@/components/empty-state'
 import { QueryErrorState } from '@/components/query-error-state'
 import { api } from '@/lib/api'
 import { useProjectDashboard } from '@/lib/dashboard-context'
+import { formatProjectDate } from '@/lib/date-time'
 import {
     deliveryCounters,
     deliveryCoverageIncomplete,
@@ -20,7 +21,7 @@ import {
     deliveryDestinations,
     previousDeliveryRange,
 } from '@/lib/delivery-analytics'
-import { formatNumber, formatDateTime } from '@/lib/format'
+import { formatNumber } from '@/lib/format'
 import { useLanguage } from '@/lib/i18n'
 import { projectQueryKeys } from '@/lib/project-realtime'
 import {
@@ -32,9 +33,11 @@ import * as m from '@/paraglide/messages.js'
 export function DeliveryAnalyticsDashboard({
     days,
     channelId,
+    neverPublished,
 }: {
     readonly days: DeliveryAnalyticsPeriod
     readonly channelId?: string
+    readonly neverPublished: boolean
 }) {
     const { project, channels } = useProjectDashboard()
     const { locale } = useLanguage()
@@ -97,7 +100,7 @@ export function DeliveryAnalyticsDashboard({
                 <h2 id="delivery-analytics-heading" className="text-lg font-semibold">
                     {m.delivery_results_heading()}
                 </h2>
-                {(counters && Object.values(counters).some(Boolean)) || channelId || days !== 30 ? (
+                {!neverPublished ? (
                     <div className="flex max-w-full flex-wrap items-center gap-2 sm:flex-nowrap">
                         <Select
                             value={String(days)}
@@ -171,13 +174,21 @@ export function DeliveryAnalyticsDashboard({
                 </p>
             ) : null}
             {report && counters && !Object.values(counters).some(Boolean) && !incomplete ? (
-                <EmptyState title={m.delivery_empty()} layout="compact" />
+                neverPublished ? (
+                    <EmptyState title={m.delivery_empty()} layout="compact" />
+                ) : (
+                    <p className="py-6 text-sm text-muted-foreground">{m.delivery_empty()}</p>
+                )
             ) : report && counters ? (
                 <>
                     <p className="text-xs leading-5 text-muted-foreground">
                         {m.delivery_range({
-                            from: formatDateTime(report.range.from, report.projectTimeZone, locale),
-                            to: formatDateTime(report.range.to, report.projectTimeZone, locale),
+                            from: formatProjectDate(
+                                report.range.from,
+                                report.projectTimeZone,
+                                locale
+                            ),
+                            to: formatProjectDate(report.range.to, report.projectTimeZone, locale),
                         })}
                     </p>
                     {incomplete ? (

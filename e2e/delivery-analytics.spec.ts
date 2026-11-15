@@ -184,3 +184,19 @@ test('warns about incomplete history and suppresses misleading period changes', 
     ).toBeVisible()
     await expect(dashboard.getByText('Comparison unavailable', { exact: true })).toHaveCount(0)
 })
+
+test('keeps publishing filters available when a channel has no results', async ({ page }) => {
+    const { base, project, channels } = await setup(page)
+    await publishManually(page, base, channels[0]!.id)
+    await page.goto(
+        `/dashboard/projects/${project.id}/performance?deliveryChannel=${channels[1]!.id}`
+    )
+    await page.getByRole('tab', { name: 'Publishing', exact: true }).click()
+    const dashboard = page.locator('[data-delivery-dashboard]')
+    await expect(
+        dashboard.getByText('Nothing was published in this period.', { exact: true })
+    ).toBeVisible()
+    await expect(dashboard.getByRole('combobox', { name: 'Delivery period' })).toBeVisible()
+    await expect(dashboard.getByRole('combobox', { name: 'Channel', exact: true })).toBeVisible()
+    await expect(dashboard.locator('[data-delivery-counters]')).toHaveCount(0)
+})

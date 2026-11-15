@@ -98,6 +98,13 @@ export function formatProjectDateTime(
     return getDisplayFormatter(timeZone, locale, sameYear).format(date)
 }
 
+export function formatProjectDate(timestamp: number, timeZone: string, locale = 'en'): string {
+    const sameYear =
+        getZonedDateTimeParts(timestamp, timeZone).year ===
+        getZonedDateTimeParts(Date.now(), timeZone).year
+    return getDisplayFormatter(timeZone, locale, sameYear, true).format(new Date(timestamp))
+}
+
 export function dateTimeLocalErrorMessage(error: DateTimeLocalError): string {
     if (error === 'nonexistent') {
         return m.editor_schedule_nonexistent()
@@ -158,16 +165,18 @@ function getPartsFormatter(timeZone: string) {
     return formatter
 }
 
-function getDisplayFormatter(timeZone: string, locale: string, omitYear = false) {
-    const key = `${locale}:${timeZone}:${omitYear ? 'short' : 'full'}`
+function getDisplayFormatter(timeZone: string, locale: string, omitYear = false, dateOnly = false) {
+    const key = `${locale}:${timeZone}:${omitYear ? 'short' : 'full'}:${dateOnly}`
     const cached = displayFormatters.get(key)
     if (cached !== undefined) return cached
 
     const formatter = new Intl.DateTimeFormat(
         locale,
-        omitYear
-            ? { day: 'numeric', hour: 'numeric', minute: '2-digit', month: 'short', timeZone }
-            : { dateStyle: 'medium', timeStyle: 'short', timeZone }
+        dateOnly
+            ? { day: 'numeric', month: 'short', year: omitYear ? undefined : 'numeric', timeZone }
+            : omitYear
+              ? { day: 'numeric', hour: 'numeric', minute: '2-digit', month: 'short', timeZone }
+              : { dateStyle: 'medium', timeStyle: 'short', timeZone }
     )
     displayFormatters.set(key, formatter)
     return formatter

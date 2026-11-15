@@ -2,7 +2,13 @@ import { Button } from '@postdot/ui/components/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@postdot/ui/components/tabs'
 import { ChartSquareIcon } from '@solar-icons/react/linear/chart-square'
 import { RefreshIcon } from '@solar-icons/react/linear/refresh'
-import { useInfiniteQuery, useMutation, useQueries, useQueryClient } from '@tanstack/react-query'
+import {
+    useInfiniteQuery,
+    useMutation,
+    useQueries,
+    useQuery,
+    useQueryClient,
+} from '@tanstack/react-query'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 
@@ -145,6 +151,14 @@ export function PublicationPerformancePage({
         refetchInterval: 30_000,
         retry: 1,
     })
+    const publishedHistoryQuery = useQuery({
+        queryKey: [...projectQueryKeys.publicationQueues(project.id), 'performance-history'],
+        queryFn: () => api.listPublications(project.id, { state: 'published', limit: 1 }),
+        staleTime: 30_000,
+        refetchInterval: 30_000,
+    })
+    const neverPublished =
+        publishedHistoryQuery.isSuccess && publishedHistoryQuery.data.publications.length === 0
     const channelsById = new Map(channels.map(channel => [channel.id, channel]))
     const matchedPublications =
         publicationsQuery.data?.pages.flatMap(page => page.publications) ?? []
@@ -456,7 +470,11 @@ export function PublicationPerformancePage({
                     <TabsTrigger value="publishing">{m.delivery_title()}</TabsTrigger>
                 </TabsList>
                 <TabsContent value="publishing">
-                    <DeliveryAnalyticsDashboard days={deliveryDays} channelId={deliveryChannel} />
+                    <DeliveryAnalyticsDashboard
+                        days={deliveryDays}
+                        channelId={deliveryChannel}
+                        neverPublished={neverPublished}
+                    />
                 </TabsContent>
                 <TabsContent value="engagement">
                     {exportState === 'failed' ? (
@@ -478,7 +496,7 @@ export function PublicationPerformancePage({
                                 </Button>
                             </div>
                         ) : null}
-                        {(catalogTags.length > 0 && publications.length > 0) ||
+                        {(catalogTags.length > 0 && !neverPublished) ||
                         selectedTagIds.length > 0 ? (
                             <PerformanceTagFilter
                                 disabled={tagCatalogQuery.isPending}
@@ -504,6 +522,24 @@ export function PublicationPerformancePage({
                         <p className="py-8 text-sm text-muted-foreground" role="status">
                             {m.common_loading()}
                         </p>
+                    ) : publications.length === 0 &&
+                      !neverPublished &&
+                      !publicationsQuery.hasNextPage ? (
+                        <div className="flex flex-wrap items-center gap-3 py-6">
+                            <p className="text-sm text-muted-foreground">
+                                {hasNoTagMatch
+                                    ? m.performance_tag_filter_no_matches_title()
+                                    : m.performance_empty_title()}
+                            </p>
+                            {hasNoTagMatch ? (
+                                <Button
+                                    onClick={() => handleTagChange([])}
+                                    size="sm"
+                                    variant="ghost">
+                                    {m.taxonomy_clear_tags()}
+                                </Button>
+                            ) : null}
+                        </div>
                     ) : publications.length === 0 ? (
                         <EmptyState
                             className="mt-4"
@@ -559,9 +595,9 @@ export function PublicationPerformancePage({
                                         className="space-y-2 pb-6"
                                         aria-labelledby={`performance-post-${group.postId}`}
                                         data-performance-post={group.postId}>
-                                        <h2
+                                        <h3
                                             id={`performance-post-${group.postId}`}
-                                            className="break-words text-base font-semibold">
+                                            className="break-words text-sm font-medium">
                                             <Link
                                                 to="/dashboard/projects/$projectId/posts/$postId"
                                                 params={{
@@ -571,7 +607,7 @@ export function PublicationPerformancePage({
                                                 className="hover:text-primary">
                                                 {publicationIdentityLabel(group.publications[0]!)}
                                             </Link>
-                                        </h2>
+                                        </h3>
                                         {group.publications.map(renderPublication)}
                                     </section>
                                 ))}

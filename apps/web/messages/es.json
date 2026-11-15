@@ -2586,7 +2586,7 @@
     "delivery_comparison_unavailable": "Comparación no disponible",
     "delivery_incomplete": "No se pudieron interpretar algunos eventos guardados. Los totales pueden estar incompletos y las comparaciones no están disponibles.",
     "delivery_daily": "Publicadas por día",
-    "delivery_day_label": "{date}: {published} publicadas, {failed} fallidas, {ambiguous} inciertas",
+    "delivery_day_label": "{date}: {published} publicadas, {failed} fallidas, {ambiguous} sin confirmar",
     "delivery_empty": "No se ha publicado nada en este periodo.",
     "delivery_by_destination": "Por canal",
     "delivery_engagement_title": "Interacción",
@@ -2664,5 +2664,5 @@
     "channel_share_manages": "Gestiona este canal",
     "publisher_unsupported_contract": "Esta plataforma aún no se puede conectar desde Studio.",
     "delivery_reload": "Actualizar",
-    "delivery_results_heading": "Resultados de publicación (incluidos reintentos)"
+    "delivery_results_heading": "Resultados de publicación"
 }
