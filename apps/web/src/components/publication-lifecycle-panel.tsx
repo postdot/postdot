@@ -66,7 +66,7 @@ export function PublicationLifecyclePanel({
                 data-publication-lifecycle="true"
                 className={
                     hasAction
-                        ? 'mb-5 flex flex-col items-stretch gap-3 rounded-xl bg-surface-inset/70 px-4 py-3 shadow-surface sm:flex-row sm:items-center sm:justify-between'
+                        ? 'mb-5 flex flex-col items-stretch gap-3 rounded-lg border border-border bg-surface-raised px-4 py-3 sm:flex-row sm:items-center sm:justify-between'
                         : 'mb-5 flex flex-wrap items-center gap-3'
                 }>
                 <div className="min-w-0 flex-1">

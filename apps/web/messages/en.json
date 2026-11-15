@@ -47,8 +47,7 @@
     "project_tags_rename": "Rename",
     "project_tags_rename_title": "Rename tag",
     "project_tags_manage": "Manage {tag}",
-    "project_tags_active": "Active tags",
-    "project_tags_archived": "Archived tags",
+    "project_tags_archived": "Archived",
     "project_tags_no_active": "No active tags.",
     "project_tags_empty_title": "No tags yet",
     "project_tags_empty_description": "Create a tag to group and filter this project’s publications.",
@@ -846,7 +845,6 @@
     "media_download_action": "Download",
     "media_info_title": "Media information",
     "media_info_details": "File details",
-    "media_info_type": "Type",
     "media_info_format": "Format",
     "media_info_size": "Size",
     "media_info_dimensions": "Dimensions",
@@ -1896,7 +1894,7 @@
     "profile_adoption_validate": "Validate adaptation",
     "profile_adoption_save": "Save adapted draft",
     "profile_adoption_history": "Previous drafts kept during adaptation",
-    "profile_adoption_recovery_mismatch": "This local copy cannot be matched to the current rules. Copy its content before discarding it; automatic restoration is unavailable.",
+    "profile_adoption_recovery_mismatch": "This local copy follows different content rules and cannot be restored automatically. Copy what you need from it below before discarding it.",
     "profile_adoption_refresh": "Review latest draft and rules",
     "profile_adoption_unmapped": "No matching field: {field}. Its previous value is kept in the adaptation history when you save.",
     "profile_impact_title": "Affected publications",
@@ -2733,5 +2731,17 @@
     "filter_clear_all": "Clear filters",
     "sort_label": "Sort by",
     "sort_menu_label": "Sort: {order}",
-    "performance_never_published_description": "Likes, reposts and replies appear here once a post goes out on Bluesky, DEV.to or Mastodon."
+    "performance_never_published_description": "Likes, reposts and replies appear here once a post goes out on Bluesky, DEV.to or Mastodon.",
+    "editor_comparison_structured": "Set — open the editor to see it",
+    "editor_comparison_items": [
+        {
+            "declarations": ["input count", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": {
+                "countPlural=one": "{count} item",
+                "countPlural=other": "{count} items"
+            }
+        }
+    ],
+    "common_dismiss": "Dismiss"
 }

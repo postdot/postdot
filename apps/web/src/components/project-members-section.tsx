@@ -402,7 +402,9 @@ export function ProjectMembersSection({
                         title={m.access_project_effective_empty()}
                     />
                 ) : (
-                    <ul className="divide-y divide-border" aria-label={m.access_members_title()}>
+                    <ul
+                        className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-surface-raised"
+                        aria-label={m.access_members_title()}>
                         {members.map(member => {
                             const direct = userGrants?.find(grant => grant.userId === member.userId)
                             const editable =
@@ -413,7 +415,7 @@ export function ProjectMembersSection({
                             return (
                                 <li
                                     key={member.userId}
-                                    className="flex min-w-0 items-center gap-3 py-4">
+                                    className="flex min-w-0 items-center gap-3 px-4 py-4">
                                     <UserAvatar
                                         imageUrl={member.image}
                                         name={member.name}
@@ -502,11 +504,11 @@ export function ProjectMembersSection({
                             className="font-heading text-base font-medium">
                             {m.access_project_pending_title()}
                         </h2>
-                        <ul className="mt-2 divide-y divide-border">
+                        <ul className="mt-2 divide-y divide-border overflow-hidden rounded-lg border border-border bg-surface-raised">
                             {pendingInvitations.map(invitation => (
                                 <li
                                     key={invitation.id}
-                                    className="flex min-w-0 items-center gap-3 py-4">
+                                    className="flex min-w-0 items-center gap-3 px-4 py-4">
                                     <div className="min-w-0 flex-1">
                                         <p className="truncate text-sm">{invitation.email}</p>
                                         <span className="text-xs text-muted-foreground">
@@ -795,7 +797,7 @@ function GroupAccessSection({
                     {m.access_instance_loading()}
                 </p>
             ) : grants.length === 0 ? null : (
-                <ul className="mt-4 grid gap-2">
+                <ul className="mt-4 divide-y divide-border overflow-hidden rounded-lg border border-border bg-surface-raised">
                     {grants.map(grant => {
                         const isOwner = grant.role === 'owner'
                         const isPending = pendingAction?.includes(grant.teamId) ?? false
@@ -803,12 +805,12 @@ function GroupAccessSection({
                             <li
                                 key={grant.id}
                                 aria-busy={isPending}
-                                className="flex min-w-0 flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between">
+                                className="flex min-w-0 flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                                 <div className="flex min-w-0 items-center gap-3">
-                                    <span className="flex size-8 shrink-0 items-center justify-center bg-primary/10 text-primary">
+                                    <span className="flex size-8 shrink-0 items-center justify-center text-muted-foreground">
                                         <UsersGroupTwoRoundedIcon
                                             aria-hidden="true"
-                                            className="size-4"
+                                            className="size-[18px]"
                                         />
                                     </span>
                                     <div className="min-w-0">

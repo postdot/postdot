@@ -46,10 +46,8 @@ export function PublicationEditorStatus({
                     data-publication-editor-message="true"
                     role={needsAttention ? 'alert' : 'status'}
                     className={cn(
-                        'mt-4 flex min-w-0 flex-wrap items-start gap-2.5 rounded-md px-3 py-2.5 text-sm',
-                        needsAttention
-                            ? 'bg-state-failed/10 text-state-failed shadow-surface'
-                            : 'bg-surface-inset/35 text-muted-foreground'
+                        'mt-4 flex min-w-0 flex-wrap items-start gap-2.5 rounded-lg border border-border bg-surface-raised px-3 py-2.5 text-sm',
+                        needsAttention ? 'text-state-failed' : 'text-muted-foreground'
                     )}>
                     {needsAttention ? (
                         <DangerTriangleIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0" />

@@ -63,7 +63,7 @@ export function PublicationEditorSourceSection({
         return (
             <section
                 data-publication-source="true"
-                className="min-w-0 rounded-xl bg-surface-raised p-4 shadow-surface">
+                className="min-w-0 rounded-lg border border-border bg-surface-raised p-4">
                 <h2 className="text-sm font-medium">{m.publication_new_source()}</h2>
                 <div className="min-w-0 space-y-4 pt-3">
                     {body?.text ? (
@@ -89,7 +89,7 @@ export function PublicationEditorSourceSection({
 
     return (
         <section data-publication-source="true" className="min-w-0">
-            <div className="rounded-md bg-surface-raised p-4 shadow-surface sm:p-5">
+            <div className="rounded-lg border border-border bg-surface-raised p-4 sm:p-5">
                 <div className="grid min-w-0 gap-4">
                     {showBodyField ? (
                         <Field className="min-w-0 gap-1.5">
@@ -148,7 +148,7 @@ export function PublicationEditorSourceSection({
                         onAssetsChange={onAssetsChange}
                         disabled={mediaDisabled}
                     />
-                    <details className="group w-fit max-w-full rounded-md bg-surface-inset/45 px-3 py-2 open:w-full">
+                    <details className="group w-fit max-w-full rounded-lg border border-border bg-surface-raised px-3 py-2 open:w-full">
                         <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-medium text-foreground [&::-webkit-details-marker]:hidden">
                             {m.editor_content_options()}
                             <AltArrowDownIcon
@@ -247,7 +247,9 @@ function ReadOnlySourceMeta({ sourceContent }: { readonly sourceContent: SourceC
     return (
         <dl className="grid min-w-0 gap-3 sm:grid-cols-3">
             {values.map(item => (
-                <div key={item.label} className="min-w-0 rounded-lg bg-surface-inset/45 px-3 py-2">
+                <div
+                    key={item.label}
+                    className="min-w-0 rounded-lg border border-border bg-surface-raised px-3 py-2">
                     <dt className="text-xs text-muted-foreground">{item.label}</dt>
                     <dd className="mt-1 truncate text-sm font-medium">{item.value}</dd>
                 </div>

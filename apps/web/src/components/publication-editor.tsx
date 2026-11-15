@@ -1428,20 +1428,23 @@ export function PublicationEditor({
                         </DialogDescription>
                         {pendingRecovery !== null &&
                         !recoveryProfileMatches(pendingRecovery, editor) ? (
-                            <>
-                                <p role="alert">{m.profile_adoption_recovery_mismatch()}</p>
-                                <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-all text-xs">
-                                    {JSON.stringify(
-                                        {
-                                            sourceContent: pendingRecovery.sourceContent,
-                                            targetText: pendingRecovery.targetText,
-                                            scheduleValue: pendingRecovery.scheduleValue,
-                                        },
-                                        null,
-                                        2
+                            <div className="space-y-3">
+                                <p role="alert" className="text-sm text-foreground">
+                                    {m.profile_adoption_recovery_mismatch()}
+                                </p>
+                                <PublicationRecoveryComparison
+                                    editor={editor}
+                                    localSource={pendingRecovery.sourceContent}
+                                    localTarget={pendingRecoveryTarget}
+                                    localSchedule={pendingRecovery.scheduleValue}
+                                    savedSchedule={toDateTimeLocal(
+                                        editor.publication.scheduledAt,
+                                        timeZone
                                     )}
-                                </pre>
-                            </>
+                                    projectId={projectId}
+                                    media={[...availableMedia, ...readOnlyMedia]}
+                                />
+                            </div>
                         ) : pendingRecovery ? (
                             <PublicationRecoveryComparison
                                 editor={editor}
@@ -1793,6 +1796,7 @@ export function PublicationEditor({
                             />
                         ) : undefined
                     }
+                    editorSurface={!publicationEditable}
                     editor={
                         publicationEditable ? (
                             <div className="min-w-0 space-y-5">
@@ -1873,7 +1877,7 @@ export function PublicationEditor({
                         </div>
                     ) : null}
 
-                    <details className="group rounded-xl bg-surface-inset/35 p-1 shadow-surface">
+                    <details className="group rounded-lg border border-border bg-surface-raised p-1">
                         <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-sm [&::-webkit-details-marker]:hidden">
                             <span className="min-w-0">
                                 <span className="font-medium">{m.editor_activity_details()}</span>

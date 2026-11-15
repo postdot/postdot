@@ -104,9 +104,7 @@ test('creates tags without losing composition and synchronizes archived assignme
         await manager.bringToFront()
         await manager.getByRole('button', { name: 'Manage Release', exact: true }).click()
         await manager.getByRole('menuitem', { name: 'Archive', exact: true }).click()
-        await expect(
-            manager.getByRole('heading', { name: 'Archived tags', exact: true })
-        ).toBeVisible()
+        await expect(manager.getByRole('heading', { name: 'Archived', exact: true })).toBeVisible()
         await page.bringToFront()
         await picker.click()
         const archived = page.getByRole('menuitemcheckbox', {
@@ -131,9 +129,7 @@ test('creates tags without losing composition and synchronizes archived assignme
             ),
             manager.getByRole('menuitem', { name: 'Restore', exact: true }).click(),
         ])
-        await expect(
-            manager.getByRole('heading', { name: 'Archived tags', exact: true })
-        ).toHaveCount(0)
+        await expect(manager.getByRole('heading', { name: 'Archived', exact: true })).toHaveCount(0)
         await page.getByRole('button', { name: 'Add tag', exact: true }).click()
         await expect(
             page.getByRole('menuitemcheckbox', { name: 'Release', exact: true })

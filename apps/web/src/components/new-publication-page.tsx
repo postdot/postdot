@@ -13,7 +13,6 @@ import { cn } from '@postdot/ui/lib/utils'
 import { AltArrowDownIcon } from '@solar-icons/react/linear/alt-arrow-down'
 import { CalendarAddIcon } from '@solar-icons/react/linear/calendar-add'
 import { CalendarMinimalisticIcon } from '@solar-icons/react/linear/calendar-minimalistic'
-import { CloseIcon } from '@solar-icons/react/linear/close'
 import { FileTextIcon } from '@solar-icons/react/linear/file-text'
 import { RestartIcon } from '@solar-icons/react/linear/restart'
 import { useQuery } from '@tanstack/react-query'
@@ -1047,7 +1046,7 @@ export function NewPublicationPage({
             ) : null}
             {restoredNotice ? (
                 <div
-                    className="mx-auto mb-4 flex max-w-6xl flex-wrap items-center justify-between gap-2 rounded-md bg-surface-inset px-3 py-2 text-sm"
+                    className="mx-auto mb-4 flex max-w-6xl flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-surface-raised px-3 py-2 text-sm"
                     data-new-publication-restored="true"
                     role="status">
                     <span className="flex min-w-0 items-center gap-2 text-muted-foreground">
@@ -1065,13 +1064,13 @@ export function NewPublicationPage({
                                 ? m.common_loading()
                                 : m.publication_new_recovery_start_over()}
                         </Button>
+                        {/* Text actions only: no lone icon beside a text button (pattern 8). */}
                         <Button
-                            aria-label={m.common_close()}
                             onClick={() => setRestoredNotice(false)}
-                            size="icon-sm"
+                            size="sm"
                             type="button"
                             variant="ghost">
-                            <CloseIcon aria-hidden="true" />
+                            {m.common_dismiss()}
                         </Button>
                     </span>
                     {error || autosaveError ? (

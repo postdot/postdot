@@ -47,8 +47,7 @@
     "project_tags_rename": "Renommer",
     "project_tags_rename_title": "Renommer l’étiquette",
     "project_tags_manage": "Gérer {tag}",
-    "project_tags_active": "Étiquettes actives",
-    "project_tags_archived": "Étiquettes archivées",
+    "project_tags_archived": "Archivées",
     "project_tags_no_active": "Aucune étiquette active.",
     "project_tags_empty_title": "Aucune étiquette pour le moment",
     "project_tags_empty_description": "Créez une étiquette pour regrouper et filtrer les publications de ce projet.",
@@ -846,7 +845,6 @@
     "media_download_action": "Télécharger",
     "media_info_title": "Informations du média",
     "media_info_details": "Détails du fichier",
-    "media_info_type": "Type",
     "media_info_format": "Format",
     "media_info_size": "Taille",
     "media_info_dimensions": "Dimensions",
@@ -1896,7 +1894,7 @@
     "profile_adoption_validate": "Valider l’adaptation",
     "profile_adoption_save": "Enregistrer le brouillon adapté",
     "profile_adoption_history": "Brouillons conservés lors des adaptations",
-    "profile_adoption_recovery_mismatch": "Cette copie locale ne correspond pas aux règles actuelles. Copiez son contenu avant de l’abandonner ; la restauration automatique est indisponible.",
+    "profile_adoption_recovery_mismatch": "Cette copie locale suit d'autres règles de contenu et ne peut pas être restaurée automatiquement. Copiez ce dont vous avez besoin ci-dessous avant de l'abandonner.",
     "profile_adoption_refresh": "Vérifier le brouillon et les règles actuels",
     "profile_adoption_unmapped": "Aucun champ correspondant : {field}. Sa valeur précédente est conservée dans l’historique de l’adaptation à l’enregistrement.",
     "profile_impact_title": "Publications concernées",
@@ -2733,5 +2731,17 @@
     "filter_clear_all": "Effacer les filtres",
     "sort_label": "Trier par",
     "sort_menu_label": "Tri : {order}",
-    "performance_never_published_description": "Les mentions J'aime, partages et réponses apparaissent ici dès qu'un post est publié sur Bluesky, DEV.to ou Mastodon."
+    "performance_never_published_description": "Les mentions J'aime, partages et réponses apparaissent ici dès qu'un post est publié sur Bluesky, DEV.to ou Mastodon.",
+    "editor_comparison_structured": "Renseigné — ouvrez l'éditeur pour le voir",
+    "editor_comparison_items": [
+        {
+            "declarations": ["input count", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": {
+                "countPlural=one": "{count} élément",
+                "countPlural=other": "{count} éléments"
+            }
+        }
+    ],
+    "common_dismiss": "Masquer"
 }

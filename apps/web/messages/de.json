@@ -47,8 +47,7 @@
     "project_tags_rename": "Umbenennen",
     "project_tags_rename_title": "Tag umbenennen",
     "project_tags_manage": "{tag} verwalten",
-    "project_tags_active": "Aktive Tags",
-    "project_tags_archived": "Archivierte Tags",
+    "project_tags_archived": "Archiviert",
     "project_tags_no_active": "Keine aktiven Tags.",
     "project_tags_empty_title": "Noch keine Tags",
     "project_tags_empty_description": "Erstelle ein Tag, um die Veröffentlichungen dieses Projekts zu gruppieren und zu filtern.",
@@ -846,7 +845,6 @@
     "media_download_action": "Herunterladen",
     "media_info_title": "Medieninformationen",
     "media_info_details": "Dateidetails",
-    "media_info_type": "Typ",
     "media_info_format": "Format",
     "media_info_size": "Größe",
     "media_info_dimensions": "Abmessungen",
@@ -1896,7 +1894,7 @@
     "profile_adoption_validate": "Anpassung validieren",
     "profile_adoption_save": "Angepassten Entwurf speichern",
     "profile_adoption_history": "Bei der Anpassung beibehaltene frühere Entwürfe",
-    "profile_adoption_recovery_mismatch": "Diese lokale Kopie passt nicht zu den aktuellen Regeln. Kopiere den Inhalt vor dem Verwerfen; eine automatische Wiederherstellung ist nicht verfügbar.",
+    "profile_adoption_recovery_mismatch": "Diese lokale Kopie folgt anderen Inhaltsregeln und kann nicht automatisch wiederhergestellt werden. Kopieren Sie unten, was Sie brauchen, bevor Sie sie verwerfen.",
     "profile_adoption_refresh": "Neuesten Entwurf und Regeln prüfen",
     "profile_adoption_unmapped": "Kein passendes Feld: {field}. Sein bisheriger Wert wird beim Speichern im Anpassungsverlauf aufbewahrt.",
     "profile_impact_title": "Betroffene Veröffentlichungen",
@@ -2733,5 +2731,17 @@
     "filter_clear_all": "Filter zurücksetzen",
     "sort_label": "Sortieren nach",
     "sort_menu_label": "Sortierung: {order}",
-    "performance_never_published_description": "Likes, Reposts und Antworten erscheinen hier, sobald ein Post auf Bluesky, DEV.to oder Mastodon veröffentlicht ist."
+    "performance_never_published_description": "Likes, Reposts und Antworten erscheinen hier, sobald ein Post auf Bluesky, DEV.to oder Mastodon veröffentlicht ist.",
+    "editor_comparison_structured": "Festgelegt — öffnen Sie den Editor, um es zu sehen",
+    "editor_comparison_items": [
+        {
+            "declarations": ["input count", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": {
+                "countPlural=one": "{count} Element",
+                "countPlural=other": "{count} Elemente"
+            }
+        }
+    ],
+    "common_dismiss": "Ausblenden"
 }

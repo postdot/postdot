@@ -34,7 +34,7 @@ export function PublicationEditorDeliverySettings({
     return (
         // D7: one labelled field; the picker itself opens the calendar.
         <Field
-            className="min-w-0 gap-1.5 rounded-md bg-surface-inset/35 px-3 py-3 shadow-surface"
+            className="min-w-0 gap-1.5 rounded-lg border border-border bg-surface-raised px-3 py-3"
             data-publication-delivery-disclosure="true">
             <FieldLabel htmlFor="deliver-at">{m.editor_deliver_at()}</FieldLabel>
             <DateTimePicker

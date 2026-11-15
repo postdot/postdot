@@ -47,8 +47,7 @@
     "project_tags_rename": "Renombrar",
     "project_tags_rename_title": "Renombrar etiqueta",
     "project_tags_manage": "Gestionar {tag}",
-    "project_tags_active": "Etiquetas activas",
-    "project_tags_archived": "Etiquetas archivadas",
+    "project_tags_archived": "Archivadas",
     "project_tags_no_active": "No hay etiquetas activas.",
     "project_tags_empty_title": "Aún no hay etiquetas",
     "project_tags_empty_description": "Crea una etiqueta para agrupar y filtrar las publicaciones de este proyecto.",
@@ -846,7 +845,6 @@
     "media_download_action": "Descargar",
     "media_info_title": "Información del archivo",
     "media_info_details": "Detalles del archivo",
-    "media_info_type": "Tipo",
     "media_info_format": "Formato",
     "media_info_size": "Tamaño",
     "media_info_dimensions": "Dimensiones",
@@ -1896,7 +1894,7 @@
     "profile_adoption_validate": "Validar adaptación",
     "profile_adoption_save": "Guardar borrador adaptado",
     "profile_adoption_history": "Borradores anteriores conservados durante la adaptación",
-    "profile_adoption_recovery_mismatch": "Esta copia local no coincide con las reglas actuales. Copia su contenido antes de descartarla; la restauración automática no está disponible.",
+    "profile_adoption_recovery_mismatch": "Esta copia local sigue otras reglas de contenido y no se puede restaurar automáticamente. Copia lo que necesites a continuación antes de descartarla.",
     "profile_adoption_refresh": "Revisar último borrador y reglas",
     "profile_adoption_unmapped": "Sin campo coincidente: {field}. Su valor anterior se conserva en el historial de adaptación al guardar.",
     "profile_impact_title": "Publicaciones afectadas",
@@ -2733,5 +2731,17 @@
     "filter_clear_all": "Borrar filtros",
     "sort_label": "Ordenar por",
     "sort_menu_label": "Orden: {order}",
-    "performance_never_published_description": "Los me gusta, compartidos y respuestas aparecen aquí cuando un post se publica en Bluesky, DEV.to o Mastodon."
+    "performance_never_published_description": "Los me gusta, compartidos y respuestas aparecen aquí cuando un post se publica en Bluesky, DEV.to o Mastodon.",
+    "editor_comparison_structured": "Definido — abre el editor para verlo",
+    "editor_comparison_items": [
+        {
+            "declarations": ["input count", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": {
+                "countPlural=one": "{count} elemento",
+                "countPlural=other": "{count} elementos"
+            }
+        }
+    ],
+    "common_dismiss": "Ocultar"
 }

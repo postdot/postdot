@@ -48,8 +48,9 @@ export function PublicationEditorSidebar({
             {sourceConflict || saveState === 'conflict' ? (
                 <Alert
                     data-publication-conflict="true"
-                    className="rounded-md border-0 bg-state-attention/10 px-4 py-4 text-foreground shadow-surface lg:col-span-2">
-                    <AlertTitle>
+                    className="rounded-lg border border-border bg-surface-raised px-4 py-4 text-foreground lg:col-span-2">
+                    {/* The conflict keeps its state colour on the title, not on the surface. */}
+                    <AlertTitle className="text-state-attention">
                         {sourceConflict
                             ? m.editor_sidebar_source_review_title()
                             : m.editor_sidebar_reconcile_title()}
@@ -84,7 +85,7 @@ export function PublicationEditorSidebar({
                     </div>
                     {sourceConflict ? (
                         <div className="mt-4 grid min-w-0 gap-3 text-xs sm:grid-cols-2">
-                            <div className="min-w-0 rounded-md bg-background/60 p-3 shadow-field">
+                            <div className="min-w-0 rounded-lg border border-border bg-surface-raised p-3">
                                 <p className="font-medium text-foreground">
                                     {m.editor_sidebar_draft_source_revision()}
                                 </p>
@@ -94,7 +95,7 @@ export function PublicationEditorSidebar({
                                     media={media}
                                 />
                             </div>
-                            <div className="min-w-0 rounded-md bg-background/60 p-3 shadow-field">
+                            <div className="min-w-0 rounded-lg border border-border bg-surface-raised p-3">
                                 <p className="font-medium text-foreground">
                                     {m.editor_sidebar_current_source_revision()}
                                 </p>
@@ -166,10 +167,10 @@ export function SourceComparisonContent({
                                                 ? ''
                                                 : asset.asset.originalFilename
                                         }
-                                        className="size-16 rounded-md object-cover shadow-field"
+                                        className="size-16 rounded-lg border border-border object-cover"
                                     />
                                 ) : (
-                                    <span className="flex min-h-16 max-w-40 items-center rounded-md bg-surface-inset px-3 text-xs text-muted-foreground">
+                                    <span className="flex min-h-16 max-w-40 items-center rounded-lg border border-border bg-surface-raised px-3 text-xs text-muted-foreground">
                                         {m.editor_comparison_media_unavailable()}
                                     </span>
                                 )}

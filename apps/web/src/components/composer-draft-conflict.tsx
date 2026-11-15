@@ -94,7 +94,7 @@ export function ComposerDraftConflict({
         return (
             <section
                 aria-label={label}
-                className="min-w-0 space-y-3 rounded-md bg-surface-inset p-3">
+                className="min-w-0 space-y-3 rounded-lg border border-border bg-surface-raised p-3">
                 <h3 className="font-medium">{label}</h3>
                 {content === null ? (
                     <p className="text-muted-foreground">{m.composer_conflict_removed()}</p>

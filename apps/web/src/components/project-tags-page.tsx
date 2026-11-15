@@ -1,6 +1,5 @@
 import type { ProjectTag } from '@postdot/client'
 import { Alert, AlertDescription, AlertTitle } from '@postdot/ui/components/alert'
-import { Badge } from '@postdot/ui/components/badge'
 import { Button } from '@postdot/ui/components/button'
 import {
     DropdownMenu,
@@ -24,6 +23,7 @@ import { EmptyState } from '@/components/empty-state'
 import { PageColumn } from '@/components/page-column'
 import { ProjectTagDialog } from '@/components/project-tag-create-dialog'
 import { QueryErrorState } from '@/components/query-error-state'
+import { StatusText } from '@/components/status-text'
 import { formatApiError } from '@/lib/api'
 import { useProjectDashboard } from '@/lib/dashboard-context'
 import { useLanguage } from '@/lib/i18n'
@@ -150,21 +150,32 @@ export function ProjectTagsPage() {
                             description={m.project_tags_empty_description()}
                             icon={<TagIcon aria-hidden="true" />}
                             layout="default"
+                            illustration="data"
                             title={m.project_tags_empty_title()}
                         />
                     ) : (
                         <div className="mt-8 space-y-8">
-                            <section aria-labelledby="project-active-tags">
-                                <div className="mb-3 flex items-center justify-between gap-3">
-                                    <h2 className="text-sm font-semibold" id="project-active-tags">
-                                        {m.project_tags_active()}
-                                    </h2>
-                                    <span className="text-xs text-muted-foreground">
-                                        {activeTags.length}
-                                    </span>
-                                </div>
+                            <section
+                                aria-label={
+                                    archivedTags.length === 0 ? m.project_tags_title() : undefined
+                                }
+                                aria-labelledby={
+                                    archivedTags.length > 0 ? 'project-active-tags' : undefined
+                                }>
+                                {archivedTags.length > 0 ? (
+                                    <div className="mb-3 flex items-center justify-between gap-3">
+                                        <h2
+                                            className="text-sm font-semibold"
+                                            id="project-active-tags">
+                                            {m.project_tags_title()}
+                                        </h2>
+                                        <span className="text-xs text-muted-foreground tabular-nums">
+                                            {activeTags.length}
+                                        </span>
+                                    </div>
+                                ) : null}
                                 {activeTags.length > 0 ? (
-                                    <ul className="divide-y divide-border/60 overflow-hidden rounded-md bg-surface-raised shadow-surface">
+                                    <ul className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-surface-raised">
                                         {activeTags.map(tag => (
                                             <ProjectTagRow
                                                 key={tag.id}
@@ -178,9 +189,11 @@ export function ProjectTagsPage() {
                                         ))}
                                     </ul>
                                 ) : (
-                                    <p className="rounded-md bg-surface-inset/45 px-4 py-3 text-sm text-muted-foreground">
-                                        {m.project_tags_no_active()}
-                                    </p>
+                                    <EmptyState
+                                        layout="compact"
+                                        icon={<TagIcon aria-hidden="true" />}
+                                        title={m.project_tags_no_active()}
+                                    />
                                 )}
                             </section>
 
@@ -192,11 +205,11 @@ export function ProjectTagsPage() {
                                             id="project-archived-tags">
                                             {m.project_tags_archived()}
                                         </h2>
-                                        <span className="text-xs text-muted-foreground">
+                                        <span className="text-xs text-muted-foreground tabular-nums">
                                             {archivedTags.length}
                                         </span>
                                     </div>
-                                    <ul className="divide-y divide-border/60 overflow-hidden rounded-md bg-surface-raised shadow-surface">
+                                    <ul className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-surface-raised">
                                         {archivedTags.map(tag => (
                                             <ProjectTagRow
                                                 key={tag.id}
@@ -263,7 +276,11 @@ function ProjectTagRow({
     return (
         <li
             aria-busy={pending}
-            className="flex min-w-0 items-center gap-3 px-4 py-3 transition-colors hover:bg-surface-hover">
+            className={
+                canManage
+                    ? 'flex min-w-0 items-center gap-3 px-4 py-3 transition-colors hover:bg-surface-hover'
+                    : 'flex min-w-0 items-center gap-3 px-4 py-3'
+            }>
             <div className="flex min-w-0 flex-1 items-center gap-2.5">
                 <TagIcon
                     aria-hidden="true"
@@ -281,7 +298,7 @@ function ProjectTagRow({
                     }>
                     {tag.name}
                 </span>
-                {archived ? <Badge variant="outline">{m.common_archived()}</Badge> : null}
+                {archived ? <StatusText tone="neutral">{m.common_archived()}</StatusText> : null}
             </div>
             {canManage ? (
                 <DropdownMenu>

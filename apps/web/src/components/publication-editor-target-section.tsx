@@ -1,9 +1,9 @@
 import { Alert, AlertDescription, AlertTitle } from '@postdot/ui/components/alert'
-import { Badge } from '@postdot/ui/components/badge'
 import { AltArrowDownIcon } from '@solar-icons/react/linear/alt-arrow-down'
 
 import { PublicationTargetEditor } from '@/components/publication-target-editor'
 import { TargetFieldControl } from '@/components/publication-target-field-control'
+import { StatusText } from '@/components/status-text'
 import type { PublicationEditorState } from '@/lib/api'
 import { useLanguage } from '@/lib/i18n'
 import { getTargetEditorFields, readTargetField, updateTargetField } from '@/lib/target-editor'
@@ -103,7 +103,7 @@ export function PublicationEditorTargetSection({
                 : null}
             <details
                 data-publication-customization="true"
-                className="group rounded-md bg-surface-inset/35 px-3 shadow-surface"
+                className="group rounded-lg border border-border bg-surface-raised px-3"
                 open={open}
                 onToggle={event => onOpenChange?.(event.currentTarget.open)}>
                 <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 py-3 text-sm [&::-webkit-details-marker]:hidden">
@@ -114,11 +114,9 @@ export function PublicationEditorTargetSection({
                         {reviewState !== 'compatible' ||
                         validationIssues.length > 0 ||
                         targetError !== null ? (
-                            <Badge
-                                variant="outline"
-                                className="border-0 bg-transparent px-0 text-state-attention">
+                            <StatusText tone="attention">
                                 {m.editor_target_review_required()}
-                            </Badge>
+                            </StatusText>
                         ) : null}
                         <AltArrowDownIcon
                             aria-hidden="true"
@@ -143,7 +141,7 @@ export function PublicationEditorTargetSection({
                     {targetError ? (
                         <Alert
                             variant="destructive"
-                            className="mt-4 rounded-md border-0 bg-state-failed/10 shadow-surface">
+                            className="mt-4 rounded-lg border border-border bg-surface-raised">
                             <AlertTitle>{m.editor_target_invalid_json()}</AlertTitle>
                             <AlertDescription>{targetError}</AlertDescription>
                         </Alert>

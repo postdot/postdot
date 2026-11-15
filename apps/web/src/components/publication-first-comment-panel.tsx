@@ -1,5 +1,4 @@
 import { Alert, AlertDescription, AlertTitle } from '@postdot/ui/components/alert'
-import { Badge } from '@postdot/ui/components/badge'
 import { Button } from '@postdot/ui/components/button'
 import { Field, FieldDescription, FieldError, FieldLabel } from '@postdot/ui/components/field'
 import {
@@ -13,6 +12,7 @@ import { Textarea } from '@postdot/ui/components/textarea'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 
+import { StatusText, type StatusTone } from '@/components/status-text'
 import { api, ApiError, type Publication } from '@/lib/api'
 import { useLanguage } from '@/lib/i18n'
 import { projectQueryKeys } from '@/lib/project-realtime'
@@ -278,16 +278,16 @@ export function PublicationFirstCommentPanel({
 
     return (
         <details
-            className="mt-5 min-w-0 rounded-md bg-surface-inset/35 px-4 py-3"
+            className="mt-5 min-w-0 rounded-lg border border-border bg-surface-raised px-4 py-3"
             open={open}
             onToggle={event => setOpen(event.currentTarget.open)}>
             <summary className="cursor-pointer text-sm font-medium">
                 <span className="flex flex-wrap items-center gap-2">
                     {m.first_comment_title()}
                     {item ? (
-                        <Badge className={firstCommentStateClass(item.state)}>
+                        <StatusText tone={firstCommentStateTone(item.state)}>
                             {firstCommentStateLabel(item.state)}
-                        </Badge>
+                        </StatusText>
                     ) : null}
                 </span>
             </summary>
@@ -543,24 +543,24 @@ function firstCommentStateLabel(state: PublicationFirstCommentState): string {
     }
 }
 
-function firstCommentStateClass(state: PublicationFirstCommentState): string {
+function firstCommentStateTone(state: PublicationFirstCommentState): StatusTone {
     switch (state) {
         case 'waiting':
-            return 'border-transparent bg-state-draft/15 text-state-draft'
+            return 'neutral'
         case 'pending':
-            return 'border-transparent bg-state-queued/15 text-state-queued'
+            return 'progress'
         case 'running':
-            return 'border-transparent bg-primary/15 text-primary'
+            return 'progress'
         case 'suspended':
-            return 'border-transparent bg-state-attention/15 text-state-attention'
+            return 'attention'
         case 'sent':
-            return 'border-transparent bg-state-published/15 text-state-published'
+            return 'positive'
         case 'failed':
-            return 'border-transparent bg-state-failed/15 text-state-failed'
+            return 'critical'
         case 'ambiguous':
-            return 'border-transparent bg-state-attention/15 text-state-attention'
+            return 'attention'
         case 'cancelled':
-            return 'border-transparent bg-secondary text-secondary-foreground'
+            return 'neutral'
     }
 }
 

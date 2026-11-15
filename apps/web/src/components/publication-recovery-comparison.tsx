@@ -48,7 +48,7 @@ export function PublicationRecoveryComparison({
             ].map((version, index) => (
                 <section
                     key={index}
-                    className="min-w-0 rounded-md bg-surface-inset/50 p-3 shadow-field"
+                    className="min-w-0 rounded-lg border border-border bg-surface-raised p-3"
                     data-recovery-version={index === 0 ? 'saved' : 'local'}>
                     <h3 className="font-medium">{version.label}</h3>
                     {sourceChanged ? (
@@ -109,15 +109,17 @@ export function PublicationRecoveryComparison({
                                                     <p className="text-xs text-muted-foreground">
                                                         {field.label}
                                                     </p>
-                                                    {typeof value === 'object' ? (
-                                                        <details>
-                                                            <summary className="cursor-pointer">
-                                                                {m.editor_comparison_expand()}
-                                                            </summary>
-                                                            <pre className="whitespace-pre-wrap break-words text-xs">
-                                                                {JSON.stringify(value, null, 2)}
-                                                            </pre>
-                                                        </details>
+                                                    {/* Structured values are summarized, never shown as JSON. */}
+                                                    {Array.isArray(value) ? (
+                                                        <p className="text-sm">
+                                                            {m.editor_comparison_items({
+                                                                count: value.length,
+                                                            })}
+                                                        </p>
+                                                    ) : typeof value === 'object' ? (
+                                                        <p className="text-sm">
+                                                            {m.editor_comparison_structured()}
+                                                        </p>
                                                     ) : (
                                                         <p className="break-words">
                                                             {String(value)}
@@ -126,6 +128,21 @@ export function PublicationRecoveryComparison({
                                                 </div>
                                             )
                                         })}
+                                    {/* Text kept under fields the current rules no longer know. */}
+                                    {unmappedTargetText(
+                                        version.target,
+                                        getTargetEditorFields(editor.profile.profile, locale)
+                                    ).map((text, index) => (
+                                        <SourceComparisonContent
+                                            content={{
+                                                body: { format: 'plain_text', text },
+                                                media: [],
+                                            }}
+                                            key={`unmapped-${index}`}
+                                            media={media}
+                                            projectId={projectId}
+                                        />
+                                    ))}
                                     <SourceComparisonContent
                                         content={{
                                             media: getTargetMediaSelections(
@@ -160,4 +177,15 @@ export function PublicationRecoveryComparison({
             ))}
         </div>
     )
+}
+
+/** Top-level text values that no field of the current rules reads. */
+function unmappedTargetText(
+    target: Readonly<Record<string, unknown>>,
+    fields: readonly { readonly path: string }[]
+): string[] {
+    const known = new Set(fields.map(field => field.path.split('/')[1]).filter(Boolean))
+    return Object.entries(target)
+        .filter(([key, value]) => !known.has(key) && typeof value === 'string' && value !== '')
+        .map(([, value]) => value as string)
 }

@@ -15,6 +15,7 @@ import { Pen2Icon } from '@solar-icons/react/linear/pen-2'
 import { RestartIcon } from '@solar-icons/react/linear/restart'
 import { ShareIcon } from '@solar-icons/react/linear/share'
 import { TrashBinMinimalisticIcon } from '@solar-icons/react/linear/trash-bin-minimalistic'
+import { UnlinkIcon } from '@solar-icons/react/linear/unlink'
 import { Fragment, type ReactNode } from 'react'
 
 import { ChannelAvatar } from '@/components/identity-visuals'
@@ -177,6 +178,7 @@ export function ChannelActionsMenu({
                 ) : null}
                 {canManage && onDisconnect ? (
                     <DropdownMenuItem variant="destructive" onClick={onDisconnect}>
+                        <UnlinkIcon aria-hidden="true" />
                         {m.publisher_disconnect()}
                     </DropdownMenuItem>
                 ) : null}

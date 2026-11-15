@@ -38,12 +38,12 @@ export function ChannelComposerPreview({
     const value = typeof text === 'string' ? text : ''
     const constraint = useMemo(() => getComposerTextFields(profile, target).body, [profile, target])
     const count = constraint ? countComposerText(value, constraint) : null
+    const extraFields = fields.filter(field => field !== body && field !== media)
     return (
-        <div className="min-w-0">
-            <div className="grid gap-4">
-                {fields
-                    .filter(field => field !== body && field !== media)
-                    .map((field, index) => {
+        <div className="min-w-0 rounded-lg border border-border bg-surface-raised">
+            {extraFields.length > 0 ? (
+                <div className="grid gap-4 px-4 pt-4">
+                    {extraFields.map((field, index) => {
                         const control = (
                             <TargetFieldControl
                                 field={field}
@@ -68,7 +68,8 @@ export function ChannelComposerPreview({
                             <div key={field.bindingId}>{control}</div>
                         )
                     })}
-            </div>
+                </div>
+            ) : null}
             {body ? (
                 <PublicationTextEditor
                     appearance="composer"

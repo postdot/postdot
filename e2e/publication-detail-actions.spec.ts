@@ -647,7 +647,9 @@ test('adapts a draft explicitly without changing its source or selecting a publi
     await expect(
         recovery.getByRole('button', { name: 'Restore local copy', exact: true })
     ).toBeDisabled()
-    await expect(recovery.locator('pre')).toContainText('Legacy local text')
+    await expect(recovery.locator('pre')).toHaveCount(0)
+    await expect(recovery).toContainText('Legacy local text')
+    await expect(recovery).toContainText('Previous destination')
     expect((await (await page.request.get(`${apiUrl}/editor`)).json()).editor).toEqual(after)
 })
 
