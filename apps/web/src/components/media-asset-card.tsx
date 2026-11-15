@@ -8,6 +8,7 @@ import {
 } from '@postdot/ui/components/dropdown-menu'
 import { Field, FieldLabel } from '@postdot/ui/components/field'
 import { Input } from '@postdot/ui/components/input'
+import { CheckIcon } from '@solar-icons/react/linear/check'
 import { DownloadMinimalisticIcon } from '@solar-icons/react/linear/download-minimalistic'
 import { FolderOpenIcon } from '@solar-icons/react/linear/folder-open'
 import { GalleryEditIcon } from '@solar-icons/react/linear/gallery-edit'
@@ -38,6 +39,7 @@ interface MediaAssetCardProps {
     readonly showAccessibilityText?: boolean
     readonly showActions?: boolean
     readonly actionSelectionEnabled?: boolean
+    readonly actionSelectionVisible?: boolean
     readonly actionSelected?: boolean
     readonly onAccessibilityTextChange?: (assetId: string, text: string) => void
     readonly onActionSelectionToggle?: (asset: MediaReference) => void
@@ -68,6 +70,7 @@ export function MediaAssetCard({
     showActions = true,
     actionSelectionEnabled = false,
     actionSelected = false,
+    actionSelectionVisible = false,
     onAccessibilityTextChange,
     onActionSelectionToggle,
     onDownload,
@@ -110,34 +113,63 @@ export function MediaAssetCard({
                 if (
                     event.target instanceof Element &&
                     event.target.closest(
-                        'button, input, textarea, a, select, [data-media-asset-action]'
+                        'button, input, label, textarea, a, select, [data-media-asset-action]'
                     ) !== null
                 ) {
                     return
                 }
-                if (actionSelectionEnabled) {
-                    onActionSelectionToggle?.(asset)
-                } else if (selectable) {
+                if (selectable) {
                     onToggle(asset)
                 } else {
                     onOpen?.(asset)
                 }
             }}
-            className={`group relative rounded-md bg-surface-field ${isGrid || isCompact ? 'p-2' : 'p-3'} shadow-field transition-[background-color,box-shadow] ${
+            className={`group relative rounded-lg border border-border bg-surface-raised ${isGrid || isCompact ? 'p-2' : 'p-3'} transition-colors ${
                 actionSelected
                     ? 'cursor-pointer bg-primary/5 ring-1 ring-primary/75'
                     : attachmentSelected
                       ? 'cursor-pointer bg-primary/5 ring-1 ring-primary/70'
                       : (actionSelectionEnabled || onOpen !== undefined || selectable) &&
                           asset.asset.state === 'ready'
-                        ? 'cursor-pointer hover:bg-surface-raised/60'
+                        ? 'cursor-pointer hover:bg-surface-hover'
                         : ''
             }`}>
+            {actionSelectionEnabled ? (
+                <label
+                    className={`absolute top-3 left-3 z-10 flex size-6 cursor-pointer items-center justify-center rounded-md bg-surface-raised transition-opacity ${actionSelectionVisible ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 max-sm:opacity-100'}`}>
+                    <input
+                        type="checkbox"
+                        className="peer absolute inset-0 z-10 cursor-pointer opacity-0 disabled:cursor-not-allowed"
+                        aria-label={
+                            actionSelected
+                                ? m.media_bulk_deselect_asset({
+                                      filename: asset.asset.originalFilename,
+                                  })
+                                : m.media_bulk_select_asset({
+                                      filename: asset.asset.originalFilename,
+                                  })
+                        }
+                        checked={actionSelected}
+                        data-media-bulk-selection-toggle="true"
+                        disabled={
+                            interactionDisabled ||
+                            asset.asset.state !== 'ready' ||
+                            !onActionSelectionToggle
+                        }
+                        onChange={() => onActionSelectionToggle?.(asset)}
+                    />
+                    <span
+                        aria-hidden="true"
+                        className={`pointer-events-none flex size-5 items-center justify-center rounded-md border border-muted-foreground/45 peer-focus-visible:ring-2 peer-focus-visible:ring-primary peer-disabled:opacity-50 ${actionSelected ? 'border-primary bg-primary text-primary-foreground' : 'bg-surface-raised text-transparent'}`}>
+                        <CheckIcon className="size-3.5" />
+                    </span>
+                </label>
+            ) : null}
             <div
                 className={
                     isGrid ? 'flex min-w-0 flex-col gap-2' : 'flex min-w-0 items-center gap-3'
                 }>
-                {actionSelectionEnabled || selectable ? (
+                {selectable ? (
                     <div
                         data-media-preview="true"
                         className={`${isGrid ? 'block w-full' : 'shrink-0'} cursor-pointer rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary`}>
@@ -172,52 +204,7 @@ export function MediaAssetCard({
                         />
                     </button>
                 )}
-                {actionSelectionEnabled ? (
-                    <div className="flex min-w-0 flex-1 items-start gap-2">
-                        <button
-                            type="button"
-                            aria-label={
-                                actionSelected
-                                    ? m.media_bulk_deselect_asset({
-                                          filename: asset.asset.originalFilename,
-                                      })
-                                    : m.media_bulk_select_asset({
-                                          filename: asset.asset.originalFilename,
-                                      })
-                            }
-                            aria-pressed={actionSelected}
-                            data-media-bulk-selection-toggle="true"
-                            disabled={
-                                interactionDisabled ||
-                                asset.asset.state !== 'ready' ||
-                                onActionSelectionToggle === undefined
-                            }
-                            onClick={() => onActionSelectionToggle?.(asset)}
-                            className={`flex min-w-0 flex-1 cursor-pointer gap-3 text-left disabled:cursor-not-allowed disabled:opacity-50 ${isGrid ? 'items-start' : 'items-center'}`}>
-                            <AssetDetails
-                                asset={asset}
-                                locale={locale}
-                                representation={representation}
-                                retentionMs={retentionMs}
-                                restoreAvailable={restoreAvailable}
-                            />
-                        </button>
-                        {showActions ? (
-                            <MediaAssetActions
-                                asset={asset}
-                                interactionDisabled={interactionDisabled}
-                                onDownload={onDownload}
-                                onEdit={onEdit}
-                                onInfo={onInfo}
-                                onOpen={onOpen}
-                                onRequestDelete={onRequestDelete}
-                                onPermanentlyDelete={onPermanentlyDelete}
-                                onRestore={restoreAvailable ? onRestore : undefined}
-                                representation={representation}
-                            />
-                        ) : null}
-                    </div>
-                ) : selectable ? (
+                {selectable ? (
                     <div
                         className={`flex min-w-0 flex-1 items-start gap-2 ${isGrid ? 'items-start' : 'items-center'}`}>
                         <button

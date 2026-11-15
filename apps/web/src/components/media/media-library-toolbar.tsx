@@ -48,7 +48,6 @@ export interface MediaLibraryToolbarProps {
     readonly mediaFamilyFilter: MediaListFamilyFilter
     readonly mediaSort: MediaListSort
     readonly mediaViewMode: MediaLibraryViewMode
-    readonly bulkSelectionMode: boolean
     readonly interactionDisabled: boolean
     readonly assetCount: number
     readonly totalAssets: number
@@ -56,14 +55,12 @@ export interface MediaLibraryToolbarProps {
     readonly features?: MediaLibraryFeatureOptions
     readonly navigationAction?: ReactNode
     readonly showResultCount?: boolean
-    readonly showSelectionMode?: boolean
     readonly showViewControls?: boolean
     readonly onSearchQueryChange: (query: string) => void
     readonly onDateChange: (value: MediaListDateFilter) => void
     readonly onFamilyChange: (value: MediaListFamilyFilter) => void
     readonly onSortChange: (value: MediaListSort) => void
     readonly onViewModeChange: (value: MediaLibraryViewMode) => void
-    readonly onToggleSelectionMode?: () => void
 }
 
 export function MediaLibraryToolbar({
@@ -74,7 +71,6 @@ export function MediaLibraryToolbar({
     mediaFamilyFilter,
     mediaSort,
     mediaViewMode,
-    bulkSelectionMode,
     interactionDisabled,
     assetCount,
     totalAssets,
@@ -82,14 +78,12 @@ export function MediaLibraryToolbar({
     features,
     navigationAction,
     showResultCount: showResultCountProp = true,
-    showSelectionMode = true,
     showViewControls: showViewControlsProp = true,
     onSearchQueryChange,
     onDateChange,
     onFamilyChange,
     onSortChange,
     onViewModeChange,
-    onToggleSelectionMode,
 }: MediaLibraryToolbarProps) {
     const [filtersExpanded, setFiltersExpanded] = useState(false)
     const filterPanelId = useId()
@@ -200,21 +194,6 @@ export function MediaLibraryToolbar({
                         <p aria-live="polite" className="text-xs text-muted-foreground">
                             {m.media_visible_count({ shown: assetCount, total: totalAssets })}
                         </p>
-                    ) : null}
-                    {showSelectionMode ? (
-                        <Button
-                            type="button"
-                            variant={bulkSelectionMode ? 'secondary' : 'outline'}
-                            size="sm"
-                            className="shadow-none"
-                            aria-pressed={bulkSelectionMode}
-                            data-media-selection-mode-toggle="true"
-                            disabled={interactionDisabled}
-                            onClick={onToggleSelectionMode}>
-                            {bulkSelectionMode
-                                ? m.media_bulk_exit_selection_mode()
-                                : m.media_bulk_select_mode()}
-                        </Button>
                     ) : null}
                     {showViewControls ? (
                         <MediaLibraryViewControls

@@ -127,7 +127,6 @@ export function MediaAttachmentLibraryDialog({
 
                 <MediaLibraryToolbar
                     assetCount={assets.length}
-                    bulkSelectionMode={false}
                     className="shrink-0"
                     interactionDisabled={interactionDisabled}
                     mediaDateFilter={mediaDateFilter}
@@ -143,7 +142,6 @@ export function MediaAttachmentLibraryDialog({
                     searchPending={searchPending}
                     searchQuery={searchQuery}
                     features={libraryFeatures}
-                    showSelectionMode={false}
                     totalAssets={totalAssets}
                 />
 

@@ -249,7 +249,6 @@ function MediaAttachmentPickerView({
     const [bulkDeletionPending, setBulkDeletionPending] = useState(false)
     const [bulkSelectionResolutionPending, setBulkSelectionResolutionPending] = useState(false)
     const [bulkDeletionError, setBulkDeletionError] = useState<string | null>(null)
-    const [bulkSelectionMode, setBulkSelectionMode] = useState(false)
     const [dragActive, setDragActive] = useState(false)
     const dragDepthRef = useRef(0)
     const [sourcePickerOpen, setSourcePickerOpen] = useState(false)
@@ -545,7 +544,6 @@ function MediaAttachmentPickerView({
 
     useEffect(() => {
         if (!canManageLibrary) {
-            setBulkSelectionMode(false)
             setBulkSelectedAssetIds(new Set())
         }
     }, [canManageLibrary])
@@ -870,12 +868,6 @@ function MediaAttachmentPickerView({
         setBulkSelectedAssetIds(new Set())
     }
 
-    function toggleBulkSelectionMode() {
-        if (!canManageLibrary || mediaWriteDisabled) return
-        if (bulkSelectionMode) setBulkSelectedAssetIds(new Set())
-        setBulkSelectionMode(current => !current)
-    }
-
     function updateAccessibilityText(assetId: string, text: string) {
         onChange(
             value.map(item => {
@@ -956,7 +948,7 @@ function MediaAttachmentPickerView({
     async function openViewer(asset: MediaReference) {
         const previewOnly = compact && libraryOpen && pendingLibrarySelectionRef.current !== null
 
-        if (canManageLibrary && bulkSelectionMode && bulkSelectedAssetIds.has(asset.asset.id)) {
+        if (canManageLibrary && bulkSelectedAssetIds.has(asset.asset.id)) {
             const collection = await resolveBulkSelectedAssets()
             if (collection === null || collection.length === 0) return
             setViewerAllowsFileActions(true)
@@ -1098,7 +1090,6 @@ function MediaAttachmentPickerView({
         setLoadingMore(false)
         setError(null)
         setStatusMessage(null)
-        setBulkSelectionMode(false)
         clearBulkSelection()
     }
 
@@ -1660,7 +1651,6 @@ function MediaAttachmentPickerView({
                         restorableAssetIds={restorableAssetIds}
                         bulkSelectedAssetIds={bulkSelectedAssetIds}
                         bulkSelectedCount={bulkSelectedCount}
-                        bulkSelectionMode={bulkSelectionMode}
                         bulkSelectionResolutionPending={bulkSelectionResolutionPending}
                         canManageLibrary={canManageLibrary}
                         emptyDescription={emptyDescription}
@@ -1703,7 +1693,6 @@ function MediaAttachmentPickerView({
                         onSortChange={setMediaSort}
                         onToggleAsset={toggleAsset}
                         onToggleBulkAsset={canManageLibrary ? toggleBulkAsset : undefined}
-                        onToggleSelectionMode={toggleBulkSelectionMode}
                         onToggleVisibleBulkSelection={
                             visibleReadyAssets.length > 0 ? toggleVisibleBulkSelection : undefined
                         }

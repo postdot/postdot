@@ -13,6 +13,8 @@ import type {
     MediaListSort,
     MediaReference,
 } from '@/lib/api'
+import { formatNumber } from '@/lib/format'
+import { useLanguage } from '@/lib/i18n'
 import type { MediaLibraryViewMode } from '@/lib/media-library-view'
 import type { MediaSelection } from '@/lib/target-media'
 import * as m from '@/paraglide/messages.js'
@@ -33,7 +35,6 @@ export interface MediaLibraryManagementSurfaceProps {
     readonly interactionDisabled: boolean
     readonly error: string | null
     readonly emptyDescription?: string
-    readonly bulkSelectionMode: boolean
     readonly bulkSelectionResolutionPending: boolean
     readonly bulkSelectedAssetIds: ReadonlySet<string>
     readonly bulkSelectedCount: number
@@ -58,7 +59,6 @@ export interface MediaLibraryManagementSurfaceProps {
     readonly onFamilyChange: (value: MediaListFamilyFilter) => void
     readonly onSortChange: (value: MediaListSort) => void
     readonly onViewModeChange: (value: MediaLibraryViewMode) => void
-    readonly onToggleSelectionMode: () => void
     readonly onOpenSelected: () => void
     readonly onOpenBulkDeletion: () => void
     readonly onClearBulkSelection: () => void
@@ -88,7 +88,6 @@ export function MediaLibraryManagementSurface({
     interactionDisabled,
     error,
     emptyDescription,
-    bulkSelectionMode,
     bulkSelectionResolutionPending,
     bulkSelectedAssetIds,
     bulkSelectedCount,
@@ -113,7 +112,6 @@ export function MediaLibraryManagementSurface({
     onFamilyChange,
     onSortChange,
     onViewModeChange,
-    onToggleSelectionMode,
     onOpenSelected,
     onOpenBulkDeletion,
     onClearBulkSelection,
@@ -130,11 +128,14 @@ export function MediaLibraryManagementSurface({
     onViewChange,
     onToggleAsset,
 }: MediaLibraryManagementSurfaceProps) {
+    const { locale } = useLanguage()
     const hasActiveLibraryQuery =
-        searchQuery.trim() !== '' || mediaFamilyFilter !== 'all' || mediaDateFilter !== 'all'
+        searchQuery.trim() !== '' ||
+        mediaFamilyFilter !== 'all' ||
+        mediaDateFilter !== 'all' ||
+        mediaSort !== 'newest'
     const hasActiveQuery = view === 'library' ? hasActiveLibraryQuery : searchQuery.trim() !== ''
-    const isEmptyView = assets.length === 0 && !hasActiveQuery
-    const showToolbar = !isEmptyView
+    const showToolbar = totalAssets >= 2 || hasActiveQuery
 
     const trashButton =
         view === 'library' && canManageLibrary ? (
@@ -149,8 +150,8 @@ export function MediaLibraryManagementSurface({
                 <TrashBinMinimalisticIcon aria-hidden="true" />
                 {m.media_trash_open()}
                 {trashCount > 0 ? (
-                    <span className="rounded-full bg-muted px-1.5 text-xs tabular-nums text-muted-foreground">
-                        {trashCount}
+                    <span className="text-xs tabular-nums text-muted-foreground">
+                        {formatNumber(trashCount, locale)}
                     </span>
                 ) : null}
             </Button>
@@ -177,7 +178,6 @@ export function MediaLibraryManagementSurface({
             {showToolbar ? (
                 <MediaLibraryToolbar
                     assetCount={assets.length}
-                    bulkSelectionMode={bulkSelectionMode}
                     interactionDisabled={interactionDisabled}
                     mediaDateFilter={mediaDateFilter}
                     mediaFamilyFilter={mediaFamilyFilter}
@@ -187,7 +187,6 @@ export function MediaLibraryManagementSurface({
                     onFamilyChange={onFamilyChange}
                     onSearchQueryChange={onSearchQueryChange}
                     onSortChange={onSortChange}
-                    onToggleSelectionMode={onToggleSelectionMode}
                     onViewModeChange={onViewModeChange}
                     projectId={projectId}
                     searchPending={searchPending}
@@ -198,7 +197,6 @@ export function MediaLibraryManagementSurface({
                             : libraryFeatures
                     }
                     navigationAction={trashButton}
-                    showSelectionMode={canManageLibrary && view === 'library'}
                     totalAssets={totalAssets}
                 />
             ) : view === 'library' && trashCount > 0 && trashButton !== undefined ? (
@@ -211,8 +209,10 @@ export function MediaLibraryManagementSurface({
                 </p>
             ) : null}
 
-            {canManageLibrary && view === 'library' && bulkSelectionMode ? (
-                <div className="sticky top-0 z-20 mt-3">
+            {canManageLibrary && view === 'library' && bulkSelectedCount > 0 ? (
+                <div
+                    className="fixed bottom-5 left-1/2 z-40 w-[min(48rem,calc(100vw-2rem))] -translate-x-1/2"
+                    data-media-selection-bar="true">
                     <BulkActionBar
                         actions={[
                             {
@@ -242,11 +242,7 @@ export function MediaLibraryManagementSurface({
                         selectedCount={bulkSelectedCount}
                         selectionSummary={m.media_bulk_selected({ count: bulkSelectedCount })}
                         toggleAllLabel={
-                            visibleReadyAssetCount > 0
-                                ? allVisibleBulkSelected
-                                    ? m.media_bulk_clear_visible()
-                                    : m.media_bulk_select_visible()
-                                : undefined
+                            visibleReadyAssetCount > 0 ? m.media_bulk_select_visible() : undefined
                         }
                     />
                 </div>
@@ -308,7 +304,7 @@ export function MediaLibraryManagementSurface({
                     selectable={false}
                     selectedAssetById={selectedAssetById}
                     actionSelectedAssetIds={bulkSelectedAssetIds}
-                    actionSelectionEnabled={canManageLibrary && bulkSelectionMode}
+                    actionSelectionEnabled={canManageLibrary && view === 'library'}
                     showActions
                     viewMode={mediaViewMode}
                 />
