@@ -39,7 +39,7 @@ test('renders admin-role gating, all-projects requirement, and single-sentence a
 
     expect(restrictedMemberHtml).not.toContain('Elevated')
     expect(restrictedMemberHtml).not.toContain('Sensitive')
-    expect(restrictedMemberHtml).toContain('Requires instance administrator role')
+    expect(restrictedMemberHtml).toContain('Requires installation administrator role')
     expect(restrictedMemberHtml).toContain('disabled=""')
     expect(restrictedMemberHtml).toContain('All projects')
     expect(restrictedMemberHtml).toContain('A key can never do more than you can.')
@@ -57,5 +57,5 @@ test('renders admin-role gating, all-projects requirement, and single-sentence a
     )
 
     expect(adminAllHtml).toContain('A key can never do more than you can.')
-    expect(adminAllHtml).not.toContain('Requires instance administrator role')
+    expect(adminAllHtml).not.toContain('Requires installation administrator role')
 })

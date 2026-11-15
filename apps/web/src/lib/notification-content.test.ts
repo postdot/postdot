@@ -47,7 +47,7 @@ describe('notification content', () => {
             )
         ).toEqual({
             title: 'Failure confirmed',
-            body: 'The previously uncertain outcome has been verified.',
+            body: 'A previously unconfirmed publication has been verified.',
         })
         expect(
             notificationContent(
