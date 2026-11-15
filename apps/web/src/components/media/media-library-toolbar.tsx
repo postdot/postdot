@@ -3,13 +3,6 @@ import { ButtonGroup } from '@postdot/ui/components/button-group'
 import { Input } from '@postdot/ui/components/input'
 import { Kbd } from '@postdot/ui/components/kbd'
 import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@postdot/ui/components/select'
-import {
     Tooltip,
     TooltipContent,
     TooltipProvider,
@@ -21,8 +14,9 @@ import { MagnifierIcon } from '@solar-icons/react/linear/magnifier'
 import { Widget2Icon } from '@solar-icons/react/linear/widget-2'
 import type { RegisterableHotkey } from '@tanstack/hotkeys'
 import { useHotkeys } from '@tanstack/react-hotkeys'
-import { type ReactNode, useId, useState } from 'react'
+import type { ReactNode } from 'react'
 
+import { ActiveFilters, type FilterGroup, FilterMenu, SortMenu } from '@/components/filter-controls'
 import { type MediaListDateFilter, type MediaListFamilyFilter, type MediaListSort } from '@/lib/api'
 import type { MediaLibraryViewMode } from '@/lib/media-library-view'
 import * as m from '@/paraglide/messages.js'
@@ -85,41 +79,51 @@ export function MediaLibraryToolbar({
     onSortChange,
     onViewModeChange,
 }: MediaLibraryToolbarProps) {
-    const [filtersExpanded, setFiltersExpanded] = useState(false)
-    const filterPanelId = useId()
     const showSearch = features?.search ?? true
     const showFilters = features?.filters ?? true
     const showResultCount = (features?.resultCount ?? true) && showResultCountProp
     const showViewControls = (features?.viewModes ?? true) && showViewControlsProp
 
-    const filterLabels = {
-        family: {
-            all: m.media_filter_all_types(),
-            image: m.media_filter_images(),
-            video: m.media_filter_videos(),
-            audio: m.media_filter_audio(),
-            document: m.media_filter_documents(),
-        },
-        date: {
-            all: m.media_filter_all_dates(),
-            last_24_hours: m.media_filter_last_24_hours(),
-            last_7_days: m.media_filter_last_7_days(),
-            last_30_days: m.media_filter_last_30_days(),
-        },
-        sort: {
-            newest: m.media_sort_newest(),
-            oldest: m.media_sort_oldest(),
-            name_asc: m.media_sort_name_asc(),
-            name_desc: m.media_sort_name_desc(),
-            largest: m.media_sort_largest(),
-            smallest: m.media_sort_smallest(),
-        },
+    const familyLabels: Record<MediaListFamilyFilter, string> = {
+        all: m.media_filter_all_types(),
+        image: m.media_filter_images(),
+        video: m.media_filter_videos(),
+        audio: m.media_filter_audio(),
+        document: m.media_filter_documents(),
     }
-    const activeFilters = [
-        mediaFamilyFilter !== 'all' ? filterLabels.family[mediaFamilyFilter] : null,
-        mediaDateFilter !== 'all' ? filterLabels.date[mediaDateFilter] : null,
-        mediaSort !== 'newest' ? filterLabels.sort[mediaSort] : null,
-    ].filter(Boolean)
+    const dateLabels: Record<MediaListDateFilter, string> = {
+        all: m.media_filter_all_dates(),
+        last_24_hours: m.media_filter_last_24_hours(),
+        last_7_days: m.media_filter_last_7_days(),
+        last_30_days: m.media_filter_last_30_days(),
+    }
+    const sortLabels: Record<MediaListSort, string> = {
+        newest: m.media_sort_newest(),
+        oldest: m.media_sort_oldest(),
+        name_asc: m.media_sort_name_asc(),
+        name_desc: m.media_sort_name_desc(),
+        largest: m.media_sort_largest(),
+        smallest: m.media_sort_smallest(),
+    }
+    // One Filter menu and one Sort menu (DESIGN.md "Filters").
+    const filterGroups: FilterGroup[] = [
+        {
+            anyValue: 'all',
+            id: 'family',
+            label: m.media_filter_type(),
+            onChange: values => onFamilyChange((values[0] ?? 'all') as MediaListFamilyFilter),
+            options: Object.entries(familyLabels).map(([value, label]) => ({ label, value })),
+            selected: [mediaFamilyFilter],
+        },
+        {
+            anyValue: 'all',
+            id: 'date',
+            label: m.media_filter_date(),
+            onChange: values => onDateChange((values[0] ?? 'all') as MediaListDateFilter),
+            options: Object.entries(dateLabels).map(([value, label]) => ({ label, value })),
+            selected: [mediaDateFilter],
+        },
+    ]
 
     return (
         <div
@@ -127,7 +131,7 @@ export function MediaLibraryToolbar({
             aria-label={m.media_search_label()}
             data-media-library-toolbar="true"
             className={`flex flex-col gap-3 ${className ?? ''}`}>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
                 {showSearch ? (
                     <div className="relative min-w-0 flex-1 sm:w-80 sm:flex-none">
                         <label className="sr-only" htmlFor={`media-search-${projectId}`}>
@@ -148,52 +152,28 @@ export function MediaLibraryToolbar({
                         />
                     </div>
                 ) : null}
-                {showFilters ? (
-                    <Button
-                        type="button"
-                        size="sm"
-                        variant={
-                            filtersExpanded || activeFilters.length > 0 ? 'secondary' : 'ghost'
-                        }
-                        className="shrink-0 sm:hidden"
-                        aria-expanded={filtersExpanded}
-                        aria-controls={filterPanelId}
-                        onClick={() => setFiltersExpanded(current => !current)}>
-                        {m.media_filters_toggle()}
-                        {activeFilters.length > 0 ? (
-                            <span className="text-xs tabular-nums">{activeFilters.length}</span>
-                        ) : null}
-                    </Button>
-                ) : null}
-            </div>
-            {showFilters && !filtersExpanded && activeFilters.length > 0 ? (
-                <p className="text-xs text-primary sm:hidden">{activeFilters.join(' · ')}</p>
-            ) : null}
-            <div className="flex flex-wrap items-center gap-2">
-                {showFilters ? (
-                    <div
-                        id={filterPanelId}
-                        className={`${filtersExpanded ? 'block' : 'hidden'} order-1 w-full rounded-md bg-surface-inset/45 p-3 sm:order-none sm:block sm:w-auto sm:bg-transparent sm:p-0`}>
-                        <MediaLibraryFilters
-                            labels={filterLabels}
-                            date={mediaDateFilter}
-                            family={mediaFamilyFilter}
-                            sort={mediaSort}
-                            onDateChange={onDateChange}
-                            onFamilyChange={onFamilyChange}
-                            onSortChange={onSortChange}
-                        />
-                    </div>
-                ) : null}
-                <div className="flex flex-1 flex-wrap items-center justify-end gap-2">
+                <div className="ml-auto flex flex-wrap items-center justify-end gap-1">
                     {showResultCount && searchPending ? (
-                        <p aria-live="polite" className="text-xs text-muted-foreground">
+                        <p aria-live="polite" className="mr-2 text-xs text-muted-foreground">
                             {m.media_searching()}
                         </p>
                     ) : showResultCount && assetCount > 0 && totalAssets > assetCount ? (
-                        <p aria-live="polite" className="text-xs text-muted-foreground">
+                        <p aria-live="polite" className="mr-2 text-xs text-muted-foreground">
                             {m.media_visible_count({ shown: assetCount, total: totalAssets })}
                         </p>
+                    ) : null}
+                    {showFilters ? (
+                        <>
+                            <FilterMenu groups={filterGroups} />
+                            <SortMenu
+                                onChange={value => onSortChange(value as MediaListSort)}
+                                options={Object.entries(sortLabels).map(([value, label]) => ({
+                                    label,
+                                    value,
+                                }))}
+                                value={mediaSort}
+                            />
+                        </>
                     ) : null}
                     {showViewControls ? (
                         <MediaLibraryViewControls
@@ -205,6 +185,11 @@ export function MediaLibraryToolbar({
                     {navigationAction}
                 </div>
             </div>
+            {showFilters ? (
+                <div className="empty:hidden">
+                    <ActiveFilters groups={filterGroups} />
+                </div>
+            ) : null}
         </div>
     )
 }
@@ -326,88 +311,4 @@ function mediaLibraryViewButtonClass(active: boolean) {
     return active
         ? 'bg-surface-selected text-foreground shadow-none hover:bg-surface-selected'
         : 'text-muted-foreground shadow-none'
-}
-
-function MediaLibraryFilters({
-    date,
-    family,
-    sort,
-    labels,
-    onDateChange,
-    onFamilyChange,
-    onSortChange,
-}: {
-    readonly date: MediaListDateFilter
-    readonly family: MediaListFamilyFilter
-    readonly sort: MediaListSort
-    readonly labels: {
-        readonly family: Record<MediaListFamilyFilter, string>
-        readonly date: Record<MediaListDateFilter, string>
-        readonly sort: Record<MediaListSort, string>
-    }
-    readonly onDateChange: (value: MediaListDateFilter) => void
-    readonly onFamilyChange: (value: MediaListFamilyFilter) => void
-    readonly onSortChange: (value: MediaListSort) => void
-}) {
-    return (
-        <div className="flex flex-wrap items-center gap-2" data-media-filters="true">
-            <Select
-                items={labels.family}
-                value={family}
-                onValueChange={value => onFamilyChange((value ?? 'all') as MediaListFamilyFilter)}>
-                <SelectTrigger
-                    size="sm"
-                    className="w-auto min-w-32"
-                    aria-label={m.media_filter_type()}
-                    data-media-filter="family">
-                    <SelectValue />
-                </SelectTrigger>
-                <SelectContent align="start">
-                    <SelectItem value="all">{m.media_filter_all_types()}</SelectItem>
-                    <SelectItem value="image">{m.media_filter_images()}</SelectItem>
-                    <SelectItem value="video">{m.media_filter_videos()}</SelectItem>
-                    <SelectItem value="audio">{m.media_filter_audio()}</SelectItem>
-                    <SelectItem value="document">{m.media_filter_documents()}</SelectItem>
-                </SelectContent>
-            </Select>
-            <Select
-                items={labels.date}
-                value={date}
-                onValueChange={value => onDateChange((value ?? 'all') as MediaListDateFilter)}>
-                <SelectTrigger
-                    size="sm"
-                    className="w-auto min-w-36"
-                    aria-label={m.media_filter_date()}
-                    data-media-filter="date">
-                    <SelectValue />
-                </SelectTrigger>
-                <SelectContent align="start">
-                    <SelectItem value="all">{m.media_filter_all_dates()}</SelectItem>
-                    <SelectItem value="last_24_hours">{m.media_filter_last_24_hours()}</SelectItem>
-                    <SelectItem value="last_7_days">{m.media_filter_last_7_days()}</SelectItem>
-                    <SelectItem value="last_30_days">{m.media_filter_last_30_days()}</SelectItem>
-                </SelectContent>
-            </Select>
-            <Select
-                items={labels.sort}
-                value={sort}
-                onValueChange={value => onSortChange((value ?? 'newest') as MediaListSort)}>
-                <SelectTrigger
-                    size="sm"
-                    className="w-auto min-w-36"
-                    aria-label={m.media_sort()}
-                    data-media-filter="sort">
-                    <SelectValue />
-                </SelectTrigger>
-                <SelectContent align="start">
-                    <SelectItem value="newest">{m.media_sort_newest()}</SelectItem>
-                    <SelectItem value="oldest">{m.media_sort_oldest()}</SelectItem>
-                    <SelectItem value="name_asc">{m.media_sort_name_asc()}</SelectItem>
-                    <SelectItem value="name_desc">{m.media_sort_name_desc()}</SelectItem>
-                    <SelectItem value="largest">{m.media_sort_largest()}</SelectItem>
-                    <SelectItem value="smallest">{m.media_sort_smallest()}</SelectItem>
-                </SelectContent>
-            </Select>
-        </div>
-    )
 }
