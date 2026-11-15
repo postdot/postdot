@@ -52,7 +52,7 @@ export function TimeZoneCombobox({
             value={value}>
             <ComboboxTrigger
                 aria-label={label}
-                className="bg-surface-control shadow-control hover:bg-surface-control-hover"
+                className="border border-input bg-surface-field hover:bg-surface-hover"
                 disabled={disabled}
                 id={id}>
                 <ComboboxValue placeholder="UTC">

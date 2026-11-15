@@ -439,7 +439,7 @@ export function WorkspaceGroupsSection({ workspaceId }: WorkspaceGroupsSectionPr
                 ) : null}
 
                 <Tabs value={view} onValueChange={value => setView(String(value))}>
-                    <TabsList className="h-10 w-full">
+                    <TabsList variant="line">
                         <TabsTrigger value="members">
                             {m.access_workspace_members_title()}
                         </TabsTrigger>

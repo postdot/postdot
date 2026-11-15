@@ -36,7 +36,7 @@ test('creates manual channels with defaults and explains provider setup before c
     expect(manual.execution).toEqual({ kind: 'manual' })
     await page.getByRole('button', { name: en.channel_add, exact: true }).click()
     await dialog.getByRole('radio', { name: en.channel_x_profile, exact: true }).click()
-    await expect(dialog).toContainText(en.channel_provider_application_help)
+    await expect(dialog).toContainText(en.channel_platform_setup_missing)
     await dialog.getByLabel(en.channel_name).fill('X setup test')
     await dialog.getByRole('button', { name: en.channel_create_button, exact: true }).click()
     const row = page.getByRole('article').filter({ hasText: 'X setup test' })

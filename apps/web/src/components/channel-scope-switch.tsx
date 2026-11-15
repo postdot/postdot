@@ -17,7 +17,7 @@ export function ChannelScopeSwitch({
     if (!selectedWorkspaceId) return null
     return (
         <Tabs
-            className="mt-4 w-fit max-w-full"
+            className="mt-4 max-w-full"
             value={scope}
             onValueChange={value => {
                 if (value !== 'project' && value !== 'workspace') return
@@ -31,10 +31,7 @@ export function ChannelScopeSwitch({
                         }),
                     })
             }}>
-            <TabsList
-                aria-label={m.channels_scope()}
-                variant="default"
-                className="!h-auto min-h-8 w-fit max-w-full flex-wrap justify-start gap-0.5 !overflow-visible bg-surface-inset/70 p-1 shadow-surface [&>[data-slot=tabs-trigger]]:flex-none [&>[data-slot=tabs-trigger]]:shrink-0">
+            <TabsList aria-label={m.channels_scope()} variant="line">
                 <TabsTrigger value="project" disabled={!projectId}>
                     {m.channels_scope_project()}
                 </TabsTrigger>

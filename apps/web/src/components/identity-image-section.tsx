@@ -144,9 +144,7 @@ export function IdentityImageSection({
     const preview = change?.kind === 'remove' ? null : (filePreview ?? saved.imageUrl)
     const busy = disabled || pending
     return (
-        <section
-            className="my-6 space-y-4 rounded-lg border border-border bg-surface-raised p-4"
-            aria-labelledby={`${id}-title`}>
+        <section className="space-y-4" aria-labelledby={`${id}-title`}>
             <h2 id={`${id}-title`} className="font-heading text-lg font-medium">
                 {m.identity_image()}
             </h2>
@@ -172,7 +170,9 @@ export function IdentityImageSection({
                 )}
                 <DropdownMenu>
                     <DropdownMenuTrigger
-                        render={<Button type="button" variant="outline" disabled={busy} />}>
+                        render={
+                            <Button type="button" variant="outline" size="sm" disabled={busy} />
+                        }>
                         {m.identity_change_image()}
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="start">

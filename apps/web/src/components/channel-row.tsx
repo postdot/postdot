@@ -8,6 +8,8 @@ import {
 } from '@postdot/ui/components/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@postdot/ui/components/tooltip'
 import { ArchiveIcon } from '@solar-icons/react/linear/archive'
+import { ChecklistMinimalisticIcon } from '@solar-icons/react/linear/checklist-minimalistic'
+import { ClockCircleIcon } from '@solar-icons/react/linear/clock-circle'
 import { MenuDotsVerticalIcon } from '@solar-icons/react/linear/menu-dots-vertical'
 import { Pen2Icon } from '@solar-icons/react/linear/pen-2'
 import { RestartIcon } from '@solar-icons/react/linear/restart'
@@ -152,7 +154,7 @@ export function ChannelActionsMenu({
                 {canManage && onEditProfile && onLifecycleAction ? (
                     <>
                         <DropdownMenuItem onClick={onEditProfile}>
-                            <Pen2Icon aria-hidden="true" />
+                            <ChecklistMinimalisticIcon aria-hidden="true" />
                             {m.channel_edit_profile()}
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => onLifecycleAction('rename')}>
@@ -162,7 +164,10 @@ export function ChannelActionsMenu({
                     </>
                 ) : null}
                 {canManage && onCadence && !archived ? (
-                    <DropdownMenuItem onClick={onCadence}>{m.cadence_action()}</DropdownMenuItem>
+                    <DropdownMenuItem onClick={onCadence}>
+                        <ClockCircleIcon aria-hidden="true" />
+                        {m.cadence_action()}
+                    </DropdownMenuItem>
                 ) : null}
                 {onShare ? (
                     <DropdownMenuItem onClick={onShare}>
