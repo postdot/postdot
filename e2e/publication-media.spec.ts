@@ -575,22 +575,18 @@ test('supports media library search, viewing, and bulk actions', async ({ page }
         .locator('[data-page-header="true"]')
         .getByRole('button', { name: 'Import', exact: true })
     const importMenuTrigger = page.locator('[data-media-import-menu-trigger="true"]')
-    const emptyImportButton = page.locator('[data-media-empty-import="true"]')
     await expect(headerImportButton).toBeVisible()
     await expect(importMenuTrigger).toBeVisible()
-    await expect(emptyImportButton).toBeVisible()
+    // One primary action per frame (SPEC-010 JRN-04): the empty state does not repeat Import.
+    await expect(
+        page.locator('main').getByRole('button', { name: 'Import', exact: true })
+    ).toHaveCount(1)
 
     const [headerChooser] = await Promise.all([
         page.waitForEvent('filechooser'),
         headerImportButton.click(),
     ])
     expect(headerChooser.isMultiple()).toBe(true)
-
-    const [emptyChooser] = await Promise.all([
-        page.waitForEvent('filechooser'),
-        emptyImportButton.click(),
-    ])
-    expect(emptyChooser.isMultiple()).toBe(true)
 
     await importMenuTrigger.click()
     await expect(page.getByRole('menuitem', { name: 'From a URL…', exact: true })).toBeVisible()

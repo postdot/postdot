@@ -1109,7 +1109,7 @@
             }
         }
     ],
-    "media_empty_description": "Import an image to make it available for publications.",
+    "media_empty_description": "Use Import, or drop images anywhere on this page.",
     "media_empty_here": "Add media when you need it.",
     "media_empty_publication_new": "No media added",
     "media_upload_image": "Import",

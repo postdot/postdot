@@ -3,7 +3,6 @@ import { Button } from '@postdot/ui/components/button'
 import { AltArrowLeftIcon } from '@solar-icons/react/linear/alt-arrow-left'
 import { FolderOpenIcon } from '@solar-icons/react/linear/folder-open'
 import { TrashBinMinimalisticIcon } from '@solar-icons/react/linear/trash-bin-minimalistic'
-import { UploadIcon } from '@solar-icons/react/linear/upload'
 import type { RefObject } from 'react'
 
 import { BulkActionBar } from '@/components/bulk-action-bar'
@@ -32,10 +31,8 @@ export interface MediaLibraryManagementSurfaceProps {
     readonly nextCursor: string | null
     readonly loadMoreSentinelRef: RefObject<HTMLDivElement | null>
     readonly interactionDisabled: boolean
-    readonly mediaWriteDisabled: boolean
     readonly error: string | null
     readonly emptyDescription?: string
-    readonly uploading: string | null
     readonly bulkSelectionMode: boolean
     readonly bulkSelectionResolutionPending: boolean
     readonly bulkSelectedAssetIds: ReadonlySet<string>
@@ -55,7 +52,6 @@ export interface MediaLibraryManagementSurfaceProps {
     readonly statusMessage: string | null
     readonly canManageLibrary: boolean
     readonly libraryFeatures?: MediaLibraryFeatureOptions
-    readonly onBrowse: () => void
     readonly onLoadMore: () => void | Promise<void>
     readonly onSearchQueryChange: (query: string) => void
     readonly onDateChange: (value: MediaListDateFilter) => void
@@ -90,10 +86,8 @@ export function MediaLibraryManagementSurface({
     nextCursor,
     loadMoreSentinelRef,
     interactionDisabled,
-    mediaWriteDisabled,
     error,
     emptyDescription,
-    uploading,
     bulkSelectionMode,
     bulkSelectionResolutionPending,
     bulkSelectedAssetIds,
@@ -113,7 +107,6 @@ export function MediaLibraryManagementSurface({
     statusMessage,
     canManageLibrary,
     libraryFeatures,
-    onBrowse,
     onLoadMore,
     onSearchQueryChange,
     onDateChange,
@@ -279,23 +272,7 @@ export function MediaLibraryManagementSurface({
                     />
                 ) : (
                     <EmptyState
-                        action={
-                            view === 'library' && canManageLibrary ? (
-                                <Button
-                                    type="button"
-                                    variant="secondary"
-                                    disabled={mediaWriteDisabled}
-                                    className="shadow-none"
-                                    data-media-empty-import="true"
-                                    onClick={onBrowse}>
-                                    <UploadIcon aria-hidden="true" />
-                                    {uploading === null
-                                        ? m.media_import()
-                                        : m.media_uploading({ filename: uploading })}
-                                </Button>
-                            ) : undefined
-                        }
-                        className="mt-2 min-h-72 flex-1 bg-surface-raised/70"
+                        className="mt-2 min-h-72 bg-surface-raised/70"
                         description={view === 'trash' ? null : (emptyDescription ?? null)}
                         icon={
                             view === 'trash' ? (

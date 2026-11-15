@@ -1674,14 +1674,12 @@ function MediaAttachmentPickerView({
                         mediaFamilyFilter={mediaFamilyFilter}
                         mediaSort={mediaSort}
                         mediaViewMode={mediaViewMode}
-                        mediaWriteDisabled={mediaWriteDisabled}
                         view={mediaView}
                         trashCount={trashCount}
                         retentionMs={retentionMs}
                         statusMessage={statusMessage}
                         nextCursor={nextCursor}
                         onAccessibilityTextChange={updateAccessibilityText}
-                        onBrowse={openDevicePicker}
                         onClearBulkSelection={clearBulkSelection}
                         onDateChange={setMediaDateFilter}
                         onDownload={downloadAsset}
@@ -1716,7 +1714,6 @@ function MediaAttachmentPickerView({
                         searchQuery={searchQuery}
                         selectedAssetById={selectedAssetById}
                         totalAssets={totalAssets}
-                        uploading={uploading}
                         visibleReadyAssetCount={visibleReadyAssets.length}
                     />
                 ) : (
