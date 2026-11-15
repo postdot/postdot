@@ -407,60 +407,73 @@ export function DashboardSidebar({
                             </SidebarGroupContent>
                         </SidebarGroup>
 
-                        <SidebarGroup className="px-3 py-1 group-data-[collapsible=icon]:px-2">
-                            <SidebarGroupLabel className="px-2">
-                                {m.nav_project()}
-                            </SidebarGroupLabel>
-                            <SidebarGroupContent>
-                                <nav aria-label={m.nav_project_management_navigation()}>
-                                    <SidebarMenu>
-                                        <WorkspaceMenuItem
-                                            destination="channels"
-                                            icon={<LinkIcon aria-hidden="true" />}
-                                            label={m.nav_channels()}
-                                            projectId={selectedProjectId}
-                                            workspaceId={selectedWorkspaceId}
-                                            active={activeSection === 'channels'}
-                                        />
-                                        <WorkspaceMenuItem
-                                            destination="media"
-                                            icon={<GalleryIcon aria-hidden="true" />}
-                                            label={m.nav_media()}
-                                            projectId={selectedProjectId}
-                                            workspaceId={selectedWorkspaceId}
-                                            active={activeSection === 'media'}
-                                        />
-                                        <WorkspaceMenuItem
-                                            active={activeSection === 'tags'}
-                                            destination="tags"
-                                            icon={<TagIcon aria-hidden="true" />}
-                                            label={m.taxonomy_tags()}
-                                            projectId={selectedProjectId}
-                                            workspaceId={selectedWorkspaceId}
-                                        />
-                                        <WorkspaceMenuItem
-                                            active={
-                                                activeSection === 'access' ||
-                                                activeSection === 'invitations'
-                                            }
-                                            destination="access"
-                                            icon={<UsersGroupTwoRoundedIcon aria-hidden="true" />}
-                                            label={m.nav_access()}
-                                            projectId={selectedProjectId}
-                                            workspaceId={selectedWorkspaceId}
-                                        />
-                                        <WorkspaceMenuItem
-                                            active={activeSection === 'project-settings'}
-                                            destination="project-settings"
-                                            icon={<SettingsMinimalisticIcon aria-hidden="true" />}
-                                            label={m.nav_project_configuration()}
-                                            projectId={selectedProjectId}
-                                            workspaceId={selectedWorkspaceId}
-                                        />
-                                    </SidebarMenu>
-                                </nav>
-                            </SidebarGroupContent>
-                        </SidebarGroup>
+                        {selectedProjectId !== null || selectedWorkspaceId !== null ? (
+                            <SidebarGroup className="px-3 py-1 group-data-[collapsible=icon]:px-2">
+                                <SidebarGroupLabel className="px-2">
+                                    {selectedProjectId === null
+                                        ? m.nav_workspace()
+                                        : m.nav_project()}
+                                </SidebarGroupLabel>
+                                <SidebarGroupContent>
+                                    <nav
+                                        aria-label={
+                                            selectedProjectId === null
+                                                ? m.nav_workspace_navigation()
+                                                : m.nav_project_management_navigation()
+                                        }>
+                                        <SidebarMenu>
+                                            <WorkspaceMenuItem
+                                                destination="channels"
+                                                icon={<LinkIcon aria-hidden="true" />}
+                                                label={m.nav_channels()}
+                                                projectId={selectedProjectId}
+                                                workspaceId={selectedWorkspaceId}
+                                                active={activeSection === 'channels'}
+                                            />
+                                            <WorkspaceMenuItem
+                                                destination="media"
+                                                icon={<GalleryIcon aria-hidden="true" />}
+                                                label={m.nav_media()}
+                                                projectId={selectedProjectId}
+                                                workspaceId={selectedWorkspaceId}
+                                                active={activeSection === 'media'}
+                                            />
+                                            <WorkspaceMenuItem
+                                                active={activeSection === 'tags'}
+                                                destination="tags"
+                                                icon={<TagIcon aria-hidden="true" />}
+                                                label={m.taxonomy_tags()}
+                                                projectId={selectedProjectId}
+                                                workspaceId={selectedWorkspaceId}
+                                            />
+                                            <WorkspaceMenuItem
+                                                active={
+                                                    activeSection === 'access' ||
+                                                    activeSection === 'invitations'
+                                                }
+                                                destination="access"
+                                                icon={
+                                                    <UsersGroupTwoRoundedIcon aria-hidden="true" />
+                                                }
+                                                label={m.nav_access()}
+                                                projectId={selectedProjectId}
+                                                workspaceId={selectedWorkspaceId}
+                                            />
+                                            <WorkspaceMenuItem
+                                                active={activeSection === 'project-settings'}
+                                                destination="project-settings"
+                                                icon={
+                                                    <SettingsMinimalisticIcon aria-hidden="true" />
+                                                }
+                                                label={m.nav_project_configuration()}
+                                                projectId={selectedProjectId}
+                                                workspaceId={selectedWorkspaceId}
+                                            />
+                                        </SidebarMenu>
+                                    </nav>
+                                </SidebarGroupContent>
+                            </SidebarGroup>
+                        ) : null}
                     </>
                 )}
             </SidebarContent>
@@ -557,45 +570,29 @@ function WorkspaceMenuItem({
             destination === 'project-settings' ||
             destination === 'tags')
 
+    if (requiresProject) return null
+
     return (
         <SidebarMenuItem>
             <SidebarMenuButton
                 data-navigation-destination={
-                    requiresProject
-                        ? undefined
-                        : destination === 'overview' && projectId === null
-                          ? 'projects'
-                          : destination
+                    destination === 'overview' && projectId === null ? 'projects' : destination
                 }
                 data-navigation-scope={
-                    requiresProject
-                        ? undefined
-                        : destination.startsWith('preferences')
-                          ? 'personal'
-                          : destination === 'settings-workspace' ||
-                              destination === 'settings-workspace-settings' ||
-                              (destination === 'channels' && projectId === null) ||
-                              (destination === 'overview' && projectId === null)
-                            ? 'workspace'
-                            : destination.startsWith('settings')
-                              ? 'installation'
-                              : 'project'
+                    destination.startsWith('preferences')
+                        ? 'personal'
+                        : destination === 'settings-workspace' ||
+                            destination === 'settings-workspace-settings' ||
+                            (destination === 'channels' && projectId === null) ||
+                            (destination === 'overview' && projectId === null)
+                          ? 'workspace'
+                          : destination.startsWith('settings')
+                            ? 'installation'
+                            : 'project'
                 }
-                aria-disabled={requiresProject}
-                disabled={requiresProject}
-                render={
-                    requiresProject
-                        ? undefined
-                        : workspaceLink(destination, projectId, workspaceId, label, active)
-                }
+                render={workspaceLink(destination, projectId, workspaceId, label, active)}
                 isActive={active}
-                tabIndex={requiresProject ? -1 : undefined}
-                className={
-                    requiresProject
-                        ? 'cursor-not-allowed text-muted-foreground/45 opacity-100 hover:bg-transparent hover:text-muted-foreground/45'
-                        : undefined
-                }
-                tooltip={requiresProject ? m.nav_project_required() : label}>
+                tooltip={label}>
                 {icon}
                 <span className="group-data-[collapsible=icon]:hidden">{label}</span>
             </SidebarMenuButton>

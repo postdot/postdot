@@ -486,24 +486,24 @@ function EmptyProjectShell({ global }: { readonly global: DashboardGlobalContext
                 session={global.session}>
                 <main className="min-w-0 px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
                     <div className="w-full">
-                        <h1 className="font-heading text-3xl font-semibold leading-[1.02] sm:text-4xl">
-                            {m.nav_projects()}
-                        </h1>
-                        <p className="mt-3 max-w-xl text-sm leading-6 text-muted-foreground">
-                            {m.overview_create_first_project_description()}
-                        </p>
-                        <EmptyState
+                        <DashboardPageHeader
+                            column="management"
                             action={
                                 <Button onClick={() => setCreateProjectOpen(true)} type="button">
                                     <AddIcon aria-hidden="true" />
                                     {m.nav_create_project()}
                                 </Button>
                             }
-                            className="mt-8 w-full"
-                            illustration="data"
-                            layout="default"
-                            title={m.overview_no_projects()}
+                            description={m.dashboard_select_project_description()}
+                            title={m.nav_projects()}
                         />
+                        <PageColumn variant="management">
+                            <EmptyState
+                                description={m.overview_create_first_project_description()}
+                                illustration="data"
+                                title={m.overview_no_projects()}
+                            />
+                        </PageColumn>
                         <ProjectCreationDialog
                             id="empty-state-new-project"
                             name={global.projectName}
@@ -584,13 +584,15 @@ function ProjectDirectoryList({
 
     if (projects.length === 0) {
         return (
-            <EmptyState
-                className="mt-4 w-full"
-                description={m.overview_create_first_project_description()}
-                illustration="data"
-                layout="default"
-                title={m.overview_no_projects()}
-            />
+            <PageColumn variant="management">
+                <EmptyState
+                    className="w-full"
+                    description={m.overview_create_first_project_description()}
+                    illustration="data"
+                    layout="default"
+                    title={m.overview_no_projects()}
+                />
+            </PageColumn>
         )
     }
 
@@ -606,7 +608,7 @@ function ProjectDirectoryList({
                         : m.queue_no_scheduled_title()
                 return (
                     <Link
-                        className="group flex items-center justify-between gap-4 rounded-md bg-muted px-4 py-3 shadow-surface transition-[background-color,transform] hover:-translate-y-px hover:bg-muted/75"
+                        className="group flex items-center justify-between gap-4 rounded-lg border border-border bg-surface-raised px-4 py-3 transition-colors hover:bg-surface-hover"
                         key={project.id}
                         params={{ projectId: project.id }}
                         to="/dashboard/projects/$projectId/overview">
