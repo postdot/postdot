@@ -643,7 +643,9 @@ function ProjectDirectoryList({
                                     ) : channelsByProjectId !== undefined ? (
                                         <span>{m.nav_no_channels()}</span>
                                     ) : null}
-                                    <span className="tabular-nums">{scheduledText}</span>
+                                    {visibleChannels.length > 0 ? (
+                                        <span className="tabular-nums">{scheduledText}</span>
+                                    ) : null}
                                 </span>
                             </span>
                         </span>
