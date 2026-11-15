@@ -176,8 +176,8 @@
             "declarations": ["input count", "local countPlural = count: plural"],
             "selectors": ["countPlural"],
             "match": {
-                "countPlural=one": "{count} pending channel impact",
-                "countPlural=other": "{count} pending channel impacts"
+                "countPlural=one": "{count} channel version affected",
+                "countPlural=other": "{count} channel versions affected"
             }
         }
     ],
@@ -319,13 +319,13 @@
     "preferences_language_description": "The language of the interface.",
     "nav_home": "Home",
     "provider_apps_title": "Platform setup",
-    "provider_apps_description": "Configure platform setups shared across Postdot projects.",
+    "provider_apps_description": "Set up the platforms your Postdot projects publish to.",
     "configuration_description": "Manage Postdot access and shared connections.",
     "configuration_access_title": "Members & invitations",
     "configuration_access_description": "Manage the people allowed to use Postdot and their invitations.",
     "configuration_access_action": "Manage access",
     "configuration_provider_apps_title": "Platform setup",
-    "configuration_provider_apps_description": "Configure the platform setups used to connect publishing channels.",
+    "configuration_provider_apps_description": "Set up the platforms used to connect channels.",
     "configuration_provider_apps_action": "Manage applications",
     "provider_apps_new": "Set up a platform",
     "provider_apps_edit": "Edit application",
