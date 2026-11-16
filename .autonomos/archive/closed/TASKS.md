@@ -671,3 +671,4 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] **[UX-678]** Stale channel version shows one calm message and a precise comparison `Priority: 🟠` `Complexity: M` `Completed: 2026-11-16`
 - [x] **[UX-680]** Inventory every post and publication editing capability and browser journey for SPEC-013 `Priority: 🟠` `Complexity: M` `Completed: 2026-11-16` [Worklog](../../worklogs/2026-11-16-UX-680.md)
 - [x] **[UX-681]** Post composition API: save post text and several channel versions in one transaction (SPEC-013) `Priority: 🟠` `Complexity: L` `Completed: 2026-11-16`
+- [x] **[UX-682]** Extract the new post composer into a shared post composer without behavior change (SPEC-013) `Priority: 🟠` `Complexity: L` `Completed: 2026-11-16` [Worklog](../../worklogs/2026-11-16-UX-682.md)

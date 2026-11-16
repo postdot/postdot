@@ -24,6 +24,7 @@ import {
 
 import { DateTimePicker } from '@/components/date-time-picker'
 import { ChannelAvatar } from '@/components/identity-visuals'
+import { postSharedScopeId } from '@/components/post-composer/use-post-composition'
 import type { Channel, ChannelListItem, PublisherConnection } from '@/lib/api'
 import { channelVariant } from '@/lib/channel-identity'
 import { useChannelIdentityPeers } from '@/lib/channel-identity-context'
@@ -35,7 +36,7 @@ import {
 } from '@/lib/publication-authoring'
 import * as m from '@/paraglide/messages.js'
 
-export const publicationSharedTabId = 'shared'
+export const publicationSharedTabId = postSharedScopeId
 
 export interface PublicationChannelRailProps {
     /** Quiet actions about the post's channels, after the last chip. */
@@ -129,6 +130,8 @@ export interface PublicationChannelTabsProps {
     readonly defaultDeliveryMode: DeliveryMode
     readonly defaultScheduledAt: string
     readonly disabled: boolean
+    readonly readOnly?: boolean
+    readonly lockedTargetIds?: ReadonlySet<string>
     readonly onChange: Dispatch<SetStateAction<PublicationTargetDraft[]>>
     readonly onActiveTabChange: (tabId: string) => void
     readonly onRemoveTarget: (targetId: string) => void
@@ -144,6 +147,8 @@ export function PublicationChannelTabs({
     defaultDeliveryMode,
     defaultScheduledAt,
     disabled,
+    readOnly = false,
+    lockedTargetIds,
     onChange,
     onActiveTabChange,
     onRemoveTarget,
@@ -296,7 +301,9 @@ export function PublicationChannelTabs({
                                     aria-label={m.publication_new_remove_channel({
                                         channel: channelLabel(channel),
                                     })}
-                                    disabled={disabled}
+                                    disabled={
+                                        disabled || readOnly || lockedTargetIds?.has(target.id)
+                                    }
                                     onClick={() => removeChannel(target)}>
                                     <CloseIcon aria-hidden="true" className="size-3.5" />
                                 </Button>
@@ -318,7 +325,7 @@ export function PublicationChannelTabs({
                                 <Button
                                     type="button"
                                     variant="ghost"
-                                    disabled={disabled}
+                                    disabled={disabled || readOnly}
                                     data-channel-available="true"
                                     data-channel-id={channel.id}
                                     aria-label={m.publication_new_add_channel_named({

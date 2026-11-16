@@ -1,69 +1,23 @@
 import { Alert, AlertDescription, AlertTitle } from '@postdot/ui/components/alert'
 import { Button } from '@postdot/ui/components/button'
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogTitle,
-} from '@postdot/ui/components/dialog'
-import { Input } from '@postdot/ui/components/input'
 import { Kbd } from '@postdot/ui/components/kbd'
 import { Tooltip, TooltipTrigger, TooltipContent } from '@postdot/ui/components/tooltip'
 import { cn } from '@postdot/ui/lib/utils'
-import { AltArrowDownIcon } from '@solar-icons/react/linear/alt-arrow-down'
 import { CalendarAddIcon } from '@solar-icons/react/linear/calendar-add'
-import { CalendarMinimalisticIcon } from '@solar-icons/react/linear/calendar-minimalistic'
 import { FileTextIcon } from '@solar-icons/react/linear/file-text'
-import { RestartIcon } from '@solar-icons/react/linear/restart'
-import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
-import {
-    lazy,
-    Suspense,
-    useCallback,
-    useEffect,
-    useMemo,
-    useRef,
-    useState,
-    type FormEvent,
-} from 'react'
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 
 import { ChannelCreationDialog } from '@/components/channel-creation-dialog'
 import { ComposerDraftConflict } from '@/components/composer-draft-conflict'
-import { DashboardFormField } from '@/components/dashboard-form-field'
 import { DashboardPageHeader } from '@/components/dashboard-page-header'
-import { MediaAttachmentPicker } from '@/components/media-attachment-picker'
-import { PublicationComposer } from '@/components/publication-composer'
-import { PublicationDraftPreview } from '@/components/publication-draft-preview'
-import { PublicationTagPicker } from '@/components/publication-tag-picker'
-import {
-    PublicationChannelSettings,
-    PublicationChannelTabs,
-    publicationSharedTabId,
-} from '@/components/publication-target-list'
-import { PublicationTextCount } from '@/components/publication-text-count'
-import { PublicationTextEditor } from '@/components/publication-text-editor'
+import { PostComposer } from '@/components/post-composer/post-composer'
+import { publicationSharedTabId } from '@/components/publication-target-list'
 import { QueryErrorState } from '@/components/query-error-state'
-import {
-    ApiError,
-    api,
-    formatApiError,
-    type MediaReference,
-    type PublicationComposerDraft,
-} from '@/lib/api'
-import { countComposerText, getComposerTextFields } from '@/lib/composer-text-constraints'
+import { ApiError, api, formatApiError, type PublicationComposerDraft } from '@/lib/api'
 import { useDashboardGlobal, useProjectDashboard } from '@/lib/dashboard-context'
-import { formatCivilSchedule } from '@/lib/date-time'
-import { formatNumber } from '@/lib/format'
-import { useLanguage } from '@/lib/i18n'
-import { getNativeEditorProfile } from '@/lib/native-presentation'
 import { useProjectTagCatalog } from '@/lib/project-tags'
-import {
-    calendarDateTimeLocal,
-    createPublicationTarget,
-    type DeliveryMode,
-} from '@/lib/publication-authoring'
+import { calendarDateTimeLocal, createPublicationTarget } from '@/lib/publication-authoring'
 import {
     type PublicationCreationMode,
     usePublicationComposer,
@@ -80,15 +34,6 @@ import {
 } from '@/lib/publication-recovery'
 import { getModifierKey } from '@/lib/shortcuts'
 import * as m from '@/paraglide/messages.js'
-import { providerRegistry } from '@/providers/registry'
-
-import { ActionTooltip } from './action-tooltip'
-
-const ConfiguredPublicationEditor = lazy(() =>
-    import('./configured-publication-editor').then(module => ({
-        default: module.ConfiguredPublicationEditor,
-    }))
-)
 
 export function NewPublicationPage({
     calendarDate,
@@ -99,27 +44,23 @@ export function NewPublicationPage({
     readonly calendarTime?: string
     readonly configuredEditor?: boolean
 }) {
-    const { locale } = useLanguage()
     const navigate = useNavigate({ from: '/dashboard/projects/$projectId/publications/new' })
     const { activeChannels, channels, connections, project, projectRole, access } =
         useProjectDashboard()
     const userId = useDashboardGlobal().session.user.id
     const {
         error,
+        composition,
         onCreatePost,
         onCreateChannel,
         onCreateProjectTag,
-        onPostContentChange,
-        onPostTitleChange,
         onPublicationTargetsChange,
-        onSourceMediaChange,
         pending,
         postContent,
         postTitle,
         publicationTagIds,
         publicationTargets,
         sourceMedia,
-        onPublicationTagIdsChange,
     } = usePublicationComposer()
     const tagCatalogQuery = useProjectTagCatalog(project.id)
     const activeProjectTags = tagCatalogQuery.data?.tags.filter(tag => tag.state === 'active') ?? []
@@ -131,7 +72,6 @@ export function NewPublicationPage({
         sourceMedia,
     })
     const formRef = useRef<HTMLFormElement | null>(null)
-    const [mediaToolbar, setMediaToolbar] = useState<HTMLDivElement | null>(null)
     const [mediaPreparationPending, setMediaPreparationPending] = useState(false)
     const mediaPreparationPendingRef = useRef(false)
     const currentCreatePost = useRef(onCreatePost)
@@ -142,45 +82,16 @@ export function NewPublicationPage({
     }, [])
     const canCreateProjectTag = projectRole === 'owner' || projectRole === 'editor'
     const [localRecoveryAtMount] = useState(() => readPublicationRecovery(project.id, userId))
-    const currentRecovery = hasCurrentComposerContent ? localRecoveryAtMount : null
     const appliedCalendarSlot = useRef<string | undefined>(undefined)
-    const currentTargetIds = new Set(publicationTargets.map(target => target.id))
-    const initialCustomizedContentTargetIds = new Set(
-        currentRecovery === null
-            ? publicationTargets
-                  .filter(target => target.content.trim() !== '')
-                  .map(target => target.id)
-            : currentRecovery.customizedContentTargetIds.filter(id => currentTargetIds.has(id))
-    )
-    const initialContentTargetId = publicationTargets.find(
-        target => target.content.trim() !== ''
-    )?.id
-    const recoveredContentScopeId =
-        currentRecovery === null ? undefined : resolveRecoveredContentScope(currentRecovery)
-    const recoveredContentTargetExists =
-        recoveredContentScopeId === publicationSharedTabId ||
-        (recoveredContentScopeId !== undefined && currentTargetIds.has(recoveredContentScopeId))
-    const initialActiveContentScopeId =
-        recoveredContentTargetExists && recoveredContentScopeId !== undefined
-            ? recoveredContentScopeId
-            : (initialContentTargetId ?? publicationSharedTabId)
-    const [defaultDeliveryMode, setDefaultDeliveryMode] = useState<DeliveryMode>(
-        () => publicationTargets[0]?.deliveryMode ?? 'manual'
-    )
-    const [defaultScheduledAt, setDefaultScheduledAt] = useState(
-        () => publicationTargets[0]?.scheduledAt ?? ''
-    )
-    const [customizedTargetIds, setCustomizedTargetIds] = useState<Set<string>>(() => new Set())
-    const [customizedContentTargetIds, setCustomizedContentTargetIds] = useState<Set<string>>(
-        () => initialCustomizedContentTargetIds
-    )
-    const [activePublicationTabId, setActivePublicationTabId] = useState(
-        () => initialActiveContentScopeId
-    )
-    const [activeContentScopeId, setActiveContentScopeId] = useState(
-        () => initialActiveContentScopeId
-    )
-    const [availableMedia, setAvailableMedia] = useState<MediaReference[]>([])
+    const {
+        defaultDeliveryMode,
+        defaultScheduledAt,
+        customizedTargetIds,
+        customizedContentTargetIds,
+        activePublicationTabId,
+        activeContentScopeId,
+        handleDefaultScheduledAtChange,
+    } = composition
     const [recovery, setRecovery] = useState<PublicationRecoveryState | null>(() =>
         hasCurrentComposerContent ? null : localRecoveryAtMount
     )
@@ -194,14 +105,6 @@ export function NewPublicationPage({
     >('idle')
     const [autosaveError, setAutosaveError] = useState<string | null>(null)
     const [autosaveRetryPending, setAutosaveRetryPending] = useState(false)
-    const [scheduleDetailsOpen, setScheduleDetailsOpen] = useState(() =>
-        publicationTargets.some(
-            target =>
-                target.deliveryMode === 'automatic' &&
-                connections.find(connection => connection.channelId === target.channelId)?.state !==
-                    'active'
-        )
-    )
     const autosaveConflict = useRef(false)
     const authoringPaused = useRef(false)
     const [conflictBusy, setConflictBusy] = useState(false)
@@ -214,81 +117,9 @@ export function NewPublicationPage({
     const serverDraftRef = useRef<PublicationComposerDraft | null>(null)
     const autosaveQueue = useRef(Promise.resolve())
     const autosaveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
-    const previousTargetIds = useRef(new Set(publicationTargets.map(target => target.id)))
-    const activeTarget =
-        activePublicationTabId === publicationSharedTabId
-            ? undefined
-            : publicationTargets.find(target => target.id === activePublicationTabId)
-    const activeContentTarget =
-        activeContentScopeId === publicationSharedTabId
-            ? undefined
-            : publicationTargets.find(target => target.id === activeContentScopeId)
     const selectedPublicationCount = publicationTargets.filter(
         target => target.channelId !== ''
     ).length
-    const resolvedActiveContentScopeId = activeContentTarget?.id ?? publicationSharedTabId
-    const [visitedEditorScopes, setVisitedEditorScopes] = useState<Set<string>>(
-        () => new Set([publicationSharedTabId])
-    )
-    useEffect(() => {
-        if (!configuredEditor) return
-        setVisitedEditorScopes(current =>
-            current.has(resolvedActiveContentScopeId)
-                ? current
-                : new Set(current).add(resolvedActiveContentScopeId)
-        )
-    }, [configuredEditor, resolvedActiveContentScopeId])
-    const renderedEditorScopes = new Set([...visitedEditorScopes, resolvedActiveContentScopeId])
-    const activePreviewTarget = activeContentTarget ?? activeTarget ?? publicationTargets[0]
-    const activePreviewChannel = activeChannels.find(
-        channel => channel.id === activePreviewTarget?.channelId
-    )
-    const activeContentTargetUsesSharedContent =
-        activeContentTarget === undefined || !customizedContentTargetIds.has(activeContentTarget.id)
-    const profileQuery = useQuery({
-        queryKey: [
-            'project',
-            project.id,
-            'composer-channel-profile',
-            activePreviewChannel?.id,
-            activePreviewChannel?.profileVersionId,
-        ],
-        queryFn: () => api.getChannelProfileState(project.id, activePreviewChannel!.id),
-        enabled: activePreviewChannel !== undefined,
-        staleTime: Number.POSITIVE_INFINITY,
-        retry: false,
-        refetchOnMount: false,
-        refetchOnWindowFocus: false,
-        refetchOnReconnect: false,
-    })
-    const textFields = useMemo(
-        () =>
-            !profileQuery.isError && profileQuery.data
-                ? getComposerTextFields(profileQuery.data.active.profile, { media: sourceMedia })
-                : null,
-        [profileQuery.data, profileQuery.isError, sourceMedia]
-    )
-    const showHeadline = textFields?.headline !== undefined && textFields?.headline !== null
-    const headlineCount = textFields?.headline
-        ? countComposerText(postTitle, textFields.headline)
-        : null
-    const textRule = providerRegistry.forExecution(activePreviewChannel?.execution)?.text
-    const TextCount = textRule?.Count
-    const usesWeightedTextRules = textRule !== undefined
-    const activeText =
-        activeContentTarget !== undefined && !activeContentTargetUsesSharedContent
-            ? activeContentTarget.content
-            : postContent
-    const activeTextValidation = usesWeightedTextRules ? textRule!.parse(activeText) : null
-    const bodyCount = textFields?.body ? countComposerText(activeText, textFields.body) : null
-    const activeTextInvalid =
-        bodyCount?.invalid === true ||
-        (activeTextValidation !== null &&
-            activeText.trim().length > 0 &&
-            !activeTextValidation.valid)
-    const previewMedia = sourceMedia
-        .map(selection => availableMedia.find(asset => asset.asset.id === selection.assetId))
-        .filter((asset): asset is MediaReference => asset !== undefined)
 
     currentComposerHasContent.current = hasCurrentComposerContent
     if (blankComposerContent.current === null && recovery === null) {
@@ -351,18 +182,22 @@ export function NewPublicationPage({
     }
 
     function applyComposerContent(recovery: PublicationComposerDraftContent) {
-        onPostTitleChange(recovery.postTitle)
-        onPostContentChange(recovery.postContent)
-        onSourceMediaChange(recovery.sourceMedia)
-        onPublicationTargetsChange(recovery.publicationTargets)
-        onPublicationTagIdsChange(recovery.publicationTagIds)
-        setDefaultDeliveryMode(recovery.defaultDeliveryMode)
-        setDefaultScheduledAt(recovery.defaultScheduledAt)
-        setCustomizedTargetIds(new Set(recovery.customizedTargetIds))
-        setCustomizedContentTargetIds(new Set(recovery.customizedContentTargetIds))
         const restoredScope = resolveRecoveredContentScope(recovery)
-        setActivePublicationTabId(restoredScope)
-        setActiveContentScopeId(restoredScope)
+        const {
+            customizedContentTargetIds: contentIds,
+            customizedTargetIds: deliveryIds,
+            ...content
+        } = recovery
+        composition.restoreComposition({
+            ...content,
+            publicationTargets: recovery.publicationTargets.map(target => ({
+                ...target,
+                customized: contentIds.includes(target.id),
+            })),
+            customizedTargetIds: new Set(deliveryIds),
+            activePublicationTabId: restoredScope,
+            activeContentScopeId: restoredScope,
+        })
     }
 
     /** A refused session cannot keep using the mounted author's composition. */
@@ -424,6 +259,16 @@ export function NewPublicationPage({
         }
     }
 
+    function compositionDraftTargets() {
+        return publicationTargets.map(({ id, channelId, content, deliveryMode, scheduledAt }) => ({
+            id,
+            channelId,
+            content,
+            deliveryMode,
+            scheduledAt,
+        }))
+    }
+
     function composerDraftContent(): PublicationComposerDraftContent {
         return {
             activeContentScopeId,
@@ -435,7 +280,7 @@ export function NewPublicationPage({
             postContent,
             postTitle,
             publicationTagIds: [...publicationTagIds],
-            publicationTargets: publicationTargets.map(target => ({ ...target })),
+            publicationTargets: compositionDraftTargets(),
             sourceMedia: sourceMedia.map(selection => ({ ...selection })),
         }
     }
@@ -729,7 +574,7 @@ export function NewPublicationPage({
             postContent,
             postTitle,
             publicationTagIds,
-            publicationTargets,
+            publicationTargets: compositionDraftTargets(),
             sourceMedia,
         })
     }, [
@@ -753,19 +598,6 @@ export function NewPublicationPage({
     ])
 
     useEffect(() => {
-        const nextTargetIds = new Set(publicationTargets.map(target => target.id))
-        const preservedTarget = [...previousTargetIds.current].some(id => nextTargetIds.has(id))
-        const firstTarget = publicationTargets[0]
-
-        if (!preservedTarget && firstTarget !== undefined) {
-            setDefaultDeliveryMode(firstTarget.deliveryMode)
-            setDefaultScheduledAt(firstTarget.scheduledAt)
-            setCustomizedTargetIds(new Set())
-        }
-        previousTargetIds.current = nextTargetIds
-    }, [publicationTargets])
-
-    useEffect(() => {
         const firstTarget = publicationTargets[0]
         const firstActiveChannel = activeChannels[0]
         if (
@@ -787,30 +619,6 @@ export function NewPublicationPage({
     }, [activeChannels, onPublicationTargetsChange, publicationTargets])
 
     useEffect(() => {
-        if (activePublicationTabId === publicationSharedTabId) return
-        if (
-            publicationTargets.some(
-                target => target.id === activePublicationTabId && target.channelId !== ''
-            )
-        ) {
-            return
-        }
-        setActivePublicationTabId(publicationSharedTabId)
-    }, [activePublicationTabId, publicationTargets])
-
-    useEffect(() => {
-        if (activeContentScopeId === publicationSharedTabId) return
-        if (
-            publicationTargets.some(
-                target => target.id === activeContentScopeId && target.channelId !== ''
-            )
-        ) {
-            return
-        }
-        setActiveContentScopeId(publicationSharedTabId)
-    }, [activeContentScopeId, publicationTargets])
-
-    useEffect(() => {
         if (
             calendarDate === undefined ||
             appliedCalendarSlot.current === `${calendarDate}:${calendarTime ?? ''}` ||
@@ -823,12 +631,7 @@ export function NewPublicationPage({
         if (scheduledAt === undefined) return
 
         appliedCalendarSlot.current = `${calendarDate}:${calendarTime ?? ''}`
-        setDefaultScheduledAt(scheduledAt)
-        onPublicationTargetsChange(currentTargets =>
-            currentTargets.map(target =>
-                customizedTargetIds.has(target.id) ? target : { ...target, scheduledAt }
-            )
-        )
+        handleDefaultScheduledAtChange(scheduledAt)
     }, [
         calendarDate,
         calendarTime,
@@ -836,24 +639,6 @@ export function NewPublicationPage({
         onPublicationTargetsChange,
         publicationTargets.length,
     ])
-
-    function handleDefaultDeliveryModeChange(deliveryMode: DeliveryMode) {
-        setDefaultDeliveryMode(deliveryMode)
-        onPublicationTargetsChange(currentTargets =>
-            currentTargets.map(target =>
-                customizedTargetIds.has(target.id) ? target : { ...target, deliveryMode }
-            )
-        )
-    }
-
-    function handleDefaultScheduledAtChange(scheduledAt: string) {
-        setDefaultScheduledAt(scheduledAt)
-        onPublicationTargetsChange(currentTargets =>
-            currentTargets.map(target =>
-                customizedTargetIds.has(target.id) ? target : { ...target, scheduledAt }
-            )
-        )
-    }
 
     useEffect(() => {
         const onKeyDown = (event: KeyboardEvent) => {
@@ -893,103 +678,6 @@ export function NewPublicationPage({
         window.addEventListener('keydown', onKeyDown)
         return () => window.removeEventListener('keydown', onKeyDown)
     }, [])
-
-    function handleTargetCustomizationChange(targetId: string, customized: boolean) {
-        setCustomizedTargetIds(current => {
-            const next = new Set(current)
-            if (customized) next.add(targetId)
-            else next.delete(targetId)
-            return next
-        })
-
-        if (!customized) {
-            onPublicationTargetsChange(currentTargets =>
-                currentTargets.map(target =>
-                    target.id === targetId
-                        ? {
-                              ...target,
-                              deliveryMode: defaultDeliveryMode,
-                              scheduledAt: defaultScheduledAt,
-                          }
-                        : target
-                )
-            )
-        }
-    }
-
-    function updateTargetContent(targetId: string, content: string) {
-        onPublicationTargetsChange(currentTargets =>
-            currentTargets.map(target => (target.id === targetId ? { ...target, content } : target))
-        )
-    }
-
-    function useSharedTargetContent(targetId: string) {
-        setCustomizedContentTargetIds(current => {
-            const next = new Set(current)
-            next.delete(targetId)
-            return next
-        })
-        updateTargetContent(targetId, '')
-    }
-
-    const [pendingRemovalId, setPendingRemovalId] = useState<string | null>(null)
-
-    function requestTargetRemoval(targetId: string) {
-        const target = publicationTargets.find(item => item.id === targetId)
-        if (target === undefined) return
-        if (
-            target.content !== '' ||
-            customizedContentTargetIds.has(targetId) ||
-            customizedTargetIds.has(targetId)
-        ) {
-            setPendingRemovalId(targetId)
-            return
-        }
-        removeTarget(targetId)
-    }
-
-    function removeTarget(targetId: string) {
-        setCustomizedContentTargetIds(current => {
-            const next = new Set(current)
-            next.delete(targetId)
-            return next
-        })
-        onPublicationTargetsChange(currentTargets =>
-            currentTargets.filter(target => target.id !== targetId)
-        )
-        if (activeContentScopeId === targetId) {
-            setActiveContentScopeId(publicationSharedTabId)
-        }
-        if (activePublicationTabId === targetId) {
-            setActivePublicationTabId(publicationSharedTabId)
-        }
-    }
-
-    function selectContentScope(scopeId: string) {
-        if (scopeId === publicationSharedTabId) {
-            setActiveContentScopeId(publicationSharedTabId)
-            setActivePublicationTabId(publicationSharedTabId)
-            return
-        }
-
-        const target = publicationTargets.find(item => item.id === scopeId)
-        if (target === undefined) return
-        setActiveContentScopeId(target.id)
-        setActivePublicationTabId(target.id)
-    }
-
-    function editScopeText(scopeId: string, content: string) {
-        if (scopeId === publicationSharedTabId) {
-            onPostContentChange(content)
-            return
-        }
-        setCustomizedContentTargetIds(current => new Set(current).add(scopeId))
-        updateTargetContent(scopeId, content)
-    }
-
-    function editActiveText(content: string) {
-        editScopeText(resolvedActiveContentScopeId, content)
-    }
 
     useEffect(() => {
         if (
@@ -1170,299 +858,31 @@ export function NewPublicationPage({
                 }
                 onSubmit={event => void handleSubmit(event)}>
                 <section data-new-publication-workspace="true">
-                    <PublicationComposer
-                        channelNavigation={
-                            <PublicationChannelTabs
-                                createChannel={
-                                    projectRole === 'owner' || projectRole === 'editor' ? (
-                                        <ChannelCreationDialog
-                                            projectId={project.id}
-                                            compact={activeChannels.length > 0}
-                                            channels={channels}
-                                            onCreate={onCreateChannel}
-                                            pending={pending}
-                                        />
-                                    ) : undefined
-                                }
-                                activeTabId={resolvedActiveContentScopeId}
-                                channels={activeChannels}
-                                defaultDeliveryMode={defaultDeliveryMode}
-                                defaultScheduledAt={defaultScheduledAt}
-                                disabled={pending}
-                                onChange={onPublicationTargetsChange}
-                                onActiveTabChange={selectContentScope}
-                                onRemoveTarget={requestTargetRemoval}
-                                projectId={project.id}
-                                targets={publicationTargets}
-                                timeZone={project.timeZone}
-                            />
+                    <PostComposer
+                        composition={composition}
+                        project={project}
+                        activeChannels={activeChannels}
+                        connections={connections}
+                        pending={pending}
+                        disabled={recovery !== null}
+                        configuredEditor={configuredEditor}
+                        createChannel={
+                            projectRole === 'owner' || projectRole === 'editor' ? (
+                                <ChannelCreationDialog
+                                    projectId={project.id}
+                                    compact={activeChannels.length > 0}
+                                    channels={channels}
+                                    onCreate={onCreateChannel}
+                                    pending={pending}
+                                />
+                            ) : undefined
                         }
-                        editor={
-                            <div className="min-w-0">
-                                {showHeadline ? (
-                                    <DashboardFormField
-                                        htmlFor="new-post-title"
-                                        label={
-                                            textFields?.headline?.field.required
-                                                ? m.builder_title_required()
-                                                : m.builder_title_optional()
-                                        }>
-                                        <Input
-                                            id="new-post-title"
-                                            aria-invalid={headlineCount?.invalid || undefined}
-                                            aria-describedby={
-                                                headlineCount ? 'new-post-title-count' : undefined
-                                            }
-                                            value={postTitle}
-                                            onChange={event =>
-                                                onPostTitleChange(event.target.value)
-                                            }
-                                            placeholder={m.publication_new_post_title()}
-                                        />
-                                        {textFields?.headline &&
-                                        textFields.headline.field.maxLength !== null &&
-                                        headlineCount &&
-                                        // Like the body: a long limit appears only when it is near.
-                                        (headlineCount.invalid ||
-                                            textFields.headline.field.maxLength <= 500 ||
-                                            headlineCount.characters >=
-                                                textFields.headline.field.maxLength * 0.8) ? (
-                                            <p
-                                                id="new-post-title-count"
-                                                className={cn(
-                                                    'text-xs',
-                                                    headlineCount.invalid
-                                                        ? 'text-destructive'
-                                                        : 'text-muted-foreground'
-                                                )}>
-                                                {m.composer_character_count({
-                                                    count: formatNumber(
-                                                        headlineCount.characters,
-                                                        locale
-                                                    ),
-                                                    limit: formatNumber(
-                                                        textFields.headline.field.maxLength,
-                                                        locale
-                                                    ),
-                                                })}
-                                            </p>
-                                        ) : null}
-                                    </DashboardFormField>
-                                ) : null}
-                                {activePreviewChannel && profileQuery.isPending ? (
-                                    <p role="status" className="mb-2 text-xs text-muted-foreground">
-                                        {m.composer_constraints_loading()}
-                                    </p>
-                                ) : profileQuery.isError ? (
-                                    <div className="mb-2 flex items-center gap-2 text-xs text-muted-foreground">
-                                        <span role="status">
-                                            {m.composer_constraints_unavailable()}
-                                        </span>
-                                        <Button
-                                            type="button"
-                                            variant="ghost"
-                                            size="sm"
-                                            disabled={profileQuery.isFetching}
-                                            onClick={() => void profileQuery.refetch()}>
-                                            {m.common_retry()}
-                                        </Button>
-                                    </div>
-                                ) : null}
-
-                                <div
-                                    data-new-publication-editor="true"
-                                    className="overflow-hidden rounded-xl bg-surface-field shadow-surface focus-within:shadow-control">
-                                    {activeContentTarget !== undefined &&
-                                    !activeContentTargetUsesSharedContent ? (
-                                        <div className="flex justify-end px-3 pt-2">
-                                            <ActionTooltip
-                                                label={m.publication_new_reset_channel_content({
-                                                    channel: activePreviewChannel?.name ?? '',
-                                                })}>
-                                                <Button
-                                                    type="button"
-                                                    variant="ghost"
-                                                    size="icon-xs"
-                                                    disabled={pending}
-                                                    aria-label={m.publication_new_reset_channel_content(
-                                                        {
-                                                            channel:
-                                                                activePreviewChannel?.name ?? '',
-                                                        }
-                                                    )}
-                                                    onClick={() =>
-                                                        useSharedTargetContent(
-                                                            activeContentTarget.id
-                                                        )
-                                                    }>
-                                                    <RestartIcon aria-hidden="true" />
-                                                </Button>
-                                            </ActionTooltip>
-                                        </div>
-                                    ) : null}
-                                    <div>
-                                        {configuredEditor ? (
-                                            <Suspense
-                                                fallback={
-                                                    <div className="min-h-56 p-4 text-muted-foreground">
-                                                        {m.common_loading()}
-                                                    </div>
-                                                }>
-                                                {[
-                                                    {
-                                                        id: publicationSharedTabId,
-                                                        channelId: '',
-                                                        content: postContent,
-                                                    },
-                                                    ...publicationTargets,
-                                                ]
-                                                    .filter(scope =>
-                                                        renderedEditorScopes.has(scope.id)
-                                                    )
-                                                    .map(scope => {
-                                                        const channel = activeChannels.find(
-                                                            item => item.id === scope.channelId
-                                                        )
-                                                        const profile =
-                                                            scope.id === publicationSharedTabId
-                                                                ? 'plain'
-                                                                : getNativeEditorProfile(
-                                                                      channel?.execution
-                                                                  )
-                                                        const shared =
-                                                            scope.id === publicationSharedTabId ||
-                                                            !customizedContentTargetIds.has(
-                                                                scope.id
-                                                            )
-                                                        const visible =
-                                                            scope.id ===
-                                                            resolvedActiveContentScopeId
-                                                        return (
-                                                            <div
-                                                                key={`${project.id}:${scope.id}:${profile}`}
-                                                                hidden={!visible}
-                                                                data-editor-scope={scope.id}>
-                                                                <ConfiguredPublicationEditor
-                                                                    onToolbarMount={
-                                                                        visible
-                                                                            ? setMediaToolbar
-                                                                            : undefined
-                                                                    }
-                                                                    id={
-                                                                        visible
-                                                                            ? 'new-post-content'
-                                                                            : undefined
-                                                                    }
-                                                                    profile={profile}
-                                                                    value={
-                                                                        shared
-                                                                            ? postContent
-                                                                            : scope.content
-                                                                    }
-                                                                    label={
-                                                                        scope.id ===
-                                                                        publicationSharedTabId
-                                                                            ? m.publication_new_source_content()
-                                                                            : m.publication_new_channel_copy()
-                                                                    }
-                                                                    disabled={
-                                                                        pending || recovery !== null
-                                                                    }
-                                                                    describedBy={
-                                                                        visible &&
-                                                                        (usesWeightedTextRules ||
-                                                                            bodyCount !== null)
-                                                                            ? 'new-post-content-weighted-count'
-                                                                            : undefined
-                                                                    }
-                                                                    invalid={
-                                                                        visible && activeTextInvalid
-                                                                    }
-                                                                    onValueChange={text =>
-                                                                        editScopeText(
-                                                                            scope.id,
-                                                                            text
-                                                                        )
-                                                                    }
-                                                                />
-                                                            </div>
-                                                        )
-                                                    })}
-                                            </Suspense>
-                                        ) : (
-                                            <PublicationTextEditor
-                                                appearance="composer"
-                                                onToolbarMount={setMediaToolbar}
-                                                id="new-post-content"
-                                                aria-label={
-                                                    activeContentTarget === undefined
-                                                        ? m.publication_new_source_content()
-                                                        : m.publication_new_channel_copy()
-                                                }
-                                                aria-describedby={
-                                                    usesWeightedTextRules || bodyCount !== null
-                                                        ? 'new-post-content-weighted-count'
-                                                        : undefined
-                                                }
-                                                aria-invalid={activeTextInvalid || undefined}
-                                                value={activeText}
-                                                disabled={pending}
-                                                onValueChange={editActiveText}
-                                                placeholder={m.publication_new_source_placeholder()}
-                                                rows={9}
-                                            />
-                                        )}
-                                        {activeTextValidation !== null && TextCount ? (
-                                            <div className="px-4 pb-3">
-                                                <TextCount
-                                                    id="new-post-content-weighted-count"
-                                                    invalid={activeTextInvalid}
-                                                    result={activeTextValidation}
-                                                />
-                                            </div>
-                                        ) : bodyCount && textFields?.body ? (
-                                            <PublicationTextCount
-                                                id="new-post-content-weighted-count"
-                                                result={bodyCount}
-                                                constraint={textFields.body}
-                                            />
-                                        ) : null}
-                                    </div>
-
-                                    <MediaAttachmentPicker
-                                        variant="publication-new-inline"
-                                        triggerContainer={mediaToolbar}
-                                        projectId={project.id}
-                                        value={sourceMedia}
-                                        onChange={onSourceMediaChange}
-                                        onAssetsChange={setAvailableMedia}
-                                        onPreparationChange={reportMediaPreparation}
-                                        onError={pauseForSessionError}
-                                        disabled={pending || access.status !== 'confirmed'}
-                                        readOnly={!access.canWrite()}
-                                    />
-                                </div>
-
-                                <div className="mt-5">
-                                    <PublicationTagPicker
-                                        ariaLabel={m.taxonomy_select_tags()}
-                                        archivedLabel={m.common_archived()}
-                                        disabled={pending}
-                                        emptyLabel={m.taxonomy_no_tags()}
-                                        label={m.taxonomy_internal_tags()}
-                                        manageTagsProjectId={project.id}
-                                        onChange={onPublicationTagIdsChange}
-                                        onCreateTag={
-                                            canCreateProjectTag ? onCreateProjectTag : undefined
-                                        }
-                                        selectedTagIds={publicationTagIds}
-                                        selectedLabel={count => m.taxonomy_selected_tags({ count })}
-                                        showSelectedTags
-                                        tags={pickerTags}
-                                    />
-                                </div>
-                            </div>
-                        }
+                        pickerTags={pickerTags}
+                        onCreateProjectTag={canCreateProjectTag ? onCreateProjectTag : undefined}
+                        mediaDisabled={pending || access.status !== 'confirmed'}
+                        mediaReadOnly={!access.canWrite()}
+                        onMediaPreparationChange={reportMediaPreparation}
+                        onError={pauseForSessionError}
                         footer={
                             <div className="flex w-full flex-wrap items-center justify-between gap-3">
                                 {(autosaveState === 'error' ||
@@ -1580,112 +1000,9 @@ export function NewPublicationPage({
                                 ) : null}
                             </div>
                         }
-                        preview={
-                            activePreviewChannel !== undefined ? (
-                                <PublicationDraftPreview
-                                    channel={activePreviewChannel}
-                                    execution={activePreviewChannel.execution}
-                                    media={previewMedia}
-                                    mediaSelections={sourceMedia}
-                                    postContent={postContent}
-                                    postTitle={postTitle}
-                                    targetContent={
-                                        activeContentTargetUsesSharedContent
-                                            ? undefined
-                                            : activePreviewTarget?.content
-                                    }
-                                />
-                            ) : undefined
-                        }
-                        settings={
-                            selectedPublicationCount > 0 ? (
-                                <details
-                                    data-publication-schedule-disclosure="true"
-                                    className="group min-w-0 rounded-md bg-surface-inset/35 px-3 shadow-surface"
-                                    open={scheduleDetailsOpen}
-                                    onToggle={event =>
-                                        setScheduleDetailsOpen(event.currentTarget.open)
-                                    }>
-                                    <summary
-                                        aria-label={m.publication_new_schedule_settings()}
-                                        className="flex min-h-14 cursor-pointer list-none items-center gap-3 py-3 text-sm marker:hidden [&::-webkit-details-marker]:hidden">
-                                        <CalendarMinimalisticIcon
-                                            aria-hidden="true"
-                                            className="size-4 shrink-0 text-muted-foreground"
-                                        />
-                                        <span className="min-w-0 flex-1 truncate font-medium">
-                                            {formatCivilSchedule(defaultScheduledAt, locale) ||
-                                                m.date_time_picker_placeholder()}
-                                        </span>
-                                        <span className="hidden shrink-0 text-muted-foreground sm:inline">
-                                            {defaultDeliveryMode === 'automatic'
-                                                ? m.publication_new_automatic_publication()
-                                                : m.publication_new_manual_publication()}
-                                        </span>
-                                        <AltArrowDownIcon
-                                            aria-hidden="true"
-                                            className="size-4 shrink-0 text-muted-foreground transition-transform duration-200 group-open:rotate-180 motion-reduce:transition-none"
-                                        />
-                                    </summary>
-                                    <div className="pb-4 pt-1">
-                                        <PublicationChannelSettings
-                                            activeTargetId={activePublicationTabId}
-                                            channels={activeChannels}
-                                            connections={connections}
-                                            customizedTargetIds={customizedTargetIds}
-                                            defaultDeliveryMode={defaultDeliveryMode}
-                                            defaultScheduledAt={defaultScheduledAt}
-                                            disabled={pending}
-                                            onDefaultDeliveryModeChange={
-                                                handleDefaultDeliveryModeChange
-                                            }
-                                            onDefaultScheduledAtChange={
-                                                handleDefaultScheduledAtChange
-                                            }
-                                            onChange={onPublicationTargetsChange}
-                                            onTargetCustomizationChange={
-                                                handleTargetCustomizationChange
-                                            }
-                                            projectId={project.id}
-                                            targets={publicationTargets}
-                                            timeZone={project.timeZone}
-                                        />
-                                    </div>
-                                </details>
-                            ) : undefined
-                        }
                     />
                 </section>
             </form>
-            <Dialog
-                open={pendingRemovalId !== null}
-                onOpenChange={open => {
-                    if (!open) setPendingRemovalId(null)
-                }}>
-                <DialogContent>
-                    <DialogTitle>{m.publication_remove_customized_title()}</DialogTitle>
-                    <DialogDescription>
-                        {m.publication_remove_customized_description()}
-                    </DialogDescription>
-                    <DialogFooter>
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            onClick={() => setPendingRemovalId(null)}>
-                            {m.publication_remove_customized_cancel()}
-                        </Button>
-                        <Button
-                            type="button"
-                            variant="destructive"
-                            onClick={() => {
-                                if (pendingRemovalId !== null) removeTarget(pendingRemovalId)
-                                setPendingRemovalId(null)
-                            }}>
-                            {m.publication_remove_customized_confirm()}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
         </main>
     )
 }
