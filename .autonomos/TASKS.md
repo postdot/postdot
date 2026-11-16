@@ -14,8 +14,6 @@
 
 - [/] **[UX-675]** Channel versions update: shown only when stale, inline notice and redesigned comparison `Priority: 🟠` `Complexity: M`
 
-- [/] **[UX-676]** Sweep Studio copy for machine-written tics and guard them automatically `Priority: 🔵` `Complexity: M`
-
 
 ## Current direction
 
