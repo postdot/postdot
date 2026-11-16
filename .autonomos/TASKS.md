@@ -9,9 +9,7 @@
 
 - [/] **[PUB-627]** Complete GitHub profile, application releases and clean-install acceptance `Priority: 🟠` `Complexity: L`
 
-- [/] **[UX-681]** Post composition API: save post text and several channel versions in one transaction (SPEC-013) `Priority: 🟠` `Complexity: L`
-
-- [ ] **[UX-683]** Edit mode and route unification on the shared composer (SPEC-013) `Priority: 🟠` `Complexity: XL`
+- [/] **[UX-683]** Edit mode and route unification on the shared composer (SPEC-013) `Priority: 🟠` `Complexity: XL`
 
 ## Current direction
 
