@@ -5,6 +5,7 @@ import { useState } from 'react'
 import { MediaPreview, readyRepresentation } from '@/components/media-asset-card'
 import type { MediaReference, PublicationEditorState } from '@/lib/api'
 import { sourceContentDifferences } from '@/lib/post-source-review'
+import { diffWords } from '@/lib/word-diff'
 import * as m from '@/paraglide/messages.js'
 
 export type PublicationEditorSaveState =
@@ -119,11 +120,13 @@ export function PublicationEditorSidebar({
 export function SourceComparisonContent({
     content,
     compareWith,
+    comparisonSide = 'current',
     projectId,
     media,
 }: {
     readonly content: PublicationEditorState['post']['sourceContent']
     readonly compareWith?: PublicationEditorState['post']['sourceContent']
+    readonly comparisonSide?: 'current' | 'post'
     readonly projectId: string
     readonly media: readonly MediaReference[]
 }) {
@@ -136,17 +139,21 @@ export function SourceComparisonContent({
         <div className="mt-3 min-w-0 space-y-3 text-sm leading-6">
             {content.headline || differences?.title ? (
                 <p className="break-words font-medium">
-                    <span className={differences?.title ? changedClass : undefined}>
-                        {content.headline || m.source_review_empty()}
-                    </span>
+                    <ComparisonText
+                        text={content.headline ?? ''}
+                        compareWith={compareWith?.headline ?? (compareWith ? '' : undefined)}
+                        side={comparisonSide}
+                    />
                 </p>
             ) : null}
             {content.body || differences?.text ? (
                 <p className="whitespace-pre-wrap break-words">
-                    <span className={differences?.text ? changedClass : undefined}>
-                        {(shortened && !expanded ? `${body?.slice(0, 500)}…` : body) ||
-                            (compareWith ? m.source_review_empty() : '')}
-                    </span>
+                    <ComparisonText
+                        text={body ?? ''}
+                        compareWith={compareWith?.body?.text ?? (compareWith ? '' : undefined)}
+                        side={comparisonSide}
+                        limit={shortened && !expanded ? 500 : undefined}
+                    />
                 </p>
             ) : null}
             {shortened ? (
@@ -161,7 +168,7 @@ export function SourceComparisonContent({
             {content.language ? (
                 <p className="text-xs text-muted-foreground">{content.language}</p>
             ) : null}
-            {compareWith ? (
+            {compareWith && (content.media.length > 0 || compareWith.media.length > 0) ? (
                 <p className="text-xs text-muted-foreground">
                     <span className={differences?.media ? changedClass : undefined}>
                         {m.source_review_media({ count: content.media.length })}
@@ -209,5 +216,54 @@ export function SourceComparisonContent({
                 </ol>
             ) : null}
         </div>
+    )
+}
+
+function ComparisonText({
+    text,
+    compareWith,
+    side,
+    limit = text.length,
+}: {
+    text: string
+    compareWith?: string
+    side: 'current' | 'post'
+    limit?: number
+}) {
+    if (text === '') return compareWith === undefined ? null : m.source_review_empty()
+    if (compareWith === undefined)
+        return (
+            <>
+                {text.slice(0, limit)}
+                {text.length > limit ? '…' : null}
+            </>
+        )
+    const diff = side === 'current' ? diffWords(text, compareWith) : diffWords(compareWith, text)
+    let remaining = limit
+    return (
+        <>
+            {diff[side].map((part, index) => {
+                const visible = part.text.slice(0, remaining)
+                remaining = Math.max(0, remaining - part.text.length)
+                if (visible === '') return null
+                if (!part.changed) return visible
+                return side === 'current' ? (
+                    <del
+                        key={index}
+                        className="rounded-sm bg-state-failed/10 decoration-state-failed">
+                        <span className="sr-only">{m.source_review_removed()}</span>
+                        {visible}
+                    </del>
+                ) : (
+                    <ins
+                        key={index}
+                        className="rounded-sm bg-state-published/10 decoration-state-published">
+                        <span className="sr-only">{m.source_review_added()}</span>
+                        {visible}
+                    </ins>
+                )
+            })}
+            {text.length > limit ? '…' : null}
+        </>
     )
 }

@@ -131,6 +131,7 @@ export function DashboardShell({
                             key={pathname}
                             ref={scrollRegionRef}
                             data-dashboard-scroll="true"
+                            tabIndex={0}
                             className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain">
                             {error ? (
                                 <div className="px-4 pt-4 sm:px-6 lg:px-8">

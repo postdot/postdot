@@ -131,8 +131,9 @@ function Review({
             live.current.mounted = false
         }
     }, [])
+    const queryKey = ['project', projectId, 'source-review', postId, reviewId]
     const query = useQuery({
-        queryKey: ['project', projectId, 'source-review', postId, reviewId],
+        queryKey,
         queryFn: async () => {
             const [{ post }, publications] = await Promise.all([
                 api.getPost(projectId, postId),
@@ -175,11 +176,11 @@ function Review({
         ) ?? []
     const checked = stale.filter(editor => selected === null || selected.has(editor.publication.id))
 
-    async function apply() {
+    async function apply(entries = checked, replaceContent = true) {
         if (
             applying.current ||
             live.current.disabled ||
-            checked.length === 0 ||
+            entries.length === 0 ||
             !query.data ||
             query.isFetching
         )
@@ -197,7 +198,7 @@ function Review({
         const stillAllowed = () =>
             live.current.mounted && !live.current.disabled && started === live.current.accessEpoch
         try {
-            for (const editor of checked) {
+            for (const editor of entries) {
                 if (!stillAllowed()) return
                 try {
                     const result = await api.rebasePublicationDraft(
@@ -206,13 +207,25 @@ function Review({
                         editor.draft.revision,
                         {
                             expectedSourceRevision: sourceRevision,
-                            replaceContent: true,
+                            replaceContent,
                         }
                     )
                     if (!stillAllowed()) return
                     ids.delete(editor.publication.id)
                     setSelected(new Set(ids))
                     onApplied(result.editor)
+                    client.setQueryData<typeof query.data>(queryKey, current =>
+                        current
+                            ? {
+                                  ...current,
+                                  entries: current.entries.map(item =>
+                                      item.publication.id === editor.publication.id
+                                          ? result.editor
+                                          : item
+                                  ),
+                              }
+                            : current
+                    )
                 } catch (caught) {
                     if (!stillAllowed()) return
                     failed = true
@@ -232,7 +245,7 @@ function Review({
                 }
             }
             if (!stillAllowed()) return
-            if (!failed) onClose()
+            if (!failed && replaceContent) onClose()
             if (conflict || failed) await query.refetch()
         } finally {
             applying.current = false
@@ -301,6 +314,7 @@ function Review({
                                         }
                                         disabled={disabled || pending || query.isFetching}
                                         error={errors[editor.publication.id]}
+                                        onKeep={() => void apply([editor], false)}
                                         onCheckedChange={value => {
                                             const next = new Set(
                                                 selected ?? stale.map(item => item.publication.id)
@@ -349,6 +363,7 @@ function DestinationReview({
     disabled,
     error,
     onCheckedChange,
+    onKeep,
 }: {
     editor: PublicationEditorState
     source: PublicationEditorState['post']
@@ -358,6 +373,7 @@ function DestinationReview({
     disabled: boolean
     error?: string
     onCheckedChange: (checked: boolean) => void
+    onKeep: () => void
 }) {
     const [comparisonOpen, setComparisonOpen] = useState(false)
     const comparisonId = useId()
@@ -411,6 +427,16 @@ function DestinationReview({
                     </Button>
                 ) : null}
             </div>
+            {reason === null ? (
+                <Button
+                    size="sm"
+                    variant="ghost"
+                    className="ml-7 mt-1 text-muted-foreground"
+                    disabled={disabled}
+                    onClick={onKeep}>
+                    {m.source_review_keep()}
+                </Button>
+            ) : null}
             {error ? (
                 <p role="alert" className="mt-2 text-sm text-destructive">
                     {error}
@@ -426,6 +452,7 @@ function DestinationReview({
                                 media={media}
                                 content={current}
                                 compareWith={source.sourceContent}
+                                comparisonSide="current"
                             />
                         </div>
                         <div className="min-w-0">
@@ -435,6 +462,7 @@ function DestinationReview({
                                 media={media}
                                 content={source.sourceContent}
                                 compareWith={current}
+                                comparisonSide="post"
                             />
                         </div>
                     </div>

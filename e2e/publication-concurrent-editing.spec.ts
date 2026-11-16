@@ -1,15 +1,13 @@
 import { randomUUID } from 'node:crypto'
 
 import AxeBuilder from '@axe-core/playwright'
-import { expect, test, type Page, type Request } from '@playwright/test'
+import { expect, test, type Locator, type Page, type Request } from '@playwright/test'
 import type { PublicationEditorState } from '@postdot/client'
-
-import { switchTheme } from './locale'
 
 // Seeded local copies are written in UTC; the project must share that time zone.
 test.use({ timezoneId: 'UTC' })
 
-test('rebases a stale sibling draft without replacing destination text or attachments', async ({
+test('shows one calm notice for a stale sibling and keeps its text and attachments', async ({
     page,
     browser,
 }, info) => {
@@ -32,35 +30,29 @@ test('rebases a stale sibling draft without replacing destination text or attach
             .poll(async () => (await pair.read(page, pair.first)).post.sourceRevision)
             .toBe(2)
         await expect(page.locator('[data-publication-conflict="true"]')).toHaveCount(0)
-        const conflict = other.locator('[data-publication-conflict="true"]')
-        await expect(conflict).toBeVisible({ timeout: 10_000 })
-        await expect(conflict).toContainText('Initial common source')
-        await expect(conflict).toContainText('New common source')
+        const notice = other.getByText(
+            'The post changed. 1 channel still uses the previous version.',
+            { exact: true }
+        )
+        await expect(notice).toBeVisible({ timeout: 10_000 })
+        await expect(other.locator('[data-publication-editor-message]')).toHaveCount(0)
+        await expect(other.locator('[data-publication-conflict]')).toHaveCount(0)
+        await expect(other.getByRole('status', { name: 'Conflict', exact: true })).toHaveCount(0)
+        await expect(
+            other.getByRole('button', { name: 'Review the changes', exact: true })
+        ).toHaveCount(0)
         await expect(
             other.getByRole('button', { name: /^Save changes(?:\s*(?:Ctrl|⌘)↵)?$/ })
         ).toBeDisabled()
-        await conflict.scrollIntoViewIfNeeded()
-        await other.screenshot({
-            path: info.outputPath('source-conflict-desktop.png'),
-            fullPage: true,
-        })
-        for (const width of [820, 390]) {
+        for (const width of [1440, 390]) {
             await other.setViewportSize({ width, height: 900 })
-            await conflict.scrollIntoViewIfNeeded()
+            await notice.scrollIntoViewIfNeeded()
             expect((await new AxeBuilder({ page: other }).analyze()).violations).toEqual([])
             await other.screenshot({
-                path: info.outputPath(`source-conflict-${width}.png`),
+                path: info.outputPath(`stale-notice-${width}.png`),
                 fullPage: true,
             })
         }
-        await switchTheme(other, 'light')
-        await other.setViewportSize({ width: 820, height: 900 })
-        await conflict.scrollIntoViewIfNeeded()
-        expect((await new AxeBuilder({ page: other }).analyze()).violations).toEqual([])
-        await other.screenshot({
-            path: info.outputPath('source-conflict-light-820.png'),
-            fullPage: true,
-        })
         const stale = await pair.read(other, pair.second)
         expect(stale.draft.content).toEqual(before.draft.content)
         expect(stale.draft.sourceRevision).toBe(1)
@@ -69,9 +61,25 @@ test('rebases a stale sibling draft without replacing destination text or attach
             response =>
                 response.url().endsWith('/draft/rebase') && response.request().method() === 'POST'
         )
-        await conflict.getByRole('button', { name: 'Update to the new text', exact: true }).click()
-        expect((await rebased).ok()).toBe(true)
-        await expect(conflict).toHaveCount(0)
+        await other.getByRole('button', { name: 'Review and update', exact: true }).click()
+        const review = other.getByRole('dialog', { name: 'Update channel versions', exact: true })
+        await review
+            .getByRole('region', { name: 'Second channel', exact: true })
+            .getByRole('checkbox')
+            .uncheck()
+        await review
+            .getByRole('region', { name: 'Second channel', exact: true })
+            .getByRole('button', { name: 'Keep this version', exact: true })
+            .click()
+        const acknowledgement = await rebased
+        expect(acknowledgement.ok()).toBe(true)
+        expect(acknowledgement.request().postDataJSON()).toMatchObject({
+            expectedSourceRevision: 2,
+            replaceContent: false,
+        })
+        await expect(review).toContainText('Second channel already up to date.')
+        await review.getByRole('button', { name: 'Cancel', exact: true }).click()
+        await expect(notice).toHaveCount(0)
         await expect(other.locator('#source-body')).toHaveText('New common source')
         await expect(other.locator('[data-publication-recovery-decision]')).toHaveCount(0)
         const after = await pair.read(other, pair.second)
@@ -85,6 +93,9 @@ test('rebases a stale sibling draft without replacing destination text or attach
             deliveryMode: before.publication.deliveryMode,
         })
         await other.reload()
+        await expect(
+            other.getByRole('button', { name: 'Review and update', exact: true })
+        ).toHaveCount(0)
         await openCustomization(other)
         await expect(
             other.locator('[data-target-field="text"] [contenteditable="true"]')
@@ -143,6 +154,14 @@ test('recovers unsaved destination changes after another session saves a newer d
             .toBe('Newer saved destination')
         const conflict = other.locator('[data-publication-conflict="true"]')
         await expect(conflict).toBeVisible()
+        await expect(other.locator('[data-publication-editor-message]')).toHaveAttribute(
+            'role',
+            'alert'
+        )
+        await expect(other.getByRole('status', { name: 'Conflict', exact: true })).toBeVisible()
+        await expect(
+            other.getByRole('button', { name: 'Review the changes', exact: true })
+        ).toBeVisible()
         await expect(local).toHaveText('Local destination adaptation')
         await expect(
             other.getByRole('button', { name: /^Save changes(?:\s*(?:Ctrl|⌘)↵)?$/ })
@@ -285,6 +304,14 @@ test('exposes reconciliation when a server refresh overtakes an in-flight autosa
         await incoming
         releaseSave?.()
         await expect(other.locator('[data-publication-conflict="true"]')).toBeVisible()
+        await expect(other.locator('[data-publication-editor-message]')).toHaveAttribute(
+            'role',
+            'alert'
+        )
+        await expect(other.getByRole('status', { name: 'Conflict', exact: true })).toBeVisible()
+        await expect(
+            other.getByRole('button', { name: 'Review the changes', exact: true })
+        ).toBeVisible()
         await expect(local).toHaveText('In-flight local destination')
         await expect(
             other.getByRole('button', { name: /^Save changes(?:\s*(?:Ctrl|⌘)↵)?$/ })
@@ -686,7 +713,16 @@ for (const outcome of ['rejected', 'lost_response'] as const) {
     })
 }
 
-async function createDraftPair(page: Page) {
+// Assert the original content independently of the screen-reader change labels.
+async function comparisonText(region: Locator): Promise<string> {
+    return region.evaluate(element => {
+        const copy = element.cloneNode(true) as HTMLElement
+        for (const label of copy.querySelectorAll('.sr-only')) label.remove()
+        return copy.textContent ?? ''
+    })
+}
+
+async function createDraftPair(page: Page, manual = false) {
     const suffix = randomUUID().slice(0, 8)
     await page.goto('/')
     await page.getByRole('button', { name: 'Set up Postdot', exact: true }).click()
@@ -710,7 +746,7 @@ async function createDraftPair(page: Page) {
     const channels: string[] = []
     for (const name of ['First channel', 'Second channel']) {
         const response = await page.request.post(`/api/projects/${id}/channels`, {
-            data: { name, profile: 'discord' },
+            data: { name, profile: manual ? 'manual-message' : 'discord' },
         })
         expect(response.ok()).toBe(true)
         channels.push((await response.json()).channel.id)
@@ -740,7 +776,11 @@ async function createDraftPair(page: Page) {
         assetId: assets.find(item => item.asset.originalFilename === filename)!.asset.id,
         accessibilityText: filename,
     }))
-    const source = { body: { format: 'plain_text' as const, text: 'Initial common source' }, media }
+    const source = {
+        body: { format: 'plain_text' as const, text: 'Initial common source' },
+        ...(manual ? { headline: 'The quiet launch' } : {}),
+        media: manual ? [] : media,
+    }
     const response = await page.request.post(`/api/projects/${id}/posts`, {
         data: {
             sourceContent: source,
@@ -748,8 +788,10 @@ async function createDraftPair(page: Page) {
                 channelId,
                 deliveryMode: 'manual',
                 targetContent: {
-                    text: index === 0 ? 'First destination' : 'Second destination',
-                    media: index === 0 ? media : [media[1]],
+                    ...(manual
+                        ? { body: 'The quiet channel is ready.', headline: 'The quiet launch' }
+                        : { text: index === 0 ? 'First destination' : 'Second destination' }),
+                    media: manual ? [] : index === 0 ? media : [media[1]],
                 },
             })),
         },
@@ -776,6 +818,7 @@ async function createDraftPair(page: Page) {
 test('updates only checked stale channel versions and removes the notice when current', async ({
     page,
 }, info) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' })
     const pair = await createDraftPair(page)
     const firstBefore = await pair.read(page, pair.first)
     const secondBefore = await pair.read(page, pair.second)
@@ -825,11 +868,11 @@ test('updates only checked stale channel versions and removes the notice when cu
     await first.getByText('Compare', { exact: true }).click()
     await second.getByText('Compare', { exact: true }).click()
     await expect(first).toContainText('Current channel version')
-    await expect(first).toContainText('2 media items')
-    await expect(first).toContainText('1 media item')
-    await expect(first).toContainText('First destination')
-    await expect(second).toContainText('Second destination')
-    await expect(second).toContainText('Revised source for channel review')
+    await expect(first).toContainText('2 media files')
+    await expect(first).toContainText('1 media file')
+    await expect.poll(() => comparisonText(first)).toContain('First destination')
+    await expect.poll(() => comparisonText(second)).toContain('Second destination')
+    await expect.poll(() => comparisonText(second)).toContain('Revised source for channel review')
     for (const theme of ['dark', 'light'] as const) {
         // Set the theme under the dialog without closing the review.
         await page.evaluate(theme => {
@@ -923,7 +966,7 @@ test('keeps partial successes and retries only the failed channel', async ({ pag
     await expect(second.getByRole('alert')).toBeVisible()
     await expect(second.getByRole('checkbox')).toBeChecked()
     await second.getByText('Compare', { exact: true }).click()
-    await expect(second).toContainText('Second destination')
+    await expect.poll(() => comparisonText(second)).toContain('Second destination')
     await expect(dialog).toContainText('First channel already up to date.')
     await expect(
         dialog.getByRole('button', { name: 'Update 1 channel', exact: true })
@@ -937,74 +980,81 @@ test('keeps partial successes and retries only the failed channel', async ({ pag
     expect((await pair.read(page, pair.second)).draft.content.text).toBe('New post text')
 })
 
-test('reloads the post after a review conflict and leaves both channel versions untouched', async ({
-    page,
-}) => {
-    const pair = await createDraftPair(page)
-    const before = await pair.read(page, pair.first)
-    const secondBefore = await pair.read(page, pair.second)
-    const postUrl = `/api/projects/${pair.id}/posts/${before.post.id}`
-    expect(
-        (
-            await page.request.patch(postUrl, {
-                data: {
-                    expectedSourceRevision: 1,
-                    sourceContent: {
-                        ...pair.source,
-                        body: { text: 'Post to review', format: 'plain_text' },
+for (const choice of ['update', 'keep'] as const) {
+    test(`rejects a stale ${choice} comparison and leaves both channel versions untouched`, async ({
+        page,
+    }) => {
+        const pair = await createDraftPair(page)
+        const before = await pair.read(page, pair.first)
+        const secondBefore = await pair.read(page, pair.second)
+        const postUrl = `/api/projects/${pair.id}/posts/${before.post.id}`
+        expect(
+            (
+                await page.request.patch(postUrl, {
+                    data: {
+                        expectedSourceRevision: 1,
+                        sourceContent: {
+                            ...pair.source,
+                            body: { text: 'Post to review', format: 'plain_text' },
+                        },
                     },
-                },
-            })
-        ).ok()
-    ).toBe(true)
-    await page.goto(pair.pageUrl(pair.first))
-    await page.getByRole('button', { name: 'Review and update', exact: true }).click()
-    const dialog = page.getByRole('dialog', { name: 'Update channel versions', exact: true })
-    await expect(dialog.getByRole('checkbox')).toHaveCount(2)
-    const first = dialog.getByRole('region', { name: 'First channel', exact: true })
-    await first.getByRole('button', { name: 'Compare', exact: true }).click()
-    await expect(first).toContainText('Post to review')
-    const refreshed = page.waitForResponse(
-        response => response.url().endsWith(`/publications/${pair.first}/editor`) && response.ok()
-    )
-    expect(
-        (
-            await page.request.patch(postUrl, {
-                data: {
-                    expectedSourceRevision: 2,
-                    sourceContent: {
-                        ...pair.source,
-                        body: { text: 'Concurrent post text', format: 'plain_text' },
+                })
+            ).ok()
+        ).toBe(true)
+        await page.goto(pair.pageUrl(pair.first))
+        await page.getByRole('button', { name: 'Review and update', exact: true }).click()
+        const dialog = page.getByRole('dialog', { name: 'Update channel versions', exact: true })
+        await expect(dialog.getByRole('checkbox')).toHaveCount(2)
+        const first = dialog.getByRole('region', { name: 'First channel', exact: true })
+        await first.getByRole('button', { name: 'Compare', exact: true }).click()
+        await expect.poll(() => comparisonText(first)).toContain('Post to review')
+        const refreshed = page.waitForResponse(
+            response =>
+                response.url().endsWith(`/publications/${pair.first}/editor`) && response.ok()
+        )
+        expect(
+            (
+                await page.request.patch(postUrl, {
+                    data: {
+                        expectedSourceRevision: 2,
+                        sourceContent: {
+                            ...pair.source,
+                            body: { text: 'Concurrent post text', format: 'plain_text' },
+                        },
                     },
-                },
-            })
-        ).ok()
-    ).toBe(true)
-    await (await refreshed).finished()
-    // Background refreshes must not silently approve different post content.
-    await expect(first).toContainText('Post to review')
-    await expect(first).not.toContainText('Concurrent post text')
-    await dialog.getByRole('button', { name: 'Update 2 channels', exact: true }).click()
-    await expect(dialog.getByRole('alert')).toContainText(
-        'Someone changed this while you were editing'
-    )
-    await expect(
-        dialog.getByRole('button', { name: 'Update 0 channels', exact: true })
-    ).toBeDisabled()
-    expect((await pair.read(page, pair.first)).draft).toEqual(before.draft)
-    expect((await pair.read(page, pair.second)).draft).toEqual(secondBefore.draft)
-    await expect(first).toContainText('Concurrent post text')
-    await expect(first.getByRole('checkbox')).not.toBeChecked()
-    await first.getByRole('checkbox').check()
-    await dialog.getByRole('button', { name: 'Update 1 channel', exact: true }).click()
-    await expect(dialog).toHaveCount(0)
-    const updated = await pair.read(page, pair.first)
-    expect(updated.draft.sourceRevision).toBe(3)
-    expect(updated.draft.content.text).toBe('Concurrent post text')
-    expect(updated.publication).toEqual(before.publication)
-    expect(updated.selectedTarget).toEqual(before.selectedTarget)
-    expect((await pair.read(page, pair.second)).draft).toEqual(secondBefore.draft)
-})
+                })
+            ).ok()
+        ).toBe(true)
+        await (await refreshed).finished()
+        // Background refreshes must not silently approve different post content.
+        await expect.poll(() => comparisonText(first)).toContain('Post to review')
+        await expect.poll(() => comparisonText(first)).not.toContain('Concurrent post text')
+        if (choice === 'update') {
+            await dialog.getByRole('button', { name: 'Update 2 channels', exact: true }).click()
+        } else {
+            await first.getByRole('button', { name: 'Keep this version', exact: true }).click()
+        }
+        await expect(dialog.getByRole('alert')).toContainText(
+            'Someone changed this while you were editing'
+        )
+        await expect(
+            dialog.getByRole('button', { name: 'Update 0 channels', exact: true })
+        ).toBeDisabled()
+        expect((await pair.read(page, pair.first)).draft).toEqual(before.draft)
+        expect((await pair.read(page, pair.second)).draft).toEqual(secondBefore.draft)
+        await expect.poll(() => comparisonText(first)).toContain('Concurrent post text')
+        await expect(first.getByRole('checkbox')).not.toBeChecked()
+        await first.getByRole('checkbox').check()
+        await dialog.getByRole('button', { name: 'Update 1 channel', exact: true }).click()
+        await expect(dialog).toHaveCount(0)
+        const updated = await pair.read(page, pair.first)
+        expect(updated.draft.sourceRevision).toBe(3)
+        expect(updated.draft.content.text).toBe('Concurrent post text')
+        expect(updated.publication).toEqual(before.publication)
+        expect(updated.selectedTarget).toEqual(before.selectedTarget)
+        expect((await pair.read(page, pair.second)).draft).toEqual(secondBefore.draft)
+    })
+}
 
 test('opens the shared post from queue and keeps every destination reachable', async ({
     page,
@@ -1332,4 +1382,60 @@ test('shows locked channel reasons and hides review when every version is locked
         0
     )
     expect((await pair.read(page, lockedId)).draft.sourceRevision).toBe(1)
+})
+
+test('compares only changed words in text and titles without empty media counts', async ({
+    page,
+}, info) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    const pair = await createDraftPair(page, true)
+    const before = await pair.read(page, pair.first)
+    const changed = await page.request.patch(`/api/projects/${pair.id}/posts/${before.post.id}`, {
+        data: {
+            expectedSourceRevision: 1,
+            sourceContent: {
+                body: { text: 'The calm channel is ready.', format: 'plain_text' },
+                headline: 'The calm launch',
+                media: [],
+            },
+        },
+    })
+    expect(changed.ok()).toBe(true)
+    await page.goto(pair.pageUrl(pair.first))
+    const notice = page.getByText('The post changed. 2 channels still use the previous version.', {
+        exact: true,
+    })
+    for (const load of ['initial', 'reload'] as const) {
+        if (load === 'reload') await page.reload()
+        await expect(notice).toBeVisible()
+        await expect(page.locator('[data-publication-editor-message]')).toHaveCount(0)
+        await expect(page.locator('[data-publication-conflict]')).toHaveCount(0)
+        await expect(page.getByRole('status', { name: 'Conflict', exact: true })).toHaveCount(0)
+    }
+    await page.getByRole('button', { name: 'Review and update', exact: true }).click()
+    const dialog = page.getByRole('dialog', { name: 'Update channel versions', exact: true })
+    const first = dialog.getByRole('region', { name: 'First channel', exact: true })
+    await first.getByRole('button', { name: 'Compare', exact: true }).click()
+    await expect(first.locator('del')).toHaveText(['Removed: quiet', 'Removed: quiet'])
+    await expect(first.locator('ins')).toHaveText(['Added: calm', 'Added: calm'])
+    await expect(first).not.toContainText('0 media')
+    await expect(first.getByText(/media files?/)).toHaveCount(0)
+    for (const theme of ['dark', 'light'] as const) {
+        await page.evaluate(
+            theme => document.documentElement.classList.toggle('dark', theme === 'dark'),
+            theme
+        )
+        for (const width of [1440, 390]) {
+            await page.setViewportSize({ width, height: 900 })
+            expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([])
+            expect(
+                await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)
+            ).toBe(false)
+            await page.screenshot({
+                path: info.outputPath(`word-comparison-${theme}-${width}.png`),
+            })
+        }
+    }
+    await dialog.getByRole('button', { name: 'Cancel', exact: true }).click()
+    expect((await pair.read(page, pair.first)).draft).toEqual(before.draft)
 })

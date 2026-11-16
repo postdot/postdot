@@ -271,7 +271,7 @@ export function ComposerDraftConflict({
                         {unavailableDetails ? (
                             <p>{m.composer_conflict_details_unavailable()}</p>
                         ) : null}
-                        <Tooltip>
+                        <Tooltip disabled={!loadingDetails}>
                             <TooltipTrigger
                                 render={
                                     <Button
@@ -289,9 +289,7 @@ export function ComposerDraftConflict({
                                     </Button>
                                 }
                             />
-                            <TooltipContent>
-                                {loadingDetails ? m.common_loading() : undefined}
-                            </TooltipContent>
+                            <TooltipContent>{m.common_loading()}</TooltipContent>
                         </Tooltip>
                     </div>
                 ) : null}
@@ -318,10 +316,14 @@ export function ComposerDraftConflict({
                                 local.publicationTargets.every(target => !target.content.trim()))
                         }
                         onClick={onSaveLocal}
+                        className="h-auto min-h-9 whitespace-normal"
                         variant="destructive">
                         {m.composer_conflict_replace()}
                     </Button>
-                    <Button disabled={busy || !savedKnown} onClick={onUseSaved}>
+                    <Button
+                        disabled={busy || !savedKnown}
+                        onClick={onUseSaved}
+                        className="h-auto min-h-9 whitespace-normal">
                         {saved === null
                             ? m.composer_conflict_start_new()
                             : m.composer_conflict_use_saved()}

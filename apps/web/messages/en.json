@@ -1546,12 +1546,10 @@
     "editor_promoted": "The draft is now the active channel version.",
     "editor_conflict_promotion": "This version changed before it could be saved. Load the saved version or restore your copy, then try again.",
     "editor_recovered_ready": "A locally recovered copy is ready to be saved.",
-    "editor_initial_source_conflict": "The post’s text changed since this channel version was written. Update it to the new text or keep it as it is.",
     "editor_previous_local_newer": "A previous local copy was kept because the server has newer work.",
     "editor_server_newer_local": "The server has newer work. Your local copy is preserved. Reload it or restore your changes manually.",
     "editor_server_loaded": "The server version is loaded. Your previous local copy remains available.",
     "editor_background_update": "The publication changed in the background. The latest server state is shown.",
-    "editor_server_loaded_conflict": "The saved version is loaded, but it still uses the post’s earlier text. Update it to the new text before editing.",
     "editor_recovered_review": "Your recovered copy is shown, but it must be updated to the post’s new text before it can be saved.",
     "editor_recovered_promotion": "Your recovered copy is shown. Save changes to use it.",
     "editor_recovered_no_changes": "The recovered copy does not contain changes to apply.",
@@ -2038,6 +2036,9 @@
     "source_review_locked_channel": "Channel is inactive",
     "source_review_locked_published": "Already published",
     "source_review_locked_cancelled": "Publication cancelled",
+    "source_review_keep": "Keep this version",
+    "source_review_removed": "Removed: ",
+    "source_review_added": "Added: ",
     "source_review_compare": "Compare",
     "source_review_destination": "Current channel version",
     "source_review_source": "Post",
@@ -2046,8 +2047,8 @@
             "declarations": ["input count", "local countPlural = count: plural"],
             "selectors": ["countPlural"],
             "match": {
-                "countPlural=one": "{count} media item",
-                "countPlural=other": "{count} media items"
+                "countPlural=one": "{count} media file",
+                "countPlural=other": "{count} media files"
             }
         }
     ],

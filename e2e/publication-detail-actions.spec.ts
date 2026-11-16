@@ -130,6 +130,20 @@ test('keeps publication detail actions aligned with the scheduled lifecycle', as
     )
     expect(baselineResponse.status()).toBe(200)
     const baselineEditor = await baselineResponse.json()
+    // Keep the related-publication summary consistent with the mocked editor lifecycle.
+    await page.route(
+        url => url.pathname === `/api/projects/${projectId}/publications`,
+        async route => {
+            const response = await route.fetch()
+            const payload = await response.json()
+            for (const publication of payload.publications) {
+                if (publication.id === publicationId) {
+                    publication.state = lifecycleState === 'due' ? 'scheduled' : 'failed'
+                }
+            }
+            await route.fulfill({ response, json: payload })
+        }
+    )
     await page.route(
         `**/api/projects/${projectId}/publications/${publicationId}/editor`,
         async route => {
@@ -192,30 +206,17 @@ test('keeps publication detail actions aligned with the scheduled lifecycle', as
     sourceConflict = true
     await page.reload()
     const conflict = page.locator('[data-publication-conflict]')
-    await expect(editorNotice).toHaveAttribute('role', 'alert')
-    await expect(editorNotice).not.toHaveAttribute('data-passive-update', 'true')
-    expect(
-        await editorNotice.evaluate(notice => {
-            const composer = document.querySelector('[data-publication-composer="true"]')
-            return (
-                composer !== null &&
-                Boolean(notice.compareDocumentPosition(composer) & Node.DOCUMENT_POSITION_FOLLOWING)
-            )
+    await expect(editorNotice).toHaveCount(0)
+    await expect(conflict).toHaveCount(0)
+    await expect(page.getByRole('status', { name: 'Conflict', exact: true })).toHaveCount(0)
+    await expect(
+        page.getByText('The post changed. 1 channel still uses the previous version.', {
+            exact: true,
         })
-    ).toBe(true)
-    await expect(editorNotice).toContainText('Update it to the new text or keep it as it is.')
-    await expect(editorNotice).not.toContainText('The saved version is loaded')
-    await editorNotice.getByRole('button').click()
-    // The conflict is shown in place, not folded away; its first action takes focus.
-    await expect(conflict.locator('button').first()).toBeFocused()
-    await expect(conflict).toBeVisible()
-    await expect(conflict).toHaveAttribute('role', 'alert')
-    await expect(conflict.locator('button')).toHaveCount(2)
-    expect(
-        await conflict.evaluate(element => element === element.parentElement?.firstElementChild)
-    ).toBe(true)
+    ).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Review and update', exact: true })).toBeEnabled()
     await page.screenshot({
-        path: testInfo.outputPath('source-conflict-mobile.png'),
+        path: testInfo.outputPath('stale-version-mobile.png'),
         fullPage: true,
     })
     sourceConflict = false

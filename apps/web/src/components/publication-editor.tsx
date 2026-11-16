@@ -204,7 +204,8 @@ export function PublicationEditor({
         initialRecovery !== null &&
         initialRecovery.scheduleValue !==
             toDateTimeLocal(initialEditor.publication.scheduledAt, timeZone)
-    const initialSourceConflict =
+    const initialRecoveredConflict =
+        (recoveredContentDiffers || recoveredScheduleDiffers) &&
         initialEditor.draft.sourceRevision !== initialEditor.post.sourceRevision
     const [editor, setEditor] = useState(initialEditor)
     const [sourceContent, setSourceContent] = useState<SourceContent>(() =>
@@ -222,19 +223,19 @@ export function PublicationEditor({
     const [saveState, setSaveState] = useState<SaveState>(
         !initialPublicationEditable
             ? 'saved'
-            : recoveredContentDiffers
-              ? 'local_only'
-              : initialSourceConflict
-                ? 'conflict'
+            : initialRecoveredConflict
+              ? 'conflict'
+              : recoveredContentDiffers
+                ? 'local_only'
                 : 'saved'
     )
     const [message, setMessageValue] = useState<string | null>(
         !initialPublicationEditable
             ? null
-            : recoveredContentDiffers || recoveredScheduleDiffers
-              ? m.editor_recovered_ready()
-              : initialSourceConflict
-                ? m.editor_initial_source_conflict()
+            : initialRecoveredConflict
+              ? m.editor_recovered_review()
+              : recoveredContentDiffers || recoveredScheduleDiffers
+                ? m.editor_recovered_ready()
                 : initialRecovery === null
                   ? null
                   : m.editor_previous_local_newer()
@@ -302,6 +303,7 @@ export function PublicationEditor({
 
     const targetResult = useMemo(() => parseTargetText(targetText), [targetText])
     const sourceIssue = useMemo(() => sourceContentIssue(sourceContent), [sourceContent])
+    // A revision gap pauses writes until review, but is only a conflict with local work.
     const sourceConflict = editor.draft.sourceRevision !== editor.post.sourceRevision
     const draftRequiresReview = editor.draft.reviewState !== 'compatible'
     const draftDiffersFromTarget =
@@ -341,6 +343,7 @@ export function PublicationEditor({
         editorMutationPending ||
         promotionRecoveryRequired ||
         cancelPending ||
+        sourceConflict ||
         hasLocalChanges ||
         saveState !== 'saved' ||
         isRebasing
@@ -490,14 +493,12 @@ export function PublicationEditor({
         setScheduleValue(toDateTimeLocal(initialEditor.publication.scheduledAt, timeZone))
         setDirty(false)
         setScheduleDirty(false)
-        const incomingSourceConflict =
-            initialEditor.draft.sourceRevision !== initialEditor.post.sourceRevision
-        setSaveState(incomingSourceConflict ? 'conflict' : 'saved')
+        setSaveState('saved')
         setMessage(
-            incomingSourceConflict
-                ? m.editor_initial_source_conflict()
+            initialEditor.draft.sourceRevision !== initialEditor.post.sourceRevision
+                ? null
                 : m.editor_background_update(),
-            !incomingSourceConflict
+            true
         )
     }, [
         currentEditorFingerprint,
@@ -601,6 +602,7 @@ export function PublicationEditor({
         const accessEpochAtStart = accessEpoch
         if (sourceConflict || sourceIssue !== null || targetResult.value === null) {
             setSaveState(sourceConflict ? 'conflict' : 'local_only')
+            if (sourceConflict) setMessage(m.editor_server_newer_local())
             return
         }
         const targetContent = targetResult.value
@@ -756,12 +758,8 @@ export function PublicationEditor({
             setScheduleDirty(false)
             const refreshedSourceConflict =
                 response.editor.draft.sourceRevision !== response.editor.post.sourceRevision
-            setSaveState(refreshedSourceConflict ? 'conflict' : 'saved')
-            setMessage(
-                refreshedSourceConflict
-                    ? m.editor_server_loaded_conflict()
-                    : m.editor_server_loaded()
-            )
+            setSaveState('saved')
+            setMessage(refreshedSourceConflict ? null : m.editor_server_loaded())
         } catch (caughtError) {
             if (accessEpochAtStart !== accessEpochRef.current) return
             reportAccessRefusal(caughtError)
@@ -793,9 +791,15 @@ export function PublicationEditor({
             recovery.scheduleValue !== toDateTimeLocal(editor.publication.scheduledAt, timeZone)
         setDirty(contentDiffers)
         setScheduleDirty(scheduleDiffers)
-        setSaveState(sourceConflict ? 'conflict' : contentDiffers ? 'local_only' : 'saved')
+        setSaveState(
+            sourceConflict && (contentDiffers || scheduleDiffers)
+                ? 'conflict'
+                : contentDiffers
+                  ? 'local_only'
+                  : 'saved'
+        )
         setMessage(
-            sourceConflict
+            sourceConflict && (contentDiffers || scheduleDiffers)
                 ? m.editor_recovered_review()
                 : contentDiffers || scheduleDiffers
                   ? m.editor_recovered_promotion()
@@ -841,11 +845,15 @@ export function PublicationEditor({
             const refreshedSourceConflict =
                 response.editor.draft.sourceRevision !== response.editor.post.sourceRevision
             setSaveState(
-                refreshedSourceConflict ? 'conflict' : contentDiffers ? 'local_only' : 'saved'
+                refreshedSourceConflict && (contentDiffers || scheduleDiffers)
+                    ? 'conflict'
+                    : contentDiffers
+                      ? 'local_only'
+                      : 'saved'
             )
             setRecoveryAvailable(false)
             setMessage(
-                refreshedSourceConflict
+                refreshedSourceConflict && (contentDiffers || scheduleDiffers)
                     ? m.editor_recovered_review()
                     : contentDiffers || scheduleDiffers
                       ? m.editor_server_loaded()
@@ -958,12 +966,8 @@ export function PublicationEditor({
                     setScheduleDirty(false)
                     const refreshedSourceConflict =
                         response.editor.draft.sourceRevision !== response.editor.post.sourceRevision
-                    setSaveState(refreshedSourceConflict ? 'conflict' : 'saved')
-                    setMessage(
-                        refreshedSourceConflict
-                            ? m.editor_server_loaded_conflict()
-                            : m.editor_server_loaded()
-                    )
+                    setSaveState('saved')
+                    setMessage(refreshedSourceConflict ? null : m.editor_server_loaded())
                 } else if (decision.conflict) {
                     setSaveState('conflict')
                     setMessage(m.editor_server_newer_local())
@@ -1287,7 +1291,7 @@ export function PublicationEditor({
                 readOnly ||
                 accessWritesBlocked ||
                 hasLocalChanges ||
-                !['saved', 'conflict'].includes(saveState) ||
+                saveState !== 'saved' ||
                 editorMutationPending
             }
             onApplied={next => {
@@ -1298,6 +1302,7 @@ export function PublicationEditor({
                 setExpectedRevision(next.draft.revision)
                 setDirty(false)
                 setSaveState('saved')
+                setMessage(null)
             }}
         />
     )
@@ -1870,7 +1875,7 @@ export function PublicationEditor({
                     {!publicationEditable ? sourceSection : null}
                     {!publicationEditable ? targetSection : null}
                     {!publicationEditable ? tagsSection : null}
-                    {sourceConflict || saveState === 'conflict' ? (
+                    {saveState === 'conflict' ? (
                         <div ref={conflictRef}>
                             <PublicationEditorSidebar
                                 editor={editor}

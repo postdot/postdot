@@ -1546,12 +1546,10 @@
     "editor_promoted": "Le brouillon est maintenant la version active du canal.",
     "editor_conflict_promotion": "Cette version a changé avant son enregistrement. Chargez la version enregistrée ou restaurez votre copie, puis réessayez.",
     "editor_recovered_ready": "Une copie récupérée localement est prête à être enregistrée.",
-    "editor_initial_source_conflict": "Le texte du post a changé depuis l’écriture de cette version du canal. Passez au nouveau texte ou gardez-la telle quelle.",
     "editor_previous_local_newer": "Une copie locale précédente a été conservée car le serveur contient un travail plus récent.",
     "editor_server_newer_local": "Le serveur contient un travail plus récent. Votre copie locale est conservée. Rechargez-la ou restaurez vos modifications manuellement.",
     "editor_server_loaded": "La version serveur est chargée. Votre copie locale précédente reste disponible.",
     "editor_background_update": "La publication a changé en arrière-plan. Le dernier état du serveur est affiché.",
-    "editor_server_loaded_conflict": "La version enregistrée est chargée, mais elle utilise encore l’ancien texte du post. Passez au nouveau texte avant de modifier.",
     "editor_recovered_review": "Votre copie récupérée est affichée, mais elle doit passer au nouveau texte du post avant d’être enregistrée.",
     "editor_recovered_promotion": "Votre copie récupérée est affichée. Enregistrez pour l’utiliser.",
     "editor_recovered_no_changes": "La copie récupérée ne contient aucune modification à appliquer.",
@@ -2038,6 +2036,9 @@
     "source_review_locked_channel": "Canal inactif",
     "source_review_locked_published": "Déjà publié",
     "source_review_locked_cancelled": "Publication annulée",
+    "source_review_keep": "Garder cette version",
+    "source_review_removed": "Supprimé : ",
+    "source_review_added": "Ajouté : ",
     "source_review_compare": "Comparer",
     "source_review_destination": "Version actuelle du canal",
     "source_review_source": "Post",
@@ -2046,8 +2047,8 @@
             "declarations": ["input count", "local countPlural = count: plural"],
             "selectors": ["countPlural"],
             "match": {
-                "countPlural=one": "{count} média",
-                "countPlural=other": "{count} médias"
+                "countPlural=one": "{count} fichier média",
+                "countPlural=other": "{count} fichiers média"
             }
         }
     ],

@@ -666,3 +666,5 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] **[UX-676]** Sweep Studio copy for machine-written tics and guard them automatically `Priority: 🔵` `Complexity: M` `Completed: 2026-11-16` — Rewrote machine-written copy tics across en (51), fr (67), es (44), de (223) and extended `copy-typography.test.ts` with per-locale guards; unit/static checks and affected Playwright e2e specs pass. [Worklog](../../worklogs/2026-11-16-UX-676.md).
 - [x] **[UX-675]** Channel versions update: shown only when stale, inline notice and redesigned comparison `Priority: 🟠` `Complexity: M` `Completed: 2026-11-16`
 - [x] **[UX-674]** Notification inbox grouped by post with title, channels, direct action and relative time `Priority: 🟠` `Complexity: M` `Completed: 2026-11-16`
+
+- [x] **[UX-678]** Stale channel version shows one calm message and a precise comparison `Priority: 🟠` `Complexity: M` `Completed: 2026-11-16`
