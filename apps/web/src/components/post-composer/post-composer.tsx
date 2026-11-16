@@ -65,6 +65,7 @@ export interface PostComposerProps {
     readonly onRemoveTarget?: (targetId: string) => void
     readonly createChannel?: ReactNode
     readonly footer?: ReactNode
+    readonly headlineVisible?: boolean
     readonly channelNavigation?: ReactNode
     readonly preview?: ReactNode
     readonly settings?: ReactNode
@@ -94,6 +95,7 @@ export function PostComposer({
     footer,
     channelPanel,
     channelNavigation,
+    headlineVisible,
     preview,
     settings,
     tags,
@@ -191,7 +193,8 @@ export function PostComposer({
                 : null,
         [profileQuery.data, profileQuery.isError, sourceMedia]
     )
-    const showHeadline = textFields?.headline !== undefined && textFields?.headline !== null
+    const showHeadline =
+        headlineVisible ?? (textFields?.headline !== undefined && textFields?.headline !== null)
     const headlineCount = textFields?.headline
         ? countComposerText(postTitle, textFields.headline)
         : null

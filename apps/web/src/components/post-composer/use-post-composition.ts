@@ -12,6 +12,8 @@ export interface PostCompositionTarget extends PublicationTargetDraft {
 }
 
 export interface PostCompositionState {
+    readonly sourceFormat?: 'plain_text' | 'markdown'
+    readonly sourceLanguage?: string
     readonly postTitle: string
     readonly postContent: string
     readonly sourceMedia: MediaSelection[]
@@ -57,6 +59,13 @@ export function initialPostComposition(initial: PostCompositionInitialState): Po
 }
 
 export type PostCompositionAction =
+    | {
+          readonly type: 'targetDocument'
+          readonly targetId: string
+          readonly document: Readonly<Record<string, unknown>>
+          readonly content: string
+          readonly customized: boolean
+      }
     | { readonly type: 'editText'; readonly scopeId: string; readonly content: string }
     | { readonly type: 'resetText'; readonly targetId: string }
     | { readonly type: 'removeTarget'; readonly targetId: string }
@@ -80,6 +89,21 @@ export function reducePostComposition(
     if (targetId !== undefined && state.publicationTargets.find(t => t.id === targetId)?.locked)
         return state
     switch (action.type) {
+        case 'targetDocument':
+            return {
+                ...state,
+                publicationTargets: state.publicationTargets.map(target =>
+                    target.id === action.targetId
+                        ? {
+                              ...target,
+                              contentDocument: action.document,
+                              content: action.content,
+                              customized: action.customized,
+                          }
+                        : target
+                ),
+            }
+
         case 'editText': {
             if (action.scopeId === postSharedScopeId)
                 return { ...state, postContent: action.content }
@@ -323,6 +347,12 @@ export function usePostComposition(
         onPublicationTagIdsChange,
         onPublicationTargetsChange,
         restoreComposition,
+        setTargetDocument: (
+            targetId: string,
+            document: Readonly<Record<string, unknown>>,
+            content: string,
+            customized = true
+        ) => dispatch({ type: 'targetDocument', targetId, document, content, customized }),
         selectContentScope: (scopeId: string) => dispatch({ type: 'selectScope', scopeId }),
         editScopeText: (scopeId: string, content: string) =>
             dispatch({ type: 'editText', scopeId, content }),

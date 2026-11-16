@@ -15,6 +15,7 @@ type Profile = PublicationEditorState['profile']['profile']
 type ReviewState = PublicationEditorState['draft']['reviewState']
 
 interface PublicationEditorTargetSectionProps {
+    readonly composer?: boolean
     readonly projectId: string
     readonly publicationId: string
     readonly configuredEditor?: boolean
@@ -37,6 +38,7 @@ interface PublicationEditorTargetSectionProps {
 }
 
 export function PublicationEditorTargetSection({
+    composer = false,
     projectId,
     publicationId,
     configuredEditor = true,
@@ -58,7 +60,7 @@ export function PublicationEditorTargetSection({
     const { locale } = useLanguage()
     const fields = getTargetEditorFields(profile, locale, target)
     const threadField = fields.find(
-        field => field.path === '/thread' && field.kind.startsWith('provider:')
+        field => !composer && field.path === '/thread' && field.kind.startsWith('provider:')
     )
     const inlinePaths =
         threadField && target && Array.isArray(target.thread) && target.thread.length
@@ -141,7 +143,17 @@ export function PublicationEditorTargetSection({
                 </summary>
                 <div className="pb-4 pt-1">
                     <PublicationTargetEditor
-                        omitPaths={threadField ? [threadField.path, ...inlinePaths] : undefined}
+                        omitPaths={
+                            composer
+                                ? fields
+                                      .filter(field =>
+                                          ['primary_text', 'headline'].includes(field.semantic)
+                                      )
+                                      .map(field => field.path)
+                                : threadField
+                                  ? [threadField.path, ...inlinePaths]
+                                  : undefined
+                        }
                         validationIssues={validationIssues}
                         projectId={projectId}
                         mediaScopeId={`publication:${publicationId}`}

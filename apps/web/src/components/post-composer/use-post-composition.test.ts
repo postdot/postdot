@@ -228,3 +228,38 @@ describe('post composition', () => {
         ).toBe(state)
     })
 })
+
+test('structured channel edits remain scoped and survive delivery changes', () => {
+    let state = composition()
+    const document = { text: 'Own text', poll: { options: ['Yes', 'No'] } }
+    state = reducePostComposition(state, {
+        type: 'targetDocument',
+        targetId: 'one',
+        document,
+        content: 'Own text',
+        customized: true,
+    })
+    state = reducePostComposition(state, {
+        type: 'changeTargets',
+        targets: state.publicationTargets.map(target => ({
+            ...target,
+            scheduledAt: '2026-12-10T09:00',
+        })),
+    })
+    expect(state.publicationTargets[0]?.contentDocument).toEqual(document)
+    expect(state.publicationTargets[0]?.customized).toBe(true)
+    expect(state.postContent).toBe('Shared text')
+    const locked = {
+        ...state,
+        publicationTargets: state.publicationTargets.map(target => ({ ...target, locked: true })),
+    }
+    expect(
+        reducePostComposition(locked, {
+            type: 'targetDocument',
+            targetId: 'one',
+            document: {},
+            content: '',
+            customized: true,
+        })
+    ).toBe(locked)
+})

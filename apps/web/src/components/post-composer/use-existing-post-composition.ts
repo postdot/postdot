@@ -17,6 +17,7 @@ import {
     compositionChannelContent,
     compositionFromPost,
     compositionSource,
+    isCompositionChannelLocked,
 } from './existing-post-composition'
 import { usePostComposition, type PostCompositionState } from './use-post-composition'
 
@@ -125,12 +126,12 @@ export function useExistingPostComposition({
     const dirtyRef = useRef(dirty)
     dirtyRef.current = dirty
     const mounted = useRef(true)
-    useEffect(
-        () => () => {
+    useEffect(() => {
+        mounted.current = true
+        return () => {
             mounted.current = false
-        },
-        []
-    )
+        }
+    }, [])
     const validEpoch = (epoch: number) => mounted.current && current.current.accessEpoch === epoch
     function reportError(error: unknown) {
         if (error instanceof ApiError && (error.status === 403 || error.status === 404))
@@ -215,6 +216,20 @@ export function useExistingPostComposition({
                 const next = {
                     ...before.data,
                     post: response.post,
+                    publications: before.data.publications.map(publication => {
+                        const editor = response.publications.find(
+                            editor => editor.publication.id === publication.id
+                        )
+                        return editor
+                            ? {
+                                  ...publication,
+                                  ...editor.publication,
+                                  draftRevision: editor.draft.revision,
+                                  draftSourceRevision: editor.draft.sourceRevision,
+                                  draftReviewState: editor.draft.reviewState,
+                              }
+                            : publication
+                    }),
                     editors: before.data.editors.map(
                         editor =>
                             response.publications.find(
@@ -271,6 +286,8 @@ export function useExistingPostComposition({
         saveState,
         saving,
         flush,
+        composition.sourceFormat,
+        composition.sourceLanguage,
         composition.postContent,
         composition.postTitle,
         composition.sourceMedia,
@@ -281,11 +298,30 @@ export function useExistingPostComposition({
         // A confirmed epoch is required even for recovery cleanup.
     }, [
         dirty,
+        composition.sourceFormat,
+        composition.sourceLanguage,
         composition.postContent,
         composition.postTitle,
         composition.sourceMedia,
         composition.publicationTargets,
     ])
+    useEffect(() => {
+        const state = current.current.composition
+        const targets = state.publicationTargets.map(target => {
+            const editor = current.current.data.editors.find(
+                editor => editor.publication.id === target.id
+            )
+            return editor
+                ? { ...target, locked: isCompositionChannelLocked(editor, readOnly) }
+                : target
+        })
+        if (
+            targets.some(
+                (target, index) => target.locked !== state.publicationTargets[index]?.locked
+            )
+        )
+            composition.restoreComposition({ ...state, publicationTargets: targets })
+    }, [readOnly, data.editors])
     const incomingStamp = JSON.stringify(initialData)
     const lastIncoming = useRef(incomingStamp)
     useEffect(() => {

@@ -38,6 +38,8 @@ export function compositionFromPost(
         : postSharedScopeId
     return initialPostComposition({
         postTitle: post.sourceContent.headline ?? '',
+        sourceFormat: post.sourceContent.body?.format ?? 'plain_text',
+        sourceLanguage: post.sourceContent.language ?? '',
         postContent: post.sourceContent.body?.text ?? '',
         sourceMedia: [...post.sourceContent.media],
         activeContentScopeId: activeId,
@@ -69,13 +71,21 @@ export function compositionSource(
     state: PostCompositionState,
     base: Post['sourceContent']
 ): Post['sourceContent'] {
-    const { body: _body, headline: _headline, ...rest } = base
+    const { body: _body, headline: _headline, language: _language, ...rest } = base
     return {
         ...rest,
         ...(state.postContent === ''
             ? {}
-            : { body: { format: base.body?.format ?? 'plain_text', text: state.postContent } }),
+            : {
+                  body: {
+                      format: state.sourceFormat ?? base.body?.format ?? 'plain_text',
+                      text: state.postContent,
+                  },
+              }),
         ...(state.postTitle === '' ? {} : { headline: state.postTitle }),
+        ...((state.sourceLanguage ?? base.language)
+            ? { language: state.sourceLanguage ?? base.language }
+            : {}),
         media: state.sourceMedia,
     }
 }
