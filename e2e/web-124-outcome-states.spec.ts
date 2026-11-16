@@ -891,19 +891,19 @@ test('keeps performance refresh failures local and cached metrics truthful', asy
     const first = page.locator('[data-performance-publication="performance-0"]')
     const second = page.locator('[data-performance-publication="performance-1"]')
     await expect(first.getByText(en.performance_not_collected, { exact: true })).toBeVisible()
-    await expect(first.getByText('—', { exact: true })).toHaveCount(3)
+    await expect(first.getByText('-', { exact: true })).toHaveCount(3)
     await expect(page.locator('[data-performance-publication="performance-2"]')).toHaveCount(0)
     availability = 'not_configured'
     await page.reload()
     await expect(
         first.getByText(en.performance_status_not_configured, { exact: true })
     ).toBeVisible()
-    await expect(first.getByText('—', { exact: true })).toHaveCount(3)
+    await expect(first.getByText('-', { exact: true })).toHaveCount(3)
     availability = 'measured'
     await page.reload()
     await expect(first.getByText('123', { exact: true })).toBeVisible()
     await expect(second.getByText('0', { exact: true })).toBeVisible()
-    await expect(second.getByText('—', { exact: true })).toHaveCount(4)
+    await expect(second.getByText('-', { exact: true })).toHaveCount(4)
     await first
         .getByRole('button', {
             name: `${en.performance_refresh}: Performance devto`,
