@@ -189,7 +189,7 @@ export function toPublicationSummary(row: PublicationSummaryRow): PublicationSum
     }
 }
 
-function summarizeSourceExcerpt(sourceContent: ReturnType<typeof parseSourceContent>) {
+export function summarizeSourceExcerpt(sourceContent: ReturnType<typeof parseSourceContent>) {
     const candidate = sourceContent.body?.text.trim() || sourceContent.headline?.trim() || ''
     if (candidate === '') return null
 

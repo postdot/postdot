@@ -6,7 +6,24 @@ export const notificationKindSchema = Type.Union([
     Type.Literal('publication_ambiguous'),
 ])
 
+export const notificationContextSchema = Type.Object({
+    postId: Type.String(),
+    postTitle: Type.String(),
+    sourceExcerpt: Type.Union([Type.String(), Type.Null()]),
+    mediaCount: Type.Integer({ minimum: 0 }),
+    canRetry: Type.Boolean(),
+    channel: Type.Object({
+        id: Type.String(),
+        name: Type.String(),
+        imageUrl: Type.Union([Type.String(), Type.Null()]),
+    }),
+    projectId: Type.String(),
+    projectName: Type.String(),
+    scheduledAt: Type.Union([Type.Integer(), Type.Null()]),
+})
+
 export const notificationSchema = Type.Object({
+    context: Type.Optional(Type.Union([notificationContextSchema, Type.Null()])),
     id: Type.String({ minLength: 1 }),
     projectId: Type.Union([Type.String({ minLength: 1 }), Type.Null()]),
     sourceEventId: Type.String({ minLength: 1 }),
@@ -64,6 +81,7 @@ export const userNotificationPreferenceParams = Type.Object({
     kind: notificationKindSchema,
 })
 
+export type NotificationContextResponse = Static<typeof notificationContextSchema>
 export type NotificationResponse = Static<typeof notificationSchema>
 export type NotificationInboxResponse = Static<typeof notificationInboxSchema>
 export type NotificationPreferenceResponse = Static<typeof notificationPreferenceSchema>

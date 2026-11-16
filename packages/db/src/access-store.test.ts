@@ -319,6 +319,7 @@ describe('instance access store', () => {
             })
 
             expect(await access.canAccessProject(created.project.id, 'grant-member')).toBe(false)
+            expect(await access.listProjectMembershipsForUser('grant-member')).toEqual([])
             const teamGrant = await access.grantProjectTeamAccess({
                 projectId: created.project.id,
                 teamId: `postdot-workspace-team:${workspace.id}:editors`,
@@ -330,6 +331,9 @@ describe('instance access store', () => {
             ).toMatchObject({
                 role: 'editor',
             })
+            expect(await access.listProjectMembershipsForUser('grant-member')).toEqual([
+                (await access.getProjectMembership(created.project.id, 'grant-member'))!,
+            ])
             expect(
                 await access.canAccessProject(created.project.id, 'grant-member', 'editor')
             ).toBe(true)
@@ -347,6 +351,9 @@ describe('instance access store', () => {
             ).toMatchObject({
                 role: 'editor',
             })
+            expect(await access.listProjectMembershipsForUser('grant-member')).toEqual([
+                (await access.getProjectMembership(created.project.id, 'grant-member'))!,
+            ])
 
             expect(
                 await access.removeProjectTeamAccess(
@@ -359,10 +366,14 @@ describe('instance access store', () => {
             ).toMatchObject({
                 role: 'viewer',
             })
+            expect(await access.listProjectMembershipsForUser('grant-member')).toEqual([
+                (await access.getProjectMembership(created.project.id, 'grant-member'))!,
+            ])
             expect(await access.removeProjectUserAccess(created.project.id, 'grant-member')).toBe(
                 true
             )
             expect(await access.canAccessProject(created.project.id, 'grant-member')).toBe(false)
+            expect(await access.listProjectMembershipsForUser('grant-member')).toEqual([])
         } finally {
             await closeTestDatabase(database)
         }

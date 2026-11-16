@@ -754,7 +754,7 @@ export function createAccessStore(database: DatabaseHandle, options: AccessStore
     `)
     const loadProjectUserGrantMembershipStatement = sql.statement<
         ProjectMembershipRow,
-        [projectId: string, userId: string]
+        [projectId: string | null, userId: string]
     >(`
         select grants.id,
                projects.id as projectId,
@@ -773,7 +773,7 @@ export function createAccessStore(database: DatabaseHandle, options: AccessStore
         inner join instance_memberships
             on instance_memberships.user_id = grants.user_id
            and instance_memberships.state = 'enabled'
-        where projects.id = ?1
+        where (cast(?1 as text) is null or projects.id = ?1)
           and grants.user_id = ?2
           and (
               projects.workspace_id is null
@@ -823,7 +823,7 @@ export function createAccessStore(database: DatabaseHandle, options: AccessStore
     `)
     const loadProjectTeamGrantMembershipStatement = sql.statement<
         ProjectMembershipRow,
-        [projectId: string, userId: string]
+        [projectId: string | null, userId: string]
     >(`
         select 'project-team-grant:' || grants.id as id,
                projects.id as projectId,
@@ -849,7 +849,7 @@ export function createAccessStore(database: DatabaseHandle, options: AccessStore
         inner join instance_memberships
             on instance_memberships.user_id = team_members.user_id
            and instance_memberships.state = 'enabled'
-        where projects.id = ?1
+        where (cast(?1 as text) is null or projects.id = ?1)
           and team_members.user_id = ?2
     `)
     const listProjectTeamGrantMembershipsStatement = sql.statement<
@@ -1857,6 +1857,26 @@ export function createAccessStore(database: DatabaseHandle, options: AccessStore
                     ),
                 ])
                 return row === null ? null : toProjectMembership(row)
+            }, 'deferred')
+        },
+
+        /** Uses the same live direct and team grant policy as getProjectMembership. */
+        async listProjectMembershipsForUser(userId: string): Promise<AccessProjectMembership[]> {
+            return database.sql.transaction(async () => {
+                const id = requireNonBlank(userId, 'userId')
+                const rows = [
+                    ...(await loadProjectUserGrantMembershipStatement.all(null, id)),
+                    ...(await loadProjectTeamGrantMembershipStatement.all(null, id)),
+                ]
+                const memberships = new Map<string, ProjectMembershipRow>()
+                for (const row of rows) {
+                    const best = selectBestProjectMembership([
+                        memberships.get(row.projectId) ?? null,
+                        row,
+                    ])
+                    if (best !== null) memberships.set(row.projectId, best)
+                }
+                return [...memberships.values()].map(toProjectMembership)
             }, 'deferred')
         },
 

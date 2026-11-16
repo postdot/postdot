@@ -129,6 +129,7 @@ export type { ProviderAnalyticsObservation } from '@postdot/core'
 export type { ProviderAnalyticsObservationPage } from '@postdot/db'
 export type {
     EmailAlertPreferenceResponse,
+    NotificationContextResponse,
     NotificationInboxResponse,
     NotificationPreferenceResponse,
     NotificationResponse,

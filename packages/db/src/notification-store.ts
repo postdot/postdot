@@ -1,5 +1,6 @@
 import {
     createUserNotification,
+    shortExcerpt,
     DomainInvariantError,
     notificationKinds,
     projectNotificationTemplate,
@@ -9,9 +10,13 @@ import {
     type UserNotification,
 } from '@postdot/core'
 
+import { createAccessStore } from './access-store'
 import type { DatabaseHandle } from './client'
 import { defineTransaction } from './client'
 import { createEventJournalStore, parseEventJournalCursor } from './event-journal-store'
+import { parseSourceContent } from './manual-store/content-codec'
+import { summarizeSourceExcerpt } from './manual-store/mappers'
+import { jsonEachTextFromSql } from './sql/dialect'
 
 const projectionName = 'in-app-notifications-v1'
 const defaultListLimit = 50
@@ -48,6 +53,36 @@ interface NotificationRow {
     readonly readAt: number | null
     readonly archivedAt: number | null
     readonly createdAt: number
+}
+
+export interface NotificationPublicationContext {
+    readonly postId: string
+    readonly postTitle: string
+    readonly sourceExcerpt: string | null
+    readonly mediaCount: number
+    readonly canRetry: boolean
+    readonly channel: {
+        readonly id: string
+        readonly name: string
+        readonly imageUrl: string | null
+    }
+    readonly projectId: string
+    readonly projectName: string
+    readonly scheduledAt: number | null
+}
+
+interface NotificationContextRow {
+    readonly retryable: number
+    readonly notificationId: string
+    readonly postId: string
+    readonly postTitle: string | null
+    readonly sourceContent: string
+    readonly channelId: string
+    readonly channelName: string
+    readonly imageUrl: string | null
+    readonly projectId: string
+    readonly projectName: string
+    readonly scheduledAt: number | null
 }
 
 export interface NotificationPreference {
@@ -109,6 +144,45 @@ export function createNotificationStore(
     const createId = options.createId ?? (() => crypto.randomUUID())
     const now = options.now ?? Date.now
 
+    const access = createAccessStore(database)
+    const contextStatement = sql.statement<NotificationContextRow, [string, string, string]>(`
+        select notifications.id as notificationId, posts.id as postId, posts.title as postTitle,
+               posts.source_content as sourceContent, channels.id as channelId,
+               channels.name as channelName, channels.image_url as imageUrl,
+               projects.id as projectId, projects.name as projectName,
+               publications.scheduled_at as scheduledAt,
+               case when publications.state = 'failed' and publications.delivery_mode = 'automatic'
+                   and publications.review_state = 'compatible'
+                   and publications.confirmed_destination_revision = channels.destination_revision
+                   and exists (
+                       select 1 from publication_target_revisions t
+                       inner join project_channel_profile_contexts owned
+                           on owned.id = t.profile_version_id and owned.project_id = t.project_id
+                           and owned.channel_id = publications.channel_id and owned.state <> 'disabled'
+                       inner join project_channel_profile_contexts active
+                           on active.id = channels.profile_version_id and active.project_id = channels.project_id
+                           and active.channel_id = channels.id and active.state <> 'disabled'
+                       where t.id = publications.target_revision_id
+                           and t.publication_id = publications.id and t.project_id = publications.project_id
+                           and t.delivery_mode = 'automatic'
+                   )
+                   and exists (select 1 from jobs j where j.publication_id = publications.id and j.state = 'failed')
+                   and not exists (select 1 from jobs j where j.publication_id = publications.id and j.state in ('pending', 'running'))
+                   and not exists (select 1 from resource_lifecycles where ((kind = 'project' and resource_id = projects.id) or (kind = 'workspace' and resource_id = projects.workspace_id)) and state <> 'active')
+                   then 1 else 0 end as retryable
+        from notifications
+        inner join publications on notifications.subject_type = 'publication'
+            and publications.id = notifications.subject_id
+            and publications.project_id = notifications.project_id
+        inner join posts on posts.id = publications.post_id and posts.project_id = publications.project_id
+        inner join project_channel_contexts as channels on channels.id = publications.channel_id and channels.project_id = publications.project_id
+        inner join projects on projects.id = publications.project_id
+        where notifications.recipient_user_id = ?1
+          and notifications.id in (select selected.value from ${jsonEachTextFromSql(sql.dialect, '?2', 'selected')})
+          and projects.id in (select allowed.value from ${jsonEachTextFromSql(sql.dialect, '?3', 'allowed')})
+          and not exists (select 1 from resource_lifecycles
+              where ((kind = 'project' and resource_id = projects.id) or (kind = 'workspace' and resource_id = projects.workspace_id)) and state in ('deleting', 'deleted'))
+    `)
     const listProjectIdsStatement = sql.statement<{ readonly id: string }, []>(`
         select id from projects order by created_at, id
     `)
@@ -422,6 +496,45 @@ export function createNotificationStore(
     }
 
     return {
+        /** Resolve only the loaded page, in one snapshot, without changing stored notifications. */
+        async publicationContexts(userId: string, notificationIds: readonly string[]) {
+            return database.sql.transaction(async () => {
+                const result = new Map<string, NotificationPublicationContext>()
+                if (notificationIds.length === 0) return result
+                const memberships = await access.listProjectMembershipsForUser(userId)
+                const rows = await contextStatement.all(
+                    userId,
+                    JSON.stringify(notificationIds),
+                    JSON.stringify(memberships.map(item => item.projectId))
+                )
+                for (const row of rows) {
+                    const content = parseSourceContent(row.sourceContent)
+                    result.set(row.notificationId, {
+                        postId: row.postId,
+                        postTitle:
+                            row.postTitle?.trim() ||
+                            shortExcerpt(summarizeSourceExcerpt(content) ?? '', 90),
+                        sourceExcerpt: summarizeSourceExcerpt(content),
+                        mediaCount: content.media.length,
+                        canRetry:
+                            row.retryable === 1 &&
+                            memberships.some(
+                                item => item.projectId === row.projectId && item.role !== 'viewer'
+                            ),
+                        channel: {
+                            id: row.channelId,
+                            name: row.channelName,
+                            imageUrl: row.imageUrl,
+                        },
+                        projectId: row.projectId,
+                        projectName: row.projectName,
+                        scheduledAt: row.scheduledAt,
+                    })
+                }
+                return result
+            }, 'deferred')
+        },
+
         async listProjectIds(): Promise<readonly string[]> {
             return (await listProjectIdsStatement.all()).map(row => row.id)
         },

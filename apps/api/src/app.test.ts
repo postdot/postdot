@@ -1970,6 +1970,126 @@ describe('Postdot API', () => {
         }
     })
 
+    it('resolves live notification context in batches without disclosing revoked project content', async () => {
+        const { app, database, notifications, access } = await createFixture()
+        try {
+            const cookie = await signUp(app)
+            const projectResponse = await jsonRequest(app, '/api/projects', cookie, {
+                method: 'POST',
+                body: JSON.stringify({ name: 'Inbox context' }),
+            })
+            const { project } = (await projectResponse.json()) as { project: { id: string } }
+            const channelResponse = await jsonRequest(
+                app,
+                `/api/projects/${project.id}/channels`,
+                cookie,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({ name: 'Release channel', profile: 'manual-message' }),
+                }
+            )
+            expect(channelResponse.status).toBe(201)
+            const { channel } = (await channelResponse.json()) as { channel: { id: string } }
+            const postResponse = await jsonRequest(
+                app,
+                `/api/projects/${project.id}/posts`,
+                cookie,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        title: 'Release notes',
+                        sourceContent: {
+                            body: { format: 'plain_text', text: 'A calmer inbox' },
+                            media: [],
+                        },
+                        publications: [{ channelId: channel.id, deliveryMode: 'manual' }],
+                    }),
+                }
+            )
+            expect(postResponse.status).toBe(201)
+            const { post, publications } = (await postResponse.json()) as {
+                post: { id: string }
+                publications: { id: string }[]
+            }
+            const actor = await database.sql
+                .statement<{ id: string; userId: string }, [string]>(
+                    `select id, subject_id as userId from actors where project_id = ?1 and kind = 'human'`
+                )
+                .get(project.id)
+            for (const [id, subjectId] of [
+                ['context-event', publications[0]!.id],
+                ['missing-context-event', 'deleted-publication'],
+            ]) {
+                await createEventJournalStore(database).append({
+                    id: id!,
+                    projectId: project.id,
+                    actorId: actor!.id,
+                    name: 'publication.execution.succeeded',
+                    version: 1,
+                    subject: { type: 'publication', id: subjectId! },
+                    occurredAt: now,
+                })
+            }
+            await notifications.project(project.id)
+            const readInbox = async (path = '/api/notifications') => {
+                const response = await jsonRequest(app, path, cookie)
+                expect(response.status).toBe(200)
+                return (await response.json()) as {
+                    notifications: Array<{
+                        id: string
+                        context: null | {
+                            postId: string
+                            postTitle: string
+                            channel: { name: string }
+                            canRetry: boolean
+                        }
+                    }>
+                }
+            }
+            const initial = await readInbox()
+            expect(initial.notifications).toHaveLength(2)
+            expect(initial.notifications.filter(item => item.context === null)).toHaveLength(1)
+            expect(initial.notifications.find(item => item.context)?.context).toMatchObject({
+                postId: post.id,
+                postTitle: 'Release notes',
+                channel: { id: channel.id, name: 'Release channel', imageUrl: null },
+                projectId: project.id,
+                projectName: 'Inbox context',
+                scheduledAt: null,
+                canRetry: false,
+            })
+            const projectInbox = await readInbox(`/api/projects/${project.id}/notifications`)
+            expect(projectInbox.notifications).toEqual(initial.notifications)
+            await database.sql
+                .statement(`update posts set title = 'Updated title' where id = ?1`)
+                .run(post.id)
+            await database.sql
+                .statement(`update channels set name = 'Updated channel' where id = ?1`)
+                .run(channel.id)
+            const renamed = await readInbox()
+            expect(renamed.notifications.find(item => item.context)?.context).toMatchObject({
+                postTitle: 'Updated title',
+                channel: { name: 'Updated channel' },
+            })
+            const before = await database.sql
+                .statement(`select title, body from notifications order by id`)
+                .all()
+            await database.sql
+                .statement(`delete from project_user_grants where project_id = ?1 and user_id = ?2`)
+                .run(project.id, actor!.userId)
+            expect(await access.canAccessProject(project.id, actor!.userId)).toBe(false)
+            const revoked = await readInbox()
+            expect(revoked.notifications.map(item => item.context)).toEqual([null, null])
+            expect(
+                await database.sql
+                    .statement(`select title, body from notifications order by id`)
+                    .all()
+            ).toEqual(before)
+        } finally {
+            await closeTestDatabase(database)
+        }
+    })
+
     it('exposes a human-only persistent notification inbox and preferences', async () => {
         const { app, database, notifications } = await createFixture()
 

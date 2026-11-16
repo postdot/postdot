@@ -27,6 +27,7 @@ import type {
     MediaUploadResponse,
     MediaUrlImportResponse,
     EmailAlertPreferenceResponse,
+    NotificationContextResponse,
     NotificationInboxResponse,
     NotificationPreferenceResponse,
     NotificationResponse,
@@ -374,6 +375,7 @@ export type PublicationListQuery = PublicationListQueryResponse
 export type AuditEvent = AuditEventResponse
 export type PublisherConnection = PublisherConnectionResponse
 export type PublisherConnections = PublisherConnectionsResponse
+export type NotificationContext = NotificationContextResponse
 export type Notification = NotificationResponse
 export type NotificationInbox = NotificationInboxResponse
 export type NotificationPreference = NotificationPreferenceResponse
