@@ -1133,6 +1133,16 @@ export const api = {
         return unwrap(await client.api.projects({ projectId }).posts({ postId }).get())
     },
 
+    async savePostComposition(
+        projectId: string,
+        postId: string,
+        input: WebApiRequests['savePostComposition']
+    ) {
+        return unwrap(
+            await client.api.projects({ projectId }).posts({ postId }).composition.put(input)
+        )
+    },
+
     async savePostSource(
         projectId: string,
         postId: string,

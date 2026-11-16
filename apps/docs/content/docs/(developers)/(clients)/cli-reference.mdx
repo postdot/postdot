@@ -119,6 +119,23 @@ existing API. The example is for a manual message channel, not a universal paylo
 for every platform. `scheduledAt`, when supplied per destination, is an epoch
 millisecond timestamp; omission creates an unscheduled publication.
 
+## Save a post composition
+
+```sh
+postdot posts compose --project "$PROJECT_ID" --post "$POST_ID" --input composition.json --json
+```
+
+Use the [composition request contract](/docs/reference/posts/savePostComposition/)
+for `composition.json`: the inspected `expectedSourceRevision`, optional
+`sourceContent`, and a `publications` array containing publication IDs and their
+`expectedRevision` values. You can include channel content and delivery settings
+as described in that contract. `--input -` reads the same object from stdin.
+
+The command saves the post and listed drafts in one transaction and returns their
+editor states. A revision conflict rejects the entire save and identifies the
+conflicting publication IDs. Promote each saved draft separately when ready to
+apply its content.
+
 ## Inspect and schedule
 
 ```sh

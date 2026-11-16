@@ -20,7 +20,8 @@ export class ApiError extends Error {
         readonly profileIssues: readonly ProfileDefinitionIssue[] = [],
         readonly profileIssueCount: number = profileIssues.length,
         readonly confirmation?: string,
-        readonly warnings?: readonly CadenceWarning[]
+        readonly warnings?: readonly CadenceWarning[],
+        readonly conflictingPublicationIds: readonly string[] = []
     ) {
         super(message)
         this.name = 'ApiError'
@@ -67,7 +68,10 @@ export function errorFrom(status: number, value: unknown) {
             ? details.issueCount
             : 0,
         typeof details?.confirmation === 'string' ? details.confirmation : undefined,
-        Array.isArray(details?.warnings) ? (details.warnings as CadenceWarning[]) : undefined
+        Array.isArray(details?.warnings) ? (details.warnings as CadenceWarning[]) : undefined,
+        Array.isArray(details?.conflictingPublicationIds)
+            ? details.conflictingPublicationIds.filter((id): id is string => typeof id === 'string')
+            : []
     )
 }
 

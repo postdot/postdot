@@ -1,5 +1,5 @@
 import { sourceContentSchema } from '@postdot/core'
-import type { AccessStore } from '@postdot/db'
+import { PostCompositionConflictError, type AccessStore } from '@postdot/db'
 import { Type } from 'typebox'
 
 import { apiKeyHasCapability } from './api-key-permissions'
@@ -10,10 +10,13 @@ import {
     postSchema,
     projectParams,
     publicationSchema,
+    publicationEditorStateSchema,
 } from './models'
+import type { ProjectRealtimeHub } from './realtime-runtime'
 import type { AuthenticatedElysia, ManualStore } from './types'
 
 export interface PostRouteOptions {
+    readonly projectChanges?: ProjectRealtimeHub
     readonly onWorkScheduled?: () => void
 }
 
@@ -97,6 +100,122 @@ export function registerPostRoutes<const Routes extends Record<string, unknown>>
                 return post === null
                     ? status(404, { error: { code: 'not_found', message: 'Post not found' } })
                     : { post }
+            }
+        )
+        .put(
+            '/api/projects/:projectId/posts/:postId/composition',
+            {
+                auth: true,
+                detail: {
+                    operationId: 'savePostComposition',
+                    summary: 'Save post text and channel drafts in one transaction',
+                    tags: ['Posts'],
+                    description:
+                        'Requires editor access and publication:manage. Saves each listed draft against the resulting source revision without promoting content. Omitted targetContent preserves the current draft content. Revision conflicts return error.conflictingPublicationIds (all listed IDs for a source conflict). Delivery mode is stored on the publication and selected immutable target, not the draft; a different mode requires the destination move workflow. scheduledAt is applied publication state: a changed non-null time only reschedules an already scheduled publication, using existing future-time, running-job and cadence guards, and requires publication:dispatch. Scheduling a draft requires promotion; removing a schedule requires the existing lifecycle workflow. Omitted settings remain unchanged. Pending approval requests are superseded exactly as for individual draft saves.',
+                },
+                params: Type.Object({
+                    projectId: Type.String({ minLength: 1 }),
+                    postId: Type.String({ minLength: 1 }),
+                }),
+                body: Type.Object({
+                    expectedSourceRevision: Type.Integer({ minimum: 1 }),
+                    sourceContent: Type.Optional(sourceContentSchema),
+                    publications: Type.Array(
+                        Type.Object({
+                            publicationId: Type.String({ minLength: 1 }),
+                            expectedRevision: Type.Integer({ minimum: 1 }),
+                            targetContent: Type.Optional(
+                                Type.Record(Type.String(), Type.Unknown())
+                            ),
+                            deliveryMode: Type.Optional(
+                                Type.Union([Type.Literal('manual'), Type.Literal('automatic')])
+                            ),
+                            scheduledAt: Type.Optional(
+                                Type.Union([Type.Integer({ minimum: 0 }), Type.Null()])
+                            ),
+                        }),
+                        { maxItems: 100 }
+                    ),
+                }),
+                response: {
+                    200: Type.Object({
+                        post: postSchema,
+                        publications: Type.Array(publicationEditorStateSchema),
+                    }),
+                    400: errorResponse,
+                    401: errorResponse,
+                    403: errorResponse,
+                    404: errorResponse,
+                    409: Type.Object({
+                        error: Type.Object({
+                            code: Type.String(),
+                            message: Type.String(),
+                            conflictingPublicationIds: Type.Optional(Type.Array(Type.String())),
+                        }),
+                    }),
+                    422: errorResponse,
+                },
+            },
+            async ({ params, body, authMethod, apiKeyPermissions, user, status }) => {
+                if (
+                    !(await canAccessProjectRole({
+                        access,
+                        authMethod,
+                        minimumRole: 'editor',
+                        projectId: params.projectId,
+                        userId: user.id,
+                    }))
+                ) {
+                    return status(403, forbiddenProjectMutation())
+                }
+                if (
+                    authMethod === 'user_api_key' &&
+                    body.publications.some(item => item.scheduledAt != null) &&
+                    !apiKeyHasCapability(
+                        apiKeyPermissions === undefined ? {} : apiKeyPermissions,
+                        'publication:dispatch'
+                    )
+                ) {
+                    return status(403, {
+                        error: {
+                            code: 'insufficient_api_key_permissions',
+                            message: 'Rescheduling a publication requires publication:dispatch',
+                        },
+                    })
+                }
+                try {
+                    const result = await manualStore.savePostComposition({
+                        ...params,
+                        ...body,
+                        subjectId: user.id,
+                    })
+                    if (result === null)
+                        return status(404, {
+                            error: { code: 'not_found', message: 'Post not found' },
+                        })
+                    for (const editor of result.publications) {
+                        options.projectChanges?.publishDraftChange?.({
+                            projectId: params.projectId,
+                            postId: params.postId,
+                            publicationId: editor.publication.id,
+                            sourceChanged: result.sourceChanged,
+                        })
+                    }
+                    if (body.publications.some(item => item.scheduledAt != null))
+                        options.onWorkScheduled?.()
+                    return { post: result.post, publications: result.publications }
+                } catch (error) {
+                    if (error instanceof PostCompositionConflictError) {
+                        return status(409, {
+                            error: {
+                                code: error.code,
+                                message: error.message,
+                                conflictingPublicationIds: [...error.conflictingPublicationIds],
+                            },
+                        })
+                    }
+                    throw error
+                }
             }
         )
         .post(

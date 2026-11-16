@@ -248,6 +248,7 @@ export function createProjectModule(options: ProjectModuleOptions) {
     })
     const postRoutes = registerPostRoutes(publisherRoutes, options.manualStore, options.access, {
         onWorkScheduled: options.onWorkScheduled,
+        projectChanges: options.projectChanges,
     })
     const publicationRoutes = registerPublicationRoutes(
         postRoutes,

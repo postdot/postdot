@@ -464,6 +464,8 @@ export function requiredApiKeyCapability(
     }
 
     if (resource === 'posts') {
+        if (detail.length === 2 && detail[1] === 'composition' && normalizedMethod === 'PUT')
+            return 'publication:manage'
         if (detail.length === 0 && normalizedMethod === 'POST') return 'publication:manage'
         if (detail.length === 1 && normalizedMethod === 'GET') return 'project:read'
         if (detail.length === 1 && normalizedMethod === 'PATCH') return 'publication:manage'

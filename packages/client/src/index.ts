@@ -266,6 +266,7 @@ export type WebApiRequests = {
         ChannelRoute['publisher']['custom-http']['connect']['post']
     >
     savePostSource: RequestBody<ReturnType<ProjectRoute['posts']>['patch']>
+    savePostComposition: RequestBody<ReturnType<ProjectRoute['posts']>['composition']['put']>
     addPostDestinations: RequestBody<ReturnType<ProjectRoute['posts']>['destinations']['post']>
     createPost: Omit<RequestBody<ProjectRoute['posts']['post']>, 'title'> & {
         title?: NonNullable<RequestBody<ProjectRoute['posts']['post']>['title']>

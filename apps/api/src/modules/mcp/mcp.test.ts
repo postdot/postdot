@@ -356,6 +356,46 @@ describe('MCP endpoint', () => {
 
             const accepted = await client.callTool(post(true))
             expect(accepted.isError).toBe(false)
+            const saved = JSON.parse(textOf(accepted)) as {
+                post: { id: string }
+                publications: { id: string }[]
+            }
+            const composition = {
+                projectId: project,
+                postId: saved.post.id,
+                expectedSourceRevision: 1,
+                publications: [{ publicationId: saved.publications[0]!.id, expectedRevision: 1 }],
+            }
+            const reschedule = {
+                ...composition,
+                publications: [
+                    { ...composition.publications[0], scheduledAt: now + 72 * 3_600_000 },
+                ],
+            }
+            const timingRefused = await client.callTool({
+                name: 'save_post_composition',
+                arguments: reschedule,
+            })
+            expect(timingRefused.isError).toBe(true)
+            expect(textOf(timingRefused)).toContain('confirm:true')
+            const draftSaved = await client.callTool({
+                name: 'save_post_composition',
+                arguments: composition,
+            })
+            expect(draftSaved.isError).toBe(false)
+            expect(JSON.parse(textOf(draftSaved)).publications[0].draft.revision).toBe(2)
+            const timingSaved = await client.callTool({
+                name: 'save_post_composition',
+                arguments: {
+                    ...reschedule,
+                    confirm: true,
+                    publications: [{ ...reschedule.publications[0], expectedRevision: 2 }],
+                },
+            })
+            expect(timingSaved).toMatchObject({ isError: false })
+            expect(JSON.parse(textOf(timingSaved)).publications[0].publication.scheduledAt).toBe(
+                now + 72 * 3_600_000
+            )
             const after = await client.callTool({
                 name: 'list_publication_summaries',
                 arguments: { projectId: project },

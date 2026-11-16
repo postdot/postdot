@@ -21,6 +21,22 @@ describe('isolated OpenAPI export', () => {
             expect(first.paths['/api/projects/{projectId}/posts']?.post?.operationId).toBe(
                 'createPost'
             )
+            const composition =
+                first.paths['/api/projects/{projectId}/posts/{postId}/composition']?.put
+            expect(composition?.operationId).toBe('savePostComposition')
+            expect(composition?.responses['409']).toMatchObject({
+                content: {
+                    'application/json': {
+                        schema: {
+                            properties: {
+                                error: {
+                                    properties: { conflictingPublicationIds: { type: 'array' } },
+                                },
+                            },
+                        },
+                    },
+                },
+            })
             expect(first.paths['/api/projects/{projectId}/media/uploads']?.post).toBeDefined()
             expect(
                 first.paths[

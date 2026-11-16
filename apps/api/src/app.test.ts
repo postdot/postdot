@@ -1205,6 +1205,7 @@ describe('Postdot API', () => {
                 '/api/oauth/x/callback',
                 '/api/projects/{projectId}/channels/{channelId}/publisher',
                 '/api/projects/{projectId}/posts/{postId}',
+                '/api/projects/{projectId}/posts/{postId}/composition',
                 '/api/projects/{projectId}/posts/{postId}/destinations',
                 '/api/projects/{projectId}/posts',
                 '/api/projects/{projectId}/publications/{publicationId}/move',

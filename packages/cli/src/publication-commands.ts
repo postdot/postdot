@@ -13,9 +13,10 @@ import { commaSeparatedIds, nonnegativeInteger, readJsonObject } from './input'
 type PublicationOptions = Options & { publication: string }
 
 export function registerPublicationCommands(program: Command) {
-    program
+    const posts = program
         .command('posts')
-        .description('Create source posts and destination drafts.')
+        .description('Create and edit source posts and channel drafts.')
+    posts
         .command('create')
         .description('Create a source post and its destination publications from JSON.')
         .option('--project <id>', 'Project identifier (or profile default)')
@@ -33,6 +34,30 @@ export function registerPublicationCommands(program: Command) {
             output(
                 body,
                 `Post ${body.post.id} created with ${body.publications.length} publications.`,
+                options
+            )
+        })
+
+    posts
+        .command('compose')
+        .description('Save post text and channel drafts atomically without promotion.')
+        .option('--project <id>', 'Project identifier (or profile default)')
+        .requiredOption('--post <id>', 'Post identifier')
+        .requiredOption(
+            '--input <file|->',
+            'JSON composition with expected source and draft revisions'
+        )
+        .action(async (_options, command: Command) => {
+            const options = command.optsWithGlobals<Options & { post: string; input: string }>()
+            const { client, projectId } = projectConnection(options)
+            const route = client.api
+                .projects({ projectId })
+                .posts({ postId: options.post }).composition
+            const input = await readJsonObject<Parameters<typeof route.put>[0]>(options.input)
+            const body = await result(route.put(input))
+            output(
+                body,
+                `Post ${body.post.id} saved at source revision ${body.post.sourceRevision}.`,
                 options
             )
         })

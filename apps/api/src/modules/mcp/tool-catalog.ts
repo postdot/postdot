@@ -289,6 +289,13 @@ export const mcpToolCatalog: readonly McpToolEntry[] = [
             'Without automatic delivery or a time it only creates drafts. Pass confirm:true to schedule.',
     },
     { operationId: 'savePostSource' },
+    {
+        operationId: 'savePostComposition',
+        confirm: input =>
+            publicationsOf(input).some(publication => publication.scheduledAt != null),
+        guidance:
+            'Saves drafts without promotion. Pass confirm:true when rescheduling existing work.',
+    },
     { operationId: 'addPostDestinationDrafts' },
     { operationId: 'listPublicationSummaries' },
     { operationId: 'listPublicationApprovalRequests' },
