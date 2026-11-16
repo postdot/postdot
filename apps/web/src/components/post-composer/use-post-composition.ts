@@ -6,6 +6,7 @@ import type { MediaSelection } from '@/lib/target-media'
 export const postSharedScopeId = 'shared'
 
 export interface PostCompositionTarget extends PublicationTargetDraft {
+    readonly contentDocument?: Readonly<Record<string, unknown>>
     readonly customized: boolean
     readonly locked?: boolean
 }
@@ -28,6 +29,7 @@ export type PostCompositionInitialState = Partial<
     Omit<PostCompositionState, 'publicationTargets'>
 > & {
     readonly publicationTargets?: (PublicationTargetDraft & {
+        readonly contentDocument?: Readonly<Record<string, unknown>>
         readonly customized?: boolean
         readonly locked?: boolean
     })[]
@@ -130,6 +132,7 @@ export function reducePostComposition(
                         const previous = state.publicationTargets.find(t => t.id === target.id)
                         if (previous?.locked) return previous
                         return {
+                            ...previous,
                             ...target,
                             customized: previous?.customized ?? target.content.trim() !== '',
                         }
