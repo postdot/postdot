@@ -33,7 +33,7 @@ test('exports all filtered stored results and handles cancellation or incomplete
             exact: true,
         })
     ).toHaveCount(0)
-    await expect(page.locator('[data-performance-tag-filter]')).toHaveCount(0)
+    await expect(page.locator('[data-filter-menu="true"]')).toHaveCount(0)
     await expect(page.getByRole('button', { name: 'Export CSV', exact: true })).toHaveCount(0)
     await expect(page.getByText('This project has no tags yet.', { exact: true })).toHaveCount(0)
     const base = `/api/projects/${project.id}`

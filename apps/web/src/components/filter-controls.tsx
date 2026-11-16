@@ -24,6 +24,7 @@ import * as m from '@/paraglide/messages.js'
  * to them. Rows of outline selects are not used for this.
  */
 export interface FilterOption {
+    readonly hint?: string
     readonly label: string
     /** An identity (channel avatar) shown before the label. */
     readonly media?: ReactNode
@@ -37,6 +38,8 @@ export interface FilterGroup {
     readonly multiple?: boolean
     /** For single-choice groups: the value that means no filter. */
     readonly anyValue?: string
+    readonly limit?: number
+    readonly limitNote?: string
     readonly onChange: (values: string[]) => void
     readonly options: readonly FilterOption[]
     readonly selected: readonly string[]
@@ -69,48 +72,76 @@ export function FilterMenu({ groups }: { readonly groups: readonly FilterGroup[]
             <DropdownMenuContent
                 align="end"
                 className="max-h-96 w-64 max-w-[calc(100vw-2rem)] overflow-y-auto">
-                {offered.map((group, index) => (
-                    <Fragment key={group.id}>
-                        {index > 0 ? <DropdownMenuSeparator /> : null}
-                        <DropdownMenuGroup>
-                            <DropdownMenuLabel>{group.label}</DropdownMenuLabel>
-                            {group.multiple ? (
-                                group.options.map(option => (
-                                    <DropdownMenuCheckboxItem
-                                        checked={group.selected.includes(option.value)}
-                                        closeOnClick={false}
-                                        key={option.value}
-                                        onCheckedChange={checked =>
-                                            group.onChange(
-                                                checked
-                                                    ? [...group.selected, option.value]
-                                                    : group.selected.filter(
-                                                          value => value !== option.value
-                                                      )
+                {offered.map((group, index) => {
+                    const limitReached =
+                        group.multiple === true &&
+                        group.limit !== undefined &&
+                        group.selected.length >= group.limit
+                    return (
+                        <Fragment key={group.id}>
+                            {index > 0 ? <DropdownMenuSeparator /> : null}
+                            <DropdownMenuGroup>
+                                <DropdownMenuLabel>{group.label}</DropdownMenuLabel>
+                                {group.multiple ? (
+                                    <>
+                                        {group.options.map(option => {
+                                            const checked = group.selected.includes(option.value)
+                                            return (
+                                                <DropdownMenuCheckboxItem
+                                                    checked={checked}
+                                                    closeOnClick={false}
+                                                    disabled={!checked && limitReached}
+                                                    key={option.value}
+                                                    onCheckedChange={nextChecked =>
+                                                        group.onChange(
+                                                            nextChecked
+                                                                ? [...group.selected, option.value]
+                                                                : group.selected.filter(
+                                                                      value =>
+                                                                          value !== option.value
+                                                                  )
+                                                        )
+                                                    }>
+                                                    {option.media}
+                                                    <span className="truncate">{option.label}</span>
+                                                    {option.hint ? (
+                                                        <span className="ml-auto shrink-0 text-xs text-muted-foreground">
+                                                            {option.hint}
+                                                        </span>
+                                                    ) : null}
+                                                </DropdownMenuCheckboxItem>
                                             )
-                                        }>
-                                        {option.media}
-                                        <span className="truncate">{option.label}</span>
-                                    </DropdownMenuCheckboxItem>
-                                ))
-                            ) : (
-                                <DropdownMenuRadioGroup
-                                    onValueChange={value => group.onChange([String(value)])}
-                                    value={group.selected[0] ?? group.anyValue ?? ''}>
-                                    {group.options.map(option => (
-                                        <DropdownMenuRadioItem
-                                            closeOnClick
-                                            key={option.value}
-                                            value={option.value}>
-                                            {option.media}
-                                            <span className="truncate">{option.label}</span>
-                                        </DropdownMenuRadioItem>
-                                    ))}
-                                </DropdownMenuRadioGroup>
-                            )}
-                        </DropdownMenuGroup>
-                    </Fragment>
-                ))}
+                                        })}
+                                        {limitReached && group.limitNote ? (
+                                            <p className="px-2 py-1.5 text-xs text-muted-foreground">
+                                                {group.limitNote}
+                                            </p>
+                                        ) : null}
+                                    </>
+                                ) : (
+                                    <DropdownMenuRadioGroup
+                                        onValueChange={value => group.onChange([String(value)])}
+                                        value={group.selected[0] ?? group.anyValue ?? ''}>
+                                        {group.options.map(option => (
+                                            <DropdownMenuRadioItem
+                                                closeOnClick
+                                                key={option.value}
+                                                value={option.value}>
+                                                {option.media}
+                                                <span className="truncate">{option.label}</span>
+                                                {option.hint ? (
+                                                    <span className="ml-auto shrink-0 text-xs text-muted-foreground">
+                                                        {option.hint}
+                                                    </span>
+                                                ) : null}
+                                            </DropdownMenuRadioItem>
+                                        ))}
+                                    </DropdownMenuRadioGroup>
+                                )}
+                            </DropdownMenuGroup>
+                        </Fragment>
+                    )
+                })}
             </DropdownMenuContent>
         </DropdownMenu>
     )

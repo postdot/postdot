@@ -14,14 +14,14 @@ import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { DashboardPageHeader } from '@/components/dashboard-page-header'
 import { DeliveryAnalyticsDashboard } from '@/components/delivery-analytics-dashboard'
 import { EmptyState } from '@/components/empty-state'
-import { PerformanceTagFilter } from '@/components/performance-tag-filter'
+import { ActiveFilters, type FilterGroup, FilterMenu } from '@/components/filter-controls'
 import { QueryErrorState } from '@/components/query-error-state'
 import { api, type ProviderAnalyticsItem, type PublicationSummary } from '@/lib/api'
 import { useProjectDashboard } from '@/lib/dashboard-context'
 import { formatNumber } from '@/lib/format'
 import { useLanguage } from '@/lib/i18n'
 import { projectQueryKeys } from '@/lib/project-realtime'
-import { useProjectTagCatalog } from '@/lib/project-tags'
+import { sortProjectTags, useProjectTagCatalog } from '@/lib/project-tags'
 import { publicationIdentityLabel } from '@/lib/publication-identity'
 import {
     createPerformanceProviderBatches,
@@ -30,6 +30,7 @@ import {
     groupLatestObservations,
     normalizePerformanceTagSelection,
     performanceTagSelectionKey,
+    performanceTagSelectionLimit,
 } from '@/lib/publication-performance'
 import { readPerformanceCsv } from '@/lib/publication-performance-export'
 import type { DeliveryAnalyticsPeriod } from '@/lib/publication-performance-search'
@@ -291,6 +292,34 @@ export function PublicationPerformancePage({
         })
     }
 
+    const sortedCatalogTags = sortProjectTags(catalogTags)
+    const catalogTagIds = new Set(sortedCatalogTags.map(tag => tag.id))
+    const tagGroup: FilterGroup = {
+        id: 'tags',
+        label: m.taxonomy_tags(),
+        limit: performanceTagSelectionLimit,
+        limitNote: m.performance_tag_filter_limit_reached({
+            count: performanceTagSelectionLimit,
+        }),
+        multiple: true,
+        onChange: handleTagChange,
+        options: [
+            ...sortedCatalogTags
+                .filter(tag => tag.state === 'active')
+                .map(tag => ({ label: tag.name, value: tag.id })),
+            ...sortedCatalogTags
+                .filter(tag => tag.state === 'archived')
+                .map(tag => ({ hint: m.common_archived(), label: tag.name, value: tag.id })),
+            ...selectedTagIds
+                .filter(tagId => !catalogTagIds.has(tagId))
+                .map(tagId => ({
+                    label: m.performance_tag_filter_unavailable_tag(),
+                    value: tagId,
+                })),
+        ],
+        selected: selectedTagIds,
+    }
+
     function renderPublication(publication: PublicationSummary) {
         const channel = channelsById.get(publication.channelId)
         const provider = analyticsProvider(channel)
@@ -492,9 +521,9 @@ export function PublicationPerformancePage({
                     (hasPublishedInLoaded || !publishedHistoryQuery.isPending) ? (
                         <>
                             {tagCatalogQuery.isError ||
-                            catalogTags.length > 0 ||
-                            selectedTagIds.length > 0 ? (
-                                <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2">
+                            (!tagCatalogQuery.isPending &&
+                                (catalogTags.length > 0 || selectedTagIds.length > 0)) ? (
+                                <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2 empty:hidden">
                                     {tagCatalogQuery.isError ? (
                                         <div className="flex flex-wrap items-center gap-2">
                                             <p role="alert" className="text-xs text-state-failed">
@@ -508,14 +537,15 @@ export function PublicationPerformancePage({
                                             </Button>
                                         </div>
                                     ) : null}
-                                    {catalogTags.length > 0 || selectedTagIds.length > 0 ? (
-                                        <PerformanceTagFilter
-                                            disabled={tagCatalogQuery.isPending}
-                                            onChange={handleTagChange}
-                                            selectedTagIds={selectedTagIds}
-                                            tags={catalogTags}
-                                        />
+                                    {!tagCatalogQuery.isPending &&
+                                    (catalogTags.length > 0 || selectedTagIds.length > 0) ? (
+                                        <FilterMenu groups={[tagGroup]} />
                                     ) : null}
+                                </div>
+                            ) : null}
+                            {!tagCatalogQuery.isPending ? (
+                                <div className="mt-3 empty:hidden">
+                                    <ActiveFilters groups={[tagGroup]} />
                                 </div>
                             ) : null}
 
