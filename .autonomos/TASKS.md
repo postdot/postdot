@@ -9,14 +9,11 @@
 
 - [/] **[PUB-627]** Complete GitHub profile, application releases and clean-install acceptance `Priority: 🟠` `Complexity: L`
 
-- [/] **[UX-680]** Inventory every post and publication editing capability and browser journey for SPEC-013 `Priority: 🟠` `Complexity: M`
-
 - [/] **[UX-681]** Post composition API: save post text and several channel versions in one transaction (SPEC-013) `Priority: 🟠` `Complexity: L`
 
 - [/] **[UX-682]** Extract the new post composer into a shared post composer without behavior change (SPEC-013) `Priority: 🟠` `Complexity: L`
 
 - [ ] **[UX-683]** Edit mode and route unification on the shared composer (SPEC-013) `Priority: 🟠` `Complexity: XL`
-
 
 ## Current direction
 
