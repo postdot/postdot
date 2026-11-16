@@ -4,11 +4,6 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 const root = resolve(import.meta.dir, '../../../..')
-// UX-677 owns the calendar redesign. Remove these temporary exceptions with that task.
-const exceptions = new Set([
-    'apps/web/src/components/publication-calendar.tsx',
-    'apps/web/src/components/publication-calendar-preview.tsx',
-])
 const nativeTitle =
     /<[a-z][\w.-]*\b(?:[^>"'{]|"[^"]*"|'[^']*'|\{(?:[^{}]|\{[^{}]*\})*\})*?\s+title\s*=/
 
@@ -20,10 +15,7 @@ test('intrinsic JSX elements use shared tooltips instead of native titles', () =
         .trim()
         .split('\n')
     const offenders = files.filter(
-        file =>
-            file.endsWith('.tsx') &&
-            !exceptions.has(file) &&
-            nativeTitle.test(readFileSync(resolve(root, file), 'utf8'))
+        file => file.endsWith('.tsx') && nativeTitle.test(readFileSync(resolve(root, file), 'utf8'))
     )
     expect(offenders).toEqual([])
 })
