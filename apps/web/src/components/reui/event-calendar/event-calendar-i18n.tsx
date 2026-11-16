@@ -124,7 +124,7 @@ const DEFAULT_LABELS: EventCalendarI18nConfig['labels'] = {
     week: weekNumber => `W${weekNumber}`,
     resources: 'Resources',
     goToDate: 'Go to date',
-    dropNotAllowed: "Can't place here",
+    dropNotAllowed: 'Can’t place here',
     continues: 'continues',
     timeFrom: time => `From ${time}`,
     timeUntil: time => `Until ${time}`,

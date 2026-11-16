@@ -1004,7 +1004,7 @@ test('supports media library search, viewing, and bulk actions', async ({ page }
     const permanentDeletionDialog = page.locator('[data-media-permanent-delete-dialog="true"]')
     await expect(permanentDeletionDialog).toBeVisible()
     await expect(permanentDeletionDialog).toContainText(secondMediaFilename)
-    await expect(permanentDeletionDialog).toContainText("can't be restored")
+    await expect(permanentDeletionDialog).toContainText('can’t be restored')
     await page.setViewportSize({ width: 390, height: 844 })
     const permanentDeletionDialogBounds = await permanentDeletionDialog.boundingBox()
     expect(permanentDeletionDialogBounds).not.toBeNull()
