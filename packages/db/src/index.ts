@@ -304,6 +304,7 @@ export type {
     PublicationTargetRevision,
     SavePublicationDraftInput,
     SavePostSourceInput,
+    SavePostCompositionInput,
     RebasePublicationDraftInput,
     RestoreChannelInput,
     RetryFailedPublicationInput,
@@ -454,3 +455,5 @@ export * from './transfer'
 export { isPostgresTransactionConflict } from './sql/postgres-adapter'
 
 export * from './publication-thread-store'
+
+export { PostCompositionConflictError } from './manual-store/post-composition-conflict'

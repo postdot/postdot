@@ -182,6 +182,21 @@ export interface SavePostSourceInput {
     readonly sourceContent: SourceContent
 }
 
+export interface SavePostCompositionInput {
+    readonly projectId: string
+    readonly postId: string
+    readonly subjectId: string
+    readonly expectedSourceRevision: number
+    readonly sourceContent?: SourceContent
+    readonly publications: readonly {
+        readonly publicationId: string
+        readonly expectedRevision: number
+        readonly targetContent?: TargetContent
+        readonly deliveryMode?: DeliveryMode
+        readonly scheduledAt?: Timestamp | null
+    }[]
+}
+
 export interface SavePublicationDraftInput {
     readonly projectId: string
     readonly publicationId: string
@@ -817,6 +832,10 @@ export function createManualStore(database: DatabaseHandle, options: ManualStore
     })
 
     const publicationAuthoringStore = createPublicationAuthoringStore(database, {
+        savePostSource: input => publicationCreationStore.savePostSource(input),
+        getPost: (projectId, postId, subjectId) =>
+            publicationCreationStore.getPost(projectId, postId, subjectId),
+        reschedulePublications: input => publicationSchedulingStore.reschedulePublications(input),
         now,
         createId,
         profileCompiler,
