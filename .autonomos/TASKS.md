@@ -11,8 +11,6 @@
 
 - [/] **[UX-672]** Studio polish: switch thumb inset, sidebar toggle, own tooltips instead of native ones, inverted toasts, delivery notification wording `Priority: 🟠` `Complexity: M`
 
-- [/] **[UX-673]** Website icon lookup reads conventional icon paths first and stops at the document head `Priority: 🔵` `Complexity: S`
-
 - [/] **[UX-674]** Notification inbox grouped by post with title, channels, direct action and relative time `Priority: 🟠` `Complexity: M`
 
 - [/] **[UX-675]** Channel versions update: shown only when stale, inline notice and redesigned comparison `Priority: 🟠` `Complexity: M`

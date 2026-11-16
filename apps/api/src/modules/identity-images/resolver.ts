@@ -209,6 +209,14 @@ export function selectHtmlIconCandidates(
     return deduplicated
 }
 
+function htmlHeadPrefixLength(bytes: Uint8Array): number | null {
+    const html = Buffer.from(bytes).toString('latin1')
+    const match = /<\/head\s*>|<body/i.exec(html)
+    return match === null
+        ? null
+        : match.index + (match[0].toLowerCase().startsWith('</head') ? match[0].length : 0)
+}
+
 function isRedirectStatus(status: number): boolean {
     return status === 301 || status === 302 || status === 303 || status === 307 || status === 308
 }
@@ -335,6 +343,8 @@ export function createIdentityImageResolver(
             try {
                 response = await Promise.race([
                     binaryFetcher(currentUrl, {
+                        maxResponseBytes: maxBytes,
+                        responsePrefixLength: allowTruncated ? htmlHeadPrefixLength : undefined,
                         method: 'GET',
                         redirect: 'manual',
                         signal: controller.signal,
@@ -493,6 +503,20 @@ export function createIdentityImageResolver(
             'Website URL'
         )
         const deadline = Date.now() + requestTimeoutMs
+        const conventionalUrl = new URL('/apple-touch-icon.png', initialUrl.origin)
+        try {
+            return await downloadAndProcessIcon(
+                conventionalUrl,
+                'identity_website_invalid',
+                deadline
+            )
+        } catch (error) {
+            if (
+                error instanceof IdentityImageRemoteError &&
+                error.code === 'identity_network_policy_denied'
+            )
+                throw error
+        }
         const pageResponse = await performControlledGet(
             initialUrl,
             'text/html, application/xhtml+xml;q=0.9',
@@ -531,6 +555,7 @@ export function createIdentityImageResolver(
         }
 
         for (const candidateUrl of candidateUrls) {
+            if (candidateUrl.toString() === conventionalUrl.toString()) continue
             try {
                 return await downloadAndProcessIcon(
                     candidateUrl,

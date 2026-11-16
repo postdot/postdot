@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'bun:test'
 
 import { createAuth } from '@postdot/auth'
+import { CustomHttpPolicyError, createNetworkControlledBinaryFetcher } from '@postdot/custom-http'
 import { createAccessStore, createNotificationStore, identityImageMaxBytes } from '@postdot/db'
 import { closeTestDatabase, openTestDatabase } from '@postdot/db/testing'
 
@@ -160,6 +161,87 @@ describe('selectHtmlIconCandidates', () => {
 })
 
 describe('website favicon resolution', () => {
+    it('uses the conventional icon without fetching the page', async () => {
+        const requests: string[] = []
+        const resolver = createIdentityImageResolver({
+            fetcher: async input => {
+                requests.push(input.toString())
+                return { status: 200, headers: {}, body: onePixelPng, bodyTruncated: false }
+            },
+        })
+        await resolver.resolveWebsiteFavicon('https://example.com/blog')
+        expect(requests).toEqual(['https://example.com/apple-touch-icon.png'])
+    })
+
+    it('immediately rethrows policy denial on the conventional icon', async () => {
+        const requests: string[] = []
+        const resolver = createIdentityImageResolver({
+            fetcher: async input => {
+                requests.push(input.toString())
+                throw new CustomHttpPolicyError('blocked')
+            },
+        })
+        await expect(resolver.resolveWebsiteFavicon('https://example.com')).rejects.toMatchObject({
+            code: 'identity_network_policy_denied',
+        })
+        expect(requests).toEqual(['https://example.com/apple-touch-icon.png'])
+    })
+
+    it.each(['</HeAd>', '<BoDy'])('cancels the page stream at %s across chunks', async marker => {
+        let cancelled = false
+        const server = Bun.serve({
+            port: 0,
+            fetch(request) {
+                const path = new URL(request.url).pathname
+                if (path === '/apple-touch-icon.png')
+                    return new Response('<html>SPA fallback</html>')
+                if (path === '/head.png') return new Response(onePixelPng)
+                let step = 0
+                return new Response(
+                    new ReadableStream({
+                        async pull(controller) {
+                            if (step === 0)
+                                controller.enqueue(
+                                    new TextEncoder().encode(
+                                        '<head><link rel="icon" href="/head.png">' +
+                                            marker.slice(0, 3)
+                                    )
+                                )
+                            else if (step === 1)
+                                controller.enqueue(new TextEncoder().encode(marker.slice(3)))
+                            else {
+                                await new Promise(resolve => setTimeout(resolve, 20))
+                                if (!cancelled) controller.enqueue(new Uint8Array(64 * 1024))
+                            }
+                            step += 1
+                        },
+                        cancel() {
+                            cancelled = true
+                        },
+                    }),
+                    { headers: { 'content-type': 'text/html' } }
+                )
+            },
+        })
+        const port = server.port!
+        try {
+            const resolver = createIdentityImageResolver({
+                fetcher: createNetworkControlledBinaryFetcher({
+                    maxResponseBytes: identityImageMaxBytes,
+                    privateDestinations: [
+                        { kind: 'cidr', cidr: '127.0.0.0/8', port, schemes: ['http'] },
+                    ],
+                }),
+            })
+            await resolver.resolveWebsiteFavicon(`http://127.0.0.1:${port}`)
+            for (let attempt = 0; attempt < 20 && !cancelled; attempt += 1)
+                await new Promise(resolve => setTimeout(resolve, 10))
+            expect(cancelled).toBe(true)
+        } finally {
+            await server.stop(true)
+        }
+    })
+
     it.each([true, false])(
         'reads icon links from a large HTML prefix (truncated: %s)',
         async bodyTruncated => {
@@ -173,6 +255,13 @@ describe('website favicon resolution', () => {
                 fetcher: async input => {
                     const url = input.toString()
                     requests.push(url)
+                    if (url.endsWith('/apple-touch-icon.png'))
+                        return {
+                            status: 200,
+                            headers: { 'content-type': 'text/html', 'content-length': '25' },
+                            body: new TextEncoder().encode('<html>SPA fallback</html>'),
+                            bodyTruncated: false,
+                        }
                     if (url === 'https://large.example.com/')
                         return {
                             status: 200,
@@ -197,6 +286,7 @@ describe('website favicon resolution', () => {
             const icon = await resolver.resolveWebsiteFavicon('https://large.example.com')
             expect(icon.bytes.byteLength).toBeGreaterThan(0)
             expect(requests).toEqual([
+                'https://large.example.com/apple-touch-icon.png',
                 'https://large.example.com/',
                 'https://large.example.com/head.png',
             ])
@@ -233,6 +323,7 @@ describe('website favicon resolution', () => {
             status: 422,
         })
         expect(requests).toEqual([
+            'https://oversized.example.com/apple-touch-icon.png',
             'https://oversized.example.com/',
             'https://oversized.example.com/icon.png',
             'https://oversized.example.com/favicon.ico',

@@ -660,3 +660,5 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] **[UX-667]** Website icon lookup; identity image changes can be undone (owner feedback, 2026-11-16) `Priority: 🔵` `Complexity: S` `Completed: 2026-11-16`
 - [x] **[UX-668]** Performance tags use the shared filter menu (owner review, 2026-11-16) `Priority: 🔵` `Complexity: S` `Completed: 2026-11-16`
 - [x] **[UX-670]** Publication page actions sit with what they act on (owner review, 2026-11-16) `Priority: 🔵` `Complexity: S` `Completed: 2026-11-16`
+
+- [x] **[UX-673]** Website icon lookup reads conventional icon paths first and stops at the document head `Priority: 🔵` `Complexity: S` `Completed: 2026-11-16`

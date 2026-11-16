@@ -52,23 +52,7 @@ async function requestWithNode(
                 let byteCount = 0
                 let bodyTruncated = false
 
-                response.on('data', (chunk: Buffer | Uint8Array | string) => {
-                    const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)
-                    const remaining = input.maxResponseBytes - byteCount
-                    if (remaining <= 0) {
-                        bodyTruncated = true
-                        return
-                    }
-                    if (bytes.byteLength > remaining) {
-                        chunks.push(bytes.subarray(0, remaining))
-                        byteCount += remaining
-                        bodyTruncated = true
-                        return
-                    }
-                    chunks.push(bytes)
-                    byteCount += bytes.byteLength
-                })
-                response.once('end', () =>
+                const complete = () =>
                     finish(() => {
                         const body = Buffer.concat(chunks)
                         resolve({
@@ -79,7 +63,29 @@ async function requestWithNode(
                             bodyTruncated,
                         })
                     })
-                )
+                response.on('data', (chunk: Buffer | Uint8Array | string) => {
+                    const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)
+                    const remaining = input.maxResponseBytes - byteCount
+                    chunks.push(bytes.subarray(0, remaining))
+                    byteCount += Math.min(bytes.byteLength, remaining)
+                    const prefixLength = input.responsePrefixLength?.(Buffer.concat(chunks))
+                    if (prefixLength !== undefined && prefixLength !== null) {
+                        const prefix = Buffer.concat(chunks).subarray(0, prefixLength)
+                        chunks.splice(0, chunks.length, prefix)
+                        bodyTruncated = true
+                        complete()
+                        response.destroy()
+                    } else if (
+                        bytes.byteLength > remaining ||
+                        (input.responsePrefixLength !== undefined &&
+                            byteCount >= input.maxResponseBytes)
+                    ) {
+                        bodyTruncated = true
+                        complete()
+                        response.destroy()
+                    }
+                })
+                response.once('end', complete)
                 response.once('error', error => finish(() => reject(error)))
             }
         )
