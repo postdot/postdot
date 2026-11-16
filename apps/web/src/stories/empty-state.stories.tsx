@@ -37,7 +37,7 @@ export const PlatformSpecificStates: Story = {
     render: () => (
         <div className="grid max-w-5xl gap-4 md:grid-cols-2">
             <EmptyState
-                description="Scheduled publications will appear here."
+                description="Posts set for a future date and time appear here."
                 illustration="event"
                 title="Nothing scheduled"
             />
