@@ -147,10 +147,11 @@ function prepareCustomContentSchema(value: unknown, path: readonly string[] = []
 
     const record = value as Record<string, unknown>
     const prepared = Object.fromEntries(
-        Object.entries(record).map(([key, child]) => [
-            key,
-            prepareCustomContentSchema(child, [...path, key]),
-        ])
+        Object.entries(record)
+            // Custom schemas prohibit regular expressions. Native execution still
+            // validates provider-specific values, including link-card URLs.
+            .filter(([key]) => record.type !== 'string' || key !== 'pattern')
+            .map(([key, child]) => [key, prepareCustomContentSchema(child, [...path, key])])
     )
 
     if (path.length === 0 && prepared.$schema === undefined) {
