@@ -159,6 +159,87 @@ describe('selectHtmlIconCandidates', () => {
     })
 })
 
+describe('website favicon resolution', () => {
+    it.each([true, false])(
+        'reads icon links from a large HTML prefix (truncated: %s)',
+        async bodyTruncated => {
+            const requests: string[] = []
+            const html = new TextEncoder().encode(
+                '<html><head><link rel="icon" sizes="32x32" href="/head.png"></head><body>' +
+                    ' '.repeat(512 * 1024) +
+                    '<link rel="icon" sizes="256x256" href="/beyond-limit.png"></body></html>'
+            )
+            const resolver = createIdentityImageResolver({
+                fetcher: async input => {
+                    const url = input.toString()
+                    requests.push(url)
+                    if (url === 'https://large.example.com/')
+                        return {
+                            status: 200,
+                            headers: {
+                                'content-type': 'text/html',
+                                'content-length': String(html.byteLength),
+                            },
+                            body: bodyTruncated ? html.subarray(0, 512 * 1024) : html,
+                            bodyTruncated,
+                        }
+                    return {
+                        status: 200,
+                        headers: {
+                            'content-type': 'image/png',
+                            'content-length': String(onePixelPng.byteLength),
+                        },
+                        body: onePixelPng,
+                        bodyTruncated: false,
+                    }
+                },
+            })
+            const icon = await resolver.resolveWebsiteFavicon('https://large.example.com')
+            expect(icon.bytes.byteLength).toBeGreaterThan(0)
+            expect(requests).toEqual([
+                'https://large.example.com/',
+                'https://large.example.com/head.png',
+            ])
+        }
+    )
+
+    it('reports no favicon when every candidate, including the fallback, is oversized', async () => {
+        const requests: string[] = []
+        const resolver = createIdentityImageResolver({
+            fetcher: async input => {
+                const url = input.toString()
+                requests.push(url)
+                return url === 'https://oversized.example.com/'
+                    ? {
+                          status: 200,
+                          headers: { 'content-type': 'text/html' },
+                          body: new TextEncoder().encode(
+                              '<head><link rel="icon" href="/icon.png"></head>'
+                          ),
+                          bodyTruncated: false,
+                      }
+                    : {
+                          status: 200,
+                          headers: { 'content-type': 'image/png' },
+                          body: new Uint8Array(identityImageMaxBytes + 1),
+                          bodyTruncated: true,
+                      }
+            },
+        })
+        await expect(
+            resolver.resolveWebsiteFavicon('https://oversized.example.com')
+        ).rejects.toMatchObject({
+            code: 'identity_favicon_not_found',
+            status: 422,
+        })
+        expect(requests).toEqual([
+            'https://oversized.example.com/',
+            'https://oversized.example.com/icon.png',
+            'https://oversized.example.com/favicon.ico',
+        ])
+    })
+})
+
 describe('identity image and website API routes', () => {
     it('uploads, imports from URL, resolves favicons from HTML and /favicon.ico, and serves immutable WebP across projects, workspaces, and channels', async () => {
         const icon16 = await makePngBytes(16, 16, { r: 200, g: 50, b: 50 })

@@ -304,7 +304,8 @@ export function createIdentityImageResolver(
         accept: string,
         maxBytes: number,
         invalidCode: 'identity_image_url_invalid' | 'identity_website_invalid',
-        deadline: number
+        deadline: number,
+        { allowTruncated = false }: { readonly allowTruncated?: boolean } = {}
     ): Promise<{
         readonly finalUrl: URL
         readonly status: number
@@ -417,9 +418,10 @@ export function createIdentityImageResolver(
 
             const declaredLength = readContentLength(response.headers)
             if (
-                response.bodyTruncated ||
-                (declaredLength !== null && declaredLength > maxBytes) ||
-                response.body.byteLength > maxBytes
+                !allowTruncated &&
+                (response.bodyTruncated ||
+                    (declaredLength !== null && declaredLength > maxBytes) ||
+                    response.body.byteLength > maxBytes)
             ) {
                 throw new IdentityImageRemoteError(
                     'identity_image_size',
@@ -434,7 +436,7 @@ export function createIdentityImageResolver(
                 finalUrl: currentUrl,
                 status: response.status,
                 headers: response.headers,
-                body: response.body,
+                body: allowTruncated ? response.body.subarray(0, maxBytes) : response.body,
             }
         }
     }
@@ -496,7 +498,8 @@ export function createIdentityImageResolver(
             'text/html, application/xhtml+xml;q=0.9',
             MAX_HTML_BYTES,
             'identity_website_invalid',
-            deadline
+            deadline,
+            { allowTruncated: true }
         )
 
         const candidateUrls: URL[] = []
@@ -527,7 +530,6 @@ export function createIdentityImageResolver(
             candidateUrls.push(fallbackFaviconUrl)
         }
 
-        let lastSpecificError: IdentityImageRemoteError | null = null
         for (const candidateUrl of candidateUrls) {
             try {
                 return await downloadAndProcessIcon(
@@ -543,19 +545,7 @@ export function createIdentityImageResolver(
                 ) {
                     throw error
                 }
-                if (
-                    error instanceof IdentityImageRemoteError &&
-                    (error.code === 'identity_image_size' ||
-                        error.code === 'identity_image_format') &&
-                    lastSpecificError === null
-                ) {
-                    lastSpecificError = error
-                }
             }
-        }
-
-        if (lastSpecificError !== null) {
-            throw lastSpecificError
         }
 
         throw new IdentityImageRemoteError(
