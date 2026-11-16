@@ -566,7 +566,7 @@ function NotificationItem({
                     className={`mt-3 size-1.5 shrink-0 rounded-full ${unread ? 'bg-primary' : 'bg-transparent'}`}
                 />
                 <div className="pointer-events-none mt-0.5 w-14 shrink-0" aria-hidden="true">
-                    <div className="relative flex w-fit items-center -space-x-3">
+                    <div className="relative flex w-fit items-center -space-x-1.5">
                         {channels.length === 0 ? (
                             <span className="flex size-6 items-center justify-center rounded-md bg-muted">
                                 <BellIcon className="size-4 text-muted-foreground" />
@@ -589,8 +589,8 @@ function NotificationItem({
                             </span>
                         ) : null}
                         <span
-                            className={`absolute -bottom-1 -right-1 flex size-4 items-center justify-center rounded-full bg-popover ring-2 ring-popover ${severityClass(notification)}`}>
-                            <StatusIcon className="size-3" />
+                            className={`absolute -right-2 -bottom-1.5 flex size-3.5 items-center justify-center rounded-full bg-popover ring-2 ring-popover ${severityClass(notification)}`}>
+                            <StatusIcon className="size-2.5" />
                         </span>
                     </div>
                 </div>
