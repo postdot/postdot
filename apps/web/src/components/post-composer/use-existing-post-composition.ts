@@ -1,3 +1,4 @@
+import { toast } from '@postdot/ui/components/toast'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import type { PublicationEditorSaveState } from '@/components/publication-editor-sidebar'
@@ -9,10 +10,17 @@ import {
     type PublicationEditorState,
     type PublicationSummary,
 } from '@/lib/api'
+import { parseDateTimeLocal, toDateTimeLocal, dateTimeLocalErrorMessage } from '@/lib/date-time'
 import { loadPostPublications } from '@/lib/post-publications'
 import type { ProjectAccessStatus } from '@/lib/project-access-verification'
+import { isActiveChannelProfilePromotionError } from '@/lib/publication-promotion'
 import * as m from '@/paraglide/messages.js'
 
+import {
+    applyCompositionChannels,
+    discardCompositionChanges,
+    type ChannelApplyResult,
+} from './apply-post-composition'
 import {
     compositionChannelContent,
     compositionFromPost,
@@ -73,6 +81,7 @@ export function useExistingPostComposition({
     accessEpoch,
     onAccessRefused,
     onAccessReconciled,
+    getAccessEpoch,
 }: {
     readonly initialData: ExistingPostData
     readonly projectId: string
@@ -82,6 +91,7 @@ export function useExistingPostComposition({
     readonly accessStatus: ProjectAccessStatus
     readonly accessEpoch: number
     readonly onAccessRefused: () => void
+    readonly getAccessEpoch: () => number
     readonly onAccessReconciled: (succeeded: boolean) => void
 }) {
     const [data, setData] = useState(initialData)
@@ -95,6 +105,10 @@ export function useExistingPostComposition({
     const [message, setMessage] = useState<string | null>(null)
     const [passive, setPassive] = useState(false)
     const [saving, setSaving] = useState(false)
+    const [applying, setApplying] = useState(false)
+    const applyingRef = useRef(false)
+    const [applyResults, setApplyResults] = useState<Record<string, ChannelApplyResult>>({})
+    const uncertain = useRef(new Set<string>())
     const [recoveryChoice, setRecoveryChoice] = useState<PostCompositionState | null>(null)
     const recoveryKey = `postdot:post-composition:v1:${encodeURIComponent(projectId)}:${encodeURIComponent(initialData.post.id)}`
     const current = useRef({
@@ -123,6 +137,16 @@ export function useExistingPostComposition({
             !composition.publicationTargets.find(target => target.id === editor.publication.id)
                 ?.locked && editor.draft.sourceRevision !== data.post.sourceRevision
     )
+    const scheduleDirty = composition.publicationTargets.some(
+        target =>
+            !target.locked &&
+            target.scheduledAt !==
+                toDateTimeLocal(
+                    data.editors.find(editor => editor.publication.id === target.id)?.publication
+                        .scheduledAt ?? null,
+                    timeZone
+                )
+    )
     const dirtyRef = useRef(dirty)
     dirtyRef.current = dirty
     const mounted = useRef(true)
@@ -132,7 +156,8 @@ export function useExistingPostComposition({
             mounted.current = false
         }
     }, [])
-    const validEpoch = (epoch: number) => mounted.current && current.current.accessEpoch === epoch
+    const validEpoch = (epoch: number) =>
+        mounted.current && current.current.accessEpoch === epoch && getAccessEpoch() === epoch
     function reportError(error: unknown) {
         if (error instanceof ApiError && (error.status === 403 || error.status === 404))
             onAccessRefused()
@@ -157,112 +182,137 @@ export function useExistingPostComposition({
         )
         setSaveState('saved')
     }
-    const flush = useCallback(async (): Promise<boolean> => {
-        if (request.current) {
-            if (!(await request.current)) return false
-            if (!dirtyRef.current) return true
-        }
-        const before = current.current
-        if (
-            before.readOnly ||
-            before.accessStatus !== 'confirmed' ||
-            before.saveState === 'conflict' ||
-            before.recoveryChoice
-        )
-            return false
-        if (
-            compositionFingerprint(before.composition, before.data) ===
-            serverFingerprint(before.data, before.readOnly, timeZone)
-        )
-            return true
-        if (
-            before.data.editors.some(
-                editor =>
-                    !before.composition.publicationTargets.find(
-                        target => target.id === editor.publication.id
-                    )?.locked && editor.draft.sourceRevision !== before.data.post.sourceRevision
-            )
-        )
-            return false
-        const epoch = before.accessEpoch
-        setSaving(true)
-        setSaveState('saving')
-        const operation = (async () => {
-            try {
-                const sourceContent = compositionSource(
-                    before.composition,
-                    before.data.post.sourceContent
-                )
-                const response = await api.savePostComposition(projectId, before.data.post.id, {
-                    expectedSourceRevision: before.data.post.sourceRevision,
-                    ...(JSON.stringify(sourceContent) ===
-                    JSON.stringify(before.data.post.sourceContent)
-                        ? {}
-                        : { sourceContent }),
-                    publications: before.data.editors
-                        .filter(
-                            editor =>
-                                !before.composition.publicationTargets.find(
-                                    target => target.id === editor.publication.id
-                                )?.locked
-                        )
-                        .map(editor => ({
-                            publicationId: editor.publication.id,
-                            expectedRevision: editor.draft.revision,
-                            targetContent: compositionChannelContent(before.composition, editor),
-                        })),
-                })
-                if (!validEpoch(epoch)) return false
-                const next = {
-                    ...before.data,
-                    post: response.post,
-                    publications: before.data.publications.map(publication => {
-                        const editor = response.publications.find(
-                            editor => editor.publication.id === publication.id
-                        )
-                        return editor
-                            ? {
-                                  ...publication,
-                                  ...editor.publication,
-                                  draftRevision: editor.draft.revision,
-                                  draftSourceRevision: editor.draft.sourceRevision,
-                                  draftReviewState: editor.draft.reviewState,
-                              }
-                            : publication
-                    }),
-                    editors: before.data.editors.map(
-                        editor =>
-                            response.publications.find(
-                                next => next.publication.id === editor.publication.id
-                            ) ?? { ...editor, post: response.post }
-                    ),
-                }
-                // Keep edits typed after dispatch. Only the acknowledged base advances.
-                current.current = { ...current.current, data: next }
-                setData(next)
-                setSaveState('saved')
-                setMessage(null)
-                setPassive(false)
-                return true
-            } catch (error) {
-                if (!validEpoch(epoch)) return false
-                reportError(error)
-                setSaveState(
-                    error instanceof ApiError && error.code === 'write_conflict'
-                        ? 'conflict'
-                        : 'error'
-                )
-                setMessage(formatApiError(error))
-                setPassive(false)
-                return false
-            } finally {
-                request.current = null
-                if (mounted.current) setSaving(false)
+    const flush = useCallback(
+        async (includeSchedules = false): Promise<boolean> => {
+            if (request.current) {
+                if (!(await request.current)) return false
+                if (!includeSchedules && !dirtyRef.current) return true
             }
-        })()
-        request.current = operation
-        return operation
-    }, [projectId, timeZone, onAccessRefused])
+            const before = current.current
+            if (
+                before.readOnly ||
+                before.accessStatus !== 'confirmed' ||
+                before.saveState === 'conflict' ||
+                before.recoveryChoice
+            )
+                return false
+            if (
+                compositionFingerprint(before.composition, before.data) ===
+                    serverFingerprint(before.data, before.readOnly, timeZone) &&
+                !includeSchedules
+            )
+                return true
+            if (
+                before.data.editors.some(
+                    editor =>
+                        !before.composition.publicationTargets.find(
+                            target => target.id === editor.publication.id
+                        )?.locked && editor.draft.sourceRevision !== before.data.post.sourceRevision
+                )
+            )
+                return false
+            const epoch = before.accessEpoch
+            setSaving(true)
+            setSaveState('saving')
+            const operation = (async () => {
+                try {
+                    const sourceContent = compositionSource(
+                        before.composition,
+                        before.data.post.sourceContent
+                    )
+                    const response = await api.savePostComposition(projectId, before.data.post.id, {
+                        expectedSourceRevision: before.data.post.sourceRevision,
+                        ...(JSON.stringify(sourceContent) ===
+                        JSON.stringify(before.data.post.sourceContent)
+                            ? {}
+                            : { sourceContent }),
+                        publications: before.data.editors
+                            .filter(
+                                editor =>
+                                    !before.composition.publicationTargets.find(
+                                        target => target.id === editor.publication.id
+                                    )?.locked
+                            )
+                            .map(editor => ({
+                                publicationId: editor.publication.id,
+                                expectedRevision: editor.draft.revision,
+                                targetContent: compositionChannelContent(
+                                    before.composition,
+                                    editor
+                                ),
+                                ...(includeSchedules &&
+                                editor.publication.state === 'scheduled' &&
+                                before.composition.publicationTargets.find(
+                                    target => target.id === editor.publication.id
+                                )?.scheduledAt &&
+                                before.composition.publicationTargets.find(
+                                    target => target.id === editor.publication.id
+                                )?.scheduledAt !==
+                                    toDateTimeLocal(editor.publication.scheduledAt, timeZone)
+                                    ? {
+                                          scheduledAt: scheduleTime(
+                                              before.composition.publicationTargets.find(
+                                                  target => target.id === editor.publication.id
+                                              )!.scheduledAt,
+                                              timeZone
+                                          ),
+                                      }
+                                    : {}),
+                            })),
+                    })
+                    if (!validEpoch(epoch)) return false
+                    const next = {
+                        ...before.data,
+                        post: response.post,
+                        publications: before.data.publications.map(publication => {
+                            const editor = response.publications.find(
+                                editor => editor.publication.id === publication.id
+                            )
+                            return editor
+                                ? {
+                                      ...publication,
+                                      ...editor.publication,
+                                      draftRevision: editor.draft.revision,
+                                      draftSourceRevision: editor.draft.sourceRevision,
+                                      draftReviewState: editor.draft.reviewState,
+                                  }
+                                : publication
+                        }),
+                        editors: before.data.editors.map(
+                            editor =>
+                                response.publications.find(
+                                    next => next.publication.id === editor.publication.id
+                                ) ?? { ...editor, post: response.post }
+                        ),
+                    }
+                    // Keep edits typed after dispatch. Only the acknowledged base advances.
+                    current.current = { ...current.current, data: next }
+                    setData(next)
+                    setSaveState('saved')
+                    setMessage(null)
+                    setPassive(false)
+                    return true
+                } catch (error) {
+                    if (!validEpoch(epoch)) return false
+                    reportError(error)
+                    setSaveState(
+                        error instanceof ApiError && error.code === 'write_conflict'
+                            ? 'conflict'
+                            : 'error'
+                    )
+                    setMessage(formatApiError(error))
+                    setPassive(false)
+                    return false
+                } finally {
+                    request.current = null
+                    if (mounted.current) setSaving(false)
+                }
+            })()
+            request.current = operation
+            return operation
+        },
+        [projectId, timeZone, onAccessRefused]
+    )
     useEffect(() => {
         if (
             !dirty ||
@@ -272,7 +322,8 @@ export function useExistingPostComposition({
             recoveryChoice ||
             saveState === 'conflict' ||
             saveState === 'error' ||
-            saving
+            saving ||
+            applying
         )
             return
         const timer = window.setTimeout(() => void flush(), 650)
@@ -285,6 +336,7 @@ export function useExistingPostComposition({
         recoveryChoice,
         saveState,
         saving,
+        applying,
         flush,
         composition.sourceFormat,
         composition.sourceLanguage,
@@ -294,7 +346,7 @@ export function useExistingPostComposition({
         composition.publicationTargets,
     ])
     useEffect(() => {
-        if (dirty) persistRecovery(composition)
+        if (dirty || scheduleDirty) persistRecovery(composition)
         // A confirmed epoch is required even for recovery cleanup.
     }, [
         dirty,
@@ -322,6 +374,13 @@ export function useExistingPostComposition({
         )
             composition.restoreComposition({ ...state, publicationTargets: targets })
     }, [readOnly, data.editors])
+    const contentStamp = compositionFingerprint(composition, data)
+    const previousContent = useRef(contentStamp)
+    useEffect(() => {
+        if (previousContent.current !== contentStamp && saveState === 'error')
+            setSaveState('local_only')
+        previousContent.current = contentStamp
+    }, [contentStamp, saveState])
     const incomingStamp = JSON.stringify(initialData)
     const lastIncoming = useRef(incomingStamp)
     useEffect(() => {
@@ -401,10 +460,151 @@ export function useExistingPostComposition({
             if (mounted.current) setSaving(false)
         }
     }
+
+    function acknowledgeEditor(next: PublicationEditorState) {
+        const before = current.current.data
+        const updated = {
+            ...before,
+            editors: before.editors.map(editor =>
+                editor.publication.id === next.publication.id ? next : editor
+            ),
+            publications: before.publications.map(publication =>
+                publication.id === next.publication.id
+                    ? {
+                          ...publication,
+                          ...next.publication,
+                          draftRevision: next.draft.revision,
+                          draftSourceRevision: next.draft.sourceRevision,
+                          draftReviewState: next.draft.reviewState,
+                      }
+                    : publication
+            ),
+        }
+        current.current = { ...current.current, data: updated }
+        setData(updated)
+    }
+    async function save(publicationId?: string) {
+        if (
+            applyingRef.current ||
+            current.current.accessStatus !== 'confirmed' ||
+            current.current.readOnly
+        )
+            return
+        applyingRef.current = true
+        setApplying(true)
+        const epoch = current.current.accessEpoch
+        try {
+            // Wait for the active save, then flush the latest keystrokes before applying.
+            if (!(await flush(true)) || !validEpoch(epoch)) return
+            const before = current.current
+            await applyCompositionChannels({
+                editors: before.data.editors.filter(
+                    editor =>
+                        (!publicationId || editor.publication.id === publicationId) &&
+                        !uncertain.current.has(editor.publication.id)
+                ),
+                state: before.composition,
+                timeZone,
+                canContinue: () =>
+                    validEpoch(epoch) && current.current.accessStatus === 'confirmed',
+                apply: async (editor, schedule) =>
+                    (
+                        await api.promotePublicationDraft(
+                            projectId,
+                            editor.publication.id,
+                            editor.draft.revision,
+                            schedule === toDateTimeLocal(editor.publication.scheduledAt, timeZone)
+                                ? undefined
+                                : scheduleTime(schedule, timeZone)
+                        )
+                    ).editor,
+                onApplied: next => {
+                    acknowledgeEditor(next)
+                    setApplyResults(previous => ({
+                        ...previous,
+                        [next.publication.id]: { state: 'applied' },
+                    }))
+                },
+                onFailure: (editor, error) => {
+                    reportError(error)
+                    const unknown = !(error instanceof ApiError) || error.status >= 500
+                    if (unknown) uncertain.current.add(editor.publication.id)
+                    setApplyResults(previous => ({
+                        ...previous,
+                        [editor.publication.id]: {
+                            state: unknown ? 'unconfirmed' : 'failed',
+                            message: unknown
+                                ? m.editor_application_unconfirmed()
+                                : isActiveChannelProfilePromotionError(error)
+                                  ? m.editor_promotion_active_profile_mismatch()
+                                  : formatApiError(error),
+                        },
+                    }))
+                },
+            })
+        } finally {
+            applyingRef.current = false
+            if (mounted.current) setApplying(false)
+        }
+    }
+    async function checkApplication(publicationId: string) {
+        const epoch = current.current.accessEpoch
+        if (current.current.accessStatus !== 'confirmed') return
+        try {
+            const { editor } = await api.getPublicationEditor(projectId, publicationId)
+            if (!validEpoch(epoch)) return
+            acknowledgeEditor(editor)
+            uncertain.current.delete(publicationId)
+            setApplyResults(previous => {
+                const next = { ...previous }
+                delete next[publicationId]
+                return next
+            })
+        } catch (error) {
+            if (validEpoch(epoch)) {
+                reportError(error)
+                setMessage(formatApiError(error))
+            }
+        }
+    }
+    function discard() {
+        if (
+            current.current.accessStatus !== 'confirmed' ||
+            current.current.readOnly ||
+            request.current ||
+            applyingRef.current
+        )
+            return
+        const before = current.current.composition
+        const epoch = current.current.accessEpoch
+        composition.restoreComposition(
+            discardCompositionChanges(before, current.current.data.editors, timeZone)
+        )
+        setApplyResults({})
+        setSaveState('saved')
+        toast.add({
+            title: m.editor_changes_discarded(),
+            type: 'info',
+            timeout: 10_000,
+            actionProps: {
+                children: m.editor_restore_changes(),
+                onClick: () => {
+                    if (validEpoch(epoch) && current.current.accessStatus === 'confirmed')
+                        composition.restoreComposition(before)
+                },
+            },
+        })
+    }
     return {
         data,
         composition,
         dirty,
+        scheduleDirty,
+        applyResults,
+        applying,
+        save,
+        discard,
+        checkApplication,
         sourceConflict,
         saveState,
         message,
@@ -417,4 +617,11 @@ export function useExistingPostComposition({
         setMessage,
         setData,
     }
+}
+
+function scheduleTime(value: string, timeZone: string): number | null {
+    const parsed = parseDateTimeLocal(value, timeZone)
+    if (typeof parsed === 'string') throw new Error(dateTimeLocalErrorMessage(parsed))
+    if (parsed !== null && parsed < Date.now()) throw new Error(dateTimeLocalErrorMessage('past'))
+    return parsed
 }

@@ -9,7 +9,7 @@ import {
 } from '@postdot/ui/components/select'
 import { AltArrowLeftIcon } from '@solar-icons/react/linear/alt-arrow-left'
 import { Link } from '@tanstack/react-router'
-import { lazy, Suspense, useState, type SetStateAction } from 'react'
+import { lazy, Suspense, useState, useEffect, type SetStateAction } from 'react'
 
 import { DashboardPageHeader } from '@/components/dashboard-page-header'
 import { PublicationStatus, formatSchedule } from '@/components/dashboard-publication-parts'
@@ -62,6 +62,7 @@ export function ExistingPostPage({ initialData }: { readonly initialData: Existi
         readOnly,
         accessStatus: access.status,
         accessEpoch: access.epoch,
+        getAccessEpoch: access.getAccessEpoch,
         onAccessRefused: access.onAccessRefused,
         onAccessReconciled: access.onAccessReconciled,
     })
@@ -136,6 +137,19 @@ export function ExistingPostPage({ initialData }: { readonly initialData: Existi
     if (!lifecycle.data) return null
     if (access.status === 'denied')
         return <main className="px-4 py-8 sm:px-6 lg:px-8">{access.notice}</main>
+    useEffect(() => {
+        const keydown = (event: KeyboardEvent) => {
+            if (!event.isComposing && (event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+                const button = document.querySelector<HTMLButtonElement>('[data-post-save]')
+                if (button && !button.disabled) {
+                    event.preventDefault()
+                    button.click()
+                }
+            }
+        }
+        window.addEventListener('keydown', keydown)
+        return () => window.removeEventListener('keydown', keydown)
+    }, [])
     const pendingApply = data.editors.some(
         editor =>
             !composition.publicationTargets.find(target => target.id === editor.publication.id)
@@ -153,7 +167,7 @@ export function ExistingPostPage({ initialData }: { readonly initialData: Existi
                 action={
                     <PublicationEditorSaveIndicator
                         state={session.saveState}
-                        pendingApply={pendingApply || session.dirty}
+                        pendingApply={pendingApply || session.dirty || session.scheduleDirty}
                     />
                 }
                 back={
@@ -213,20 +227,87 @@ export function ExistingPostPage({ initialData }: { readonly initialData: Existi
                 channelPanel={target =>
                     activeEditor ? (
                         <Suspense fallback={<p role="status">{m.common_loading()}</p>}>
+                            {session.applyResults[target.id] ? (
+                                <div
+                                    data-channel-apply-result={
+                                        session.applyResults[target.id]!.state
+                                    }
+                                    className="mt-4 flex flex-wrap items-center gap-3 text-sm"
+                                    role="status">
+                                    <p>
+                                        {session.applyResults[target.id]!.message ??
+                                            m.editor_saved()}
+                                    </p>
+                                    {session.applyResults[target.id]!.state !== 'applied' ? (
+                                        <Button
+                                            variant="secondary"
+                                            size="sm"
+                                            disabled={blocked || session.applying}
+                                            onClick={() =>
+                                                session.applyResults[target.id]!.state ===
+                                                'unconfirmed'
+                                                    ? void session.checkApplication(target.id)
+                                                    : void session.save(target.id)
+                                            }>
+                                            {session.applyResults[target.id]!.state ===
+                                            'unconfirmed'
+                                                ? m.editor_check_server()
+                                                : m.common_retry()}
+                                        </Button>
+                                    ) : null}
+                                </div>
+                            ) : null}
                             <PostChannelPanel
                                 key={target.id}
                                 editor={activeEditor}
                                 content={previewContent!}
                                 locked={target.locked === true}
                                 blocked={blocked}
-                                pendingChanges={session.dirty || mediaPending || session.saving}
+                                pendingChanges={
+                                    session.dirty ||
+                                    mediaPending ||
+                                    session.saving ||
+                                    session.applying
+                                }
                                 onContentChange={changeTarget}
                                 onRefresh={() => session.reload()}
                                 onAccessRefused={access.onAccessRefused}
-                                getAccessEpoch={() => access.epoch}
+                                getAccessEpoch={access.getAccessEpoch}
                                 timeZone={project.timeZone}
                             />
                         </Suspense>
+                    ) : null
+                }
+                footer={
+                    !readOnly ? (
+                        <div className="flex flex-wrap items-center justify-end gap-3">
+                            {pendingApply || session.dirty || session.scheduleDirty ? (
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    data-publication-discard-action
+                                    disabled={blocked || session.saving || session.applying}
+                                    onClick={session.discard}>
+                                    {m.editor_discard_changes()}
+                                </Button>
+                            ) : null}
+                            <Button
+                                type="button"
+                                data-post-save
+                                data-publication-promotion-action
+                                disabled={
+                                    blocked ||
+                                    mediaPending ||
+                                    session.applying ||
+                                    session.saveState === 'conflict' ||
+                                    session.sourceConflict ||
+                                    !(pendingApply || session.dirty || session.scheduleDirty)
+                                }
+                                aria-busy={session.applying}
+                                onClick={() => void session.save()}>
+                                {session.applying ? m.editor_saving() : m.common_save()}
+                            </Button>
+                        </div>
                     ) : null
                 }
                 project={project}
@@ -319,6 +400,17 @@ export function ExistingPostPage({ initialData }: { readonly initialData: Existi
                                     aria-pressed={composition.activeContentScopeId === target.id}
                                     onClick={() => composition.selectContentScope(target.id)}>
                                     <ChannelAvatar channel={channel} size="sm" />
+                                    {session.applyResults[target.id] ? (
+                                        <span
+                                            data-channel-apply-mark={
+                                                session.applyResults[target.id]!.state
+                                            }
+                                            className="text-xs">
+                                            {session.applyResults[target.id]!.state === 'applied'
+                                                ? m.editor_saved()
+                                                : m.common_error_title()}
+                                        </span>
+                                    ) : null}
                                     {target.customized ? (
                                         <span className="sr-only">
                                             {m.editor_channel_customized()}

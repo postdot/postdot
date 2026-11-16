@@ -100,7 +100,9 @@ export function usePostEditorAccess(projectId: string) {
                     : m.editor_access_reconciling()}
             </p>
         ) : null
+    const getAccessEpoch = useCallback(() => current.current.epoch, [])
     return {
+        getAccessEpoch,
         ...access,
         role: access.role ?? projectRole,
         onAccessRefused,
