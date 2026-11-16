@@ -3,6 +3,7 @@ import { CheckIcon } from '@solar-icons/react/linear/check'
 import { RestartIcon } from '@solar-icons/react/linear/restart'
 import { TrashBinMinimalisticIcon } from '@solar-icons/react/linear/trash-bin-minimalistic'
 import { Link } from '@tanstack/react-router'
+import type { ReactNode } from 'react'
 
 import { formatSchedule, PublicationStatus } from '@/components/dashboard-publication-parts'
 import type { Publication, PublisherConnection } from '@/lib/api'
@@ -18,6 +19,7 @@ export function PublicationLifecyclePanel({
     onPublish,
     onRetry,
     onUndoPublish,
+    otherActions,
     pending = false,
     publication,
     retryDisabled = false,
@@ -30,6 +32,8 @@ export function PublicationLifecyclePanel({
     readonly onPublish?: () => Promise<boolean>
     readonly onRetry?: () => void | Promise<unknown>
     readonly onUndoPublish?: () => void
+    /** Quiet actions on this publication (moving it), placed before cancelling. */
+    readonly otherActions?: ReactNode
     readonly pending?: boolean
     readonly publication: Publication
     readonly retryDisabled?: boolean
@@ -58,7 +62,8 @@ export function PublicationLifecyclePanel({
         showRetryAction ||
         showCancelAction ||
         showUndoPublishAction ||
-        needsConnection
+        needsConnection ||
+        Boolean(otherActions)
 
     return (
         <>
@@ -158,6 +163,7 @@ export function PublicationLifecyclePanel({
                                 {m.publication_undo_publish()}
                             </Button>
                         ) : null}
+                        {otherActions}
                         {showCancelAction ? (
                             <Button
                                 data-publication-action="cancel"

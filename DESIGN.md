@@ -439,6 +439,16 @@ building it; the current app contract must not silently decide those choices.
   their own line under the toolbar, each removable, with `Clear filters` when
   there are several. A period is not a filter: it keeps its own control. Rows
   of outline selects are not used to filter.
+- Actions sit with what they act on (owner review, 2026-11-16): on a
+  publication, actions on the publication itself (move, cancel) live in its
+  state line; actions about the post's channels (update channel versions, add
+  a channel) end the channel row as quiet text, as `New channel…` does in the
+  composer; tags close the content column. No free-floating row of mixed
+  outline buttons.
+- Identity images (owner feedback, 2026-11-16): a staged image change always
+  offers `Undo` until it is saved, the row says what saving will do, and the
+  way back to the generated image is named for its result (`Use the default
+  image`), offered only when there is an image to replace.
 - Configuration saves once (audit H4, 2026-11-15): a settings dialog has one
   `Save`. A preview or impact step appears only when the change affects
   existing work (for content rules, a publication that would need review), and

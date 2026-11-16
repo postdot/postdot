@@ -38,6 +38,8 @@ import * as m from '@/paraglide/messages.js'
 export const publicationSharedTabId = 'shared'
 
 export interface PublicationChannelRailProps {
+    /** Quiet actions about the post's channels, after the last chip. */
+    readonly actions?: ReactNode
     readonly activeChannelId: string
     readonly channels: readonly Channel[]
     readonly disabled: boolean
@@ -48,6 +50,7 @@ export interface PublicationChannelRailProps {
 }
 
 export function PublicationChannelRail({
+    actions,
     activeChannelId,
     channels,
     disabled,
@@ -62,10 +65,7 @@ export function PublicationChannelRail({
     return (
         <div
             data-publication-channel-selection="true"
-            className="flex min-w-0 flex-wrap items-center gap-2 rounded-xl bg-surface-inset/55 px-3 py-2 shadow-surface sm:px-4">
-            <span className="shrink-0 text-xs font-semibold text-muted-foreground">
-                {m.publication_post_channels()}
-            </span>
+            className="flex min-w-0 flex-wrap items-center gap-2">
             {onSharedChange ? (
                 <Button
                     type="button"
@@ -81,7 +81,7 @@ export function PublicationChannelRail({
                 </Button>
             ) : null}
             <div
-                className="flex min-w-0 flex-1 flex-wrap items-center gap-2 p-0.5"
+                className="flex min-w-0 flex-wrap items-center gap-2 p-0.5"
                 role="group"
                 aria-label={m.publication_post_channels()}>
                 {channels.map(channel => {
@@ -117,6 +117,7 @@ export function PublicationChannelRail({
                     )
                 })}
             </div>
+            {actions}
         </div>
     )
 }

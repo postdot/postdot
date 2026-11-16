@@ -26,7 +26,13 @@ export function PostSourceReview({
     const [open, setOpen] = useState(false)
     return (
         <>
-            <Button variant="outline" disabled={disabled} onClick={() => setOpen(true)}>
+            <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className="h-8 rounded-full px-2.5 text-xs text-muted-foreground hover:text-foreground"
+                disabled={disabled}
+                onClick={() => setOpen(true)}>
                 {m.source_review_title()}
             </Button>
             <Dialog open={open} onOpenChange={setOpen}>

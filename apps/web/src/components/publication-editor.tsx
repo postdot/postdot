@@ -1266,29 +1266,31 @@ export function PublicationEditor({
         />
     )
 
+    const sourceReview = (
+        <PostSourceReview
+            projectId={projectId}
+            postId={editor.post.id}
+            accessEpoch={accessEpoch}
+            disabled={
+                readOnly ||
+                accessWritesBlocked ||
+                hasLocalChanges ||
+                !['saved', 'conflict'].includes(saveState) ||
+                editorMutationPending
+            }
+            onApplied={next => {
+                if (next.publication.id !== editor.publication.id || accessWritesBlocked) return
+                setEditor(next)
+                setSourceContent(next.post.sourceContent)
+                setTargetText(formatJson(next.draft.content))
+                setExpectedRevision(next.draft.revision)
+                setDirty(false)
+                setSaveState('saved')
+            }}
+        />
+    )
     const sourceSection = (
         <div className="space-y-4">
-            <PostSourceReview
-                projectId={projectId}
-                postId={editor.post.id}
-                accessEpoch={accessEpoch}
-                disabled={
-                    readOnly ||
-                    accessWritesBlocked ||
-                    hasLocalChanges ||
-                    !['saved', 'conflict'].includes(saveState) ||
-                    editorMutationPending
-                }
-                onApplied={next => {
-                    if (next.publication.id !== editor.publication.id || accessWritesBlocked) return
-                    setEditor(next)
-                    setSourceContent(next.post.sourceContent)
-                    setTargetText(formatJson(next.draft.content))
-                    setExpectedRevision(next.draft.revision)
-                    setDirty(false)
-                    setSaveState('saved')
-                }}
-            />
             <PublicationEditorSourceSection
                 configuredEditor={configuredEditor}
                 projectId={projectId}
@@ -1315,6 +1317,53 @@ export function PublicationEditor({
             />
         </div>
     )
+    const tagsSection =
+        availableTags.length > 0 || publicationEditable ? (
+            <div data-publication-tags="true">
+                <PublicationTagPicker
+                    ariaLabel={m.taxonomy_select_tags()}
+                    archivedLabel={m.common_archived()}
+                    disabled={
+                        !publicationEditable ||
+                        accessWritesBlocked ||
+                        isRebasing ||
+                        editorMutationPending ||
+                        tagSavePending
+                    }
+                    emptyLabel={m.taxonomy_no_tags()}
+                    label={m.taxonomy_internal_tags()}
+                    manageTagsProjectId={projectId}
+                    onChange={value => void handlePublicationTagIdsChange(value)}
+                    onCreateTag={publicationEditable ? onCreateProjectTag : undefined}
+                    selectedTagIds={publicationTagIds}
+                    selectedLabel={count => m.taxonomy_selected_tags({ count })}
+                    showSelectedTags
+                    tags={availableTags}
+                />
+                {tagError ? (
+                    <p className="mt-2 text-xs text-state-failed" role="alert">
+                        {tagError}
+                    </p>
+                ) : null}
+            </div>
+        ) : null
+    const moveAction =
+        !readOnly && editor.movement?.canMove ? (
+            <>
+                {hasLocalChanges ? (
+                    <span className="text-xs text-muted-foreground">
+                        {m.publication_move_save_first()}
+                    </span>
+                ) : null}
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={cancellationBlocked}
+                    onClick={() => setMoveOpen(true)}>
+                    {m.publication_move_action()}
+                </Button>
+            </>
+        ) : undefined
     const targetSection = (
         <div className="space-y-3">
             {publicationEditable &&
@@ -1614,6 +1663,7 @@ export function PublicationEditor({
                     readOnly={readOnly || accessWritesBlocked}
                     cancelDisabled={cancellationBlocked}
                     onCancel={onCancel === undefined ? undefined : () => setCancelDialogOpen(true)}
+                    otherActions={moveAction}
                     onPublish={onPublish === undefined ? undefined : recordManualPublication}
                     onUndoPublish={
                         onUndoPublish === undefined || accessWritesBlocked
@@ -1630,68 +1680,6 @@ export function PublicationEditor({
                     retryDisabled={retryBlocked}
                     timeZone={timeZone}
                 />
-
-                {availableTags.length > 0 ||
-                publicationEditable ||
-                destinationAction !== undefined ||
-                (!readOnly && editor.movement?.canMove) ? (
-                    <div
-                        data-publication-tools
-                        className="mb-5 flex min-w-0 flex-wrap items-center gap-3">
-                        {availableTags.length > 0 || publicationEditable ? (
-                            <div className="flex flex-wrap items-center gap-3">
-                                <PublicationTagPicker
-                                    ariaLabel={m.taxonomy_select_tags()}
-                                    archivedLabel={m.common_archived()}
-                                    disabled={
-                                        !publicationEditable ||
-                                        accessWritesBlocked ||
-                                        isRebasing ||
-                                        editorMutationPending ||
-                                        tagSavePending
-                                    }
-                                    emptyLabel={m.taxonomy_no_tags()}
-                                    label={m.taxonomy_internal_tags()}
-                                    manageTagsProjectId={projectId}
-                                    onChange={value => void handlePublicationTagIdsChange(value)}
-                                    onCreateTag={
-                                        publicationEditable ? onCreateProjectTag : undefined
-                                    }
-                                    selectedTagIds={publicationTagIds}
-                                    selectedLabel={count => m.taxonomy_selected_tags({ count })}
-                                    showSelectedTags
-                                    tags={availableTags}
-                                />
-                                {tagError ? (
-                                    <p className="text-xs text-state-failed" role="alert">
-                                        {tagError}
-                                    </p>
-                                ) : null}
-                            </div>
-                        ) : null}
-
-                        <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
-                            {!readOnly && editor.movement?.canMove ? (
-                                <div className="flex flex-wrap items-center gap-3">
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        disabled={cancellationBlocked}
-                                        onClick={() => setMoveOpen(true)}>
-                                        {m.publication_move_action()}
-                                    </Button>
-                                    {hasLocalChanges ? (
-                                        <span className="text-xs text-muted-foreground">
-                                            {m.publication_move_save_first()}
-                                        </span>
-                                    ) : null}
-                                </div>
-                            ) : null}
-
-                            {destinationAction}
-                        </div>
-                    </div>
-                ) : null}
 
                 {onCancel !== undefined ? (
                     <PublicationCancellationDialog
@@ -1786,15 +1774,19 @@ export function PublicationEditor({
                 <PublicationComposer
                     className="mt-6 max-w-none"
                     channelNavigation={
-                        editorChannels.length > 1 ? (
-                            <PublicationChannelRail
-                                activeChannelId={editor.channel.id}
-                                channels={editorChannels}
-                                disabled={isRebasing || editorMutationPending}
-                                onActiveChannelChange={handleChannelChange}
-                                selectedChannelIds={editorChannelIds}
-                            />
-                        ) : undefined
+                        <PublicationChannelRail
+                            actions={
+                                <>
+                                    {sourceReview}
+                                    {destinationAction}
+                                </>
+                            }
+                            activeChannelId={editor.channel.id}
+                            channels={editorChannels}
+                            disabled={isRebasing || editorMutationPending}
+                            onActiveChannelChange={handleChannelChange}
+                            selectedChannelIds={editorChannelIds}
+                        />
                     }
                     editorSurface={!publicationEditable}
                     editor={
@@ -1802,6 +1794,7 @@ export function PublicationEditor({
                             <div className="min-w-0 space-y-5">
                                 {sourceSection}
                                 {targetSection}
+                                {tagsSection}
                             </div>
                         ) : (
                             <div className="mx-auto max-w-2xl">{draftPreview}</div>
@@ -1859,6 +1852,7 @@ export function PublicationEditor({
                         folded away (ADR-103 §1, audit D1/D3). */}
                     {!publicationEditable ? sourceSection : null}
                     {!publicationEditable ? targetSection : null}
+                    {!publicationEditable ? tagsSection : null}
                     {sourceConflict || saveState === 'conflict' ? (
                         <div ref={conflictRef}>
                             <PublicationEditorSidebar
