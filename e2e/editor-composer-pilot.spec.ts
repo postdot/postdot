@@ -184,7 +184,12 @@ test('recovers composition text, target formatting and media through the existin
     const diagnostics = page.locator('[data-validation-diagnostics="true"]')
     await expect(diagnostics).not.toHaveAttribute('open', '')
     await diagnostics.locator('summary').click()
-    await expect(diagnostics).toContainText('schema.minLength')
+    await expect(diagnostics.locator('li')).toHaveText([
+        'This channel version doesn’t meet the channel’s content rules yet. Adjust the highlighted parts and save again.',
+    ])
+    await expect(diagnostics).not.toContainText('schema.minLength')
+    await expect(headline.getByRole('textbox')).toHaveAttribute('aria-invalid', 'true')
+    await expect(headline).toContainText('Enter Title.')
     const titleSaved = page.waitForResponse(
         response =>
             response.url().endsWith(`/publications/${article.id}/draft`) &&
@@ -277,10 +282,14 @@ test('recovers composition text, target formatting and media through the existin
         })
     }
     await page.setViewportSize({ width: 1280, height: 900 })
-    await page.goto(`/dashboard/projects/${id}/publications/${article.id}?editor=legacy`)
-    await expect(sourceBody).toHaveValue('Updated common copy')
+    await page.goto(`/dashboard/projects/${id}/publications/${article.id}`)
+    await expect(sourceBody).toHaveAttribute('contenteditable', 'true')
+    await expect(sourceBody).toHaveText('Updated common copy')
     await openCustomization(page, articleField)
-    await expect(articleField.locator('textarea')).toHaveValue(
+    await articleField.getByRole('button', { name: 'Markup', exact: true }).click()
+    await expect(
+        articleField.getByRole('textbox', { name: 'Markup text', exact: true })
+    ).toHaveValue(
         '## ~~Updated article~~\n\n![Article landscape](<https://images.example.com/article.png>)'
     )
 
@@ -315,9 +324,7 @@ test('recovers composition text, target formatting and media through the existin
     await expect(discordBody.locator('strong')).toHaveCount(0)
 })
 
-test('keeps a native editor draft byte-for-byte when restored into the configured editor and back', async ({
-    page,
-}) => {
+test('keeps a native editor draft byte-for-byte across navigation and reload', async ({ page }) => {
     // Account setup and four full document/editor loads share this budget.
     test.setTimeout(60_000)
     const id = await createProject(page)
@@ -335,7 +342,7 @@ test('keeps a native editor draft byte-for-byte when restored into the configure
             response.request().method() === 'GET' &&
             response.ok()
     )
-    await page.goto(`${base}?editor=legacy`)
+    await page.goto(base)
     await draftLoaded
     const text = '  Original 👋\n\n**literal**\n'
     const saved = page.waitForResponse(
@@ -352,13 +359,26 @@ test('keeps a native editor draft byte-for-byte when restored into the configure
         'contenteditable',
         'true'
     )
-    const draft = await page.request.get(`/api/projects/${id}/publication-composer-draft`)
-    expect((await draft.json()).draft.content.postContent).toBe(text)
+    const content = page.getByRole('textbox', { name: 'Content', exact: true })
+    const assertRestored = async () => {
+        await expect(page.locator('[data-new-publication-restored="true"]')).toBeVisible()
+        // Paragraph boundaries preserve blank lines and the trailing newline;
+        // toHaveText would normalize the whitespace this journey protects.
+        await expect
+            .poll(() =>
+                content
+                    .locator('p')
+                    .evaluateAll(nodes => nodes.map(node => node.textContent).join('\n'))
+            )
+            .toBe(text)
+        const draft = await page.request.get(`/api/projects/${id}/publication-composer-draft`)
+        expect((await draft.json()).draft.content.postContent).toBe(text)
+    }
+    await assertRestored()
     await page.reload()
-    await expect(page.locator('[data-new-publication-restored="true"]')).toBeVisible()
-    await page.goto(`${base}?editor=legacy`)
-    await expect(page.locator('[data-new-publication-restored="true"]')).toBeVisible()
-    await expect(page.getByRole('textbox', { name: 'Content', exact: true })).toHaveValue(text)
+    await assertRestored()
+    await page.goto(base)
+    await assertRestored()
 })
 
 test('preserves a title-only article across autosave and recovery', async ({ page }) => {
@@ -370,7 +390,7 @@ test('preserves a title-only article across autosave and recovery', async ({ pag
     await page.goto(`/dashboard/projects/${id}/publications/new`)
     await page.getByRole('button', { name: 'Title article', exact: true }).click()
     const title = page.locator('#new-post-title')
-    await expect(title).toHaveAttribute('placeholder', 'Article title')
+    await expect(title).toHaveAttribute('placeholder', 'Title')
     await title.fill('A title worth preserving')
     await expect
         .poll(async () => {
@@ -827,7 +847,7 @@ test('shows custom headline and length feedback without blocking invalid drafts'
     await page.goto(`/dashboard/projects/${projectId}/publications/new`)
     const source = page.getByRole('textbox', { name: 'Content', exact: true })
     await expect(
-        page.getByText('Destination limits could not be checked.', { exact: true })
+        page.getByText('Channel limits could not be checked.', { exact: true })
     ).toBeVisible()
     const initialReads = reads
     expect(initialReads).toBeGreaterThan(0)
@@ -1341,7 +1361,14 @@ test('upgrades LinkedIn explicitly and composes multiple images without changing
             .click()
     await page.getByRole('button', { name: 'Done', exact: true }).click()
     await expect(page.locator('[data-media-selection-preview="true"]')).toHaveCount(3)
-    await expect(page.locator('[data-preview-platform="linkedin"] img')).toHaveCount(4)
+    const preview = page.locator('[data-preview-platform="linkedin"]')
+    await expect(preview.locator('header')).toContainText('LinkedIn images')
+    const images = preview.locator('[data-publication-preview-media] img')
+    await expect(images).toHaveCount(assets.length)
+    for (const [index, filename] of filenames.entries()) {
+        await expect(images.nth(index)).toHaveAttribute('alt', `Alt text for ${filename}`)
+        await expect(images.nth(index)).toHaveAttribute('src', new RegExp(assets[index]!))
+    }
     const saving = page.waitForResponse(
         response => response.url().endsWith('/posts') && response.request().method() === 'POST'
     )
@@ -1368,16 +1395,13 @@ test('upgrades LinkedIn explicitly and composes multiple images without changing
     expect(editor.profile.profile.execution.revision).toBe('member-post-v4')
 })
 
-for (const [platform, revision] of [
-    ['linkedin', 'member-post-v4'],
-    ['mastodon', 'status-v3'],
-    ['discord', 'message-v2'],
-    ['bluesky', 'post-v2'],
-] as const) {
+for (const platform of ['linkedin', 'mastodon', 'discord', 'bluesky'] as const) {
     test(`imports and plays a native ${platform} MP4 and preserves it in the destination draft`, async ({
         page,
     }, info) => {
         const projectId = await createProject(page)
+        const preset = (await serverPresets(page))[platform]!
+        expect(preset.execution).toMatchObject({ kind: 'built_in', contractId: platform })
         const channel = await page.request.post(`/api/projects/${projectId}/channels`, {
             data: { name: `${platform} video`, profile: platform },
         })
@@ -1476,7 +1500,7 @@ for (const [platform, revision] of [
                 ...(platform !== 'linkedin' ? { accessibilityText: 'A moving scene' } : {}),
             },
         ])
-        expect(editor.profile.profile.execution.revision).toBe(revision)
+        expect(editor.profile.profile.execution).toEqual(preset.execution)
         if (platform === 'discord' || platform === 'bluesky') {
             await page.goto(`/dashboard/projects/${projectId}/publications/${publication.id}`)
             const targetSection = page
