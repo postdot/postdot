@@ -7,6 +7,7 @@ import { mergeProps } from '@base-ui/react/merge-props'
 import { useRender } from '@base-ui/react/use-render'
 import { Popover, PopoverContent, PopoverTrigger } from '@postdot/ui/components/popover'
 import { ScrollArea } from '@postdot/ui/components/scroll-area'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@postdot/ui/components/tooltip'
 import { cn } from '@postdot/ui/lib/utils'
 import { AddIcon } from '@solar-icons/react/linear/add'
 import { addDays, format, getWeek } from 'date-fns'
@@ -868,21 +869,31 @@ function EventCalendarMonthCell({
                     })}
                 </span>
                 {viewConfig.showDayAddButton && !isInteracting && (
-                    <button
-                        type="button"
-                        data-slot="event-calendar-day-add"
-                        aria-label={settings.i18n.labels.addEvent}
-                        // a different icon/markup is a renderMonthCell job
-                        className={cn(
-                            'bg-primary text-primary-foreground flex size-5 cursor-pointer items-center justify-center rounded-sm opacity-0 transition-opacity group-hover/ec-cell:opacity-100 focus-visible:opacity-100',
-                            viewConfig.classNames?.dayAddButton
-                        )}
-                        onClick={e => {
-                            e.stopPropagation()
-                            settings.onSlotClick?.({ date: day, allDay: true, view: 'month' }, e)
-                        }}>
-                        <AddIcon className="size-3.5" aria-hidden="true" />
-                    </button>
+                    <Tooltip>
+                        <TooltipTrigger
+                            render={
+                                <button
+                                    type="button"
+                                    data-slot="event-calendar-day-add"
+                                    aria-label={settings.i18n.labels.addEvent}
+                                    // a different icon/markup is a renderMonthCell job
+                                    className={cn(
+                                        'bg-primary text-primary-foreground flex size-5 cursor-pointer items-center justify-center rounded-sm opacity-0 transition-opacity group-hover/ec-cell:opacity-100 focus-visible:opacity-100',
+                                        viewConfig.classNames?.dayAddButton
+                                    )}
+                                    onClick={e => {
+                                        e.stopPropagation()
+                                        settings.onSlotClick?.(
+                                            { date: day, allDay: true, view: 'month' },
+                                            e
+                                        )
+                                    }}>
+                                    <AddIcon className="size-3.5" aria-hidden="true" />
+                                </button>
+                            }
+                        />
+                        <TooltipContent>{settings.i18n.labels.addEvent}</TooltipContent>
+                    </Tooltip>
                 )}
             </div>
             <div

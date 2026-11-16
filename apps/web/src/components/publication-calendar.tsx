@@ -14,13 +14,18 @@ import {
     useRef,
     useState,
     useSyncExternalStore,
-    type CSSProperties,
     type MouseEvent,
     type RefObject,
 } from 'react'
 
 import { EmptyState } from '@/components/empty-state'
 import { ChannelAvatar } from '@/components/identity-visuals'
+import {
+    CalendarStatusGlyph,
+    calendarEntryStatus,
+    PublicationEntryMenu,
+    PublicationHoverCard,
+} from '@/components/publication-calendar-entry'
 import { PublicationCalendarPreview } from '@/components/publication-calendar-preview'
 import {
     EventCalendar,
@@ -42,6 +47,7 @@ import type {
 import type { Channel, ChannelOccupancy, PublicationSummary } from '@/lib/api'
 import { getZonedDateTimeParts } from '@/lib/date-time'
 import { formatTime } from '@/lib/format'
+import { useProjectPublicationActions } from '@/lib/project-publication-actions'
 import { formatCalendarTitle } from '@/lib/publication-calendar'
 import { toDateKey } from '@/lib/publication-calendar'
 import {
@@ -118,13 +124,6 @@ export function PublicationCalendar({
         () => new Map(channels.map(channel => [channel.id, channel])),
         [channels]
     )
-    const publicationEvents = useMemo(
-        () =>
-            groupPublicationCalendarEvents(
-                toPublicationCalendarEvents(publications, duePublicationIds)
-            ),
-        [duePublicationIds, publications]
-    )
     const occupancyEvents = useMemo(
         () =>
             toOccupancyCalendarEvents(occupancy, item => {
@@ -134,10 +133,6 @@ export function PublicationCalendar({
                     : `${item.project.title ?? m.calendar_occupied({ channel })} · ${item.project.name}`
             }),
         [channelsById, occupancy]
-    )
-    const events = useMemo<CalendarEvent<PublicationCalendarEventData>[]>(
-        () => [...publicationEvents, ...occupancyEvents],
-        [occupancyEvents, publicationEvents]
     )
     const dateFnsLocale = dateFnsLocales[calendarLocale(locale)]
     const i18n = useMemo(() => createCalendarI18n(locale, timeZone), [locale, timeZone])
@@ -149,6 +144,21 @@ export function PublicationCalendar({
     const todayKey = toDateKey(new Date(), timeZone)
     const viewPreference = initialView ?? 'auto'
     const view = viewPreference === 'auto' ? (isNarrow ? 'agenda' : 'month') : viewPreference
+    // Month and agenda only say the day, so a post's channels share one entry for the day;
+    // week and day place entries on a time axis, where only the same minute can share one.
+    const groupByDay = view === 'month' || view === 'agenda'
+    const publicationEvents = useMemo(
+        () =>
+            groupPublicationCalendarEvents(
+                toPublicationCalendarEvents(publications, duePublicationIds),
+                groupByDay ? timeZone : undefined
+            ),
+        [duePublicationIds, groupByDay, publications, timeZone]
+    )
+    const events = useMemo<CalendarEvent<PublicationCalendarEventData>[]>(
+        () => [...publicationEvents, ...occupancyEvents],
+        [occupancyEvents, publicationEvents]
+    )
     const eventIdsByKey = useMemo(
         () =>
             new Map(
@@ -269,6 +279,32 @@ export function PublicationCalendar({
         },
         [onSelectedPublicationIdsChange, selectedPublicationIds]
     )
+    const { onPublish, onRetryPublication, pending: actionPending } = useProjectPublicationActions()
+    const entryActions = useMemo<EntryActions>(
+        () => ({
+            duePublicationIds,
+            onMarkPublished: publicationId => void onPublish(publicationId),
+            onOpen: openPublication,
+            onPreview: openPublicationPreview,
+            onRetry: publicationId => void onRetryPublication(publicationId),
+            onSelect: publicationIds => {
+                setSelectionMode(true)
+                togglePublicationSelection(publicationIds)
+            },
+            pending: actionPending,
+            readOnly,
+        }),
+        [
+            actionPending,
+            duePublicationIds,
+            onPublish,
+            onRetryPublication,
+            openPublication,
+            openPublicationPreview,
+            readOnly,
+            togglePublicationSelection,
+        ]
+    )
     const handleEventClick = useCallback(
         (occurrence: EventCalendarOccurrence<PublicationCalendarEventData>, event: MouseEvent) => {
             const publication = occurrence.event.data?.publication
@@ -292,6 +328,7 @@ export function PublicationCalendar({
     const renderEvent = useCallback(
         ({ occurrence, view }: EventCalendarRenderEventProps<PublicationCalendarEventData>) => (
             <PublicationEventContent
+                actions={entryActions}
                 channelsById={channelsById}
                 occurrence={occurrence}
                 locale={locale}
@@ -299,7 +336,24 @@ export function PublicationCalendar({
                 view={view}
             />
         ),
-        [channelsById, locale, timeZone]
+        [channelsById, entryActions, locale, timeZone]
+    )
+    const renderEventTooltip = useCallback(
+        ({ occurrence }: { occurrence: EventCalendarOccurrence<PublicationCalendarEventData> }) => {
+            const data = occurrence.event.data
+            if (data?.publication === undefined) return occurrence.event.title
+            const members = data.publications
+            return (
+                <PublicationHoverCard
+                    channelsById={channelsById}
+                    duePublicationIds={duePublicationIds}
+                    locale={locale}
+                    publications={members}
+                    timeZone={timeZone}
+                />
+            )
+        },
+        [channelsById, duePublicationIds, locale, timeZone]
     )
 
     return (
@@ -345,8 +399,15 @@ export function PublicationCalendar({
                 views={CALENDAR_VIEWS}
                 weekStartsOn={1}
                 renderEvent={renderEvent}
+                // Our hover card replaces the browser's title tooltip on every entry.
+                eventTooltip={{ delay: 350, side: 'bottom' }}
+                renderEventTooltip={renderEventTooltip}
                 classNames={{
-                    dayAddButton: 'rounded-sm shadow-control',
+                    // A quiet "+" that does not compete with the day's entries.
+                    dayAddButton:
+                        'size-6 rounded-md bg-transparent text-muted-foreground hover:bg-surface-hover hover:text-foreground',
+                    eventTooltip:
+                        'block w-72 max-w-[calc(100vw-2rem)] rounded-lg border border-border bg-popover p-3 text-popover-foreground shadow-overlay *:data-side:hidden',
                     event: 'inset-ring-0 !shadow-none !bg-transparent dark:!bg-transparent hover:!bg-surface-hover dark:hover:!bg-surface-hover data-selected:!bg-primary/15 dark:data-selected:!bg-primary/20 data-selected:!inset-ring-primary/55 rounded-sm',
                     monthBar: 'px-0.5',
                     monthBarOverlay: 'pt-8',
@@ -378,6 +439,7 @@ export function PublicationCalendar({
                 />
                 <div className="mb-3 empty:hidden">{filterSummary}</div>
                 <CalendarBody
+                    actions={entryActions}
                     channelsById={channelsById}
                     locale={locale}
                     onEventClick={openPublicationPreview}
@@ -535,7 +597,19 @@ function EventCalendarToolbar({
     )
 }
 
+interface EntryActions {
+    readonly duePublicationIds: ReadonlySet<string>
+    readonly onMarkPublished: (publicationId: string) => void
+    readonly onOpen: (publicationId: string) => void
+    readonly onPreview: (publicationId: string) => void
+    readonly onRetry: (publicationId: string) => void
+    readonly onSelect: (publicationIds: readonly string[]) => void
+    readonly pending: boolean
+    readonly readOnly: boolean
+}
+
 function CalendarBody({
+    actions,
     channelsById,
     locale,
     onEventClick,
@@ -545,6 +619,7 @@ function CalendarBody({
     selectionMode,
     timeZone,
 }: {
+    readonly actions: EntryActions
     readonly channelsById: ReadonlyMap<string, ChannelIdentity>
     readonly locale: string
     readonly onEventClick: (publicationId: string) => void
@@ -560,6 +635,7 @@ function CalendarBody({
         return (
             <div data-calendar-view="agenda">
                 <PublicationCalendarAgenda
+                    actions={actions}
                     channelsById={channelsById}
                     locale={locale}
                     onEventClick={onEventClick}
@@ -608,6 +684,7 @@ function useMediaQuery(query: string) {
 }
 
 function PublicationCalendarAgenda({
+    actions,
     channelsById,
     locale,
     onEventClick,
@@ -616,6 +693,7 @@ function PublicationCalendarAgenda({
     selectionMode,
     timeZone,
 }: {
+    readonly actions: EntryActions
     readonly channelsById: ReadonlyMap<string, ChannelIdentity>
     readonly locale: string
     readonly onEventClick: (publicationId: string) => void
@@ -723,36 +801,33 @@ function PublicationCalendarAgenda({
                                             : onEventClick(publication.id)
                                     }
                                     type="button">
-                                    <span
-                                        aria-hidden="true"
-                                        className={cn(
-                                            'h-5 w-0.5 shrink-0 rounded-full bg-(--publication-color)',
-                                            occurrence.event.color === 'var(--color-primary)' &&
-                                                'invisible'
-                                        )}
-                                        style={
-                                            {
-                                                '--publication-color': occurrence.event.color,
-                                            } as CSSProperties
-                                        }
-                                    />
-                                    <span className="w-16 shrink-0 text-xs tabular-nums text-muted-foreground">
-                                        {time}
-                                    </span>
-                                    <ChannelMarks
-                                        channelsById={channelsById}
-                                        publications={members}
-                                        size="sm"
-                                    />
-                                    <span className="min-w-0 flex-1 truncate text-sm font-medium">
-                                        {occurrence.event.title}
-                                    </span>
-                                    <span
-                                        className="hidden min-w-0 max-w-[35%] truncate text-xs text-muted-foreground sm:inline"
-                                        data-agenda-channel="true"
-                                        title={channelLabel}>
-                                        {channelLabel}
-                                    </span>
+                                    <PublicationEntryMenu {...actions} publications={members}>
+                                        <span className="flex w-4 shrink-0 justify-center">
+                                            <CalendarStatusGlyph
+                                                publications={members}
+                                                status={calendarEntryStatus(
+                                                    members,
+                                                    actions.duePublicationIds
+                                                )}
+                                            />
+                                        </span>
+                                        <span className="w-16 shrink-0 text-xs tabular-nums text-muted-foreground">
+                                            {time}
+                                        </span>
+                                        <ChannelMarks
+                                            channelsById={channelsById}
+                                            publications={members}
+                                            size="sm"
+                                        />
+                                        <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                                            {occurrence.event.title}
+                                        </span>
+                                        <span
+                                            className="hidden min-w-0 max-w-[35%] truncate text-xs text-muted-foreground sm:inline"
+                                            data-agenda-channel="true">
+                                            {channelLabel}
+                                        </span>
+                                    </PublicationEntryMenu>
                                 </button>
                             )
                         })}
@@ -764,12 +839,14 @@ function PublicationCalendarAgenda({
 }
 
 function PublicationEventContent({
+    actions,
     channelsById,
     occurrence,
     locale,
     timeZone,
     view,
 }: {
+    readonly actions: EntryActions
     readonly channelsById: ReadonlyMap<string, ChannelIdentity>
     readonly occurrence: EventCalendarOccurrence<PublicationCalendarEventData>
     readonly locale: string
@@ -794,40 +871,40 @@ function PublicationEventContent({
     }
     const time = formatTime(publication.scheduledAt as number, timeZone, locale)
     const members = occurrence.event.data?.publications ?? [publication]
-    // Only a state that asks for attention, failed or done earns a mark; scheduled is the norm.
-    const statusMarker =
-        occurrence.event.color === 'var(--color-primary)' ? null : (
-            <span
-                aria-hidden="true"
-                className="h-3 w-0.5 shrink-0 self-center rounded-full bg-(--publication-color)"
-                style={
-                    {
-                        '--publication-color': occurrence.event.color ?? 'var(--color-primary)',
-                    } as CSSProperties
-                }
-            />
-        )
+    const channelNames = members.map(item => item.channelName).join(', ')
 
-    // C1/C7: every entry carries its state, its channels and its time on one line.
+    // C1/C7: every entry carries its state, its channels and its time on one line. The hover
+    // card details each channel; a right click opens the entry's actions.
     return (
-        <span
-            className="flex min-w-0 flex-1 items-center gap-1.5"
-            data-calendar-entry-channels={members.length}
-            title={`${time} · ${occurrence.event.title} · ${members.map(item => item.channelName).join(', ')}`}>
-            {statusMarker}
-            <ChannelMarks channelsById={channelsById} publications={members} size="xs" />
-            {/* In the week grid the position already says the time; the title gets the room. */}
-            {view === 'week' ? null : (
-                <span className="shrink-0 tabular-nums text-muted-foreground">{time}</span>
-            )}
-            <span className="min-w-0 truncate font-medium">{occurrence.event.title}</span>
-            <span className="sr-only">{members.map(item => item.channelName).join(', ')}</span>
-            {view === 'day' ? (
-                <span className="hidden min-w-0 truncate text-muted-foreground @[24rem]:inline">
-                    {members.map(item => item.channelName).join(', ')}
-                </span>
-            ) : null}
-        </span>
+        <PublicationEntryMenu {...actions} publications={members}>
+            <span
+                className="flex min-w-0 flex-1 items-center gap-1.5"
+                data-calendar-entry-channels={members.length}>
+                <CalendarStatusGlyph
+                    publications={members}
+                    status={calendarEntryStatus(members, actions.duePublicationIds)}
+                />
+                <ChannelMarks channelsById={channelsById} publications={members} size="xs" />
+                {/* In the week grid the position already says the time; the title gets the room. */}
+                {/* In a narrow month cell the title wins; the hover card still gives each time. */}
+                {view === 'week' ? null : (
+                    <span
+                        className={cn(
+                            'shrink-0 tabular-nums text-muted-foreground',
+                            view === 'month' && 'hidden @[10rem]:inline'
+                        )}>
+                        {time}
+                    </span>
+                )}
+                <span className="min-w-0 truncate font-medium">{occurrence.event.title}</span>
+                <span className="sr-only">{channelNames}</span>
+                {view === 'day' ? (
+                    <span className="hidden min-w-0 truncate text-muted-foreground @[24rem]:inline">
+                        {channelNames}
+                    </span>
+                ) : null}
+            </span>
+        </PublicationEntryMenu>
     )
 }
 

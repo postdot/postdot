@@ -653,6 +653,7 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 ## Closed 2026-11-16
 
 - [x] **[UX-669]** Repair seven stale or failing browser specs `Priority: 🟠` `Complexity: M` `Completed: 2026-11-16` [Worklog](../../worklogs/2026-11-16-UX-669.md)
+- [x] **[UX-677]** Calendar: one entry per post with channel avatars, hover preview, context menu, explicit status markers `Priority: 🟠` `Complexity: L` `Completed: 2026-11-16` [Worklog](../../worklogs/2026-11-16-UX-677.md)
 - [x] **[UX-671]** Repair editor composer pilot browser assertions `Priority: 🟠` `Complexity: M` `Completed: 2026-11-16` [Worklog](../../worklogs/2026-11-16-UX-671.md)
 - [x] **[UX-663]** Identity images for projects, workspaces and channels (owner feedback, 2026-11-15) `Priority: 🔵` `Complexity: L` `Completed: 2026-11-15`
 - [x] **[UX-664]** Settings pages on one anatomy (owner review, 2026-11-15) `Priority: 🔵` `Complexity: M` `Completed: 2026-11-15`

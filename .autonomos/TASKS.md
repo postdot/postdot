@@ -19,7 +19,6 @@
 
 - [/] **[UX-676]** Sweep Studio copy for machine-written tics and guard them automatically `Priority: 🔵` `Complexity: M`
 
-- [/] **[UX-677]** Calendar: one entry per post with channel avatars, hover preview, context menu, explicit status markers `Priority: 🟠` `Complexity: L`
 
 ## Current direction
 

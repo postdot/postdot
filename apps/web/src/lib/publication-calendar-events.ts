@@ -1,5 +1,6 @@
 import type { CalendarEvent } from '@/components/reui/event-calendar/event-calendar-types'
 import type { ChannelOccupancy, PublicationSummary } from '@/lib/api'
+import { toDateKey } from '@/lib/publication-calendar'
 import { publicationIdentityLabel } from '@/lib/publication-identity'
 
 type PublicationCalendarView = 'month' | 'week' | 'day' | 'agenda'
@@ -66,18 +67,26 @@ export function toPublicationCalendarEvents(
 }
 
 /**
- * A post sent to several channels at the same minute is one calendar entry with its channels,
- * not one line per channel. The group keeps the first publication's id so a single-channel
- * entry is unchanged, and takes the most urgent state colour of its members.
+ * A post sent to several channels is one calendar entry with its channels, not one line per
+ * channel (ADR-103 §3). Views that only show the day (month, agenda) group a post's channels
+ * across the whole civil day in `dayTimeZone`, so channels staggered by a cadence still read
+ * as one post; views placed on a time axis (week, day) group the same minute only. The group
+ * keeps its earliest publication as lead, so a single-channel entry is unchanged, and takes
+ * the most urgent state colour of its members.
  */
 export function groupPublicationCalendarEvents(
-    events: readonly CalendarEvent<PublicationEventData>[]
+    events: readonly CalendarEvent<PublicationEventData>[],
+    dayTimeZone?: string
 ): CalendarEvent<PublicationEventData>[] {
     const groups = new Map<string, CalendarEvent<PublicationEventData>>()
     for (const event of events) {
         const data = event.data
         if (data === undefined) continue
-        const key = `${data.publication.postId}:${Math.floor(event.start.getTime() / 60_000)}`
+        const slot =
+            dayTimeZone === undefined
+                ? String(Math.floor(event.start.getTime() / 60_000))
+                : toDateKey(event.start, dayTimeZone)
+        const key = `${data.publication.postId}:${slot}`
         const current = groups.get(key)
         if (current?.data === undefined) {
             groups.set(key, event)

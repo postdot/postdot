@@ -23,6 +23,7 @@ export {
 } from './button-group'
 export { Alert, AlertAction, AlertDescription, AlertTitle } from './alert'
 export { Avatar, AvatarFallback, AvatarImage } from './avatar'
+export { ContextMenu, ContextMenuContent, ContextMenuTrigger } from './context-menu'
 export {
     Card,
     CardAction,

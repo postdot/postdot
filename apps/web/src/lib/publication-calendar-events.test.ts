@@ -113,4 +113,26 @@ describe('publication calendar adapter', () => {
         ])
         expect(launch?.color).toBe('var(--color-state-failed)')
     })
+    test('groups a post staggered across one civil day into a single entry led by its earliest channel', () => {
+        const morning = Date.UTC(2026, 10, 16, 8, 0)
+        const events = groupPublicationCalendarEvents(
+            toPublicationCalendarEvents(
+                [
+                    publication('newsletter', morning, { postId: 'spring' }),
+                    publication('digest', morning + 3_600_000, { postId: 'spring' }),
+                    // 23:30 UTC is already the next day in Paris.
+                    publication('late', Date.UTC(2026, 10, 16, 23, 30), { postId: 'spring' }),
+                    publication('other', morning, { postId: 'other-post' }),
+                ],
+                new Set()
+            ),
+            'Europe/Paris'
+        )
+
+        expect(events).toHaveLength(3)
+        const spring = events.find(event => event.id === 'newsletter')
+        expect(spring?.start.getTime()).toBe(morning)
+        expect(spring?.data?.publications.map(item => item.id)).toEqual(['newsletter', 'digest'])
+        expect(events.some(event => event.id === 'late')).toBe(true)
+    })
 })
