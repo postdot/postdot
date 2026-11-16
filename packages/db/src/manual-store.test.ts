@@ -3139,6 +3139,77 @@ describe('manual workflow store', () => {
         }
     })
 
+    it('keeps sibling versions current when a source change leaves them unchanged', async () => {
+        const database = (await openTestDatabase()).database
+        const now = 1_800_000_000_000
+
+        try {
+            const store = createManualStore(database, { now: () => now })
+            const project = await store.createProject({
+                workspaceId: await seedTestWorkspace(database),
+                name: 'Undo Source Project',
+                subjectId: 'user-1',
+                displayName: 'Operator',
+            })
+            const firstChannel = await store.createChannel({
+                projectId: project.project.id,
+                subjectId: 'user-1',
+                name: 'First Channel',
+            })
+            const secondChannel = await store.createChannel({
+                projectId: project.project.id,
+                subjectId: 'user-1',
+                name: 'Second Channel',
+            })
+            if (firstChannel === null || secondChannel === null) {
+                throw new Error('The channels were not created')
+            }
+            const created = await store.createPost({
+                projectId: project.project.id,
+                subjectId: 'user-1',
+                sourceContent: sourceContent('Initial source'),
+                publications: [{ channelId: firstChannel.id }, { channelId: secondChannel.id }],
+            })
+            const first = created?.publications[0]
+            const second = created?.publications[1]
+            if (first === undefined || second === undefined) {
+                throw new Error('The publications are missing')
+            }
+
+            // A change the sibling does not show yet leaves it behind for review.
+            await store.savePublicationDraft({
+                projectId: project.project.id,
+                publicationId: first.id,
+                subjectId: 'user-1',
+                expectedRevision: 1,
+                sourceContent: sourceContent('Typed by mistake'),
+                targetContent: { body: 'Typed by mistake', media: [] },
+            })
+            expect(
+                await store.getPublicationWorkingDraft(project.project.id, second.id, 'user-1')
+            ).toMatchObject({ revision: 1, sourceRevision: 1 })
+
+            // Undoing it brings the post back to what the sibling shows: nothing to review.
+            await store.savePublicationDraft({
+                projectId: project.project.id,
+                publicationId: first.id,
+                subjectId: 'user-1',
+                expectedRevision: 2,
+                sourceContent: sourceContent('Initial source'),
+                targetContent: { body: 'Initial source', media: [] },
+            })
+            expect(
+                await store.getPublicationWorkingDraft(project.project.id, second.id, 'user-1')
+            ).toMatchObject({
+                revision: 2,
+                sourceRevision: 3,
+                baseSourceContent: sourceContent('Initial source'),
+                content: { body: 'Initial source', media: [] },
+            })
+        } finally {
+            await closeTestDatabase(database)
+        }
+    })
     it('reconciles an ambiguous publication with explicit operator attribution', async () => {
         const database = (await openTestDatabase()).database
         const now = 1_800_000_000_000

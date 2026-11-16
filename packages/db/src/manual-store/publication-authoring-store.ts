@@ -131,6 +131,30 @@ export function createPublicationAuthoringStore(
           and publication_id = ?6
           and revision = ?7
     `)
+    const listSiblingWorkingDraftsStatement = sql.statement<
+        {
+            publicationId: string
+            profileVersionId: string
+            sourceRevision: number
+            contentJson: string
+            revision: number
+        },
+        [projectId: string, postId: string, publicationId: string]
+    >(`
+        select publication_working_drafts.publication_id as publicationId,
+               publication_working_drafts.profile_version_id as profileVersionId,
+               publication_working_drafts.source_revision as sourceRevision,
+               publication_working_drafts.content_json as contentJson,
+               publication_working_drafts.revision as revision
+        from publication_working_drafts
+        inner join publications
+            on publications.project_id = publication_working_drafts.project_id
+           and publications.id = publication_working_drafts.publication_id
+        where publication_working_drafts.project_id = ?1
+          and publications.post_id = ?2
+          and publications.id <> ?3
+          and publications.state in ('draft', 'scheduled', 'ready', 'failed')
+    `)
     const supersedePendingApprovalRequestStatement = sql.statement<
         { changes: number },
         [
@@ -293,6 +317,47 @@ export function createPublicationAuthoringStore(
                     throw new DomainInvariantError(
                         'claim_mismatch',
                         `Could not update source post ${publicationRow.postId}`
+                    )
+                }
+            }
+
+            if (sourceChanged) {
+                // A sibling channel version that this change leaves exactly as it is stays
+                // current: there is nothing to review, so it is not reported as behind. This
+                // also settles siblings when a change is undone and the post returns to text
+                // they already show. Versions the change would alter stay behind for review.
+                const siblings = await listSiblingWorkingDraftsStatement.all(
+                    input.projectId,
+                    publicationRow.postId,
+                    input.publicationId
+                )
+                for (const sibling of siblings) {
+                    if (sibling.sourceRevision >= sourceRevision) continue
+                    const siblingProfileRow = await options.loadProfile(
+                        input.projectId,
+                        sibling.profileVersionId
+                    )
+                    if (!siblingProfileRow) continue
+                    const siblingProfile = options.profileCompiler.compile(
+                        parseProfile(siblingProfileRow.profileJson)
+                    )
+                    if (!siblingProfile.ok) continue
+                    const siblingContent: unknown = JSON.parse(sibling.contentJson)
+                    if (!isRecord(siblingContent)) continue
+                    const projected = applySourceContentToTarget(
+                        sourceResult.value,
+                        siblingProfile.value.profile,
+                        siblingContent
+                    )
+                    if (canonicalJson(projected) !== canonicalJson(siblingContent)) continue
+                    await rebaseWorkingDraftStatement.run(
+                        sourceRevision,
+                        sourceContentJson,
+                        actorRow.id,
+                        timestamp,
+                        input.projectId,
+                        sibling.publicationId,
+                        sibling.revision
                     )
                 }
             }
