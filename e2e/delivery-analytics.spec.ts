@@ -183,7 +183,7 @@ test('warns about incomplete history and suppresses misleading period changes', 
     const dashboard = page.locator('[data-delivery-dashboard]')
     await expect(
         dashboard.getByText(
-            'Some recorded events could not be interpreted. Totals may be incomplete; comparisons are unavailable.',
+            'Some recorded events could not be interpreted. Totals may be incomplete, and comparisons are unavailable.',
             { exact: true }
         )
     ).toBeVisible()
