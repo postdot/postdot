@@ -370,7 +370,7 @@ export function PublicationPerformancePage({
                         const value =
                             observation?.availability === 'measured' && observation.value !== null
                                 ? formatNumber(observation.value, locale)
-                                : '—'
+                                : '-'
                         return (
                             <div key={metric.key} className="min-w-12">
                                 <p className="text-[0.65rem] text-muted-foreground">

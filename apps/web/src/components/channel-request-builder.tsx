@@ -231,5 +231,5 @@ function dynamicLabel(value: unknown) {
         if ('pointer' in value && typeof value.pointer === 'string')
             return m.request_dynamic({ path: value.pointer })
     }
-    return m.request_dynamic({ path: '—' })
+    return m.request_dynamic({ path: '-' })
 }

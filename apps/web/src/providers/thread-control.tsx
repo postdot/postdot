@@ -137,7 +137,7 @@ function ThreadControl({
                             <p
                                 id={`${id}-count`}
                                 className={invalid ? 'text-destructive' : 'text-muted-foreground'}>
-                                {m.thread_count({ count: count ?? '—', limit })}
+                                {m.thread_count({ count: count ?? '-', limit })}
                             </p>
                         </div>
                     </div>

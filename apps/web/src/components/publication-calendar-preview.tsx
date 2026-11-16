@@ -23,7 +23,7 @@ import * as m from '@/paraglide/messages.js'
 import { PublicationCadenceStatus } from './publication-cadence-status'
 
 /**
- * C8: a compact card for one calendar entry — the post, each of its channels with time and
+ * C8: a compact card for one calendar entry: the post, each of its channels with time and
  * state, an excerpt, then the action. It dims the page without blurring it (ADR-103 §2).
  */
 export function PublicationCalendarPreview({

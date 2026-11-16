@@ -129,7 +129,7 @@ export async function createEmailSettingsService(options: {
         async test(email: string) {
             await sendMail({
                 to: email,
-                subject: 'Postdot — SMTP test',
+                subject: 'Postdot: SMTP test',
                 text: 'Postdot successfully submitted this test email to your SMTP server.',
             })
             return { accepted: true as const }

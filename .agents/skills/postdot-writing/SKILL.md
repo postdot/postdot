@@ -65,6 +65,11 @@ writing quality. Keep ordinary prose where a component adds no reading value.
 Break long passages at useful task boundaries; use native Steps for a sequential
 lesson and navigation icons as landmarks, without decorating every paragraph.
 
+Never write an em dash or an en dash in product copy, emails or docs. People do
+not type them and the owner reads them as machine-written text. Use a period, a
+colon, a comma or a plain hyphen. `apps/web/src/lib/copy-typography.test.ts`
+enforces this for the Studio catalogs (owner correction, 2026-11-16).
+
 ## Evolve without accumulating clutter
 
 When the owner gives a correction, capture its scope and one short example in this

@@ -222,7 +222,7 @@ export function PublicationChannelTabs({
 
     return (
         <LayoutGroup id="new-publication-channels">
-            {/* P1–P3: labelled chips. The pressed chip is what the editor edits; "All channels"
+            {/* P1 to P3: labelled chips. The pressed chip is what the editor edits; "All channels"
                 edits the text every channel shares. Channels not yet chosen follow, then
                 channel creation closes the list. */}
             <div

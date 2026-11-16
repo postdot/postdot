@@ -23,9 +23,9 @@ export function shortExcerpt(text: string, maxLength = 60) {
         .replace(/https?:\/\/\S+/g, '')
         .replace(/\s+/g, ' ')
         .trim()
-        .replace(/[\s:,;–—-]+$/, '')
+        .replace(/[\s:,;\u2013\u2014-]+$/, '')
     if (clean.length <= maxLength) return clean
     const cut = clean.slice(0, maxLength)
     const boundary = cut.lastIndexOf(' ')
-    return `${(boundary > maxLength / 2 ? cut.slice(0, boundary) : cut).replace(/[\s,.;:–—-]+$/, '')}…`
+    return `${(boundary > maxLength / 2 ? cut.slice(0, boundary) : cut).replace(/[\s,.;:\u2013\u2014-]+$/, '')}…`
 }

@@ -689,7 +689,7 @@ export function PublicationRow({
                     </div>
                 ) : (
                     // The group or page already shows the post; assistive tech still needs it.
-                    <span className="sr-only">{identityLabel} — </span>
+                    <span className="sr-only">{identityLabel}, </span>
                 )}
                 <div className={cn('min-w-0', !showIdentity && 'lg:col-span-2')}>
                     <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
@@ -770,7 +770,7 @@ function normalizePublicationTimestamp(value: unknown): number | null {
 }
 
 function formatPublicationDateTime(timestamp: number | null, timeZone: string, locale: string) {
-    return timestamp === null ? '—' : formatProjectDateTime(timestamp, timeZone, locale)
+    return timestamp === null ? '-' : formatProjectDateTime(timestamp, timeZone, locale)
 }
 
 function PublicationMediaThumbnail({ publication }: { readonly publication: PublicationSummary }) {

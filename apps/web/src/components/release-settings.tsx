@@ -52,7 +52,7 @@ export function ReleaseSettings() {
                                 ? identity(apiRelease.version, apiRelease.revision)
                                 : release.isPending
                                   ? m.common_loading()
-                                  : '—'}
+                                  : '-'}
                         </span>
                     }
                     title={m.release_api()}

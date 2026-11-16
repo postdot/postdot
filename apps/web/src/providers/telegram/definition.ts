@@ -36,7 +36,7 @@ export const telegramProvider = {
                                     duration: telegramPollDuration(poll.openPeriod),
                                 }),
                       ].join('\n')
-                    : '—'
+                    : '-'
             },
         },
     ],

@@ -10,7 +10,7 @@ import { PageColumn } from '@/components/page-column'
  * Settings anatomy (owner review, 2026-11-15; see DESIGN.md "Settings pages").
  * A page is a stack of sections; a section is a short heading, one sentence of
  * consequence, and a card of rows. A row is an icon, a title, a short
- * description and, on the right, its control — or a chevron when it opens
+ * description and, on the right, its control, or a chevron when it opens
  * somewhere else. Pages do not compose their own variants of these.
  */
 export function SettingsPage({

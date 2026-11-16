@@ -74,7 +74,7 @@ export const mcpToolCatalog: readonly McpToolEntry[] = [
         operationId: 'createUserApiKey',
         confirm: true,
         guidance:
-            'Mints an API key bounded by the caller scopes and capabilities. Security notice: the plaintext token is returned once in the tool output — transfer it securely and avoid exposing it in logs or prompts.',
+            'Mints an API key bounded by the caller scopes and capabilities. Security notice: the plaintext token is returned once in the tool output. Transfer it securely and avoid exposing it in logs or prompts.',
     },
     {
         operationId: 'updateUserApiKey',

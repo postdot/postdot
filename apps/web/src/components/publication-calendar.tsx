@@ -708,7 +708,7 @@ function PublicationCalendarAgenda({
                             const selected = memberIds.every(id => selectedPublicationIds.has(id))
                             return (
                                 <button
-                                    aria-label={`${occurrence.event.title} — ${channelLabel} — ${time}`}
+                                    aria-label={`${occurrence.event.title}, ${channelLabel}, ${time}`}
                                     aria-pressed={selectionMode ? selected : undefined}
                                     className={cn(
                                         'group flex min-w-0 items-center gap-3 rounded-md px-2 py-2 text-left transition-colors hover:bg-surface-hover focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring',

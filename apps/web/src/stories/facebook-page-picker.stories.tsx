@@ -15,7 +15,7 @@ export default meta
 
 type Story = StoryObj
 const pages = [
-    { id: '101', name: 'Postdot — Product updates', hasPublishTask: true },
+    { id: '101', name: 'Postdot: Product updates', hasPublishTask: true },
     { id: '102', name: 'Community', hasPublishTask: false },
     { id: '103', name: 'Studio announcements', hasPublishTask: true },
 ]

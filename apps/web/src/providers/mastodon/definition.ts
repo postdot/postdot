@@ -47,7 +47,7 @@ export const mastodonProvider = {
                           ...(poll.multiple ? [m.poll_multiple()] : []),
                           ...(poll.hideTotals ? [m.poll_hide_totals()] : []),
                       ].join('\n')
-                    : '—'
+                    : '-'
             },
         },
     ],

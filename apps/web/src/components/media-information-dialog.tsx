@@ -141,13 +141,13 @@ export function MediaInformationDialog({
                                 {m.media_info_details()}
                             </h2>
                             <dl className="mt-4 grid gap-2.5">
-                                <InfoRow label={m.media_info_format()} value={format ?? '—'} />
+                                <InfoRow label={m.media_info_format()} value={format ?? '-'} />
                                 <InfoRow
                                     label={m.media_info_size()}
                                     value={
                                         representation?.byteSize === null ||
                                         representation?.byteSize === undefined
-                                            ? '—'
+                                            ? '-'
                                             : formatBytes(representation.byteSize, locale)
                                     }
                                 />
@@ -171,7 +171,7 @@ export function MediaInformationDialog({
                                 {hasAccessibilityText ? (
                                     <InfoRow
                                         label={m.media_accessibility_text()}
-                                        value={asset.asset.defaultAccessibilityText ?? '—'}
+                                        value={asset.asset.defaultAccessibilityText ?? '-'}
                                     />
                                 ) : null}
                             </dl>

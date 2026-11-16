@@ -230,7 +230,7 @@ test('opts into project outcome email through the preferences and real SMTP rela
             const { messages } = await response.json()
             return messages.filter(
                 (message: { Subject: string; To: { Address: string }[] }) =>
-                    message.Subject === 'Postdot — Publication failed' &&
+                    message.Subject === 'Postdot: Publication failed' &&
                     message.To.some(to => to.Address === email)
             ).length
         })
@@ -288,7 +288,7 @@ test('configures SMTP in administration and sends a real test without exposing c
             ).json()
             return body.messages.filter(
                 (message: { Subject: string; To: { Address: string }[] }) =>
-                    message.Subject === 'Postdot — SMTP test' &&
+                    message.Subject === 'Postdot: SMTP test' &&
                     message.To.some(to => to.Address === email)
             ).length
         })
