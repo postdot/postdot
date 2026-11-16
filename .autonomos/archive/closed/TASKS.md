@@ -649,3 +649,7 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] **[COPY-653]** Apply the user vocabulary and useful errors to both catalogs (audit W1–W7, F1) `Priority: 🔴` `Complexity: L` `Completed: 2026-11-15`
 - [x] **[UX-660]** Channels, media, performance, settings and first run (audit F2–F4, H, M, R, T) `Priority: 🔵` `Complexity: L` `Completed: 2026-11-15`
 - [x] **[UX-651]** Studio experience overhaul from the 2026-11-14 audit (umbrella) `Priority: 🔴` `Complexity: XL` `Completed: 2026-11-15` — [audit](../../reviews/2026-11-14-studio-experience-audit.md), [ADR-103](../../decisions/ADR-103-studio-experience-principles.md); children DESIGN-652 to UX-662.
+
+## Closed 2026-11-16
+
+- [x] **[UX-669]** Repair seven stale or failing browser specs `Priority: 🟠` `Complexity: M` `Completed: 2026-11-16` [Worklog](../../worklogs/2026-11-16-UX-669.md)

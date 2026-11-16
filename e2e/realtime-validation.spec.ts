@@ -398,7 +398,7 @@ test('keeps operational labels localized without changing custom notification co
         [
             'publication_ambiguous',
             'warning',
-            'Couldn’t confirm publication',
+            'Publication outcome unknown',
             'Postdot could not confirm whether the publication was delivered.',
         ],
         [

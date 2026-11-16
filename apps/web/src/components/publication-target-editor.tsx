@@ -45,13 +45,13 @@ export function PublicationTargetEditor({
     readOnly = false,
     compact = false,
 }: PublicationTargetEditorProps) {
-    const { locale } = useLanguage()
+    const { locale, catalogVersion } = useLanguage()
     const fields = useMemo(
         () =>
             getTargetEditorFields(profile, locale, target).filter(
                 field => !omitPaths?.includes(field.path)
             ),
-        [profile, locale, target, omitPaths]
+        [profile, locale, catalogVersion, target, omitPaths]
     )
     function updateField(field: TargetEditorField, value: unknown | undefined) {
         if (target === null) return

@@ -15,9 +15,9 @@
 
 - [x] **[UX-667]** Website icon lookup; identity image changes can be undone (owner feedback, 2026-11-16) `Priority: 🔵` `Complexity: S`
 
-- [x] **[UX-670]** Publication page actions sit with what they act on (owner review, 2026-11-16) `Priority: 🔵` `Complexity: S`
+- [x] **[UX-668]** Performance tags use the shared filter menu (owner review, 2026-11-16) `Priority: 🔵` `Complexity: S`
 
-- [/] **[UX-669]** Repair seven stale or failing browser specs `Priority: 🟠` `Complexity: M`
+- [x] **[UX-670]** Publication page actions sit with what they act on (owner review, 2026-11-16) `Priority: 🔵` `Complexity: S`
 
 ## Current direction
 
