@@ -2014,20 +2014,55 @@
     "recovery_resume": "Resume Postdot",
     "recovery_resume_failed": "Postdot could not resume. Reload recovery status before trying again.",
     "source_review_title": "Update channel versions",
-    "source_review_description": "Choose which channels pick up the post’s current text. Nothing is published.",
-    "source_review_done": "Updated",
-    "source_review_locked": "Already publishing",
-    "source_review_stale": "Out of date",
-    "source_review_current": "Up to date",
+    "source_review_description": "Choose which channels take the post’s new text, title and media. Nothing is published.",
+    "source_review_action": "Review and update",
+    "source_review_notice": [
+        {
+            "declarations": ["input count", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": {
+                "countPlural=one": "The post changed. {count} channel still uses the previous version.",
+                "countPlural=other": "The post changed. {count} channels still use the previous version."
+            }
+        }
+    ],
+    "source_review_apply": [
+        {
+            "declarations": ["input count", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": {
+                "countPlural=one": "Update {count} channel",
+                "countPlural=other": "Update {count} channels"
+            }
+        }
+    ],
+    "source_review_current": "{names} already up to date.",
+    "source_review_locked": "Publishing is locked",
+    "source_review_locked_channel": "Channel is inactive",
+    "source_review_locked_published": "Already published",
+    "source_review_locked_cancelled": "Publication cancelled",
     "source_review_compare": "Compare",
-    "source_review_destination": "Channel version",
-    "source_review_media": "{target} media in this channel · {source} in the post",
-    "source_review_keep": "Keep this channel’s version",
-    "source_review_replace": "Use the post’s text, title and media",
-    "source_review_replace_warning": "Replaces these fields in this channel version; everything else stays as it is.",
-    "source_review_apply": "Update this draft",
-    "source_review_refresh": "Refresh",
+    "source_review_destination": "Current channel version",
     "source_review_source": "Post",
+    "source_review_media": [
+        {
+            "declarations": ["input count", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": {
+                "countPlural=one": "{count} media item",
+                "countPlural=other": "{count} media items"
+            }
+        }
+    ],
+    "source_review_empty": "None",
+    "source_review_difference_none": "The post changed",
+    "source_review_difference_text": "Text differs",
+    "source_review_difference_title": "Title differs",
+    "source_review_difference_text_title": "Text and title differ",
+    "source_review_difference_media": "Media differ",
+    "source_review_difference_text_media": "Text and media differ",
+    "source_review_difference_title_media": "Title and media differ",
+    "source_review_difference_all": "Text, title and media differ",
     "post_view": "View post",
     "post_title": "Post",
     "post_unavailable_title": "This post is unavailable",

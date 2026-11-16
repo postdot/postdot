@@ -16,6 +16,7 @@ import { api, ApiError } from '@/lib/api'
 import { useProjectDashboard } from '@/lib/dashboard-context'
 import { useLanguage } from '@/lib/i18n'
 import { loadPostPublications } from '@/lib/post-publications'
+import { countStaleChannelVersions } from '@/lib/post-source-review'
 import { projectQueryKeys, subscribeProjectAccessRevocation } from '@/lib/project-realtime'
 import { publicationIdentityLabel, shortExcerpt } from '@/lib/publication-identity'
 import * as m from '@/paraglide/messages.js'
@@ -151,19 +152,27 @@ function PostRoute() {
                                                 await query.refetch()
                                             }}
                                         />
-                                        <PostSourceReview
-                                            projectId={projectId}
-                                            postId={postId}
-                                            disabled={!canReview}
-                                            accessEpoch={epoch}
-                                            onApplied={() => {
-                                                if (generation.current === epoch)
-                                                    void query.refetch()
-                                            }}
-                                        />
                                     </div>
                                 ) : null}
                             </div>
+                            {canReview && !editingSource ? (
+                                <div className="my-4">
+                                    <PostSourceReview
+                                        projectId={projectId}
+                                        postId={postId}
+                                        staleCount={countStaleChannelVersions(
+                                            query.data.publications,
+                                            channels,
+                                            query.data.post.sourceRevision
+                                        )}
+                                        disabled={!canReview}
+                                        accessEpoch={epoch}
+                                        onApplied={() => {
+                                            if (generation.current === epoch) void query.refetch()
+                                        }}
+                                    />
+                                </div>
+                            ) : null}
                             <PublicationList
                                 publications={query.data.publications}
                                 readOnly={!canReview}

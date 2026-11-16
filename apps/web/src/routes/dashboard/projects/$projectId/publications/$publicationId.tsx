@@ -83,8 +83,17 @@ function PublicationEditorRoute() {
         editor,
         projectTags: initialProjectTags,
         publicationTags,
-        relatedPublications,
+        relatedPublications: initialRelatedPublications,
     } = Route.useLoaderData()
+    const { data: relatedPublications } = useQuery({
+        queryKey: [
+            ...projectQueryKeys.publicationDestinations(projectId),
+            'source-review',
+            editor.post.id,
+        ],
+        queryFn: () => loadPostPublications(projectId, editor.post.id),
+        initialData: initialRelatedPublications,
+    })
     const {
         activeChannels,
         connections,

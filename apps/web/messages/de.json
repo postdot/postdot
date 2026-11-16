@@ -2014,20 +2014,55 @@
     "recovery_resume": "Postdot fortsetzen",
     "recovery_resume_failed": "Postdot konnte nicht fortgesetzt werden. Laden Sie den Wiederherstellungsstatus neu, bevor Sie es erneut versuchen.",
     "source_review_title": "Kanalversionen aktualisieren",
-    "source_review_description": "Wähle, welche Kanäle den aktuellen Text übernehmen. Es wird nichts veröffentlicht.",
-    "source_review_done": "Aktualisiert",
-    "source_review_locked": "Wird bereits veröffentlicht",
-    "source_review_stale": "Veraltet",
-    "source_review_current": "Aktuell",
+    "source_review_description": "Wählen Sie die Kanäle aus, die den neuen Text, Titel und die Medien des Beitrags übernehmen. Es wird nichts veröffentlicht.",
+    "source_review_action": "Prüfen und aktualisieren",
+    "source_review_notice": [
+        {
+            "declarations": ["input count", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": {
+                "countPlural=one": "Der Beitrag wurde geändert. {count} Kanal verwendet noch die vorherige Version.",
+                "countPlural=other": "Der Beitrag wurde geändert. {count} Kanäle verwenden noch die vorherige Version."
+            }
+        }
+    ],
+    "source_review_apply": [
+        {
+            "declarations": ["input count", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": {
+                "countPlural=one": "{count} Kanal aktualisieren",
+                "countPlural=other": "{count} Kanäle aktualisieren"
+            }
+        }
+    ],
+    "source_review_current": "Bereits aktuell: {names}.",
+    "source_review_locked": "Veröffentlichung gesperrt",
+    "source_review_locked_channel": "Kanal ist inaktiv",
+    "source_review_locked_published": "Bereits veröffentlicht",
+    "source_review_locked_cancelled": "Veröffentlichung abgebrochen",
     "source_review_compare": "Vergleichen",
-    "source_review_destination": "Kanalversion",
-    "source_review_media": "{target} Medien in diesem Kanal · {source} im Beitrag",
-    "source_review_keep": "Version dieses Kanals behalten",
-    "source_review_replace": "Text, Titel und Medien des Beitrags übernehmen",
-    "source_review_replace_warning": "Ersetzt diese Felder in dieser Kanalversion; alles andere bleibt unverändert.",
-    "source_review_apply": "Diesen Entwurf aktualisieren",
-    "source_review_refresh": "Aktualisieren",
+    "source_review_destination": "Aktuelle Kanalversion",
     "source_review_source": "Beitrag",
+    "source_review_media": [
+        {
+            "declarations": ["input count", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": {
+                "countPlural=one": "{count} Mediendatei",
+                "countPlural=other": "{count} Mediendateien"
+            }
+        }
+    ],
+    "source_review_empty": "Keine",
+    "source_review_difference_none": "Der Beitrag wurde geändert",
+    "source_review_difference_text": "Text unterscheidet sich",
+    "source_review_difference_title": "Titel unterscheidet sich",
+    "source_review_difference_text_title": "Text und Titel unterscheiden sich",
+    "source_review_difference_media": "Medien unterscheiden sich",
+    "source_review_difference_text_media": "Text und Medien unterscheiden sich",
+    "source_review_difference_title_media": "Titel und Medien unterscheiden sich",
+    "source_review_difference_all": "Text, Titel und Medien unterscheiden sich",
     "post_view": "Beitrag ansehen",
     "post_title": "Beitrag",
     "post_unavailable_title": "Dieser Beitrag ist nicht verfügbar",

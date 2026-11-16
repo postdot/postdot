@@ -4,6 +4,7 @@ import { useState } from 'react'
 
 import { MediaPreview, readyRepresentation } from '@/components/media-asset-card'
 import type { MediaReference, PublicationEditorState } from '@/lib/api'
+import { sourceContentDifferences } from '@/lib/post-source-review'
 import * as m from '@/paraglide/messages.js'
 
 export type PublicationEditorSaveState =
@@ -117,24 +118,35 @@ export function PublicationEditorSidebar({
 
 export function SourceComparisonContent({
     content,
+    compareWith,
     projectId,
     media,
 }: {
     readonly content: PublicationEditorState['post']['sourceContent']
+    readonly compareWith?: PublicationEditorState['post']['sourceContent']
     readonly projectId: string
     readonly media: readonly MediaReference[]
 }) {
     const [expanded, setExpanded] = useState(false)
+    const differences = compareWith ? sourceContentDifferences(content, compareWith) : undefined
+    const changedClass = 'rounded-sm bg-accent/60 px-1 text-foreground'
     const body = content.body?.text
     const shortened = body !== undefined && body.length > 500
     return (
         <div className="mt-3 min-w-0 space-y-3 text-sm leading-6">
-            {content.headline ? (
-                <p className="break-words font-medium">{content.headline}</p>
+            {content.headline || differences?.title ? (
+                <p className="break-words font-medium">
+                    <span className={differences?.title ? changedClass : undefined}>
+                        {content.headline || m.source_review_empty()}
+                    </span>
+                </p>
             ) : null}
-            {content.body ? (
+            {content.body || differences?.text ? (
                 <p className="whitespace-pre-wrap break-words">
-                    {shortened && !expanded ? `${body?.slice(0, 500)}…` : body}
+                    <span className={differences?.text ? changedClass : undefined}>
+                        {(shortened && !expanded ? `${body?.slice(0, 500)}…` : body) ||
+                            (compareWith ? m.source_review_empty() : '')}
+                    </span>
                 </p>
             ) : null}
             {shortened ? (
@@ -149,8 +161,20 @@ export function SourceComparisonContent({
             {content.language ? (
                 <p className="text-xs text-muted-foreground">{content.language}</p>
             ) : null}
+            {compareWith ? (
+                <p className="text-xs text-muted-foreground">
+                    <span className={differences?.media ? changedClass : undefined}>
+                        {m.source_review_media({ count: content.media.length })}
+                    </span>
+                </p>
+            ) : null}
             {content.media.length > 0 ? (
-                <ol className="flex flex-wrap gap-2">
+                <ol
+                    className={
+                        differences?.media
+                            ? 'flex flex-wrap gap-2 rounded-sm bg-accent/60 p-1'
+                            : 'flex flex-wrap gap-2'
+                    }>
                     {content.media.map((selection, index) => {
                         const asset = media.find(item => item.asset.id === selection.assetId)
                         return (

@@ -66,6 +66,7 @@ import {
     type DateTimeLocalResult,
 } from '@/lib/date-time'
 import { useLanguage } from '@/lib/i18n'
+import { countStaleChannelVersions } from '@/lib/post-source-review'
 import {
     decideConfirmedReconcile,
     type ProjectAccessStatus,
@@ -1271,6 +1272,16 @@ export function PublicationEditor({
         <PostSourceReview
             projectId={projectId}
             postId={editor.post.id}
+            staleCount={
+                readOnly
+                    ? 0
+                    : countStaleChannelVersions(
+                          relatedPublications,
+                          channels,
+                          editor.post.sourceRevision,
+                          editor
+                      )
+            }
             accessEpoch={accessEpoch}
             disabled={
                 readOnly ||
@@ -1782,19 +1793,17 @@ export function PublicationEditor({
                 <PublicationComposer
                     className="mt-6 max-w-none"
                     channelNavigation={
-                        <PublicationChannelRail
-                            actions={
-                                <>
-                                    {sourceReview}
-                                    {destinationAction}
-                                </>
-                            }
-                            activeChannelId={editor.channel.id}
-                            channels={editorChannels}
-                            disabled={isRebasing || editorMutationPending}
-                            onActiveChannelChange={handleChannelChange}
-                            selectedChannelIds={editorChannelIds}
-                        />
+                        <div className="space-y-3">
+                            <PublicationChannelRail
+                                actions={destinationAction}
+                                activeChannelId={editor.channel.id}
+                                channels={editorChannels}
+                                disabled={isRebasing || editorMutationPending}
+                                onActiveChannelChange={handleChannelChange}
+                                selectedChannelIds={editorChannelIds}
+                            />
+                            {sourceReview}
+                        </div>
                     }
                     editorSurface={!publicationEditable}
                     editor={

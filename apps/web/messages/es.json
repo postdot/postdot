@@ -2013,21 +2013,56 @@
     "recovery_confirmation": "He revisado el trabajo pendiente y acepto el riesgo de repetir entregas realizadas tras la copia de seguridad.",
     "recovery_resume": "Reanudar Postdot",
     "recovery_resume_failed": "Postdot no se pudo reanudar. Recarga el estado de recuperación antes de intentarlo de nuevo.",
-    "source_review_title": "Actualizar las versiones por canal",
-    "source_review_description": "Elige qué canales adoptan el texto actual. No se publica nada.",
-    "source_review_done": "Actualizado",
-    "source_review_locked": "Ya en publicación",
-    "source_review_stale": "Desactualizado",
-    "source_review_current": "Al día",
+    "source_review_title": "Actualizar versiones de los canales",
+    "source_review_description": "Elige qué canales reciben el nuevo texto, título y archivos multimedia del post. No se publica nada.",
+    "source_review_action": "Revisar y actualizar",
+    "source_review_notice": [
+        {
+            "declarations": ["input count", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": {
+                "countPlural=one": "El post ha cambiado. {count} canal sigue usando la versión anterior.",
+                "countPlural=other": "El post ha cambiado. {count} canales siguen usando la versión anterior."
+            }
+        }
+    ],
+    "source_review_apply": [
+        {
+            "declarations": ["input count", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": {
+                "countPlural=one": "Actualizar {count} canal",
+                "countPlural=other": "Actualizar {count} canales"
+            }
+        }
+    ],
+    "source_review_current": "{names} ya al día.",
+    "source_review_locked": "Publicación bloqueada",
+    "source_review_locked_channel": "Canal inactivo",
+    "source_review_locked_published": "Ya publicado",
+    "source_review_locked_cancelled": "Publicación cancelada",
     "source_review_compare": "Comparar",
-    "source_review_destination": "Versión del canal",
-    "source_review_media": "{target} medios en este canal · {source} en la publicación",
-    "source_review_keep": "Mantener la versión de este canal",
-    "source_review_replace": "Usar el texto, el título y los medios de la publicación",
-    "source_review_replace_warning": "Sustituye estos campos en esta versión del canal; el resto no cambia.",
-    "source_review_apply": "Actualizar este borrador",
-    "source_review_refresh": "Actualizar",
-    "source_review_source": "Publicación",
+    "source_review_destination": "Versión actual del canal",
+    "source_review_source": "El post",
+    "source_review_media": [
+        {
+            "declarations": ["input count", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": {
+                "countPlural=one": "{count} archivo multimedia",
+                "countPlural=other": "{count} archivos multimedia"
+            }
+        }
+    ],
+    "source_review_empty": "Ninguno",
+    "source_review_difference_none": "El post ha cambiado",
+    "source_review_difference_text": "El texto es diferente",
+    "source_review_difference_title": "El título es diferente",
+    "source_review_difference_text_title": "El texto y el título son diferentes",
+    "source_review_difference_media": "Los archivos multimedia son diferentes",
+    "source_review_difference_text_media": "El texto y los archivos multimedia son diferentes",
+    "source_review_difference_title_media": "El título y los archivos multimedia son diferentes",
+    "source_review_difference_all": "El texto, el título y los archivos multimedia son diferentes",
     "post_view": "Ver post",
     "post_title": "Post",
     "post_unavailable_title": "Esta publicación no está disponible",

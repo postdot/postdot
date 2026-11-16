@@ -773,63 +773,237 @@ async function createDraftPair(page: Page) {
     }
 }
 
-test('reviews sibling source changes and explicitly keeps or replaces destination drafts', async ({
+test('updates only checked stale channel versions and removes the notice when current', async ({
     page,
 }, info) => {
     const pair = await createDraftPair(page)
     const firstBefore = await pair.read(page, pair.first)
     const secondBefore = await pair.read(page, pair.second)
+    const siblingReads: string[] = []
+    page.on('request', request => {
+        if (request.url().endsWith(`/publications/${pair.second}/editor`))
+            siblingReads.push(request.url())
+    })
+    await page.goto(pair.pageUrl(pair.first))
+    await expect(page.locator('#source-body')).toHaveText('Initial common source')
+    await expect(page.getByRole('button', { name: 'Review and update', exact: true })).toHaveCount(
+        0
+    )
+    await expect(
+        page.getByRole('button', { name: 'Update channel versions', exact: true })
+    ).toHaveCount(0)
+    expect(siblingReads).toEqual([])
     const changed = await page.request.patch(
-        `/api/projects/${pair.id}/publications/${pair.first}/draft`,
+        `/api/projects/${pair.id}/posts/${firstBefore.post.id}`,
         {
             data: {
-                expectedRevision: firstBefore.draft.revision,
+                expectedSourceRevision: 1,
                 sourceContent: {
                     ...pair.source,
-                    body: { text: 'Revised source for destination review', format: 'plain_text' },
+                    body: { text: 'Revised source for channel review', format: 'plain_text' },
                     media: [pair.source.media[0]],
                 },
-                targetContent: firstBefore.draft.content,
             },
         }
     )
     expect(changed.status()).toBe(200)
-    await page.goto(pair.pageUrl(pair.first))
-    await page.getByRole('button', { name: 'Update channel versions', exact: true }).click()
-    const dialog = page.getByRole('dialog', { name: 'Update channel versions', exact: true })
-    const second = dialog.getByRole('region', { name: 'Second channel', exact: true })
-    await expect(second).toContainText('Out of date')
-    await second.getByText('Compare', { exact: true }).click()
     await expect(
-        second.getByRole('radio', { name: 'Keep this channel’s version', exact: true })
-    ).toBeChecked()
-    await expect(second).toContainText('Second destination')
-    await expect(second).toContainText('Revised source for destination review')
-    await second.getByRole('button', { name: 'Update this draft', exact: true }).click()
-    await expect.poll(async () => (await pair.read(page, pair.second)).draft.sourceRevision).toBe(2)
-    const kept = await pair.read(page, pair.second)
-    expect(kept.draft.content).toEqual(secondBefore.draft.content)
-    expect(kept.selectedTarget).toEqual(secondBefore.selectedTarget)
-    expect(kept.publication).toEqual(secondBefore.publication)
+        page.getByText('The post changed. 2 channels still use the previous version.', {
+            exact: true,
+        })
+    ).toBeVisible()
+    expect(siblingReads).toEqual([])
+    await page.getByRole('button', { name: 'Review and update', exact: true }).click()
+    const dialog = page.getByRole('dialog', { name: 'Update channel versions', exact: true })
     const first = dialog.getByRole('region', { name: 'First channel', exact: true })
+    const second = dialog.getByRole('region', { name: 'Second channel', exact: true })
+    await expect(first.getByRole('checkbox')).toBeChecked()
+    await expect(second.getByRole('checkbox')).toBeChecked()
+    await expect(dialog.getByRole('radio')).toHaveCount(0)
+    await expect(dialog.getByRole('button', { name: 'Refresh', exact: true })).toHaveCount(0)
+    await expect(first).toContainText('Text and media differ')
     await first.getByText('Compare', { exact: true }).click()
-    await first
-        .getByRole('radio', { name: 'Use the post’s text, title and media', exact: true })
-        .check()
-    await expect(first).toContainText('Replaces these fields in this channel version')
-    await page.setViewportSize({ width: 390, height: 900 })
-    await expect(dialog).toBeVisible()
-    expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false)
-    await page.screenshot({ path: info.outputPath('source-review-mobile.png') })
-    await first.getByRole('button', { name: 'Update this draft', exact: true }).click()
-    await expect
-        .poll(async () => (await pair.read(page, pair.first)).draft.content.text)
-        .toBe('Revised source for destination review')
-    const replaced = await pair.read(page, pair.first)
+    await second.getByText('Compare', { exact: true }).click()
+    await expect(first).toContainText('Current channel version')
+    await expect(first).toContainText('2 media items')
+    await expect(first).toContainText('1 media item')
+    await expect(first).toContainText('First destination')
+    await expect(second).toContainText('Second destination')
+    await expect(second).toContainText('Revised source for channel review')
+    for (const theme of ['dark', 'light'] as const) {
+        // Set the theme under the dialog without closing the review.
+        await page.evaluate(theme => {
+            document.documentElement.classList.toggle('dark', theme === 'dark')
+            localStorage.setItem('postdot-theme', theme)
+        }, theme)
+        for (const width of [1440, 390]) {
+            await page.setViewportSize({ width, height: 900 })
+            await expect(dialog).toBeVisible()
+            expect(
+                await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)
+            ).toBe(false)
+            expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([])
+            const footer = dialog.locator('[data-slot="dialog-footer"]')
+            const bounds = await footer.boundingBox()
+            expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(900)
+            await page.screenshot({ path: info.outputPath(`source-review-${theme}-${width}.png`) })
+        }
+    }
+    await first.getByRole('checkbox').uncheck()
+    await second.getByRole('checkbox').uncheck()
+    await expect(
+        dialog.getByRole('button', { name: 'Update 0 channels', exact: true })
+    ).toBeDisabled()
+    await second.getByRole('checkbox').check()
+    await dialog.getByRole('button', { name: 'Update 1 channel', exact: true }).click()
+    await expect(dialog).toHaveCount(0)
+    const replaced = await pair.read(page, pair.second)
+    expect(replaced.draft.sourceRevision).toBe(2)
+    expect(replaced.draft.content.text).toBe('Revised source for channel review')
     expect(replaced.draft.content.media).toEqual([pair.source.media[0]])
-    expect(replaced.selectedTarget).toEqual(firstBefore.selectedTarget)
-    expect(replaced.publication).toEqual(firstBefore.publication)
-    expect((await pair.read(page, pair.second)).draft.content).toEqual(secondBefore.draft.content)
+    expect(replaced.selectedTarget).toEqual(secondBefore.selectedTarget)
+    expect(replaced.publication).toEqual(secondBefore.publication)
+    expect((await pair.read(page, pair.first)).draft).toEqual(firstBefore.draft)
+    await expect(
+        page.getByText('The post changed. 1 channel still uses the previous version.', {
+            exact: true,
+        })
+    ).toBeVisible()
+    await page.getByRole('button', { name: 'Review and update', exact: true }).click()
+    await expect(dialog.getByRole('region', { name: 'Second channel', exact: true })).toHaveCount(0)
+    await expect(dialog).toContainText('Second channel already up to date.')
+    await expect(first.getByRole('checkbox')).toBeChecked()
+    await dialog.getByRole('button', { name: 'Update 1 channel', exact: true }).click()
+    await expect(dialog).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Review and update', exact: true })).toHaveCount(
+        0
+    )
+    expect((await pair.read(page, pair.first)).draft.content.text).toBe(
+        'Revised source for channel review'
+    )
+})
+
+test('keeps partial successes and retries only the failed channel', async ({ page }) => {
+    const pair = await createDraftPair(page)
+    const before = await pair.read(page, pair.first)
+    expect(
+        (
+            await page.request.patch(`/api/projects/${pair.id}/posts/${before.post.id}`, {
+                data: {
+                    expectedSourceRevision: 1,
+                    sourceContent: {
+                        ...pair.source,
+                        body: { text: 'New post text', format: 'plain_text' },
+                    },
+                },
+            })
+        ).ok()
+    ).toBe(true)
+    await page.goto(pair.pageUrl(pair.first))
+    await page.getByRole('button', { name: 'Review and update', exact: true }).click()
+    const dialog = page.getByRole('dialog', { name: 'Update channel versions', exact: true })
+    await expect(dialog.getByRole('checkbox')).toHaveCount(2)
+    let firstAppliedRevision = 0
+    await page.route(
+        `**/publications/${pair.second}/draft/rebase`,
+        async route => {
+            firstAppliedRevision = (await pair.read(page, pair.first)).draft.revision
+            await route.fulfill({
+                status: 503,
+                contentType: 'application/json',
+                body: JSON.stringify({
+                    error: { code: 'provider_unavailable', message: 'Temporary failure' },
+                }),
+            })
+        },
+        { times: 1 }
+    )
+    await dialog.getByRole('button', { name: 'Update 2 channels', exact: true }).click()
+    const second = dialog.getByRole('region', { name: 'Second channel', exact: true })
+    await expect(second.getByRole('alert')).toBeVisible()
+    await expect(second.getByRole('checkbox')).toBeChecked()
+    await second.getByText('Compare', { exact: true }).click()
+    await expect(second).toContainText('Second destination')
+    await expect(dialog).toContainText('First channel already up to date.')
+    await expect(
+        dialog.getByRole('button', { name: 'Update 1 channel', exact: true })
+    ).toBeEnabled()
+    expect((await pair.read(page, pair.first)).draft.revision).toBe(firstAppliedRevision)
+    expect((await pair.read(page, pair.second)).draft.content.text).toBe('Second destination')
+    await second.getByRole('checkbox').check()
+    await dialog.getByRole('button', { name: 'Update 1 channel', exact: true }).click()
+    await expect(dialog).toHaveCount(0)
+    expect((await pair.read(page, pair.first)).draft.revision).toBe(firstAppliedRevision)
+    expect((await pair.read(page, pair.second)).draft.content.text).toBe('New post text')
+})
+
+test('reloads the post after a review conflict and leaves both channel versions untouched', async ({
+    page,
+}) => {
+    const pair = await createDraftPair(page)
+    const before = await pair.read(page, pair.first)
+    const secondBefore = await pair.read(page, pair.second)
+    const postUrl = `/api/projects/${pair.id}/posts/${before.post.id}`
+    expect(
+        (
+            await page.request.patch(postUrl, {
+                data: {
+                    expectedSourceRevision: 1,
+                    sourceContent: {
+                        ...pair.source,
+                        body: { text: 'Post to review', format: 'plain_text' },
+                    },
+                },
+            })
+        ).ok()
+    ).toBe(true)
+    await page.goto(pair.pageUrl(pair.first))
+    await page.getByRole('button', { name: 'Review and update', exact: true }).click()
+    const dialog = page.getByRole('dialog', { name: 'Update channel versions', exact: true })
+    await expect(dialog.getByRole('checkbox')).toHaveCount(2)
+    const first = dialog.getByRole('region', { name: 'First channel', exact: true })
+    await first.getByRole('button', { name: 'Compare', exact: true }).click()
+    await expect(first).toContainText('Post to review')
+    const refreshed = page.waitForResponse(
+        response => response.url().endsWith(`/publications/${pair.first}/editor`) && response.ok()
+    )
+    expect(
+        (
+            await page.request.patch(postUrl, {
+                data: {
+                    expectedSourceRevision: 2,
+                    sourceContent: {
+                        ...pair.source,
+                        body: { text: 'Concurrent post text', format: 'plain_text' },
+                    },
+                },
+            })
+        ).ok()
+    ).toBe(true)
+    await (await refreshed).finished()
+    // Background refreshes must not silently approve different post content.
+    await expect(first).toContainText('Post to review')
+    await expect(first).not.toContainText('Concurrent post text')
+    await dialog.getByRole('button', { name: 'Update 2 channels', exact: true }).click()
+    await expect(dialog.getByRole('alert')).toContainText(
+        'Someone changed this while you were editing'
+    )
+    await expect(
+        dialog.getByRole('button', { name: 'Update 0 channels', exact: true })
+    ).toBeDisabled()
+    expect((await pair.read(page, pair.first)).draft).toEqual(before.draft)
+    expect((await pair.read(page, pair.second)).draft).toEqual(secondBefore.draft)
+    await expect(first).toContainText('Concurrent post text')
+    await expect(first.getByRole('checkbox')).not.toBeChecked()
+    await first.getByRole('checkbox').check()
+    await dialog.getByRole('button', { name: 'Update 1 channel', exact: true }).click()
+    await expect(dialog).toHaveCount(0)
+    const updated = await pair.read(page, pair.first)
+    expect(updated.draft.sourceRevision).toBe(3)
+    expect(updated.draft.content.text).toBe('Concurrent post text')
+    expect(updated.publication).toEqual(before.publication)
+    expect(updated.selectedTarget).toEqual(before.selectedTarget)
+    expect((await pair.read(page, pair.second)).draft).toEqual(secondBefore.draft)
 })
 
 test('opens the shared post from queue and keeps every destination reachable', async ({
@@ -872,11 +1046,9 @@ test('opens the shared post from queue and keeps every destination reachable', a
         )
         await page.screenshot({ path: info.outputPath(`shared-post-${width}.png`) })
     }
-    await page.getByRole('button', { name: 'Update channel versions', exact: true }).click()
-    const review = page.getByRole('dialog', { name: 'Update channel versions', exact: true })
-    await expect(review.getByRole('region', { name: 'First channel', exact: true })).toBeVisible()
-    await expect(review.getByRole('region', { name: 'Second channel', exact: true })).toBeVisible()
-    await page.keyboard.press('Escape')
+    await expect(page.getByRole('button', { name: 'Review and update', exact: true })).toHaveCount(
+        0
+    )
     await destinations.locator(`a[href$="/publications/${pair.second}"]`).first().click()
     await expect(page).toHaveURL(pair.pageUrl(pair.second))
     await page.goBack()
@@ -954,4 +1126,210 @@ test('saves the post source explicitly and preserves local text on a concurrent 
             .locator('[data-publication-selection-card="true"]')
     ).toHaveCount(3)
     expect((await pair.read(page, pair.second)).draft).toEqual(second.draft)
+})
+
+test('shows review skeletons and retries a failed comparison read', async ({ page }) => {
+    const pair = await createDraftPair(page)
+    const before = await pair.read(page, pair.first)
+    expect(
+        (
+            await page.request.patch(`/api/projects/${pair.id}/posts/${before.post.id}`, {
+                data: {
+                    expectedSourceRevision: 1,
+                    sourceContent: {
+                        ...pair.source,
+                        body: { text: 'Changed post', format: 'plain_text' },
+                    },
+                },
+            })
+        ).ok()
+    ).toBe(true)
+    await page.goto(pair.pageUrl(pair.first))
+    await page.route(
+        `**/publications/${pair.second}/editor`,
+        route =>
+            route.fulfill({
+                status: 503,
+                contentType: 'application/json',
+                body: JSON.stringify({
+                    error: { code: 'provider_unavailable', message: 'Temporary failure' },
+                }),
+            }),
+        { times: 1 }
+    )
+    await page.getByRole('button', { name: 'Review and update', exact: true }).click()
+    const dialog = page.getByRole('dialog', { name: 'Update channel versions', exact: true })
+    await expect(dialog.getByRole('alert')).toBeVisible()
+    let release: (() => void) | undefined
+    const held = new Promise<void>(resolve => {
+        release = resolve
+    })
+    await page.route(
+        `**/publications/${pair.second}/editor`,
+        async route => {
+            await held
+            await route.continue()
+        },
+        { times: 1 }
+    )
+    await dialog.getByRole('button', { name: 'Retry', exact: true }).click()
+    await expect(dialog.locator('[data-slot="skeleton"]')).toHaveCount(12)
+    await expect(
+        dialog.getByRole('button', { name: 'Update 0 channels', exact: true })
+    ).toBeDisabled()
+    release?.()
+    await expect(dialog.getByRole('checkbox')).toHaveCount(2)
+    await dialog.getByRole('button', { name: 'Cancel', exact: true }).click()
+    expect((await pair.read(page, pair.first)).draft).toEqual(before.draft)
+})
+
+test('keeps a concurrent channel acknowledgement and reports its revision conflict inline', async ({
+    page,
+}) => {
+    const pair = await createDraftPair(page)
+    const before = await pair.read(page, pair.first)
+    const secondBefore = await pair.read(page, pair.second)
+    expect(
+        (
+            await page.request.patch(`/api/projects/${pair.id}/posts/${before.post.id}`, {
+                data: {
+                    expectedSourceRevision: 1,
+                    sourceContent: {
+                        ...pair.source,
+                        body: { text: 'Changed post', format: 'plain_text' },
+                    },
+                },
+            })
+        ).ok()
+    ).toBe(true)
+    await page.goto(pair.pageUrl(pair.first))
+    await page.getByRole('button', { name: 'Review and update', exact: true }).click()
+    const dialog = page.getByRole('dialog', { name: 'Update channel versions', exact: true })
+    await expect(dialog.getByRole('checkbox')).toHaveCount(2)
+    await page.route(
+        `**/publications/${pair.second}/draft/rebase`,
+        async route => {
+            expect(
+                (
+                    await page.request.post(
+                        `/api/projects/${pair.id}/publications/${pair.second}/draft/rebase`,
+                        {
+                            data: {
+                                expectedRevision: secondBefore.draft.revision,
+                                expectedSourceRevision: 2,
+                                replaceContent: false,
+                            },
+                        }
+                    )
+                ).ok()
+            ).toBe(true)
+            await route.continue()
+        },
+        { times: 1 }
+    )
+    await dialog.getByRole('button', { name: 'Update 2 channels', exact: true }).click()
+    const second = dialog.getByRole('region', { name: 'Second channel', exact: true })
+    await expect(second.getByRole('alert')).toContainText(
+        'Someone changed this while you were editing'
+    )
+    await expect(second.getByRole('checkbox')).toHaveCount(0)
+    await expect(second).toContainText('already up to date')
+    await expect(
+        dialog.getByRole('button', { name: 'Update 0 channels', exact: true })
+    ).toBeDisabled()
+    expect((await pair.read(page, pair.second)).draft.content).toEqual(secondBefore.draft.content)
+    expect((await pair.read(page, pair.first)).draft.content.text).toBe('Changed post')
+    await dialog.getByRole('button', { name: 'Cancel', exact: true }).click()
+    await expect(page.getByRole('button', { name: 'Review and update', exact: true })).toHaveCount(
+        0
+    )
+})
+
+test('shows locked channel reasons and hides review when every version is locked', async ({
+    page,
+}, info) => {
+    const pair = await createDraftPair(page)
+    const before = await pair.read(page, pair.first)
+    const name = 'Community announcements for international partners and regional contributors'
+    const channelResponse = await page.request.post(`/api/projects/${pair.id}/channels`, {
+        data: { name, profile: 'discord' },
+    })
+    expect(channelResponse.ok()).toBe(true)
+    const channelId = (await channelResponse.json()).channel.id
+    const added = await page.request.post(
+        `/api/projects/${pair.id}/posts/${before.post.id}/destinations`,
+        {
+            data: {
+                expectedSourceRevision: 1,
+                publications: [
+                    { channelId, deliveryMode: 'manual', scheduledAt: Date.now() + 86_400_000 },
+                ],
+            },
+        }
+    )
+    expect(added.ok()).toBe(true)
+    const lockedId = (await added.json()).publications[0].id
+    for (const publicationId of [lockedId, pair.first, pair.second]) {
+        const editor = await pair.read(page, publicationId)
+        expect(
+            (
+                await page.request.post(
+                    `/api/projects/${pair.id}/publications/${publicationId}/draft/promote`,
+                    {
+                        data: {
+                            expectedRevision: editor.draft.revision,
+                            scheduledAt: Date.now() + 86_400_000,
+                        },
+                    }
+                )
+            ).ok()
+        ).toBe(true)
+    }
+    expect(
+        (
+            await page.request.patch(`/api/projects/${pair.id}/publications/cancel`, {
+                data: { publicationIds: [lockedId] },
+            })
+        ).ok()
+    ).toBe(true)
+    expect(
+        (
+            await page.request.patch(`/api/projects/${pair.id}/posts/${before.post.id}`, {
+                data: {
+                    expectedSourceRevision: 1,
+                    sourceContent: {
+                        ...pair.source,
+                        body: { text: 'Changed post', format: 'plain_text' },
+                    },
+                },
+            })
+        ).ok()
+    ).toBe(true)
+    await page.goto(pair.pageUrl(pair.first))
+    await expect(
+        page.getByText('The post changed. 2 channels still use the previous version.', {
+            exact: true,
+        })
+    ).toBeVisible()
+    await page.getByRole('button', { name: 'Review and update', exact: true }).click()
+    const dialog = page.getByRole('dialog', { name: 'Update channel versions', exact: true })
+    const locked = dialog.getByRole('region', { name, exact: true })
+    await expect(locked).toContainText('Publication cancelled')
+    await expect(locked.getByRole('checkbox')).toHaveCount(0)
+    await expect(dialog.getByRole('checkbox')).toHaveCount(2)
+    await page.setViewportSize({ width: 390, height: 900 })
+    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([])
+    await page.screenshot({ path: info.outputPath('source-review-locked-long-name-390.png') })
+    await dialog.getByRole('button', { name: 'Cancel', exact: true }).click()
+    expect(
+        (
+            await page.request.patch(`/api/projects/${pair.id}/publications/cancel`, {
+                data: { publicationIds: [pair.first, pair.second] },
+            })
+        ).ok()
+    ).toBe(true)
+    await expect(page.getByRole('button', { name: 'Review and update', exact: true })).toHaveCount(
+        0
+    )
+    expect((await pair.read(page, lockedId)).draft.sourceRevision).toBe(1)
 })

@@ -612,3 +612,9 @@ reuse the New publication writing surface, including its attachment-before-emoji
 toolbar and borderless body. Sharing a field renderer alone does not establish
 visual parity. Any deliberately disabled actions must remain recognizable and
 explain their disabled state.
+
+## State reconciliation
+
+A tool that reconciles state appears only when there is something to reconcile.
+It names what it acts on in the user's words, such as channel versions that still
+use the post's previous content.

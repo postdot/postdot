@@ -9,11 +9,7 @@
 
 - [/] **[PUB-627]** Complete GitHub profile, application releases and clean-install acceptance `Priority: 🟠` `Complexity: L`
 
-
 - [/] **[UX-674]** Notification inbox grouped by post with title, channels, direct action and relative time `Priority: 🟠` `Complexity: M`
-
-- [/] **[UX-675]** Channel versions update: shown only when stale, inline notice and redesigned comparison `Priority: 🟠` `Complexity: M`
-
 
 ## Current direction
 

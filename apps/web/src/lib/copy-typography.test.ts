@@ -40,6 +40,8 @@ function wholeWord(alternation: string): RegExp {
 const universalRules: readonly Rule[] = [
     // Owner rule (2026-11-16): people do not type em or en dashes; use a period, colon, comma or hyphen.
     { name: 'em or en dash', pattern: /[\u2013\u2014]/ },
+    // Separate sentences instead of joining them with a semicolon.
+    { name: 'semicolon sentence chain', pattern: /;\s/u },
     // Exclamation marks add artificial urgency to operational UI text.
     { name: 'exclamation mark', pattern: /[!¡]/u },
     // Decorative emojis do not belong in Studio product copy.
