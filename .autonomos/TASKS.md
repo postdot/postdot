@@ -17,6 +17,8 @@
 
 - [x] **[UX-670]** Publication page actions sit with what they act on (owner review, 2026-11-16) `Priority: 🔵` `Complexity: S`
 
+- [/] **[UX-669]** Repair seven stale or failing browser specs `Priority: 🟠` `Complexity: M`
+
 ## Current direction
 
 Shared-channel implementation follows [ADR-095](decisions/ADR-095-workspace-channels-and-project-attachments.md)

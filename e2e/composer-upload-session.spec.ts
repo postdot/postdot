@@ -7,7 +7,7 @@ test('a session refusal during an upload keeps the file and text and resumes aft
     page,
 }) => {
     test.setTimeout(120_000)
-    const data = await accounts(page)
+    const data = await accounts(page, 'default')
     try {
         await page.goto(data.url)
         const form = page.locator('[data-new-publication-form]')
@@ -38,7 +38,7 @@ test('a session refusal during an upload keeps the file and text and resumes aft
 
         // ADR-103 §6: the draft is restored without a question.
         await expect(page.locator('[data-new-publication-restored]')).toBeVisible()
-        await expect(page.getByRole('textbox', { name: 'Content', exact: true })).toHaveValue(text)
+        await expect(page.getByRole('textbox', { name: 'Content', exact: true })).toHaveText(text)
         const files = page.locator('[data-media-upload-recovery]')
         await expect(files).toBeVisible()
         await files.getByRole('button', { name: /^Resume/ }).click()
@@ -65,7 +65,7 @@ test('a session that ends mid-upload offers sign-in without losing the held crea
     page,
 }) => {
     test.setTimeout(120_000)
-    const data = await accounts(page)
+    const data = await accounts(page, 'default')
     let release: () => void = () => {}
     try {
         await page.goto(data.url)
@@ -105,7 +105,7 @@ test('a session that ends mid-upload offers sign-in without losing the held crea
         await recoveredDraft
         await expect(page).toHaveURL(data.url)
         await expect(page.locator('[data-new-publication-restored]')).toBeVisible()
-        await expect(page.getByRole('textbox', { name: 'Content', exact: true })).toHaveValue(text)
+        await expect(page.getByRole('textbox', { name: 'Content', exact: true })).toHaveText(text)
     } finally {
         release()
         await data.close()
@@ -116,7 +116,7 @@ test('an upload refused by an ended session alone offers sign-in without another
     page,
 }) => {
     test.setTimeout(120_000)
-    const data = await accounts(page)
+    const data = await accounts(page, 'default')
     let release: () => void = () => {}
     try {
         await page.goto(data.url)
@@ -153,7 +153,7 @@ test('a library read refused by an ended session offers sign-in from the compose
     page,
 }) => {
     test.setTimeout(120_000)
-    const data = await accounts(page)
+    const data = await accounts(page, 'default')
     try {
         await page.goto(data.url)
         const form = page.locator('[data-new-publication-form]')

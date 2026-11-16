@@ -44,7 +44,7 @@ for (const [locale, copy, theme] of [
                     })
                 ).status()
             ).toBe(201)
-            const path = `/dashboard/projects/${project.id}/publications/new?editor=legacy`
+            const path = `/dashboard/projects/${project.id}/publications/new`
             const draftPath = `/api/projects/${project.id}/publication-composer-draft`
             const form = page.locator('[data-new-publication-form="true"]')
             const editor = page.getByRole('textbox', {
@@ -80,6 +80,7 @@ for (const [locale, copy, theme] of [
             await editor.fill(text)
             await saved
             const before = (await (await page.request.get(draftPath)).json()).draft
+            expect(before.content.postContent).toBe(text)
             if (!localCopy)
                 await page.evaluate(id => {
                     // Recovery keys carry the author after the project; match every author.
@@ -128,7 +129,13 @@ for (const [locale, copy, theme] of [
             // ADR-103 §6: once readable, the draft comes back without a question.
             await expect(restored).toBeVisible()
             expect((await (await page.request.get(draftPath)).json()).draft).toEqual(before)
-            await expect(editor).toHaveValue(text)
+            await expect
+                .poll(() =>
+                    editor
+                        .locator('p')
+                        .evaluateAll(nodes => nodes.map(node => node.textContent).join('\n'))
+                )
+                .toBe(text)
             await expect(form).not.toHaveAttribute('inert', '')
             const savedAgain = page.waitForResponse(
                 response =>
@@ -177,7 +184,7 @@ for (const [locale, copy] of [
             ).status()
         ).toBe(201)
         const draftPath = `/api/projects/${project.id}/publication-composer-draft`
-        await page.goto(`/dashboard/projects/${project.id}/publications/new?editor=legacy`)
+        await page.goto(`/dashboard/projects/${project.id}/publications/new`)
         const form = page.locator('[data-new-publication-form="true"]')
         await expect(form).not.toHaveAttribute('inert', '')
         const editor = page.getByRole('textbox', {
@@ -212,7 +219,7 @@ for (const [locale, copy] of [
         await startOver.click()
         // A failed start over keeps the draft, says so, and leaves the text in place.
         await expect(recovery.getByRole('alert')).toBeVisible()
-        await expect(editor).toHaveValue('Keep this draft until discard succeeds')
+        await expect(editor).toHaveText('Keep this draft until discard succeeds')
         expect((await (await page.request.get(draftPath)).json()).draft).toEqual(before)
         expect(
             await page.evaluate(id => {
@@ -227,7 +234,7 @@ for (const [locale, copy] of [
         await page.unroute(endpoint)
         await startOver.click()
         await expect(recovery).toHaveCount(0)
-        await expect(editor).toHaveValue('')
+        await expect(editor).toHaveText('')
         expect((await (await page.request.get(draftPath)).json()).draft).toBeNull()
     })
 }
