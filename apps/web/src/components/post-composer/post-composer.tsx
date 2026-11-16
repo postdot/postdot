@@ -65,6 +65,11 @@ export interface PostComposerProps {
     readonly onRemoveTarget?: (targetId: string) => void
     readonly createChannel?: ReactNode
     readonly footer?: ReactNode
+    readonly channelNavigation?: ReactNode
+    readonly preview?: ReactNode
+    readonly settings?: ReactNode
+    readonly tags?: ReactNode
+    readonly sharedPanel?: ReactNode
     readonly channelPanel?: (target: PostCompositionTarget) => ReactNode
     readonly pickerTags: TagPickerProps['tags']
     readonly onCreateProjectTag?: TagPickerProps['onCreateTag']
@@ -88,6 +93,11 @@ export function PostComposer({
     createChannel,
     footer,
     channelPanel,
+    channelNavigation,
+    preview,
+    settings,
+    tags,
+    sharedPanel,
     pickerTags,
     onCreateProjectTag,
     mediaDisabled,
@@ -222,22 +232,24 @@ export function PostComposer({
         <>
             <PublicationComposer
                 channelNavigation={
-                    <PublicationChannelTabs
-                        createChannel={createChannel}
-                        activeTabId={resolvedActiveContentScopeId}
-                        channels={activeChannels}
-                        defaultDeliveryMode={defaultDeliveryMode}
-                        defaultScheduledAt={defaultScheduledAt}
-                        disabled={pending}
-                        readOnly={readOnly}
-                        lockedTargetIds={lockedTargetIds}
-                        onChange={onPublicationTargetsChange}
-                        onActiveTabChange={selectContentScope}
-                        onRemoveTarget={requestTargetRemoval}
-                        projectId={project.id}
-                        targets={publicationTargets}
-                        timeZone={project.timeZone}
-                    />
+                    channelNavigation ?? (
+                        <PublicationChannelTabs
+                            createChannel={createChannel}
+                            activeTabId={resolvedActiveContentScopeId}
+                            channels={activeChannels}
+                            defaultDeliveryMode={defaultDeliveryMode}
+                            defaultScheduledAt={defaultScheduledAt}
+                            disabled={pending}
+                            readOnly={readOnly}
+                            lockedTargetIds={lockedTargetIds}
+                            onChange={onPublicationTargetsChange}
+                            onActiveTabChange={selectContentScope}
+                            onRemoveTarget={requestTargetRemoval}
+                            projectId={project.id}
+                            targets={publicationTargets}
+                            timeZone={project.timeZone}
+                        />
+                    )
                 }
                 editor={
                     <div className="min-w-0">
@@ -251,7 +263,7 @@ export function PostComposer({
                                 }>
                                 <Input
                                     id="new-post-title"
-                                    disabled={contentReadOnly}
+                                    disabled={contentReadOnly || disabled || pending}
                                     aria-invalid={headlineCount?.invalid || undefined}
                                     aria-describedby={
                                         headlineCount ? 'new-post-title-count' : undefined
@@ -474,27 +486,34 @@ export function PostComposer({
                         {activeContentTarget && channelPanel
                             ? channelPanel(activeContentTarget)
                             : null}
+                        {!activeContentTarget ? sharedPanel : null}
                         <div className="mt-5">
-                            <PublicationTagPicker
-                                ariaLabel={m.taxonomy_select_tags()}
-                                archivedLabel={m.common_archived()}
-                                disabled={pending || contentReadOnly}
-                                emptyLabel={m.taxonomy_no_tags()}
-                                label={m.taxonomy_internal_tags()}
-                                manageTagsProjectId={project.id}
-                                onChange={onPublicationTagIdsChange}
-                                onCreateTag={onCreateProjectTag}
-                                selectedTagIds={publicationTagIds}
-                                selectedLabel={count => m.taxonomy_selected_tags({ count })}
-                                showSelectedTags
-                                tags={pickerTags}
-                            />
+                            {tags !== undefined ? (
+                                tags
+                            ) : (
+                                <PublicationTagPicker
+                                    ariaLabel={m.taxonomy_select_tags()}
+                                    archivedLabel={m.common_archived()}
+                                    disabled={pending || contentReadOnly}
+                                    emptyLabel={m.taxonomy_no_tags()}
+                                    label={m.taxonomy_internal_tags()}
+                                    manageTagsProjectId={project.id}
+                                    onChange={onPublicationTagIdsChange}
+                                    onCreateTag={onCreateProjectTag}
+                                    selectedTagIds={publicationTagIds}
+                                    selectedLabel={count => m.taxonomy_selected_tags({ count })}
+                                    showSelectedTags
+                                    tags={pickerTags}
+                                />
+                            )}
                         </div>
                     </div>
                 }
                 footer={footer}
                 preview={
-                    activePreviewChannel !== undefined ? (
+                    preview !== undefined ? (
+                        preview
+                    ) : activePreviewChannel !== undefined ? (
                         <PublicationDraftPreview
                             channel={activePreviewChannel}
                             execution={activePreviewChannel.execution}
@@ -511,7 +530,9 @@ export function PostComposer({
                     ) : undefined
                 }
                 settings={
-                    selectedPublicationCount > 0 ? (
+                    settings !== undefined ? (
+                        settings
+                    ) : selectedPublicationCount > 0 ? (
                         <details
                             data-publication-schedule-disclosure="true"
                             className="group min-w-0 rounded-md bg-surface-inset/35 px-3 shadow-surface"

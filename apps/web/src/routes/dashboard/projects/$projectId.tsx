@@ -70,7 +70,9 @@ function ProjectDashboardFrame() {
     const projectDashboard = useProjectDashboard()
     const lifecycle = useProjectLifecycle(projectDashboard.project.id)
     const editorOwnsAccess = useMatches().some(
-        match => match.routeId === '/dashboard/projects/$projectId/publications/$publicationId'
+        match =>
+            match.routeId === '/dashboard/projects/$projectId/publications/$publicationId' ||
+            match.routeId === '/dashboard/projects/$projectId/posts/$postId'
     )
 
     if (projectDashboard.access.status === 'denied' && !editorOwnsAccess) {
