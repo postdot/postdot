@@ -138,7 +138,7 @@ test('keeps dashboard and composer media journeys reliable', async ({ page, requ
     await page.keyboard.press('Escape')
 
     await page.setViewportSize({ width: 390, height: 844 })
-    await page.getByRole('button', { name: 'Toggle workspace navigation' }).click()
+    await page.getByRole('button', { name: 'Show menu' }).click()
     const workNavigationLayout = await page
         .getByRole('navigation', { name: 'Work navigation' })
         .evaluate(element => {
@@ -176,7 +176,7 @@ test('keeps dashboard and composer media journeys reliable', async ({ page, requ
     await page.getByRole('button', { name: 'Close', exact: true }).click()
     await page.setViewportSize({ width: 1280, height: 720 })
 
-    await page.getByRole('button', { name: 'Toggle workspace navigation' }).click()
+    await page.getByRole('button', { name: 'Hide menu' }).click()
     const sidebarContainer = page.locator('[data-slot="sidebar-container"]')
     await expect(sidebarContainer).toHaveCSS('width', '48px')
     const collapsedSidebarLayout = await sidebarContainer.evaluate(container => {
@@ -199,7 +199,7 @@ test('keeps dashboard and composer media journeys reliable', async ({ page, requ
     expect(
         collapsedSidebarLayout.buttons.every(({ left, width }) => left === 8 && width === 32)
     ).toBe(true)
-    await page.getByRole('button', { name: 'Toggle workspace navigation' }).click()
+    await page.getByRole('button', { name: 'Show menu' }).click()
     await expect(sidebarContainer).toHaveCSS('width', '240px')
 
     const shellLayout = await page.locator('[data-slot="sidebar-inset"]').evaluate(inset => {

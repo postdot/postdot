@@ -9,7 +9,6 @@
 
 - [/] **[PUB-627]** Complete GitHub profile, application releases and clean-install acceptance `Priority: 🟠` `Complexity: L`
 
-- [/] **[UX-672]** Studio polish: switch thumb inset, sidebar toggle, own tooltips instead of native ones, inverted toasts, delivery notification wording `Priority: 🟠` `Complexity: M`
 
 - [/] **[UX-674]** Notification inbox grouped by post with title, channels, direct action and relative time `Priority: 🟠` `Complexity: M`
 

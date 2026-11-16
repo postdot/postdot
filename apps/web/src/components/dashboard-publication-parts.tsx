@@ -682,9 +682,16 @@ export function PublicationRow({
                             <PublicationMediaThumbnail publication={publication} />
                         ) : null}
                         <div className="min-w-0">
-                            <h2 className="truncate text-sm font-medium" title={identityLabel}>
-                                {identityLabel}
-                            </h2>
+                            <Tooltip>
+                                <TooltipTrigger
+                                    render={
+                                        <h2 className="truncate text-sm font-medium">
+                                            {identityLabel}
+                                        </h2>
+                                    }
+                                />
+                                <TooltipContent>{identityLabel}</TooltipContent>
+                            </Tooltip>
                         </div>
                     </div>
                 ) : (
@@ -695,11 +702,16 @@ export function PublicationRow({
                     <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
                         <span className="inline-flex min-w-0 max-w-full items-center gap-2">
                             <ChannelAvatar channel={channel} size="xs" className="size-5" />
-                            <span
-                                className="min-w-0 truncate text-sm font-medium"
-                                title={publication.channelName}>
-                                {publication.channelName}
-                            </span>
+                            <Tooltip>
+                                <TooltipTrigger
+                                    render={
+                                        <span className="min-w-0 truncate text-sm font-medium">
+                                            {publication.channelName}
+                                        </span>
+                                    }
+                                />
+                                <TooltipContent>{publication.channelName}</TooltipContent>
+                            </Tooltip>
                         </span>
                         {due ? (
                             <PublicationDueIndicator />

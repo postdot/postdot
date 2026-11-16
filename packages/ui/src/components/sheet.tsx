@@ -4,6 +4,7 @@ import * as React from 'react'
 
 import { cn } from '../lib/utils'
 import { Button } from './button'
+import { Tooltip, TooltipTrigger, TooltipContent } from './tooltip'
 
 function Sheet({ ...props }: SheetPrimitive.Root.Props) {
     return <SheetPrimitive.Root data-slot="sheet" {...props} />
@@ -62,20 +63,26 @@ function SheetContent({
                 {...props}>
                 {children}
                 {showCloseButton && (
-                    <SheetPrimitive.Close
-                        data-slot="sheet-close"
-                        render={
-                            <Button
-                                aria-label={closeLabel}
-                                variant="ghost"
-                                className="absolute top-3 right-3"
-                                size="icon-sm"
-                                title={closeLabel}
-                            />
-                        }>
-                        <CloseIcon aria-hidden="true" />
-                        <span className="sr-only">{closeLabel}</span>
-                    </SheetPrimitive.Close>
+                    <Tooltip>
+                        <SheetPrimitive.Close
+                            data-slot="sheet-close"
+                            render={
+                                <TooltipTrigger
+                                    render={
+                                        <Button
+                                            aria-label={closeLabel}
+                                            variant="ghost"
+                                            className="absolute top-3 right-3"
+                                            size="icon-sm"
+                                        />
+                                    }
+                                />
+                            }>
+                            <CloseIcon aria-hidden="true" />
+                            <span className="sr-only">{closeLabel}</span>
+                        </SheetPrimitive.Close>
+                        <TooltipContent>{closeLabel}</TooltipContent>
+                    </Tooltip>
                 )}
             </SheetPrimitive.Popup>
         </SheetPortal>

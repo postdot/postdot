@@ -6,6 +6,7 @@ import {
     DialogDescription,
     DialogFooter,
 } from '@postdot/ui/components/dialog'
+import { Tooltip, TooltipTrigger, TooltipContent } from '@postdot/ui/components/tooltip'
 import { AltArrowDownIcon } from '@solar-icons/react/linear/alt-arrow-down'
 import { AltArrowLeftIcon } from '@solar-icons/react/linear/alt-arrow-left'
 import { useQueryClient } from '@tanstack/react-query'
@@ -1574,11 +1575,18 @@ export function PublicationEditor({
                             : m.editor_back_to_calendar()}
                     </Link>
                     <div className="flex min-w-0 items-start justify-between gap-4">
-                        <h1
-                            className="min-w-0 line-clamp-2 break-words font-heading text-2xl font-semibold leading-tight"
-                            title={publicationEditorHeading(editor, sourceContent)}>
-                            {publicationEditorHeading(editor, sourceContent)}
-                        </h1>
+                        <Tooltip>
+                            <TooltipTrigger
+                                render={
+                                    <h1 className="min-w-0 line-clamp-2 break-words font-heading text-2xl font-semibold leading-tight">
+                                        {publicationEditorHeading(editor, sourceContent)}
+                                    </h1>
+                                }
+                            />
+                            <TooltipContent>
+                                {publicationEditorHeading(editor, sourceContent)}
+                            </TooltipContent>
+                        </Tooltip>
                         <div className="flex shrink-0 items-center gap-2 pt-1.5">
                             {publicationEditable ? (
                                 <PublicationEditorSaveIndicator

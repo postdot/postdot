@@ -26,7 +26,7 @@ test('keeps the workspace navigation reachable when reduced and on mobile', asyn
         })
     expect(expandedShell.scrollLeft).toBe(expandedShell.containerRight)
 
-    const toggle = page.getByRole('button', { name: 'Toggle workspace navigation', exact: true })
+    const toggle = page.getByRole('button', { name: 'Hide menu', exact: true })
     await toggle.click()
     await expect(page.getByRole('link', { name: 'Overview', exact: true })).toBeVisible()
 

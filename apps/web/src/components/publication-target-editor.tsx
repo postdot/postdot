@@ -1,4 +1,5 @@
 import { Alert, AlertDescription, AlertTitle } from '@postdot/ui/components/alert'
+import { Tooltip, TooltipTrigger, TooltipContent } from '@postdot/ui/components/tooltip'
 import { useMemo, useState } from 'react'
 
 import { MediaAttachmentPicker } from '@/components/media-attachment-picker'
@@ -239,30 +240,36 @@ function TargetMediaField({
 }) {
     const [toolbar, setToolbar] = useState<HTMLDivElement | null>(null)
     return (
-        <div
-            data-target-field={field.bindingId}
-            className="min-w-0"
-            title={previewOnly ? m.builder_preview_media_disabled() : undefined}>
-            <div className="mb-3 flex min-h-9 items-center justify-between gap-3">
-                <span className="text-sm font-medium">{field.label}</span>
-                <div ref={setToolbar} className="flex items-center" />
-            </div>
-            <MediaAttachmentPicker
-                variant="publication-new-inline"
-                triggerContainer={toolbar}
-                scopeId={scopeId}
-                projectId={projectId}
-                value={getTargetMediaSelections(profile, target, field.bindingId)}
-                disabled={disabled}
-                onChange={media =>
-                    onChange(updateTargetMedia(profile, target, media, field.bindingId))
+        <Tooltip>
+            <TooltipTrigger
+                render={
+                    <div data-target-field={field.bindingId} className="min-w-0">
+                        <div className="mb-3 flex min-h-9 items-center justify-between gap-3">
+                            <span className="text-sm font-medium">{field.label}</span>
+                            <div ref={setToolbar} className="flex items-center" />
+                        </div>
+                        <MediaAttachmentPicker
+                            variant="publication-new-inline"
+                            triggerContainer={toolbar}
+                            scopeId={scopeId}
+                            projectId={projectId}
+                            value={getTargetMediaSelections(profile, target, field.bindingId)}
+                            disabled={disabled}
+                            onChange={media =>
+                                onChange(updateTargetMedia(profile, target, media, field.bindingId))
+                            }
+                        />
+                        {error ? (
+                            <p role="status" className="mt-2 text-xs text-state-failed">
+                                {error}
+                            </p>
+                        ) : null}
+                    </div>
                 }
             />
-            {error ? (
-                <p role="status" className="mt-2 text-xs text-state-failed">
-                    {error}
-                </p>
-            ) : null}
-        </div>
+            <TooltipContent>
+                {previewOnly ? m.builder_preview_media_disabled() : undefined}
+            </TooltipContent>
+        </Tooltip>
     )
 }

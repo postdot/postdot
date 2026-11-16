@@ -1,3 +1,4 @@
+import { Tooltip, TooltipTrigger, TooltipContent } from '@postdot/ui/components/tooltip'
 import { useId, useMemo, useState } from 'react'
 
 import { MediaAttachmentPicker } from '@/components/media-attachment-picker'
@@ -89,17 +90,24 @@ export function ChannelComposerPreview({
                 <PublicationTextCount id={`${id}-count`} result={count} constraint={constraint} />
             ) : null}
             {media ? (
-                <div title={m.builder_preview_media_disabled()}>
-                    <MediaAttachmentPicker
-                        variant="publication-new-inline"
-                        triggerContainer={toolbar}
-                        scopeId={scopeId}
-                        projectId={projectId}
-                        value={[]}
-                        disabled
-                        onChange={() => {}}
+                <Tooltip>
+                    <TooltipTrigger
+                        render={
+                            <div>
+                                <MediaAttachmentPicker
+                                    variant="publication-new-inline"
+                                    triggerContainer={toolbar}
+                                    scopeId={scopeId}
+                                    projectId={projectId}
+                                    value={[]}
+                                    disabled
+                                    onChange={() => {}}
+                                />
+                            </div>
+                        }
                     />
-                </div>
+                    <TooltipContent>{m.builder_preview_media_disabled()}</TooltipContent>
+                </Tooltip>
             ) : null}
         </div>
     )

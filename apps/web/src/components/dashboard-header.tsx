@@ -9,7 +9,7 @@ import {
     DropdownMenuSubTrigger,
     DropdownMenuTrigger,
 } from '@postdot/ui/components/dropdown-menu'
-import { SidebarTrigger } from '@postdot/ui/components/sidebar'
+import { SidebarTrigger, useSidebar } from '@postdot/ui/components/sidebar'
 import { CheckIcon } from '@solar-icons/react/linear/check'
 import { Logout2Icon } from '@solar-icons/react/linear/logout-2'
 import { PaletteIcon } from '@solar-icons/react/linear/palette'
@@ -78,14 +78,16 @@ export function DashboardHeader({
 }: DashboardHeaderProps) {
     const { locale, setLocale } = useLanguage()
     const { theme: chosenTheme, setTheme } = useTheme()
+    const { open, openMobile, isMobile } = useSidebar()
+    const menuLabel = (isMobile ? openMobile : open) ? m.nav_hide_menu() : m.nav_show_menu()
     const selectedTheme = selectedThemeOption(chosenTheme)
     return (
         <header
             data-dashboard-header="true"
             className="sticky top-0 z-20 flex h-14 shrink-0 items-center justify-between gap-4 bg-surface-canvas/95 px-4 pl-2 backdrop-blur-sm sm:px-6 sm:pl-2 lg:px-8 lg:pl-2">
             <div className="flex min-w-0 items-center gap-2">
-                <ActionTooltip label={m.nav_toggle()}>
-                    <SidebarTrigger aria-label={m.nav_toggle()} />
+                <ActionTooltip label={menuLabel}>
+                    <SidebarTrigger aria-label={menuLabel} size="icon" />
                 </ActionTooltip>
                 <DashboardProjectContext
                     canCreateWorkspace={canCreateWorkspace}

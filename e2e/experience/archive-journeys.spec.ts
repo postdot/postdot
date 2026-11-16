@@ -131,7 +131,7 @@ for (const [locale, copy, theme] of [
         await page.unroute('**/api/resource-removals')
         await page.getByRole('button', { name: copy.common_retry, exact: true }).click()
         await expect(page.getByText(copy.lifecycle_empty, { exact: true })).toBeVisible()
-        await page.getByRole('button', { name: copy.nav_toggle, exact: true }).click()
+        await page.getByRole('button', { name: copy.nav_show_menu, exact: true }).click()
         await page.locator('[data-settings-return="true"]').click()
         await expect(page).toHaveURL(new RegExp(`/dashboard/projects/${current.id}/overview$`))
         await expect(

@@ -125,7 +125,7 @@ test('keeps personal and installation settings open when changing workspace cont
             }
         }
     }
-    await page.getByRole('button', { name: fr.nav_toggle, exact: true }).click()
+    await page.getByRole('button', { name: fr.nav_show_menu, exact: true }).click()
     await expect(
         page.getByRole('navigation', { name: fr.nav_personal_settings, exact: true })
     ).toBeVisible()

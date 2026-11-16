@@ -47,7 +47,9 @@ for (const [locale, copy] of [
             for (const width of [1440, 820, 390]) {
                 await page.setViewportSize({ width, height: 900 })
                 if (width === 390) {
-                    await page.getByRole('button', { name: copy.nav_toggle, exact: true }).click()
+                    await page
+                        .getByRole('button', { name: copy.nav_show_menu, exact: true })
+                        .click()
                 }
                 const nav = page.getByRole('navigation', {
                     name: copy.nav_work_navigation,

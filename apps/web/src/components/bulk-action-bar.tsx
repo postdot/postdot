@@ -1,5 +1,6 @@
 import { Button } from '@postdot/ui/components/button'
 import { ButtonGroup } from '@postdot/ui/components/button-group'
+import { Tooltip, TooltipTrigger, TooltipContent } from '@postdot/ui/components/tooltip'
 import { cn } from '@postdot/ui/lib/utils'
 import type { ReactNode } from 'react'
 
@@ -112,18 +113,27 @@ export function BulkActionBar({
                         </Button>
                     ) : null}
                     {actions?.map(action => (
-                        <Button
-                            key={action.id}
-                            type="button"
-                            variant={action.variant ?? 'secondary'}
-                            size="sm"
-                            disabled={selectedCount === 0 || action.disabled === true}
-                            title={action.disabled ? action.disabledReason : undefined}
-                            data-bulk-action={action.id}
-                            onClick={action.onSelect}>
-                            {action.icon}
-                            {action.label}
-                        </Button>
+                        <Tooltip>
+                            <TooltipTrigger
+                                render={
+                                    <Button
+                                        key={action.id}
+                                        type="button"
+                                        variant={action.variant ?? 'secondary'}
+                                        size="sm"
+                                        disabled={selectedCount === 0 || action.disabled === true}
+
+                                        data-bulk-action={action.id}
+                                        onClick={action.onSelect}>
+                                        {action.icon}
+                                        {action.label}
+                                    </Button>
+                                }
+                            />
+                            <TooltipContent>
+                                {action.disabled ? action.disabledReason : undefined}
+                            </TooltipContent>
+                        </Tooltip>
                     ))}
                 </div>
             ) : null}

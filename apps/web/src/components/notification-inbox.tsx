@@ -10,6 +10,7 @@ import {
 } from '@postdot/ui/components/popover'
 import { ScrollArea } from '@postdot/ui/components/scroll-area'
 import { Switch } from '@postdot/ui/components/switch'
+import { Tooltip, TooltipTrigger, TooltipContent } from '@postdot/ui/components/tooltip'
 import { ArchiveIcon } from '@solar-icons/react/linear/archive'
 import { ArrowLeftIcon } from '@solar-icons/react/linear/arrow-left'
 import { BellIcon } from '@solar-icons/react/linear/bell'
@@ -236,27 +237,35 @@ export function NotificationInbox({ projectId, projects }: NotificationInboxProp
     return (
         <>
             <Popover modal={false} open={open} onOpenChange={handleOpenChange}>
-                <PopoverTrigger
-                    render={
-                        <Button
-                            aria-label={
-                                unreadCount === 0
-                                    ? m.notifications_open()
-                                    : m.notifications_open_unread({ count: unreadCount })
-                            }
-                            className="relative"
-                            size="icon-sm"
-                            title={m.notifications_title()}
-                            variant="ghost"
-                        />
-                    }>
-                    <BellIcon aria-hidden="true" />
-                    {unreadCount > 0 ? (
-                        <span className="absolute top-0.5 right-0.5 flex min-w-3.5 translate-x-1/4 -translate-y-1/4 items-center justify-center rounded-full bg-primary px-1 text-[0.6rem] leading-3.5 font-semibold text-primary-foreground tabular-nums">
-                            {unreadCount > 99 ? '99+' : unreadCount}
-                        </span>
-                    ) : null}
-                </PopoverTrigger>
+                <Tooltip>
+                    <PopoverTrigger
+                        render={
+                            <TooltipTrigger
+                                render={
+                                    <Button
+                                        aria-label={
+                                            unreadCount === 0
+                                                ? m.notifications_open()
+                                                : m.notifications_open_unread({
+                                                      count: unreadCount,
+                                                  })
+                                        }
+                                        className="relative"
+                                        size="icon-sm"
+                                        variant="ghost"
+                                    />
+                                }
+                            />
+                        }>
+                        <BellIcon aria-hidden="true" />
+                        {unreadCount > 0 ? (
+                            <span className="absolute top-0.5 right-0.5 flex min-w-3.5 translate-x-1/4 -translate-y-1/4 items-center justify-center rounded-full bg-primary px-1 text-[0.6rem] leading-3.5 font-semibold text-primary-foreground tabular-nums">
+                                {unreadCount > 99 ? '99+' : unreadCount}
+                            </span>
+                        ) : null}
+                    </PopoverTrigger>
+                    <TooltipContent>{m.notifications_title()}</TooltipContent>
+                </Tooltip>
 
                 <PopoverContent
                     align="end"
@@ -275,44 +284,56 @@ export function NotificationInbox({ projectId, projects }: NotificationInboxProp
                             ) : null}
                         </div>
                         <div className="flex shrink-0 items-center gap-1">
-                            <Button
-                                aria-label={
-                                    panel === 'inbox'
-                                        ? m.notifications_preferences_open()
-                                        : m.notifications_back()
-                                }
-                                size="icon-sm"
-                                title={
-                                    panel === 'inbox'
-                                        ? m.notifications_preferences()
-                                        : m.notifications_back()
-                                }
-                                variant="ghost"
-                                onClick={() => {
-                                    if (panel === 'inbox') {
-                                        setPanel('preferences')
-                                    } else {
-                                        setPanel('inbox')
-                                        void inboxQuery.refetch()
+                            <Tooltip>
+                                <TooltipTrigger
+                                    render={
+                                        <Button
+                                            aria-label={
+                                                panel === 'inbox'
+                                                    ? m.notifications_preferences_open()
+                                                    : m.notifications_back()
+                                            }
+                                            size="icon-sm"
+                                            variant="ghost"
+                                            onClick={() => {
+                                                if (panel === 'inbox') {
+                                                    setPanel('preferences')
+                                                } else {
+                                                    setPanel('inbox')
+                                                    void inboxQuery.refetch()
+                                                }
+                                            }}>
+                                            {panel === 'inbox' ? (
+                                                <SettingsIcon aria-hidden="true" />
+                                            ) : (
+                                                <ArrowLeftIcon aria-hidden="true" />
+                                            )}
+                                        </Button>
                                     }
-                                }}>
-                                {panel === 'inbox' ? (
-                                    <SettingsIcon aria-hidden="true" />
-                                ) : (
-                                    <ArrowLeftIcon aria-hidden="true" />
-                                )}
-                            </Button>
-                            <PopoverClose
-                                render={
-                                    <Button
-                                        aria-label={m.common_close()}
-                                        size="icon-sm"
-                                        title={m.common_close()}
-                                        variant="ghost"
-                                    />
-                                }>
-                                <CloseIcon aria-hidden="true" />
-                            </PopoverClose>
+                                />
+                                <TooltipContent>
+                                    {panel === 'inbox'
+                                        ? m.notifications_preferences()
+                                        : m.notifications_back()}
+                                </TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                                <PopoverClose
+                                    render={
+                                        <TooltipTrigger
+                                            render={
+                                                <Button
+                                                    aria-label={m.common_close()}
+                                                    size="icon-sm"
+                                                    variant="ghost"
+                                                />
+                                            }
+                                        />
+                                    }>
+                                    <CloseIcon aria-hidden="true" />
+                                </PopoverClose>
+                                <TooltipContent>{m.common_close()}</TooltipContent>
+                            </Tooltip>
                         </div>
                     </div>
 
@@ -479,29 +500,49 @@ function NotificationItem({
                         </time>
                         <div className="ml-auto flex shrink-0 items-center gap-1">
                             {unread ? (
-                                <Button
-                                    aria-label={m.notifications_mark_as_read({ title: copy.title })}
-                                    disabled={disabled}
-                                    size="icon"
-                                    className="size-11 sm:size-8"
-                                    title={m.notifications_read_short()}
-                                    variant="ghost"
-                                    onClick={() => void onMarkRead(notification)}>
-                                    <CheckIcon aria-hidden="true" />
-                                    <span className="sr-only">{m.notifications_read_short()}</span>
-                                </Button>
+                                <Tooltip>
+                                    <TooltipTrigger
+                                        render={
+                                            <Button
+                                                aria-label={m.notifications_mark_as_read({
+                                                    title: copy.title,
+                                                })}
+                                                disabled={disabled}
+                                                size="icon"
+                                                className="size-11 sm:size-8"
+                                                variant="ghost"
+                                                onClick={() => void onMarkRead(notification)}>
+                                                <CheckIcon aria-hidden="true" />
+                                                <span className="sr-only">
+                                                    {m.notifications_read_short()}
+                                                </span>
+                                            </Button>
+                                        }
+                                    />
+                                    <TooltipContent>{m.notifications_read_short()}</TooltipContent>
+                                </Tooltip>
                             ) : null}
-                            <Button
-                                aria-label={m.notifications_archive_item({ title: copy.title })}
-                                disabled={disabled}
-                                size="icon"
-                                className="size-11 sm:size-8"
-                                title={m.notifications_archive_short()}
-                                variant="ghost"
-                                onClick={() => void onArchive(notification)}>
-                                <ArchiveIcon aria-hidden="true" />
-                                <span className="sr-only">{m.notifications_archive_short()}</span>
-                            </Button>
+                            <Tooltip>
+                                <TooltipTrigger
+                                    render={
+                                        <Button
+                                            aria-label={m.notifications_archive_item({
+                                                title: copy.title,
+                                            })}
+                                            disabled={disabled}
+                                            size="icon"
+                                            className="size-11 sm:size-8"
+                                            variant="ghost"
+                                            onClick={() => void onArchive(notification)}>
+                                            <ArchiveIcon aria-hidden="true" />
+                                            <span className="sr-only">
+                                                {m.notifications_archive_short()}
+                                            </span>
+                                        </Button>
+                                    }
+                                />
+                                <TooltipContent>{m.notifications_archive_short()}</TooltipContent>
+                            </Tooltip>
                         </div>
                     </div>
                 </div>

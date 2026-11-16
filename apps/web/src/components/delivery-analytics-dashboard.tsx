@@ -1,3 +1,4 @@
+import { Tooltip, TooltipTrigger, TooltipContent } from '@postdot/ui/components/tooltip'
 import { CalendarIcon } from '@solar-icons/react/linear/calendar'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
@@ -260,63 +261,93 @@ export function DeliveryAnalyticsDashboard({
                                             role="group"
                                             aria-label={m.delivery_daily()}>
                                             {daily.map((day, index) => (
-                                                <button
-                                                    key={day.date}
-                                                    type="button"
-                                                    data-delivery-day={day.date}
-                                                    title={m.delivery_day_label({
-                                                        date: dayLabel(day.date),
-                                                        published: day.published,
-                                                        failed: day.failed,
-                                                        ambiguous: day.ambiguous,
-                                                    })}
-                                                    aria-pressed={selectedDay?.date === day.date}
-                                                    tabIndex={
-                                                        selectedDay?.date === day.date ? 0 : -1
-                                                    }
-                                                    aria-label={m.delivery_day_label({
-                                                        date: dayLabel(day.date),
-                                                        published: day.published,
-                                                        failed: day.failed,
-                                                        ambiguous: day.ambiguous,
-                                                    })}
-                                                    ref={node => {
-                                                        if (node) bars.current.set(day.date, node)
-                                                        else bars.current.delete(day.date)
-                                                    }}
-                                                    onClick={() => setSelectedDate(day.date)}
-                                                    onKeyDown={event => {
-                                                        const next =
-                                                            event.key === 'ArrowRight'
-                                                                ? Math.min(
-                                                                      daily.length - 1,
-                                                                      index + 1
-                                                                  )
-                                                                : event.key === 'ArrowLeft'
-                                                                  ? Math.max(0, index - 1)
-                                                                  : event.key === 'Home'
-                                                                    ? 0
-                                                                    : event.key === 'End'
-                                                                      ? daily.length - 1
-                                                                      : null
-                                                        if (next !== null) {
-                                                            event.preventDefault()
-                                                            const date = daily[next]!.date
-                                                            setSelectedDate(date)
-                                                            bars.current.get(date)?.focus()
+                                                <Tooltip>
+                                                    <TooltipTrigger
+                                                        render={
+                                                            <button
+                                                                key={day.date}
+                                                                type="button"
+                                                                data-delivery-day={day.date}
+
+                                                                aria-pressed={
+                                                                    selectedDay?.date === day.date
+                                                                }
+                                                                tabIndex={
+                                                                    selectedDay?.date === day.date
+                                                                        ? 0
+                                                                        : -1
+                                                                }
+                                                                aria-label={m.delivery_day_label({
+                                                                    date: dayLabel(day.date),
+                                                                    published: day.published,
+                                                                    failed: day.failed,
+                                                                    ambiguous: day.ambiguous,
+                                                                })}
+                                                                ref={node => {
+                                                                    if (node)
+                                                                        bars.current.set(
+                                                                            day.date,
+                                                                            node
+                                                                        )
+                                                                    else
+                                                                        bars.current.delete(
+                                                                            day.date
+                                                                        )
+                                                                }}
+                                                                onClick={() =>
+                                                                    setSelectedDate(day.date)
+                                                                }
+                                                                onKeyDown={event => {
+                                                                    const next =
+                                                                        event.key === 'ArrowRight'
+                                                                            ? Math.min(
+                                                                                  daily.length - 1,
+                                                                                  index + 1
+                                                                              )
+                                                                            : event.key ===
+                                                                                'ArrowLeft'
+                                                                              ? Math.max(
+                                                                                    0,
+                                                                                    index - 1
+                                                                                )
+                                                                              : event.key === 'Home'
+                                                                                ? 0
+                                                                                : event.key ===
+                                                                                    'End'
+                                                                                  ? daily.length - 1
+                                                                                  : null
+                                                                    if (next !== null) {
+                                                                        event.preventDefault()
+                                                                        const date =
+                                                                            daily[next]!.date
+                                                                        setSelectedDate(date)
+                                                                        bars.current
+                                                                            .get(date)
+                                                                            ?.focus()
+                                                                    }
+                                                                }}
+                                                                className="group flex h-full min-w-2 flex-1 items-end rounded-t-sm outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset">
+                                                                <span
+                                                                    aria-hidden="true"
+                                                                    className={`block w-full rounded-t-sm ${selectedDay?.date === day.date ? 'bg-primary' : 'bg-foreground/50 group-hover:bg-foreground/70'}`}
+                                                                    style={{
+                                                                        height: day.published
+                                                                            ? `${Math.max(2, (day.published / maximum) * 100)}%`
+                                                                            : 2,
+                                                                    }}
+                                                                />
+                                                            </button>
                                                         }
-                                                    }}
-                                                    className="group flex h-full min-w-2 flex-1 items-end rounded-t-sm outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset">
-                                                    <span
-                                                        aria-hidden="true"
-                                                        className={`block w-full rounded-t-sm ${selectedDay?.date === day.date ? 'bg-primary' : 'bg-foreground/50 group-hover:bg-foreground/70'}`}
-                                                        style={{
-                                                            height: day.published
-                                                                ? `${Math.max(2, (day.published / maximum) * 100)}%`
-                                                                : 2,
-                                                        }}
                                                     />
-                                                </button>
+                                                    <TooltipContent>
+                                                        {m.delivery_day_label({
+                                                            date: dayLabel(day.date),
+                                                            published: day.published,
+                                                            failed: day.failed,
+                                                            ambiguous: day.ambiguous,
+                                                        })}
+                                                    </TooltipContent>
+                                                </Tooltip>
                                             ))}
                                         </div>
                                         <div

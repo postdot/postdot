@@ -9,6 +9,7 @@ import {
 } from '@postdot/ui/components/dialog'
 import { Input } from '@postdot/ui/components/input'
 import { Kbd } from '@postdot/ui/components/kbd'
+import { Tooltip, TooltipTrigger, TooltipContent } from '@postdot/ui/components/tooltip'
 import { cn } from '@postdot/ui/lib/utils'
 import { AltArrowDownIcon } from '@solar-icons/react/linear/alt-arrow-down'
 import { CalendarAddIcon } from '@solar-icons/react/linear/calendar-add'
@@ -1475,27 +1476,36 @@ export function NewPublicationPage({
                                             <p className="min-w-0 flex-1">
                                                 {m.publication_new_autosave_unavailable()}
                                             </p>
-                                            <Button
-                                                type="button"
-                                                size="sm"
-                                                variant="outline"
-                                                disabled={pending || autosaveRetryPending}
-                                                focusableWhenDisabled
-                                                aria-describedby={
-                                                    autosaveRetryPending
-                                                        ? 'new-publication-autosave-status'
-                                                        : undefined
-                                                }
-                                                title={
-                                                    autosaveRetryPending
+                                            <Tooltip>
+                                                <TooltipTrigger
+                                                    render={
+                                                        <Button
+                                                            type="button"
+                                                            size="sm"
+                                                            variant="outline"
+                                                            disabled={
+                                                                pending || autosaveRetryPending
+                                                            }
+                                                            focusableWhenDisabled
+                                                            aria-describedby={
+                                                                autosaveRetryPending
+                                                                    ? 'new-publication-autosave-status'
+                                                                    : undefined
+                                                            }
+
+                                                            onClick={retryAutosave}>
+                                                            {m.common_retry()}
+                                                        </Button>
+                                                    }
+                                                />
+                                                <TooltipContent>
+                                                    {autosaveRetryPending
                                                         ? m.publication_new_autosave_saving()
                                                         : pending
                                                           ? m.common_loading()
-                                                          : undefined
-                                                }
-                                                onClick={retryAutosave}>
-                                                {m.common_retry()}
-                                            </Button>
+                                                          : undefined}
+                                                </TooltipContent>
+                                            </Tooltip>
                                         </div>
                                         {autosaveError ? (
                                             <p className="mt-1 break-words text-xs">

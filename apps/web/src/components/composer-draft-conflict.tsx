@@ -7,6 +7,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@postdot/ui/components/dialog'
+import { Tooltip, TooltipTrigger, TooltipContent } from '@postdot/ui/components/tooltip'
 import { useQueries } from '@tanstack/react-query'
 
 import { MediaPreview, mediaStateLabel, readyRepresentation } from '@/components/media-asset-card'
@@ -270,19 +271,28 @@ export function ComposerDraftConflict({
                         {unavailableDetails ? (
                             <p>{m.composer_conflict_details_unavailable()}</p>
                         ) : null}
-                        <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            disabled={loadingDetails}
-                            focusableWhenDisabled
-                            title={loadingDetails ? m.common_loading() : undefined}
-                            onClick={() => {
-                                void tagCatalog.refetch()
-                                for (const query of mediaQueries) void query.refetch()
-                            }}>
-                            {m.composer_conflict_retry_details()}
-                        </Button>
+                        <Tooltip>
+                            <TooltipTrigger
+                                render={
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        disabled={loadingDetails}
+                                        focusableWhenDisabled
+
+                                        onClick={() => {
+                                            void tagCatalog.refetch()
+                                            for (const query of mediaQueries) void query.refetch()
+                                        }}>
+                                        {m.composer_conflict_retry_details()}
+                                    </Button>
+                                }
+                            />
+                            <TooltipContent>
+                                {loadingDetails ? m.common_loading() : undefined}
+                            </TooltipContent>
+                        </Tooltip>
                     </div>
                 ) : null}
                 <div className="flex flex-wrap gap-2">

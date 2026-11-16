@@ -249,7 +249,7 @@ for (const scenario of [
                 await shoot(page, `${route.id}-${viewport.name}`, outputDirectory)
                 if (viewport.name === 'mobile' && route.id === 'personal-general') {
                     await page
-                        .getByRole('button', { name: scenario.copy.nav_toggle, exact: true })
+                        .getByRole('button', { name: scenario.copy.nav_show_menu, exact: true })
                         .click()
                     await settle(page)
                     observations.push(await observe(page, 'personal-navigation@mobile'))

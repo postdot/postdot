@@ -1,4 +1,5 @@
 import { Button } from '@postdot/ui/components/button'
+import { Tooltip, TooltipTrigger, TooltipContent } from '@postdot/ui/components/tooltip'
 import { cn } from '@postdot/ui/lib/utils'
 import { DangerTriangleIcon } from '@solar-icons/react/linear/danger-triangle'
 import { InfoCircleIcon } from '@solar-icons/react/linear/info-circle'
@@ -103,14 +104,23 @@ export function PublicationEditorSaveIndicator({
                     : m.editor_save_failed()
 
     return (
-        <div
-            aria-label={label}
-            className="flex items-center gap-2 text-xs font-medium text-muted-foreground"
-            role="status"
-            title={label}>
-            <span className={compactOnMobile ? 'max-w-28 truncate sm:max-w-none' : undefined}>
-                {label}
-            </span>
-        </div>
+        <Tooltip>
+            <TooltipTrigger
+                render={
+                    <div
+                        aria-label={label}
+                        className="flex items-center gap-2 text-xs font-medium text-muted-foreground"
+                        role="status">
+                        <span
+                            className={
+                                compactOnMobile ? 'max-w-28 truncate sm:max-w-none' : undefined
+                            }>
+                            {label}
+                        </span>
+                    </div>
+                }
+            />
+            <TooltipContent>{label}</TooltipContent>
+        </Tooltip>
     )
 }

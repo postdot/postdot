@@ -556,7 +556,7 @@ test('keeps operational labels localized without changing custom notification co
         expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([])
         await page.keyboard.press('Escape')
         if (locale === 'fr') {
-            await page.getByRole('button', { name: copy.nav_toggle, exact: true }).click()
+            await page.getByRole('button', { name: copy.nav_show_menu, exact: true }).click()
             const navigation = page.getByRole('dialog', { name: copy.nav_aria_label, exact: true })
             await expect(navigation).toBeVisible()
             await expect(

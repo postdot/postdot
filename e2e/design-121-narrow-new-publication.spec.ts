@@ -303,7 +303,7 @@ test('keeps narrow new-publication flow and queue usable with long channel names
     ).toBe(true)
     await expectNoHorizontalOverflow(page)
 
-    await page.getByRole('button', { name: 'Toggle workspace navigation', exact: true }).click()
+    await page.getByRole('button', { name: 'Show menu', exact: true }).click()
     await page.getByRole('link', { name: 'Queue', exact: true }).click()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/queue$/)
     await page.getByRole('button', { name: 'Close', exact: true }).click()
