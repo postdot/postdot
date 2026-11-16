@@ -10,6 +10,7 @@ import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
+    DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@postdot/ui/components/dropdown-menu'
 import { Field, FieldLabel } from '@postdot/ui/components/field'
@@ -69,6 +70,7 @@ export function IdentityImageSection({
     const [filePreview, setFilePreview] = useState<string | null>(null)
     const [urlOpen, setUrlOpen] = useState(false)
     const [imageUrl, setImageUrl] = useState('')
+    const [urlPreviewFailed, setUrlPreviewFailed] = useState(false)
     const [pending, setPending] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const [warning, setWarning] = useState<string | null>(null)
@@ -100,9 +102,10 @@ export function IdentityImageSection({
         return () => URL.revokeObjectURL(url)
     }, [change])
 
-    function report(error: unknown) {
+    function report(error: unknown, kind?: IdentityImageChange['kind']) {
         onRefusal?.(error)
-        setError(identityError(error))
+        setWarning(null)
+        setError(identityError(error, kind))
     }
     async function save(): Promise<IdentityResource> {
         if (disabled || pending) throw new Error('Identity image editing is unavailable')
@@ -111,15 +114,22 @@ export function IdentityImageSection({
         setError(null)
         setWarning(null)
         let current = saved
+        let failingChangeKind: IdentityImageChange['kind'] | undefined
+        let websiteAppliedImage = false
         try {
             if (website.trim() !== (current.websiteUrl ?? '')) {
                 current = await setIdentityWebsite(target, website.trim() || null, current.revision)
                 setSaved(current)
                 setWebsite(current.websiteUrl ?? '')
-                if (website.trim() && !current.imageUrl) setWarning(m.identity_icon_unavailable())
+                websiteAppliedImage = Boolean(current.imageUrl)
+                if (!change && website.trim() && !current.imageUrl)
+                    setWarning(m.identity_icon_unavailable())
             }
             if (change) {
-                current = await changeIdentityImage(target, change, current.revision)
+                if (change.kind !== 'favicon' || !websiteAppliedImage) {
+                    failingChangeKind = change.kind
+                    current = await changeIdentityImage(target, change, current.revision)
+                }
                 setSaved(current)
                 setChange(null)
             }
@@ -136,7 +146,7 @@ export function IdentityImageSection({
             await router.invalidate()
             return current
         } catch (error) {
-            report(error)
+            report(error, failingChangeKind)
             throw error
         } finally {
             setPending(false)
@@ -145,20 +155,23 @@ export function IdentityImageSection({
     useImperativeHandle(editorRef, () => ({ save }))
     const preview = change?.kind === 'remove' ? null : (filePreview ?? saved.imageUrl)
     const busy = disabled || pending
+    let description: string | undefined
+    if (change?.kind === 'upload') description = m.identity_upload_selected()
+    if (change?.kind === 'url') description = m.identity_url_selected()
+    if (change?.kind === 'remove') description = m.identity_remove_selected()
+    if (change?.kind === 'favicon') {
+        try {
+            description = m.identity_icon_host_selected({ host: new URL(website.trim()).hostname })
+        } catch {
+            description = m.identity_icon_selected()
+        }
+    }
     return (
         <SettingsSection id={`${id}-title`} title={m.identity_image()}>
             <SettingsCard>
                 <SettingsRow
                     title={resource.name}
-                    description={
-                        change && change.kind !== 'upload'
-                            ? change.kind === 'url'
-                                ? m.identity_url_selected()
-                                : change.kind === 'favicon'
-                                  ? m.identity_icon_selected()
-                                  : m.identity_remove_selected()
-                            : undefined
-                    }
+                    description={description}
                     media={
                         <>
                             {target.kind === 'channel' ? (
@@ -200,26 +213,53 @@ export function IdentityImageSection({
                                     <DropdownMenuItem onClick={() => fileInput.current?.click()}>
                                         {m.identity_upload()}
                                     </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => setUrlOpen(true)}>
+                                    <DropdownMenuItem
+                                        onClick={() => {
+                                            setImageUrl('')
+                                            setUrlPreviewFailed(false)
+                                            setUrlOpen(true)
+                                        }}>
                                         {m.identity_from_url()}
                                     </DropdownMenuItem>
-                                    <DropdownMenuItem
-                                        disabled={!website.trim()}
-                                        onClick={() => {
-                                            setChange({ kind: 'favicon' })
-                                            setError(null)
-                                        }}>
-                                        {m.identity_use_icon()}
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem
-                                        onClick={() => {
-                                            setChange({ kind: 'remove' })
-                                            setError(null)
-                                        }}>
-                                        {m.identity_remove()}
-                                    </DropdownMenuItem>
+                                    {website.trim() ? (
+                                        <DropdownMenuItem
+                                            onClick={() => {
+                                                setChange({ kind: 'favicon' })
+                                                setError(null)
+                                                setWarning(null)
+                                            }}>
+                                            {m.identity_use_icon()}
+                                        </DropdownMenuItem>
+                                    ) : null}
+                                    {preview ? (
+                                        <>
+                                            <DropdownMenuSeparator />
+                                            <DropdownMenuItem
+                                                onClick={() => {
+                                                    setChange({ kind: 'remove' })
+                                                    setError(null)
+                                                    setWarning(null)
+                                                }}>
+                                                {m.identity_use_default()}
+                                            </DropdownMenuItem>
+                                        </>
+                                    ) : null}
                                 </DropdownMenuContent>
                             </DropdownMenu>
+                            {change ? (
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    disabled={busy}
+                                    onClick={() => {
+                                        setChange(null)
+                                        setError(null)
+                                        setWarning(null)
+                                    }}>
+                                    {m.identity_undo_change()}
+                                </Button>
+                            ) : null}
                             <input
                                 ref={fileInput}
                                 className="sr-only"
@@ -233,10 +273,12 @@ export function IdentityImageSection({
                                     if (!file) return
                                     if (file.size > 2 * 1024 * 1024) {
                                         setError(m.identity_error_size())
+                                        setWarning(null)
                                         return
                                     }
                                     setChange({ kind: 'upload', file })
                                     setError(null)
+                                    setWarning(null)
                                 }}
                             />
                         </div>
@@ -274,7 +316,7 @@ export function IdentityImageSection({
                         {error}
                     </p>
                 ) : null}
-                {warning ? (
+                {warning && !error ? (
                     <p role="status" className="px-4 py-2.5 text-sm text-muted-foreground">
                         {warning}
                     </p>
@@ -290,10 +332,31 @@ export function IdentityImageSection({
                                 id={`${id}-url`}
                                 type="url"
                                 value={imageUrl}
-                                onChange={event => setImageUrl(event.target.value)}
+                                onChange={event => {
+                                    setImageUrl(event.target.value)
+                                    setUrlPreviewFailed(false)
+                                }}
                             />
                         </Field>
+                        {/^https?:\/\//i.test(imageUrl.trim()) ? (
+                            urlPreviewFailed ? (
+                                <p className="text-sm text-muted-foreground">
+                                    {m.identity_url_no_preview()}
+                                </p>
+                            ) : (
+                                <img
+                                    key={imageUrl.trim()}
+                                    src={imageUrl.trim()}
+                                    alt=""
+                                    className="size-12 rounded-md border border-border object-contain"
+                                    onError={() => setUrlPreviewFailed(true)}
+                                />
+                            )
+                        ) : null}
                         <DialogFooter>
+                            <Button type="button" variant="ghost" onClick={() => setUrlOpen(false)}>
+                                {m.common_cancel()}
+                            </Button>
                             <Button
                                 type="button"
                                 disabled={!/^https?:\/\//i.test(imageUrl.trim())}
@@ -301,6 +364,7 @@ export function IdentityImageSection({
                                     setChange({ kind: 'url', url: imageUrl.trim() })
                                     setUrlOpen(false)
                                     setError(null)
+                                    setWarning(null)
                                 }}>
                                 {m.identity_choose()}
                             </Button>
@@ -312,8 +376,17 @@ export function IdentityImageSection({
     )
 }
 
-function identityError(error: unknown) {
+function identityError(error: unknown, kind?: IdentityImageChange['kind']) {
     if (!(error instanceof ApiError)) return m.identity_error_remote()
+    if (
+        kind === 'favicon' &&
+        (error.code === 'identity_favicon_not_found' ||
+            error.code === 'identity_image_size' ||
+            error.code === 'identity_image_format' ||
+            error.code === 'identity_image_empty' ||
+            error.code.startsWith('identity_remote_'))
+    )
+        return m.identity_error_icon()
     if (error.code === 'identity_image_size') return m.identity_error_size()
     if (error.code === 'identity_image_format' || error.code === 'identity_image_empty')
         return m.identity_error_format()
