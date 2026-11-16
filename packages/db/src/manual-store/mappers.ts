@@ -179,6 +179,7 @@ export function toPublicationSummary(row: PublicationSummaryRow): PublicationSum
         lastEditedAt: Math.max(row.updatedAt, row.postUpdatedAt, row.draftUpdatedAt),
         channelName: row.channelName,
         draftRevision: row.draftRevision,
+        draftSourceRevision: row.draftSourceRevision,
         draftReviewState: row.draftReviewState,
         draftDiffersFromTarget:
             row.targetContentJson === null ||

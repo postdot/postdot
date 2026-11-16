@@ -1613,6 +1613,7 @@ describe('manual workflow store', () => {
                 {
                     id: publication.id,
                     draftRevision: 2,
+                    draftSourceRevision: 2,
                     draftReviewState: 'compatible',
                     draftDiffersFromTarget: true,
                 },

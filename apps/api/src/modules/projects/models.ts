@@ -582,6 +582,7 @@ export const publicationSummarySchema = Type.Unsafe<PublicationSummary>(
             lastEditedAt: Type.Integer({ minimum: 0 }),
             channelName: Type.String(),
             draftRevision: Type.Integer({ minimum: 1 }),
+            draftSourceRevision: Type.Integer({ minimum: 1 }),
             draftReviewState: Type.Union([
                 Type.Literal('compatible'),
                 Type.Literal('review_required'),

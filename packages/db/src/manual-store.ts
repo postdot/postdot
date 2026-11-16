@@ -343,6 +343,7 @@ export interface PublicationSummary extends Publication {
     readonly lastEditedAt: number
     readonly channelName: string
     readonly draftRevision: number
+    readonly draftSourceRevision: number
     readonly draftReviewState: PublicationReviewState
     readonly draftDiffersFromTarget: boolean
     readonly tagIds: readonly string[]

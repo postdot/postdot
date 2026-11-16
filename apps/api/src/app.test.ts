@@ -4200,7 +4200,7 @@ describe('Postdot API', () => {
                 }
             ).toMatchObject({
                 publications: [
-                    { id: publicationId, draftDiffersFromTarget: false },
+                    { id: publicationId, draftDiffersFromTarget: false, draftSourceRevision: 1 },
                     expect.objectContaining({ draftDiffersFromTarget: true }),
                 ],
             })
