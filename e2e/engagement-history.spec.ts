@@ -203,7 +203,7 @@ for (const [provider, metrics] of [
         await page.getByRole('option').nth(2).click()
         await expect(
             history.getByText(
-                'The content revision or measurement format changed. Compare the snapshots in the table; a continuous trend would be misleading.',
+                'The post or the way it is measured changed in this period, so the trend may jump.',
                 { exact: true }
             )
         ).toBeVisible()
