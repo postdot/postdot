@@ -121,7 +121,9 @@ export function IdentityImageSection({
                 current = await setIdentityWebsite(target, website.trim() || null, current.revision)
                 setSaved(current)
                 setWebsite(current.websiteUrl ?? '')
-                websiteAppliedImage = Boolean(current.imageUrl)
+                // The server applies the new site's icon only over an icon or no image.
+                websiteAppliedImage =
+                    Boolean(current.imageUrl) && current.imageUrl !== saved.imageUrl
                 if (!change && website.trim() && !current.imageUrl)
                     setWarning(m.identity_icon_unavailable())
             }

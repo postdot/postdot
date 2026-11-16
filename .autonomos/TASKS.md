@@ -13,6 +13,8 @@
 
 - [x] **[UX-664]** Settings pages on one anatomy (owner review, 2026-11-15) `Priority: 🔵` `Complexity: M`
 
+- [x] **[UX-667]** Website icon lookup; identity image changes can be undone (owner feedback, 2026-11-16) `Priority: 🔵` `Complexity: S`
+
 ## Current direction
 
 Shared-channel implementation follows [ADR-095](decisions/ADR-095-workspace-channels-and-project-attachments.md)
