@@ -1,4 +1,11 @@
 import { Button, buttonVariants } from '@postdot/ui/components/button'
+import {
+    Dialog,
+    DialogContent,
+    DialogTitle,
+    DialogDescription,
+    DialogFooter,
+} from '@postdot/ui/components/dialog'
 import { Field, FieldLabel } from '@postdot/ui/components/field'
 import {
     Select,
@@ -8,7 +15,7 @@ import {
     SelectValue,
 } from '@postdot/ui/components/select'
 import { AltArrowLeftIcon } from '@solar-icons/react/linear/alt-arrow-left'
-import { Link } from '@tanstack/react-router'
+import { Link, useNavigate, useBlocker } from '@tanstack/react-router'
 import { lazy, Suspense, useState, useEffect, type SetStateAction } from 'react'
 
 import { DashboardPageHeader } from '@/components/dashboard-page-header'
@@ -16,19 +23,24 @@ import { PublicationStatus, formatSchedule } from '@/components/dashboard-public
 import { ChannelAvatar } from '@/components/identity-visuals'
 import { LanguageCombobox } from '@/components/language-combobox'
 import { PostSourceReview } from '@/components/post-source-review'
+import { PublicationEditorSidebar } from '@/components/publication-editor-sidebar'
 import {
     PublicationEditorSaveIndicator,
     PublicationEditorStatus,
 } from '@/components/publication-editor-status'
+import { PublicationRecoveryComparison } from '@/components/publication-recovery-comparison'
 import { useProjectLifecycle } from '@/components/resource-lifecycle-section'
+import { ApiError } from '@/lib/api'
 import {
     applyPostToChannel,
     channelVersionFollowsSource,
     postFromChannelVersion,
 } from '@/lib/channel-version-follow'
-import { useProjectDashboard } from '@/lib/dashboard-context'
+import { useDashboardUserId, useProjectDashboard } from '@/lib/dashboard-context'
+import { toDateTimeLocal } from '@/lib/date-time'
 import { useLanguage } from '@/lib/i18n'
 import { countStaleChannelVersions } from '@/lib/post-source-review'
+import type { PublicationCalendarView } from '@/lib/publication-calendar-events'
 import { shortExcerpt } from '@/lib/publication-identity'
 import { getTargetPreviewBody } from '@/lib/publication-preview'
 import { getTargetEditorFields } from '@/lib/target-editor'
@@ -44,6 +56,7 @@ import {
 import { ExistingPostTags } from './existing-post-tags'
 import { PostChannelPreview } from './post-channel-preview'
 import { PostComposer } from './post-composer'
+import { recoveryMatchesProfiles } from './post-composition-recovery'
 import { useExistingPostComposition, type ExistingPostData } from './use-existing-post-composition'
 import { usePostEditorAccess } from './use-post-editor-access'
 
@@ -51,14 +64,44 @@ const PostChannelPanel = lazy(() =>
     import('./post-channel-panel').then(module => ({ default: module.PostChannelPanel }))
 )
 
-export function ExistingPostPage({ initialData }: { readonly initialData: ExistingPostData }) {
+export function ExistingPostPage(props: {
+    readonly initialData: ExistingPostData
+    readonly activePublicationId?: string
+    readonly backToCalendar?: { readonly date?: string; readonly view?: PublicationCalendarView }
+    readonly queryError?: unknown
+    readonly configuredEditor?: boolean
+}) {
+    const { project } = useProjectDashboard()
+    const lifecycle = useProjectLifecycle(project.id)
+    if (!lifecycle.data) return null
+    return <ExistingPostEditor {...props} archived={lifecycle.data.state !== 'active'} />
+}
+
+function ExistingPostEditor({
+    initialData,
+    activePublicationId,
+    backToCalendar,
+    queryError,
+    configuredEditor = true,
+    archived,
+}: {
+    readonly initialData: ExistingPostData
+    readonly activePublicationId?: string
+    readonly backToCalendar?: { readonly date?: string; readonly view?: PublicationCalendarView }
+    readonly queryError?: unknown
+    readonly configuredEditor?: boolean
+    readonly archived: boolean
+}) {
     const { locale } = useLanguage()
     const { project, channels, connections } = useProjectDashboard()
     const access = usePostEditorAccess(project.id)
-    const lifecycle = useProjectLifecycle(project.id)
-    const readOnly = access.role === 'viewer' || lifecycle.data?.state !== 'active'
+    const readOnly = access.role === 'viewer' || archived
+    const userId = useDashboardUserId()
+    const navigate = useNavigate()
     const session = useExistingPostComposition({
         initialData,
+        activePublicationId,
+        userId,
         projectId: project.id,
         timeZone: project.timeZone,
         readOnly,
@@ -136,9 +179,6 @@ export function ExistingPostPage({ initialData }: { readonly initialData: Existi
         data.post.sourceRevision
     )
 
-    if (!lifecycle.data) return null
-    if (access.status === 'denied')
-        return <main className="px-4 py-8 sm:px-6 lg:px-8">{access.notice}</main>
     useEffect(() => {
         const keydown = (event: KeyboardEvent) => {
             if (!event.isComposing && (event.metaKey || event.ctrlKey) && event.key === 'Enter') {
@@ -152,6 +192,31 @@ export function ExistingPostPage({ initialData }: { readonly initialData: Existi
         window.addEventListener('keydown', keydown)
         return () => window.removeEventListener('keydown', keydown)
     }, [])
+    useEffect(() => {
+        if (queryError instanceof ApiError && [403, 404].includes(queryError.status))
+            access.onAccessRefused()
+    }, [queryError, access.onAccessRefused])
+    const blocker = useBlocker({
+        shouldBlockFn: ({ next }) =>
+            (session.dirty || session.scheduleDirty || mediaPending) &&
+            !data.editors.some(editor =>
+                next.pathname.endsWith(`/publications/${editor.publication.id}`)
+            ),
+        enableBeforeUnload: session.dirty || session.scheduleDirty || mediaPending,
+        withResolver: true,
+    })
+    const select = (id: string) => {
+        composition.selectContentScope(id)
+        if (activePublicationId && id !== 'shared')
+            void navigate({
+                to: '/dashboard/projects/$projectId/publications/$publicationId',
+                params: { projectId: project.id, publicationId: id },
+                search: backToCalendar ? { ...backToCalendar, from: 'calendar' } : undefined,
+                replace: true,
+            })
+    }
+    if (access.status === 'denied')
+        return <main className="px-4 py-8 sm:px-6 lg:px-8">{access.notice}</main>
     const pendingApply = data.editors.some(
         editor =>
             !composition.publicationTargets.find(target => target.id === editor.publication.id)
@@ -160,287 +225,414 @@ export function ExistingPostPage({ initialData }: { readonly initialData: Existi
     return (
         <main className="min-w-0 px-4 py-6 sm:px-6 lg:px-8 lg:py-7">
             {access.notice}
-            <DashboardPageHeader
-                title={
-                    data.post.title ||
-                    shortExcerpt(composition.postContent || composition.postTitle) ||
-                    m.publication_untitled()
-                }
-                action={
-                    <PublicationEditorSaveIndicator
-                        state={session.saveState}
-                        pendingApply={pendingApply || session.dirty || session.scheduleDirty}
-                    />
-                }
-                back={
-                    <Link
-                        className={buttonVariants({ size: 'sm', variant: 'ghost' })}
-                        to="/dashboard/projects/$projectId/queue"
-                        params={{ projectId: project.id }}
-                        search={{ filter: undefined, sort: undefined, tagIds: undefined }}>
-                        <AltArrowLeftIcon aria-hidden="true" />
-                        {m.editor_back_to_queue()}
-                    </Link>
-                }
-            />
-            <PublicationEditorStatus
-                message={session.message}
-                passive={session.passive}
-                saveState={session.saveState}
-                onReviewConflict={() => void session.reload()}
-            />
-            {!readOnly ? (
-                <PostSourceReview
-                    projectId={project.id}
-                    postId={data.post.id}
-                    staleCount={staleCount}
-                    accessEpoch={access.epoch}
-                    disabled={blocked || session.dirty || session.saving}
-                    onApplied={() => void session.reload()}
-                />
-            ) : null}
-            {activeTarget && !activeTarget.locked ? (
-                <p className="mb-3 text-xs text-muted-foreground" data-channel-version-mode="true">
-                    {activeTarget.customized
-                        ? m.editor_channel_customized()
-                        : m.editor_channel_follows()}
-                </p>
-            ) : null}
-            <PostComposer
-                composition={surfaceComposition}
-                headlineVisible={(activeEditor ? [activeEditor] : data.editors).some(editor =>
-                    getTargetEditorFields(editor.profile.profile).some(
-                        field => field.semantic === 'headline'
-                    )
-                )}
-                preview={
-                    previewEditor && previewContent ? (
-                        <PostChannelPreview
-                            editor={previewEditor}
-                            content={previewContent}
-                            locked={
-                                composition.publicationTargets.find(
-                                    target => target.id === previewEditor.publication.id
-                                )?.locked === true
-                            }
-                        />
-                    ) : null
-                }
-                channelPanel={target =>
-                    activeEditor ? (
-                        <Suspense fallback={<p role="status">{m.common_loading()}</p>}>
-                            {session.applyResults[target.id] ? (
-                                <div
-                                    data-channel-apply-result={
-                                        session.applyResults[target.id]!.state
-                                    }
-                                    className="mt-4 flex flex-wrap items-center gap-3 text-sm"
-                                    role="status">
-                                    <p>
-                                        {session.applyResults[target.id]!.message ??
-                                            m.editor_saved()}
-                                    </p>
-                                    {session.applyResults[target.id]!.state !== 'applied' ? (
-                                        <Button
-                                            variant="secondary"
-                                            size="sm"
-                                            disabled={blocked || session.applying}
-                                            onClick={() =>
-                                                session.applyResults[target.id]!.state ===
-                                                'unconfirmed'
-                                                    ? void session.checkApplication(target.id)
-                                                    : void session.save(target.id)
-                                            }>
-                                            {session.applyResults[target.id]!.state ===
-                                            'unconfirmed'
-                                                ? m.editor_check_server()
-                                                : m.common_retry()}
-                                        </Button>
-                                    ) : null}
+            {session.recoveryChoice ? (
+                <Dialog open onOpenChange={() => {}}>
+                    <DialogContent
+                        showCloseButton={false}
+                        data-publication-recovery-decision
+                        className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-2xl">
+                        <DialogTitle>{m.editor_recovery_choice_title()}</DialogTitle>
+                        <DialogDescription>
+                            {m.editor_recovery_choice_description()}
+                        </DialogDescription>
+                        {session.recoveryCandidate &&
+                        !recoveryMatchesProfiles(session.recoveryCandidate, data.editors) ? (
+                            <p role="alert">{m.profile_adoption_recovery_mismatch()}</p>
+                        ) : null}
+                        {data.editors
+                            .filter(
+                                editor =>
+                                    !session.recoveryCandidate?.publicationId ||
+                                    editor.publication.id ===
+                                        session.recoveryCandidate.publicationId
+                            )
+                            .map(editor => (
+                                <div key={editor.publication.id}>
+                                    <h2 className="mt-4 text-sm font-medium">
+                                        {editor.channel.name}
+                                    </h2>
+                                    <PublicationRecoveryComparison
+                                        editor={editor}
+                                        localSource={compositionSource(
+                                            session.recoveryChoice!,
+                                            data.post.sourceContent
+                                        )}
+                                        localTarget={compositionChannelContent(
+                                            session.recoveryChoice!,
+                                            editor
+                                        )}
+                                        localSchedule={
+                                            session.recoveryChoice!.publicationTargets.find(
+                                                target => target.id === editor.publication.id
+                                            )?.scheduledAt ?? ''
+                                        }
+                                        savedSchedule={toDateTimeLocal(
+                                            editor.publication.scheduledAt,
+                                            project.timeZone
+                                        )}
+                                        projectId={project.id}
+                                        media={[]}
+                                    />
                                 </div>
-                            ) : null}
-                            <PostChannelPanel
-                                key={target.id}
-                                editor={activeEditor}
-                                content={previewContent!}
-                                locked={target.locked === true}
-                                blocked={blocked}
-                                pendingChanges={
-                                    session.dirty ||
-                                    mediaPending ||
-                                    session.saving ||
-                                    session.applying
-                                }
-                                onContentChange={changeTarget}
-                                onRefresh={() => session.reload()}
-                                onAccessRefused={access.onAccessRefused}
-                                getAccessEpoch={access.getAccessEpoch}
-                                timeZone={project.timeZone}
-                            />
-                        </Suspense>
-                    ) : null
-                }
-                footer={
-                    !readOnly ? (
-                        <div className="flex flex-wrap items-center justify-end gap-3">
-                            {pendingApply || session.dirty || session.scheduleDirty ? (
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    data-publication-discard-action
-                                    disabled={blocked || session.saving || session.applying}
-                                    onClick={session.discard}>
-                                    {m.editor_discard_changes()}
-                                </Button>
-                            ) : null}
+                            ))}
+                        <DialogFooter>
                             <Button
-                                type="button"
-                                data-post-save
-                                data-publication-promotion-action
+                                variant="secondary"
+                                disabled={blocked}
+                                onClick={() => session.chooseRecovery(false)}>
+                                {m.editor_discard_recovery()}
+                            </Button>
+                            <Button
                                 disabled={
                                     blocked ||
-                                    mediaPending ||
-                                    session.applying ||
-                                    session.saveState === 'conflict' ||
-                                    session.sourceConflict ||
-                                    !(pendingApply || session.dirty || session.scheduleDirty)
+                                    (!!session.recoveryCandidate &&
+                                        !recoveryMatchesProfiles(
+                                            session.recoveryCandidate,
+                                            data.editors
+                                        ))
                                 }
-                                aria-busy={session.applying}
-                                onClick={() => void session.save()}>
-                                {session.applying ? m.editor_saving() : m.common_save()}
+                                onClick={() => session.chooseRecovery(true)}>
+                                {m.editor_restore_recovery()}
                             </Button>
-                        </div>
-                    ) : null
-                }
-                project={project}
-                activeChannels={channels}
-                connections={connections}
-                pending={false}
-                disabled={access.status !== 'confirmed'}
-                readOnly={readOnly}
-                mediaDisabled={readOnly || access.status !== 'confirmed'}
-                mediaReadOnly={readOnly}
-                onMediaPreparationChange={setMediaPending}
-                onError={() => false}
-                pickerTags={[]}
-                tags={
-                    <ExistingPostTags
-                        session={session}
-                        blocked={blocked}
-                        projectId={project.id}
-                        getAccessEpoch={access.getAccessEpoch}
-                    />
-                }
-                settings={null}
-                sharedPanel={
-                    <details className="mt-4 rounded-lg border border-border px-3">
-                        <summary className="cursor-pointer py-3 text-sm font-medium">
-                            {m.editor_content_options()}
-                        </summary>
-                        <div className="grid gap-4 pb-4 sm:grid-cols-2">
-                            <Field>
-                                <FieldLabel htmlFor="source-format">
-                                    {m.editor_source_format()}
-                                </FieldLabel>
-                                <Select
-                                    items={{
-                                        plain_text: m.editor_plain_text(),
-                                        markdown: m.editor_markdown(),
-                                    }}
-                                    value={composition.sourceFormat ?? 'plain_text'}
-                                    onValueChange={value =>
-                                        composition.restoreComposition({
-                                            ...composition,
-                                            sourceFormat: value as 'plain_text' | 'markdown',
-                                        })
-                                    }>
-                                    <SelectTrigger id="source-format" disabled={blocked}>
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="plain_text">
-                                            {m.editor_plain_text()}
-                                        </SelectItem>
-                                        <SelectItem value="markdown">
-                                            {m.editor_markdown()}
-                                        </SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </Field>
-                            <Field>
-                                <FieldLabel htmlFor="source-language">
-                                    {m.editor_source_language()}
-                                </FieldLabel>
-                                <LanguageCombobox
-                                    id="source-language"
-                                    value={composition.sourceLanguage ?? ''}
-                                    onValueChange={value =>
-                                        composition.restoreComposition({
-                                            ...composition,
-                                            sourceLanguage: value,
-                                        })
-                                    }
-                                    disabled={blocked}
-                                />
-                            </Field>
-                        </div>
-                    </details>
-                }
-
-                channelNavigation={
-                    <ExistingPostChannels
-                        session={session}
-                        blocked={blocked}
-                        getAccessEpoch={access.getAccessEpoch}
-                        onAccessRefused={access.onAccessRefused}
-                        onSelect={composition.selectContentScope}
-                    />
-                }
-            />
-            {!activeEditor ? (
-                <section
-                    className="mx-auto mt-6 min-w-0 max-w-6xl"
-                    aria-label={m.post_destinations()}>
-                    <h2 className="mb-3 text-sm font-medium">{m.post_destinations()}</h2>
-                    {data.editors.map(editor => (
-                        <div
-                            key={editor.publication.id}
-                            className="flex min-w-0 flex-wrap items-center gap-3 py-2">
-                            <Button
-                                variant="ghost"
-                                className="min-w-0"
-                                onClick={() =>
-                                    composition.selectContentScope(editor.publication.id)
-                                }>
-                                <ChannelAvatar channel={editor.channel} size="sm" />
-                                <span className="truncate">{editor.channel.name}</span>
-                            </Button>
-                            <PublicationStatus state={editor.publication.state} />
-                            <span className="text-xs text-muted-foreground">
-                                {formatSchedule(
-                                    editor.publication.scheduledAt,
-                                    project.timeZone,
-                                    locale
-                                )}
-                            </span>
-                            {editor.publication.errorMessage ? (
-                                <p data-publication-error className="text-sm text-state-failed">
-                                    {editor.publication.errorMessage}
-                                </p>
-                            ) : null}
-                            {editor.publication.externalUrl ? (
-                                <a
-                                    className="text-sm text-link"
-                                    href={editor.publication.externalUrl}
-                                    target="_blank"
-                                    rel="noreferrer">
-                                    {m.common_view()}
-                                </a>
-                            ) : null}
-                        </div>
-                    ))}
-                </section>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
             ) : null}
+            <Dialog
+                open={blocker.status === 'blocked'}
+                onOpenChange={open => {
+                    if (!open && blocker.status === 'blocked') blocker.reset()
+                }}>
+                <DialogContent>
+                    <DialogTitle>{m.post_source_leave()}</DialogTitle>
+                    <DialogFooter>
+                        <Button
+                            variant="ghost"
+                            onClick={() => blocker.status === 'blocked' && blocker.reset()}>
+                            {m.common_cancel()}
+                        </Button>
+                        <Button
+                            variant="destructive"
+                            onClick={() => blocker.status === 'blocked' && blocker.proceed()}>
+                            {m.publication_new_recovery_discard()}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+            <div inert={session.recoveryChoice !== null}>
+                <DashboardPageHeader
+                    title={
+                        data.post.title ||
+                        shortExcerpt(composition.postContent || composition.postTitle) ||
+                        m.publication_untitled()
+                    }
+                    action={
+                        <PublicationEditorSaveIndicator
+                            state={session.saveState}
+                            pendingApply={pendingApply || session.dirty || session.scheduleDirty}
+                        />
+                    }
+                    back={
+                        <Link
+                            className={buttonVariants({ size: 'sm', variant: 'ghost' })}
+                            to={
+                                backToCalendar
+                                    ? '/dashboard/projects/$projectId/overview'
+                                    : '/dashboard/projects/$projectId/queue'
+                            }
+                            params={{ projectId: project.id }}
+                            search={
+                                backToCalendar ?? {
+                                    filter: undefined,
+                                    sort: undefined,
+                                    tagIds: undefined,
+                                }
+                            }>
+                            <AltArrowLeftIcon aria-hidden="true" />
+                            {backToCalendar
+                                ? m.editor_back_to_calendar()
+                                : m.editor_back_to_queue()}
+                        </Link>
+                    }
+                />
+                <PublicationEditorStatus
+                    message={session.message}
+                    passive={session.passive}
+                    saveState={session.saveState}
+                    onReviewConflict={() => void session.reload()}
+                />
+                {!readOnly ? (
+                    <PostSourceReview
+                        projectId={project.id}
+                        postId={data.post.id}
+                        staleCount={staleCount}
+                        accessEpoch={access.epoch}
+                        disabled={blocked || session.dirty || session.saving}
+                        onApplied={() => void session.reload()}
+                    />
+                ) : null}
+                {activeTarget && !activeTarget.locked ? (
+                    <p
+                        className="mb-3 text-xs text-muted-foreground"
+                        data-channel-version-mode="true">
+                        {activeTarget.customized
+                            ? m.editor_channel_customized()
+                            : m.editor_channel_follows()}
+                    </p>
+                ) : null}
+                {session.saveState === 'conflict' && (activeEditor ?? data.editors[0]) ? (
+                    <PublicationEditorSidebar
+                        editor={(activeEditor ?? data.editors[0])!}
+                        projectId={project.id}
+                        media={[]}
+                        sourceConflict={session.sourceConflict}
+                        saveState={session.saveState}
+                        isRebasing={session.saving}
+                        recoveryAvailable={true}
+                        hasLocalChanges={session.dirty}
+                        onRebase={() => void session.rebase()}
+                        onReload={() => void session.reload()}
+                        onRestore={() => void session.reload(true)}
+                    />
+                ) : null}
+                <PostComposer
+                    configuredEditor={configuredEditor}
+                    composition={surfaceComposition}
+                    headlineVisible={(activeEditor ? [activeEditor] : data.editors).some(editor =>
+                        getTargetEditorFields(editor.profile.profile).some(
+                            field => field.semantic === 'headline'
+                        )
+                    )}
+                    preview={
+                        previewEditor && previewContent ? (
+                            <PostChannelPreview
+                                editor={previewEditor}
+                                content={previewContent}
+                                locked={
+                                    composition.publicationTargets.find(
+                                        target => target.id === previewEditor.publication.id
+                                    )?.locked === true
+                                }
+                            />
+                        ) : null
+                    }
+                    channelPanel={target =>
+                        activeEditor ? (
+                            <Suspense fallback={<p role="status">{m.common_loading()}</p>}>
+                                {session.applyResults[target.id] ? (
+                                    <div
+                                        data-channel-apply-result={
+                                            session.applyResults[target.id]!.state
+                                        }
+                                        className="mt-4 flex flex-wrap items-center gap-3 text-sm"
+                                        role="status">
+                                        <p>
+                                            {session.applyResults[target.id]!.message ??
+                                                m.editor_saved()}
+                                        </p>
+                                        {session.applyResults[target.id]!.state !== 'applied' ? (
+                                            <Button
+                                                variant="secondary"
+                                                size="sm"
+                                                disabled={blocked || session.applying}
+                                                onClick={() =>
+                                                    session.applyResults[target.id]!.state ===
+                                                    'unconfirmed'
+                                                        ? void session.checkApplication(target.id)
+                                                        : void session.save(target.id)
+                                                }>
+                                                {session.applyResults[target.id]!.state ===
+                                                'unconfirmed'
+                                                    ? m.editor_check_server()
+                                                    : m.common_retry()}
+                                            </Button>
+                                        ) : null}
+                                    </div>
+                                ) : null}
+                                <PostChannelPanel
+                                    key={target.id}
+                                    editor={activeEditor}
+                                    backToCalendar={backToCalendar}
+                                    content={previewContent!}
+                                    locked={target.locked === true}
+                                    blocked={blocked}
+                                    pendingChanges={
+                                        session.dirty ||
+                                        mediaPending ||
+                                        session.saving ||
+                                        session.applying
+                                    }
+                                    onContentChange={changeTarget}
+                                    onRefresh={() => session.reload()}
+                                    onAccessRefused={access.onAccessRefused}
+                                    getAccessEpoch={access.getAccessEpoch}
+                                    timeZone={project.timeZone}
+                                />
+                            </Suspense>
+                        ) : null
+                    }
+                    footer={
+                        !readOnly ? (
+                            <div className="flex flex-wrap items-center justify-end gap-3">
+                                {pendingApply || session.dirty || session.scheduleDirty ? (
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        data-publication-discard-action
+                                        disabled={blocked || session.saving || session.applying}
+                                        onClick={session.discard}>
+                                        {m.editor_discard_changes()}
+                                    </Button>
+                                ) : null}
+                                <Button
+                                    type="button"
+                                    data-post-save
+                                    data-publication-promotion-action
+                                    disabled={
+                                        blocked ||
+                                        mediaPending ||
+                                        session.applying ||
+                                        session.saveState === 'conflict' ||
+                                        session.sourceConflict ||
+                                        !(pendingApply || session.dirty || session.scheduleDirty)
+                                    }
+                                    aria-busy={session.applying}
+                                    onClick={() => void session.save()}>
+                                    {session.applying ? m.editor_saving() : m.common_save()}
+                                </Button>
+                            </div>
+                        ) : null
+                    }
+                    project={project}
+                    activeChannels={channels}
+                    connections={connections}
+                    pending={false}
+                    disabled={access.status !== 'confirmed'}
+                    readOnly={readOnly}
+                    mediaDisabled={readOnly || access.status !== 'confirmed'}
+                    mediaReadOnly={readOnly}
+                    onMediaPreparationChange={setMediaPending}
+                    onError={() => false}
+                    pickerTags={[]}
+                    tags={
+                        <ExistingPostTags
+                            session={session}
+                            blocked={blocked}
+                            projectId={project.id}
+                            getAccessEpoch={access.getAccessEpoch}
+                        />
+                    }
+                    settings={null}
+                    sharedPanel={
+                        <details className="mt-4 rounded-lg border border-border px-3">
+                            <summary className="cursor-pointer py-3 text-sm font-medium">
+                                {m.editor_content_options()}
+                            </summary>
+                            <div className="grid gap-4 pb-4 sm:grid-cols-2">
+                                <Field>
+                                    <FieldLabel htmlFor="source-format">
+                                        {m.editor_source_format()}
+                                    </FieldLabel>
+                                    <Select
+                                        items={{
+                                            plain_text: m.editor_plain_text(),
+                                            markdown: m.editor_markdown(),
+                                        }}
+                                        value={composition.sourceFormat ?? 'plain_text'}
+                                        onValueChange={value =>
+                                            composition.restoreComposition({
+                                                ...composition,
+                                                sourceFormat: value as 'plain_text' | 'markdown',
+                                            })
+                                        }>
+                                        <SelectTrigger id="source-format" disabled={blocked}>
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="plain_text">
+                                                {m.editor_plain_text()}
+                                            </SelectItem>
+                                            <SelectItem value="markdown">
+                                                {m.editor_markdown()}
+                                            </SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </Field>
+                                <Field>
+                                    <FieldLabel htmlFor="source-language">
+                                        {m.editor_source_language()}
+                                    </FieldLabel>
+                                    <LanguageCombobox
+                                        id="source-language"
+                                        value={composition.sourceLanguage ?? ''}
+                                        onValueChange={value =>
+                                            composition.restoreComposition({
+                                                ...composition,
+                                                sourceLanguage: value,
+                                            })
+                                        }
+                                        disabled={blocked}
+                                    />
+                                </Field>
+                            </div>
+                        </details>
+                    }
+
+                    channelNavigation={
+                        <ExistingPostChannels
+                            session={session}
+                            blocked={blocked}
+                            getAccessEpoch={access.getAccessEpoch}
+                            onAccessRefused={access.onAccessRefused}
+                            onSelect={select}
+                        />
+                    }
+                />
+                {!activeEditor ? (
+                    <section
+                        className="mx-auto mt-6 min-w-0 max-w-6xl"
+                        aria-label={m.post_destinations()}>
+                        <h2 className="mb-3 text-sm font-medium">{m.post_destinations()}</h2>
+                        {data.editors.map(editor => (
+                            <div
+                                key={editor.publication.id}
+                                className="flex min-w-0 flex-wrap items-center gap-3 py-2">
+                                <Button
+                                    variant="ghost"
+                                    className="min-w-0"
+                                    onClick={() =>
+                                        composition.selectContentScope(editor.publication.id)
+                                    }>
+                                    <ChannelAvatar channel={editor.channel} size="sm" />
+                                    <span className="truncate">{editor.channel.name}</span>
+                                </Button>
+                                <PublicationStatus state={editor.publication.state} />
+                                <span className="text-xs text-muted-foreground">
+                                    {formatSchedule(
+                                        editor.publication.scheduledAt,
+                                        project.timeZone,
+                                        locale
+                                    )}
+                                </span>
+                                {editor.publication.errorMessage ? (
+                                    <p data-publication-error className="text-sm text-state-failed">
+                                        {editor.publication.errorMessage}
+                                    </p>
+                                ) : null}
+                                {editor.publication.externalUrl ? (
+                                    <a
+                                        className="text-sm text-link"
+                                        href={editor.publication.externalUrl}
+                                        target="_blank"
+                                        rel="noreferrer">
+                                        {m.common_view()}
+                                    </a>
+                                ) : null}
+                            </div>
+                        ))}
+                    </section>
+                ) : null}
+            </div>
         </main>
     )
 }

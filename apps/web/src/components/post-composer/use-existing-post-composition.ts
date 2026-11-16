@@ -27,6 +27,13 @@ import {
     compositionSource,
     isCompositionChannelLocked,
 } from './existing-post-composition'
+import {
+    postCompositionRecoveryKey,
+    readPostRecoveries,
+    serializePostRecovery,
+    recoveryMatchesProfiles,
+    restorePostRecovery,
+} from './post-composition-recovery'
 import { usePostComposition, type PostCompositionState } from './use-post-composition'
 
 export interface ExistingPostData {
@@ -37,15 +44,18 @@ export interface ExistingPostData {
 
 export async function loadExistingPost(
     projectId: string,
-    postId: string
+    postId: string,
+    initialEditor?: PublicationEditorState
 ): Promise<ExistingPostData> {
     const [{ post }, publications] = await Promise.all([
         api.getPost(projectId, postId),
         loadPostPublications(projectId, postId),
     ])
     const editors = await Promise.all(
-        publications.map(
-            async publication => (await api.getPublicationEditor(projectId, publication.id)).editor
+        publications.map(async publication =>
+            publication.id === initialEditor?.publication.id
+                ? initialEditor
+                : (await api.getPublicationEditor(projectId, publication.id)).editor
         )
     )
     return { post, publications, editors }
@@ -73,6 +83,7 @@ function serverFingerprint(data: ExistingPostData, readOnly: boolean, timeZone: 
 
 export function useExistingPostComposition({
     initialData,
+    userId,
     projectId,
     timeZone,
     activePublicationId,
@@ -83,6 +94,7 @@ export function useExistingPostComposition({
     onAccessReconciled,
     getAccessEpoch,
 }: {
+    readonly userId?: string
     readonly initialData: ExistingPostData
     readonly projectId: string
     readonly timeZone: string
@@ -101,6 +113,9 @@ export function useExistingPostComposition({
             readOnly,
         })
     )
+    useEffect(() => {
+        if (activePublicationId) composition.selectContentScope(activePublicationId)
+    }, [activePublicationId])
     const [saveState, setSaveState] = useState<PublicationEditorSaveState>('saved')
     const [message, setMessage] = useState<string | null>(null)
     const [passive, setPassive] = useState(false)
@@ -109,8 +124,37 @@ export function useExistingPostComposition({
     const applyingRef = useRef(false)
     const [applyResults, setApplyResults] = useState<Record<string, ChannelApplyResult>>({})
     const uncertain = useRef(new Set<string>())
-    const [recoveryChoice, setRecoveryChoice] = useState<PostCompositionState | null>(null)
-    const recoveryKey = `postdot:post-composition:v1:${encodeURIComponent(projectId)}:${encodeURIComponent(initialData.post.id)}`
+    const recoveryKey = postCompositionRecoveryKey(projectId, initialData.post.id, userId ?? '')
+    const [recoveries, setRecoveries] = useState(() =>
+        userId
+            ? readPostRecoveries(
+                  localStorage,
+                  recoveryKey,
+                  initialData.post,
+                  initialData.editors,
+                  timeZone
+              ).filter(
+                  recovery =>
+                      compositionFingerprint(recovery.state, initialData) !==
+                          serverFingerprint(initialData, readOnly, timeZone) ||
+                      recovery.state.publicationTargets.some(
+                          target =>
+                              target.scheduledAt !==
+                              toDateTimeLocal(
+                                  initialData.editors.find(
+                                      editor => editor.publication.id === target.id
+                                  )?.publication.scheduledAt ?? null,
+                                  timeZone
+                              )
+                      )
+              )
+            : []
+    )
+    const [recoveryChoice, setRecoveryChoice] = useState<PostCompositionState | null>(
+        () => recoveries[0]?.state ?? null
+    )
+    const acceptedRecoveryKeys = useRef(new Set<string>())
+    const acknowledgedEpoch = useRef<number | null>(null)
     const current = useRef({
         data,
         composition,
@@ -164,16 +208,18 @@ export function useExistingPostComposition({
             onAccessRefused()
     }
     function persistRecovery(state: PostCompositionState) {
+        if (!userId || current.current.recoveryChoice) return
         try {
             localStorage.setItem(
                 recoveryKey,
-                JSON.stringify({ ...state, customizedTargetIds: [...state.customizedTargetIds] })
+                serializePostRecovery(state, current.current.data.editors, timeZone)
             )
         } catch {
             /* Storage can be unavailable. */
         }
     }
     function adopt(next: ExistingPostData) {
+        current.current = { ...current.current, data: next }
         setData(next)
         composition.restoreComposition(
             compositionFromPost(next.post, next.editors, timeZone, {
@@ -289,6 +335,7 @@ export function useExistingPostComposition({
                     // Keep edits typed after dispatch. Only the acknowledged base advances.
                     current.current = { ...current.current, data: next }
                     setData(next)
+                    acknowledgedEpoch.current = epoch
                     setSaveState('saved')
                     setMessage(null)
                     setPassive(false)
@@ -382,6 +429,23 @@ export function useExistingPostComposition({
             setSaveState('local_only')
         previousContent.current = contentStamp
     }, [contentStamp, saveState])
+    useEffect(() => {
+        if (
+            localChanges ||
+            recoveryChoice ||
+            accessStatus !== 'confirmed' ||
+            acknowledgedEpoch.current !== accessEpoch ||
+            getAccessEpoch() !== accessEpoch
+        )
+            return
+        try {
+            localStorage.removeItem(recoveryKey)
+            for (const key of acceptedRecoveryKeys.current) localStorage.removeItem(key)
+            acceptedRecoveryKeys.current.clear()
+        } catch {
+            /* Storage can be unavailable. */
+        }
+    }, [localChanges, recoveryChoice, accessStatus, accessEpoch, data, recoveryKey, getAccessEpoch])
     const incomingStamp = JSON.stringify(initialData)
     const lastIncoming = useRef(incomingStamp)
     useEffect(() => {
@@ -414,7 +478,7 @@ export function useExistingPostComposition({
             setMessage(m.editor_background_update())
             setPassive(true)
         }
-    }, [incomingStamp, saving, applying, accessStatus, initialData])
+    }, [incomingStamp, saving, applying, applyResults, accessStatus, initialData])
     const reconciledEpoch = useRef<number | null>(null)
     useEffect(() => {
         if (accessStatus !== 'reconciling' || reconciledEpoch.current === accessEpoch) return
@@ -603,6 +667,74 @@ export function useExistingPostComposition({
             },
         })
     }
+    function chooseRecovery(useLocal: boolean) {
+        if (current.current.accessStatus !== 'confirmed' || current.current.readOnly) return
+        const recovery = recoveries[0]
+        if (
+            useLocal &&
+            recovery &&
+            !recoveryMatchesProfiles(recovery, current.current.data.editors)
+        )
+            return
+        if (useLocal && recoveryChoice) {
+            composition.restoreComposition(
+                recovery
+                    ? restorePostRecovery(current.current.composition, recovery)
+                    : recoveryChoice
+            )
+            acceptedRecoveryKeys.current.add(recovery?.key ?? recoveryKey)
+            setSaveState('local_only')
+            setMessage(m.editor_recovered_promotion())
+        } else if (recovery) {
+            try {
+                localStorage.removeItem(recovery.key)
+            } catch {
+                /* Storage can be unavailable. */
+            }
+        }
+        const remaining = recoveries.slice(1)
+        setRecoveries(remaining)
+        setRecoveryChoice(remaining[0]?.state ?? null)
+    }
+    async function rebase() {
+        if (current.current.accessStatus !== 'confirmed' || request.current || applyingRef.current)
+            return
+        const before = current.current
+        const epoch = before.accessEpoch
+        persistRecovery(before.composition)
+        setSaving(true)
+        setSaveState('rebasing')
+        try {
+            for (const editor of before.data.editors) {
+                if (!validEpoch(epoch)) return
+                if (
+                    before.composition.publicationTargets.find(
+                        target => target.id === editor.publication.id
+                    )?.locked ||
+                    editor.draft.sourceRevision === before.data.post.sourceRevision
+                )
+                    continue
+                await api.rebasePublicationDraft(
+                    projectId,
+                    editor.publication.id,
+                    editor.draft.revision
+                )
+            }
+            if (!validEpoch(epoch)) return
+            const fresh = await loadExistingPost(projectId, before.data.post.id)
+            if (!validEpoch(epoch)) return
+            adopt(fresh)
+            if (dirtyRef.current) setRecoveryChoice(before.composition)
+            setMessage(m.editor_shared_source_rebased())
+        } catch (error) {
+            if (!validEpoch(epoch)) return
+            reportError(error)
+            setSaveState('conflict')
+            setMessage(formatApiError(error))
+        } finally {
+            if (mounted.current) setSaving(false)
+        }
+    }
     return {
         data,
         composition,
@@ -620,7 +752,10 @@ export function useExistingPostComposition({
         saving,
         flush,
         reload,
+        rebase,
         recoveryChoice,
+        recoveryCandidate: recoveries[0],
+        chooseRecovery,
         setRecoveryChoice,
         setMessage,
         setData,

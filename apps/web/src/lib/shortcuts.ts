@@ -89,7 +89,7 @@ export function getAppShortcuts(): readonly AppShortcut[] {
             keywords:
                 'save draft schedule publish programmer enregistrer brouillon valider composer enter ↵',
             isAvailable: ({ pathname }) =>
-                pathname.includes('/publications/new') || pathname.includes('/posts/'),
+                pathname.includes('/publications/') || pathname.includes('/posts/'),
         },
         {
             id: 'composer_media',
@@ -99,7 +99,7 @@ export function getAppShortcuts(): readonly AppShortcut[] {
             keywords:
                 'media attachment image video media picker joindre image photo selection attacher',
             isAvailable: ({ pathname }) =>
-                pathname.includes('/publications/new') || pathname.includes('/posts/'),
+                pathname.includes('/publications/') || pathname.includes('/posts/'),
         },
         {
             id: 'calendar_today',

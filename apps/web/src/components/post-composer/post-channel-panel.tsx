@@ -23,11 +23,13 @@ import { api, ApiError, formatApiError, type PublicationEditorState } from '@/li
 import { useProjectDashboard } from '@/lib/dashboard-context'
 import { useLanguage } from '@/lib/i18n'
 import { useProjectPublicationActions } from '@/lib/project-publication-actions'
+import type { PublicationCalendarView } from '@/lib/publication-calendar-events'
 import * as m from '@/paraglide/messages.js'
 import { providerForProfile } from '@/providers/registry'
 
 export function PostChannelPanel({
     editor,
+    backToCalendar,
     content,
     locked,
     blocked,
@@ -38,6 +40,7 @@ export function PostChannelPanel({
     getAccessEpoch,
     timeZone,
 }: {
+    readonly backToCalendar?: { readonly date?: string; readonly view?: PublicationCalendarView }
     readonly editor: PublicationEditorState
     readonly content: Record<string, unknown>
     readonly locked: boolean
@@ -201,6 +204,9 @@ export function PostChannelPanel({
                         await navigate({
                             to: '/dashboard/projects/$projectId/publications/$publicationId',
                             params: { projectId: publication.projectId, publicationId },
+                            search: backToCalendar
+                                ? { ...backToCalendar, from: 'calendar' }
+                                : undefined,
                         })
                     }}
                 />
