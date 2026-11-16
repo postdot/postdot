@@ -1788,12 +1788,9 @@
     "access_invite_to_scope": "Zu {name} einladen",
     "notification_delivered_title": "Veröffentlichung bereitgestellt",
     "notification_failed_title": "Veröffentlichung fehlgeschlagen",
-    "notification_failed_body": "Bereitstellung fehlgeschlagen. Diese Veröffentlichung erfordert Aufmerksamkeit.",
     "notification_uncertain_title": "Veröffentlichung nicht bestätigt",
-    "notification_uncertain_body": "Postdot konnte nicht bestätigen, ob sie bereitgestellt wurde.",
     "notification_reconciled_delivered_title": "Bereitstellung bestätigt",
     "notification_reconciled_failed_title": "Fehlschlag bestätigt",
-    "notification_reconciled_body": "Eine zuvor unbestätigte Veröffentlichung wurde verifiziert.",
     "profile_field_body": "Haupttext",
     "profile_field_headline": "Titel",
     "profile_field_language": "Sprache",
@@ -1824,7 +1821,7 @@
     "account_password_invalid": "Das aktuelle Passwort ist falsch.",
     "account_password_failed": "Das Passwort konnte nicht geändert werden. Überprüfen Sie seine Länge oder melden Sie sich erneut an, falls Ihre Sitzung abgelaufen ist.",
     "provider_apps_secret_keep": "Leer lassen, um das aktuelle Secret beizubehalten.",
-    "notifications_open_subject": "Veröffentlichung öffnen: {title}",
+    "notifications_open_subject": "Post {title} öffnen",
     "notifications_subject_unavailable": "Diese Veröffentlichung ist nicht mehr zugänglich",
     "editor_lab_title": "Editor-Experiment",
     "editor_lab_scope": "Entwicklungs-Sandbox. Es werden keine echten Entwürfe oder Veröffentlichungen geändert.",
@@ -2785,5 +2782,14 @@
             }
         }
     ],
-    "common_dismiss": "Ausblenden"
+    "common_dismiss": "Ausblenden",
+    "notifications_published_on": "Veröffentlicht auf {channels}",
+    "notifications_failed_on": "Fehlgeschlagen auf {channels}",
+    "notifications_ambiguous_on": "Nicht bestätigt auf {channels}",
+    "notifications_confirmed_published_on": "Veröffentlichung bestätigt auf {channels}",
+    "notifications_confirmed_failed_on": "Fehlschlag bestätigt auf {channels}",
+    "notifications_more_channels": "{count} weiteren",
+    "notifications_today": "Heute",
+    "notifications_yesterday": "Gestern",
+    "notifications_earlier": "Früher"
 }

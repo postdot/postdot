@@ -257,7 +257,7 @@ test('configures SMTP in administration and sends a real test without exposing c
     await page.goto('/dashboard/preferences')
     await page
         .getByRole('navigation', { name: 'Installation administration', exact: true })
-        .getByRole('link', { name: 'Settings', exact: true })
+        .getByRole('link', { name: 'System', exact: true })
         .click()
     await expect(page).toHaveURL(/\/dashboard\/settings/)
     await expect(page.getByRole('heading', { name: 'Email delivery', exact: true })).toBeVisible()
@@ -324,7 +324,7 @@ test('configures SMTP in administration and sends a real test without exposing c
     await expect(page.getByLabel('SMTP server', { exact: true })).toHaveCount(0)
     await expect(
         page.getByRole('button', { name: 'Send me a test email', exact: true })
-    ).toBeDisabled()
+    ).toHaveCount(0)
     await page.screenshot({ path: testInfo.outputPath('smtp-desktop.png'), fullPage: true })
     await page.setViewportSize({ width: 390, height: 844 })
     await expect(page.getByLabel('SMTP server', { exact: true })).toHaveCount(0)

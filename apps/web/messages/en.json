@@ -1788,12 +1788,9 @@
     "access_invite_to_scope": "Invite to {name}",
     "notification_delivered_title": "Publication delivered",
     "notification_failed_title": "Publication failed",
-    "notification_failed_body": "Delivery failed. This publication needs attention.",
     "notification_uncertain_title": "Couldn’t confirm publication",
-    "notification_uncertain_body": "Postdot could not confirm whether it was delivered.",
     "notification_reconciled_delivered_title": "Delivery confirmed",
     "notification_reconciled_failed_title": "Failure confirmed",
-    "notification_reconciled_body": "A previously unconfirmed publication has been verified.",
     "profile_field_body": "Body",
     "profile_field_headline": "Title",
     "profile_field_language": "Language",
@@ -1824,7 +1821,7 @@
     "account_password_invalid": "The current password is incorrect.",
     "account_password_failed": "The password could not be changed. Check its length or sign in again if your session has expired.",
     "provider_apps_secret_keep": "Leave blank to keep the current secret.",
-    "notifications_open_subject": "Open publication: {title}",
+    "notifications_open_subject": "Open post {title}",
     "notifications_subject_unavailable": "This publication is no longer accessible",
     "editor_lab_title": "Editor experiment",
     "editor_lab_scope": "Development sandbox. No real drafts or publications are changed.",
@@ -2785,5 +2782,14 @@
             }
         }
     ],
-    "common_dismiss": "Dismiss"
+    "common_dismiss": "Dismiss",
+    "notifications_published_on": "Published on {channels}",
+    "notifications_failed_on": "Failed on {channels}",
+    "notifications_ambiguous_on": "Not confirmed on {channels}",
+    "notifications_confirmed_published_on": "Confirmed published on {channels}",
+    "notifications_confirmed_failed_on": "Confirmed failed on {channels}",
+    "notifications_more_channels": "{count} more",
+    "notifications_today": "Today",
+    "notifications_yesterday": "Yesterday",
+    "notifications_earlier": "Earlier"
 }

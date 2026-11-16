@@ -3,7 +3,9 @@ import { randomUUID } from 'node:crypto'
 import AxeBuilder from '@axe-core/playwright'
 import { expect, test, type Page } from '@playwright/test'
 
+import de from '../apps/web/messages/de.json' with { type: 'json' }
 import en from '../apps/web/messages/en.json' with { type: 'json' }
+import es from '../apps/web/messages/es.json' with { type: 'json' }
 import fr from '../apps/web/messages/fr.json' with { type: 'json' }
 import { calendarLocales } from '../packages/ui/src/components/calendar'
 import { openLanguageMenu, switchTheme } from './locale'
@@ -467,12 +469,13 @@ test('keeps operational labels localized without changing custom notification co
         ).toBeVisible()
         await expect(page.getByText(copy.notification_failed_title, { exact: true })).toBeVisible()
         await expect(
-            page.getByText(copy.notification_uncertain_body, { exact: true })
+            page.getByText(copy.notification_uncertain_title, { exact: true })
         ).toBeVisible()
         await expect(page.getByText('Custom integration report', { exact: true })).toBeVisible()
         await expect(
             page.getByText('Keep this integration-owned message unchanged.', { exact: true })
-        ).toBeVisible()
+        ).toHaveCount(0)
+        await expect(page.locator('[data-notification-row] time')).toHaveCount(4)
         await expect(
             page.getByRole('button', {
                 name: copy.notifications_mark_as_read.replace(
@@ -644,6 +647,295 @@ async function emitEventSourceSignal(page: Page, type: string, data = ''): Promi
     )
 }
 
+test('reads grouped post outcomes and applies inbox actions to every member', async ({
+    page,
+}, testInfo) => {
+    test.setTimeout(120_000)
+    const projectId = await createAccountAndProject(page, randomUUID().slice(0, 8))
+    const channelResponse = await page.request.post(`/api/projects/${projectId}/channels`, {
+        data: { name: 'Release team', profile: 'manual-message' },
+    })
+    expect(channelResponse.ok()).toBe(true)
+    const { channel } = (await channelResponse.json()) as { channel: { id: string } }
+    const postResponse = await page.request.post(`/api/projects/${projectId}/posts`, {
+        data: {
+            title: 'November release notes and a calmer publishing workflow',
+            sourceContent: {
+                body: { format: 'plain_text', text: 'Release notes for the team' },
+                media: [],
+            },
+            publications: [{ channelId: channel.id, deliveryMode: 'manual' }],
+        },
+    })
+    expect(postResponse.ok()).toBe(true)
+    const { post, publications } = (await postResponse.json()) as {
+        post: { id: string }
+        publications: { id: string }[]
+    }
+    expect(
+        (
+            await page.request.patch(`/api/projects/${projectId}`, {
+                data: { timeZone: 'America/New_York' },
+            })
+        ).ok()
+    ).toBe(true)
+    const timestamp = Date.now() - 5 * 60_000
+    const title = 'November release notes and a calmer publishing workflow'
+    const names = ['Release team with a long channel name', 'Community', 'Engineering', 'Partners']
+    const notifications = names.map((name, index) => ({
+        id: `grouped-${index}`,
+        projectId,
+        sourceEventId: `grouped-event-${index}`,
+        kind: 'publication_published',
+        severity: 'success',
+        title: 'Publication delivered',
+        body: 'Postdot confirmed that the publication was delivered.',
+        subject: { type: 'publication', id: publications[0]!.id },
+        readAt: null as number | null,
+        archivedAt: null as number | null,
+        createdAt: timestamp - index * 1_000,
+        context: {
+            postId: post.id,
+            postTitle: title,
+            sourceExcerpt: null,
+            mediaCount: 0,
+            projectId,
+            projectName: 'Inbox review',
+            scheduledAt: null,
+            canRetry: false,
+            channel: { id: `inbox-channel-${index}`, name, imageUrl: null },
+        },
+    }))
+    notifications.push({
+        ...notifications[0]!,
+        id: 'retryable',
+        kind: 'publication_failed',
+        severity: 'error',
+        title: 'Publication failed',
+        body: 'The publication could not be delivered and needs attention.',
+        context: {
+            ...notifications[0]!.context,
+            postId: 'failed-post',
+            postTitle: 'A post that needs another attempt',
+            canRetry: true,
+        },
+    })
+    notifications.push({
+        ...notifications[0]!,
+        id: 'uncertain',
+        kind: 'publication_ambiguous',
+        severity: 'warning',
+        title: 'Publication outcome unknown',
+        body: 'Postdot could not confirm whether the publication was delivered.',
+        readAt: timestamp,
+        createdAt: timestamp - 86_400_000,
+        context: {
+            ...notifications[0]!.context,
+            postId: 'uncertain-post',
+            postTitle: 'An outcome to review',
+        },
+    })
+    const readIds: string[] = []
+    const archivedIds: string[] = []
+    await page.route('**/api/notifications?*', route => {
+        const active = notifications.filter(item => item.archivedAt === null)
+        const unreadCount = active.filter(item => item.readAt === null).length
+        return route.fulfill({
+            json: {
+                notifications: [
+                    ...active,
+                    {
+                        ...notifications[0],
+                        id: 'missing-subject',
+                        context: null,
+                        readAt: timestamp,
+                        createdAt: timestamp - 9 * 86_400_000,
+                    },
+                ],
+                unreadCount,
+                totalUnreadCount: unreadCount,
+                nextCursor: null,
+            },
+        })
+    })
+    await page.route('**/api/notifications/*/read', async route => {
+        const id = route.request().url().split('/').at(-2)!
+        const notification = notifications.find(item => item.id === id)!
+        notification.readAt = Date.now()
+        readIds.push(id)
+        const { context: _context, ...response } = notification
+        await route.fulfill({ json: response })
+    })
+    await page.route('**/api/notifications/*/archive', async route => {
+        const id = route.request().url().split('/').at(-2)!
+        const notification = notifications.find(item => item.id === id)!
+        notification.archivedAt = Date.now()
+        archivedIds.push(id)
+        await route.fulfill({ json: notification })
+    })
+    let retries = 0
+    await page.route(
+        `**/api/projects/${projectId}/publications/${publications[0]!.id}/retry`,
+        route => {
+            retries += 1
+            return route.fulfill({ json: {} })
+        }
+    )
+    await page.reload()
+    const catalogs = { en, fr, es, de }
+    for (const locale of ['en', 'fr', 'es', 'de'] as const) {
+        if (locale !== 'en') {
+            await openLanguageMenu(page)
+            await page
+                .getByRole('menuitem', {
+                    name: { fr: 'Français', es: 'Español', de: 'Deutsch' }[locale],
+                    exact: true,
+                })
+                .click()
+        }
+        const copy = catalogs[locale]
+        await expect(page.locator('html')).toHaveAttribute('lang', locale)
+        for (const [width, theme] of [
+            [1440, 'light'],
+            [1440, 'dark'],
+            [390, 'light'],
+            [390, 'dark'],
+        ] as const) {
+            await page.setViewportSize({ width, height: 900 })
+            await switchTheme(page, theme)
+            await page
+                .getByRole('button', {
+                    name: copy.notifications_open_unread.replace('{count}', '5'),
+                    exact: true,
+                })
+                .click()
+            const group = page
+                .locator('[data-notification-row]')
+                .filter({ has: page.getByText(title, { exact: true }) })
+            await expect(group).toHaveCount(1)
+            await expect(group.locator('[data-channel-avatar]')).toHaveCount(3)
+            await expect(group.getByText('+1', { exact: true })).toBeVisible()
+            const channels = new Intl.ListFormat(locale, {
+                style: 'long',
+                type: 'conjunction',
+            }).format([
+                ...names.slice(0, 2),
+                copy.notifications_more_channels.replace('{count}', '2'),
+            ])
+            await expect(
+                group.getByText(copy.notifications_published_on.replace('{channels}', channels), {
+                    exact: true,
+                })
+            ).toBeVisible()
+            await expect(
+                page.getByRole('heading', { name: copy.notifications_today, exact: true })
+            ).toBeVisible()
+            await expect(
+                page.getByRole('heading', { name: copy.notifications_yesterday, exact: true })
+            ).toBeVisible()
+            await expect(
+                page.getByRole('heading', { name: copy.notifications_earlier, exact: true })
+            ).toBeVisible()
+            await expect(page.locator('[data-notification-row]').last().locator('time')).toHaveText(
+                /\d/
+            )
+            await expect(page.locator('[data-notification-row]').last()).not.toContainText(
+                'Postdot confirmed'
+            )
+            const retryRow = page
+                .locator('[data-notification-row]')
+                .filter({ hasText: 'A post that needs another attempt' })
+            await expect(
+                retryRow.getByRole('button', { name: copy.common_retry, exact: true })
+            ).toBeVisible()
+            await expect(
+                page
+                    .locator('[data-notification-row]')
+                    .filter({ hasText: 'An outcome to review' })
+                    .getByRole('button', { name: copy.common_retry, exact: true })
+            ).toHaveCount(0)
+            await group.getByRole('link').focus()
+            await page.keyboard.press('Tab')
+            const tooltip = page.getByRole('tooltip')
+            await expect(tooltip).toHaveText(
+                new Intl.DateTimeFormat(locale, {
+                    month: 'short',
+                    day: 'numeric',
+                    hour: locale === 'en' ? 'numeric' : '2-digit',
+                    minute: '2-digit',
+                    timeZone: 'America/New_York',
+                }).format(timestamp)
+            )
+            expect(await group.getByRole('link').getAttribute('href')).toBe(
+                `/dashboard/projects/${projectId}/posts/${post.id}`
+            )
+            expect(await page.locator('[data-notification-row] [title]').count()).toBe(0)
+            expect(
+                await page
+                    .locator('[data-slot="scroll-area-viewport"]')
+                    .last()
+                    .evaluate(element => element.scrollWidth <= element.clientWidth)
+            ).toBe(true)
+            expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([])
+            expect(
+                await page
+                    .locator('body')
+                    .evaluate(element => element.scrollWidth <= window.innerWidth)
+            ).toBe(true)
+            await page.screenshot({
+                path: testInfo.outputPath(`notification-groups-${locale}-${width}-${theme}.png`),
+            })
+            await page.keyboard.press('Escape')
+        }
+    }
+    await openLanguageMenu(page)
+    await page.getByRole('menuitem', { name: 'English', exact: true }).click()
+    await page
+        .getByRole('button', {
+            name: en.notifications_open_unread.replace('{count}', '5'),
+            exact: true,
+        })
+        .click()
+    const group = page
+        .locator('[data-notification-row]')
+        .filter({ has: page.getByText(title, { exact: true }) })
+    await group
+        .getByRole('button', {
+            name: en.notifications_mark_as_read.replace('{title}', title),
+            exact: true,
+        })
+        .click()
+    await expect.poll(() => readIds).toEqual(['grouped-0', 'grouped-1', 'grouped-2', 'grouped-3'])
+    await expect(
+        group.getByRole('button', {
+            name: en.notifications_mark_as_read.replace('{title}', title),
+            exact: true,
+        })
+    ).toHaveCount(0)
+    await expect(group.getByRole('link')).toHaveAttribute(
+        'href',
+        `/dashboard/projects/${projectId}/posts/${post.id}`
+    )
+    await expect(
+        page.getByRole('button', {
+            name: en.notifications_open_unread.replace('{count}', '1'),
+            exact: true,
+        })
+    ).toBeVisible()
+    await page.getByRole('button', { name: en.common_retry, exact: true }).click()
+    await expect.poll(() => retries).toBe(1)
+    await group
+        .getByRole('button', {
+            name: en.notifications_archive_item.replace('{title}', title),
+            exact: true,
+        })
+        .click()
+    await expect
+        .poll(() => archivedIds)
+        .toEqual(['grouped-0', 'grouped-1', 'grouped-2', 'grouped-3'])
+    await expect(group).toHaveCount(0)
+})
+
 test('opens notification subjects without acknowledgement and handles unavailable publications', async ({
     page,
 }, testInfo) => {
@@ -732,7 +1024,7 @@ test('opens notification subjects without acknowledgement and handles unavailabl
         await page.goto(`/dashboard/projects/${projectId}/overview`)
         await openInbox()
         await page
-            .getByRole('button', {
+            .getByRole('link', {
                 name: en.notifications_open_subject.replace('{title}', title),
                 exact: true,
             })
@@ -775,9 +1067,12 @@ test('opens notification subjects without acknowledgement and handles unavailabl
     )
     await openInbox()
     await expect(
-        page.getByRole('button', { name: 'Open publication: Unknown subject', exact: true })
+        page.getByRole('link', {
+            name: en.notifications_open_subject.replace('{title}', 'Unknown subject'),
+            exact: true,
+        })
     ).toHaveCount(0)
-    const subject = page.getByRole('button', {
+    const subject = page.getByRole('link', {
         name: en.notifications_open_subject.replace('{title}', titles[1]!),
         exact: true,
     })

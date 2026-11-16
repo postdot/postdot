@@ -1788,12 +1788,9 @@
     "access_invite_to_scope": "Invitar a {name}",
     "notification_delivered_title": "Publicación entregada",
     "notification_failed_title": "Error de publicación",
-    "notification_failed_body": "La entrega falló. Esta publicación requiere atención.",
     "notification_uncertain_title": "Publicación sin confirmar",
-    "notification_uncertain_body": "Postdot no pudo confirmar si se entregó.",
     "notification_reconciled_delivered_title": "Entrega confirmada",
     "notification_reconciled_failed_title": "Fallo confirmado",
-    "notification_reconciled_body": "Una publicación anteriormente sin confirmar ha sido verificada.",
     "profile_field_body": "Contenido",
     "profile_field_headline": "Título",
     "profile_field_language": "Idioma",
@@ -1824,7 +1821,7 @@
     "account_password_invalid": "La contraseña actual es incorrecta.",
     "account_password_failed": "No se pudo cambiar la contraseña. Comprueba su longitud o inicia sesión de nuevo si tu sesión ha caducado.",
     "provider_apps_secret_keep": "Deja en blanco para conservar el secreto actual.",
-    "notifications_open_subject": "Abrir publicación: {title}",
+    "notifications_open_subject": "Abrir el post {title}",
     "notifications_subject_unavailable": "Esta publicación ya no es accesible",
     "editor_lab_title": "Experimento del editor",
     "editor_lab_scope": "Espacio de pruebas de desarrollo. No se modifican borradores ni publicaciones reales.",
@@ -2785,5 +2782,14 @@
             }
         }
     ],
-    "common_dismiss": "Ocultar"
+    "common_dismiss": "Ocultar",
+    "notifications_published_on": "Publicado en {channels}",
+    "notifications_failed_on": "Error en {channels}",
+    "notifications_ambiguous_on": "Sin confirmar en {channels}",
+    "notifications_confirmed_published_on": "Publicación confirmada en {channels}",
+    "notifications_confirmed_failed_on": "Error confirmado en {channels}",
+    "notifications_more_channels": "{count} más",
+    "notifications_today": "Hoy",
+    "notifications_yesterday": "Ayer",
+    "notifications_earlier": "Anteriores"
 }
