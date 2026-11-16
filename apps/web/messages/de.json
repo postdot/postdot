@@ -1500,6 +1500,7 @@
     "editor_back_to_queue": "Zurück zur Warteschlange",
     "editor_back_to_calendar": "Zurück zum Kalender",
     "editor_title": "Veröffentlichungseditor",
+    "post_composer_different_tags": "Einige Kanäle haben eigene Tags",
     "editor_content_options": "Inhaltsoptionen",
     "editor_post_text": "Text des Beitrags",
     "editor_post_text_shared": "Für alle Kanäle gleich",

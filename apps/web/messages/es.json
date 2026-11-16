@@ -1500,6 +1500,7 @@
     "editor_back_to_queue": "Volver a la cola",
     "editor_back_to_calendar": "Volver al calendario",
     "editor_title": "Editor de publicaciones",
+    "post_composer_different_tags": "Algunos canales tienen sus propias etiquetas",
     "editor_content_options": "Opciones de contenido",
     "editor_post_text": "Texto de la publicación",
     "editor_post_text_shared": "Común a todos los canales",

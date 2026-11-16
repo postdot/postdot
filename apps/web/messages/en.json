@@ -1500,6 +1500,7 @@
     "editor_back_to_queue": "Back to queue",
     "editor_back_to_calendar": "Back to calendar",
     "editor_title": "Publication editor",
+    "post_composer_different_tags": "Some channels have their own tags",
     "editor_content_options": "Content options",
     "editor_post_text": "Post text",
     "editor_post_text_shared": "Shared by every channel",

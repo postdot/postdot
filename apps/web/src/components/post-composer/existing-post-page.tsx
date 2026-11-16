@@ -35,11 +35,13 @@ import { getTargetEditorFields } from '@/lib/target-editor'
 import type { MediaSelection } from '@/lib/target-media'
 import * as m from '@/paraglide/messages.js'
 
+import { ExistingPostChannels } from './existing-post-channels'
 import {
     channelHasPendingChanges,
     compositionChannelContent,
     compositionSource,
 } from './existing-post-composition'
+import { ExistingPostTags } from './existing-post-tags'
 import { PostChannelPreview } from './post-channel-preview'
 import { PostComposer } from './post-composer'
 import { useExistingPostComposition, type ExistingPostData } from './use-existing-post-composition'
@@ -321,7 +323,14 @@ export function ExistingPostPage({ initialData }: { readonly initialData: Existi
                 onMediaPreparationChange={setMediaPending}
                 onError={() => false}
                 pickerTags={[]}
-                tags={null}
+                tags={
+                    <ExistingPostTags
+                        session={session}
+                        blocked={blocked}
+                        projectId={project.id}
+                        getAccessEpoch={access.getAccessEpoch}
+                    />
+                }
                 settings={null}
                 sharedPanel={
                     <details className="mt-4 rounded-lg border border-border px-3">
@@ -379,48 +388,13 @@ export function ExistingPostPage({ initialData }: { readonly initialData: Existi
                 }
 
                 channelNavigation={
-                    <div
-                        data-publication-channel-selection="true"
-                        className="flex min-w-0 flex-wrap gap-2">
-                        <Button
-                            variant="ghost"
-                            aria-pressed={composition.activeContentScopeId === 'shared'}
-                            onClick={() => composition.selectContentScope('shared')}>
-                            {m.publication_new_common_tab()}
-                        </Button>
-                        {composition.publicationTargets.map(target => {
-                            const channel = channels.find(
-                                channel => channel.id === target.channelId
-                            )
-                            return channel ? (
-                                <Button
-                                    key={target.id}
-                                    variant="ghost"
-                                    aria-label={channel.name}
-                                    aria-pressed={composition.activeContentScopeId === target.id}
-                                    onClick={() => composition.selectContentScope(target.id)}>
-                                    <ChannelAvatar channel={channel} size="sm" />
-                                    {session.applyResults[target.id] ? (
-                                        <span
-                                            data-channel-apply-mark={
-                                                session.applyResults[target.id]!.state
-                                            }
-                                            className="text-xs">
-                                            {session.applyResults[target.id]!.state === 'applied'
-                                                ? m.editor_saved()
-                                                : m.common_error_title()}
-                                        </span>
-                                    ) : null}
-                                    {target.customized ? (
-                                        <span className="sr-only">
-                                            {m.editor_channel_customized()}
-                                        </span>
-                                    ) : null}
-                                    <span className="max-w-48 truncate">{channel.name}</span>
-                                </Button>
-                            ) : null
-                        })}
-                    </div>
+                    <ExistingPostChannels
+                        session={session}
+                        blocked={blocked}
+                        getAccessEpoch={access.getAccessEpoch}
+                        onAccessRefused={access.onAccessRefused}
+                        onSelect={composition.selectContentScope}
+                    />
                 }
             />
             {!activeEditor ? (

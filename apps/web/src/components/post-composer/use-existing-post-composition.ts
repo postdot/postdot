@@ -147,8 +147,9 @@ export function useExistingPostComposition({
                     timeZone
                 )
     )
-    const dirtyRef = useRef(dirty)
-    dirtyRef.current = dirty
+    const localChanges = dirty || scheduleDirty
+    const dirtyRef = useRef(localChanges)
+    dirtyRef.current = localChanges
     const mounted = useRef(true)
     useEffect(() => {
         mounted.current = true
@@ -384,7 +385,14 @@ export function useExistingPostComposition({
     const incomingStamp = JSON.stringify(initialData)
     const lastIncoming = useRef(incomingStamp)
     useEffect(() => {
-        if (incomingStamp === lastIncoming.current || saving || accessStatus !== 'confirmed') return
+        if (
+            incomingStamp === lastIncoming.current ||
+            saving ||
+            applying ||
+            uncertain.current.size > 0 ||
+            accessStatus !== 'confirmed'
+        )
+            return
         const base = current.current.data
         if (
             initialData.post.sourceRevision < base.post.sourceRevision ||
@@ -406,7 +414,7 @@ export function useExistingPostComposition({
             setMessage(m.editor_background_update())
             setPassive(true)
         }
-    }, [incomingStamp, saving, accessStatus, initialData])
+    }, [incomingStamp, saving, applying, accessStatus, initialData])
     const reconciledEpoch = useRef<number | null>(null)
     useEffect(() => {
         if (accessStatus !== 'reconciling' || reconciledEpoch.current === accessEpoch) return

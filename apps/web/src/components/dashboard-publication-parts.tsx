@@ -458,12 +458,14 @@ function PublicationListItem({
     )
 }
 
-function PublicationRowMenu({
+export function PublicationRowMenu({
     publication,
     pending,
     onDeleteDraft,
     onDuplicateDraft,
+    onMove,
 }: {
+    readonly onMove?: () => void
     readonly publication: PublicationSummary
     readonly pending: boolean
     readonly onDeleteDraft?: (publication: PublicationSummary) => void
@@ -510,6 +512,11 @@ function PublicationRowMenu({
                         <LinkIcon aria-hidden="true" />
                         {m.publication_copy_link()}
                     </DropdownMenuItem>
+                    {onMove ? (
+                        <DropdownMenuItem onClick={onMove}>
+                            {m.publication_move_action()}
+                        </DropdownMenuItem>
+                    ) : null}
                     {isDraft && onDuplicateDraft ? (
                         <DropdownMenuItem
                             disabled={pending}
