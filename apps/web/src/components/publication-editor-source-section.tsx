@@ -12,11 +12,14 @@ import { AltArrowDownIcon } from '@solar-icons/react/linear/alt-arrow-down'
 import { PenIcon } from '@solar-icons/react/linear/pen'
 import { lazy, Suspense, useState } from 'react'
 
+import { LanguageCombobox } from '@/components/language-combobox'
 import { MediaAttachmentPicker, type MediaSelection } from '@/components/media-attachment-picker'
 import { PublicationTextEditor } from '@/components/publication-text-editor'
 import type { MediaReference, PublicationEditorState } from '@/lib/api'
 import { useLanguage } from '@/lib/i18n'
+import { languageLabel } from '@/lib/languages'
 import * as m from '@/paraglide/messages.js'
+import { getLocale } from '@/paraglide/runtime.js'
 
 const ConfiguredEditor = lazy(() =>
     import('./configured-publication-editor').then(module => ({
@@ -204,15 +207,11 @@ export function PublicationEditorSourceSection({
                                 <FieldLabel htmlFor="source-language">
                                     {m.editor_source_language()}
                                 </FieldLabel>
-                                <Input
+                                <LanguageCombobox
                                     id="source-language"
                                     value={sourceContent.language ?? ''}
-                                    onChange={event =>
-                                        onOptionalFieldChange('language', event.target.value)
-                                    }
-                                    placeholder={m.editor_source_language_placeholder()}
+                                    onValueChange={tag => onOptionalFieldChange('language', tag)}
                                     disabled={disabled}
-                                    className="min-w-0"
                                 />
                             </Field>
                         </div>
@@ -229,7 +228,10 @@ function ReadOnlySourceMeta({ sourceContent }: { readonly sourceContent: SourceC
             ? { label: m.editor_source_headline(), value: sourceContent.headline }
             : null,
         sourceContent.language
-            ? { label: m.editor_source_language(), value: sourceContent.language }
+            ? {
+                  label: m.editor_source_language(),
+                  value: languageLabel(sourceContent.language, getLocale()),
+              }
             : null,
         sourceContent.body
             ? {

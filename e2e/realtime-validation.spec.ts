@@ -519,7 +519,7 @@ test('keeps operational labels localized without changing custom notification co
         await page.keyboard.press('Escape')
 
         await page.goto(`/dashboard/projects/${projectId}/publications/${publications[0]!.id}`)
-        await page.locator('summary').filter({ hasText: copy.editor_channel_details }).click()
+        await page.locator('[data-publication-customization="true"] > summary').click()
         const target = page.locator('[data-target-editor="true"]')
         await expect(target.getByText(copy.profile_field_body, { exact: true })).toBeVisible()
         // The destination headline label states the field availability next to

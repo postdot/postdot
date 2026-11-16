@@ -337,7 +337,7 @@ test('shows the active-profile refusal when promotion rejects a superseded draft
     await expect(action).toBeDisabled()
     const replacementBody = 'Active profile body two'
     await bodyField.fill(replacementBody)
-    await expect(page.getByRole('status', { name: /^(Saved|Draft kept)$/ })).toBeVisible()
+    await expect(page.getByRole('status', { name: /^(Saved|Changes pending)$/ })).toBeVisible()
     await expect(action).toBeEnabled()
     await action.click()
 

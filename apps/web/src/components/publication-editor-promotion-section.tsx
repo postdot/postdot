@@ -60,6 +60,9 @@ export function PublicationEditorPromotionAction({
     draftRequiresReview,
     draftDiffersFromTarget,
     onPromote,
+    appliedVersionExists = false,
+    onDiscard,
+    discardDisabled = false,
 }: Pick<
     PublicationEditorPromotionSectionProps,
     | 'intent'
@@ -68,7 +71,13 @@ export function PublicationEditorPromotionAction({
     | 'draftRequiresReview'
     | 'draftDiffersFromTarget'
     | 'onPromote'
->) {
+> & {
+    /** An applied version exists, so pending changes leave what will be published untouched. */
+    readonly appliedVersionExists?: boolean
+    /** Brings the version back to the applied one; offered only while changes are pending. */
+    readonly onDiscard?: () => void
+    readonly discardDisabled?: boolean
+}) {
     useLanguage()
     return (
         <div className="grid min-w-0 gap-3">
@@ -77,7 +86,21 @@ export function PublicationEditorPromotionAction({
             ) : null}
             <div className="flex flex-wrap items-center justify-end gap-3">
                 {draftDiffersFromTarget ? (
-                    <span className="text-xs text-state-attention">{m.editor_draft_differs()}</span>
+                    <span className="text-xs text-state-attention">
+                        {appliedVersionExists
+                            ? m.editor_draft_differs_applied()
+                            : m.editor_draft_differs()}
+                    </span>
+                ) : null}
+                {draftDiffersFromTarget && onDiscard ? (
+                    <Button
+                        data-publication-discard-action
+                        disabled={discardDisabled}
+                        onClick={onDiscard}
+                        type="button"
+                        variant="ghost">
+                        {m.editor_discard_changes()}
+                    </Button>
                 ) : null}
                 <Button
                     data-publication-promotion-action

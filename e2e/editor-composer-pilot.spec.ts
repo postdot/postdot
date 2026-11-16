@@ -304,10 +304,19 @@ test('recovers composition text, target formatting and media through the existin
     }
     expect(discordId).toBeDefined()
     await page.goto(`/dashboard/projects/${id}/publications/${discordId}?editor=tiptap`)
-    await expect(
-        page.getByRole('button', { name: 'Review the changes', exact: true })
-    ).toBeVisible()
-    await page.getByRole('button', { name: 'Update to the new text', exact: true }).click()
+    // A version that is only behind the post is not a conflict: the rail notice offers the
+    // review, and the update keeps the channel's own formatting rules.
+    await expect(page.getByRole('button', { name: 'Review the changes', exact: true })).toHaveCount(
+        0
+    )
+    await page.getByRole('button', { name: 'Review and update', exact: true }).click()
+    const review = page.getByRole('dialog')
+    // Only the Discord version is taken forward here; the X version keeps its own review.
+    await expect(review.getByRole('checkbox', { name: 'Pilot Discord', exact: true })).toBeChecked()
+    await review.getByRole('checkbox', { name: 'Pilot X', exact: true }).click()
+    await expect(review.getByRole('checkbox', { name: 'Pilot X', exact: true })).not.toBeChecked()
+    await review.getByRole('button', { name: 'Update 1 channel', exact: true }).click()
+    await expect(page.getByRole('dialog')).toHaveCount(0)
     const discordField = page.locator('[data-target-field="text"]')
     await openCustomization(page, discordField)
     await discordField.getByRole('button', { name: 'Markup', exact: true }).click()
@@ -1503,10 +1512,9 @@ for (const platform of ['linkedin', 'mastodon', 'discord', 'bluesky'] as const) 
         expect(editor.profile.profile.execution).toEqual(preset.execution)
         if (platform === 'discord' || platform === 'bluesky') {
             await page.goto(`/dashboard/projects/${projectId}/publications/${publication.id}`)
-            const targetSection = page
-                .locator('details')
-                .filter({ has: page.getByText('Customize for this channel', { exact: true }) })
-            await page.getByText('Customize for this channel', { exact: true }).click()
+            const targetSection = page.locator('[data-publication-customization="true"]')
+            await expect(targetSection.locator('summary')).toContainText('Adapt for')
+            await targetSection.locator('summary').click()
             const description = targetSection.getByRole('textbox', {
                 name: 'Accessibility text',
                 exact: true,

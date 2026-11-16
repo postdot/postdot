@@ -46,7 +46,9 @@ test('an ambiguous signal suspends writes, verifies once, then shows removal', a
         await expect
             .poll(() => countRecoveryBuffers(editorPage), { timeout: 15_000 })
             .toBeGreaterThan(0)
-        await expect(editorPage.getByRole('status', { name: /^(Saved|Draft kept)$/ })).toBeVisible({
+        await expect(
+            editorPage.getByRole('status', { name: /^(Saved|Changes pending)$/ })
+        ).toBeVisible({
             timeout: 30_000,
         })
 
@@ -179,7 +181,9 @@ test('a late draft response is quarantined instead of applied', async ({ page })
         await sourceBody.click()
         await editorPage.keyboard.type('Local work saved before the revocation')
         await editorPage.keyboard.press('Tab')
-        await expect(editorPage.getByRole('status', { name: /^(Saved|Draft kept)$/ })).toBeVisible({
+        await expect(
+            editorPage.getByRole('status', { name: /^(Saved|Changes pending)$/ })
+        ).toBeVisible({
             timeout: 30_000,
         })
 
@@ -273,9 +277,9 @@ test('a late draft response is quarantined instead of applied', async ({ page })
         await editorPage.waitForTimeout(SETTLEMENT_OBSERVATION_MS)
 
         await expect(editorPage.getByText('Checking project access…')).toBeVisible()
-        await expect(editorPage.getByRole('status', { name: /^(Saved|Draft kept)$/ })).toHaveCount(
-            0
-        )
+        await expect(
+            editorPage.getByRole('status', { name: /^(Saved|Changes pending)$/ })
+        ).toHaveCount(0)
         await expect(editorPage.getByText('The server has newer work')).toHaveCount(0)
         expect(await countRecoveryBuffers(editorPage)).toBe(1)
         const bufferText = await readRecoveryBufferText(editorPage)
@@ -834,7 +838,9 @@ test('defers the editor reread after confirmation and starts nothing first', asy
         await sourceBody.click()
         await editorPage.keyboard.type('Local work awaiting reconciliation')
         await editorPage.keyboard.press('Tab')
-        await expect(editorPage.getByRole('status', { name: /^(Saved|Draft kept)$/ })).toBeVisible({
+        await expect(
+            editorPage.getByRole('status', { name: /^(Saved|Changes pending)$/ })
+        ).toBeVisible({
             timeout: 30_000,
         })
 
@@ -910,7 +916,9 @@ test('defers the editor reread after confirmation and starts nothing first', asy
         // the buffer; that absence here proves the success path really applied
         // instead of being quarantined.
         releaseEditorRead()
-        await expect(editorPage.getByRole('status', { name: /^(Saved|Draft kept)$/ })).toBeVisible({
+        await expect(
+            editorPage.getByRole('status', { name: /^(Saved|Changes pending)$/ })
+        ).toBeVisible({
             timeout: 60_000,
         })
         await expect(editorPage.getByRole('textbox', { name: 'Body', exact: true })).toContainText(
@@ -1025,7 +1033,9 @@ test('a failing reread stays suspended with explicit resume', async ({ page }) =
         )
         expect(restoredGrantAgain.status()).toBe(201)
         await editorPage.getByRole('button', { name: 'Retry', exact: true }).click()
-        await expect(editorPage.getByRole('status', { name: /^(Saved|Draft kept)$/ })).toBeVisible({
+        await expect(
+            editorPage.getByRole('status', { name: /^(Saved|Changes pending)$/ })
+        ).toBeVisible({
             timeout: 60_000,
         })
         await expect(editorPage.getByRole('textbox', { name: 'Body', exact: true })).toContainText(

@@ -641,7 +641,7 @@ for (const outcome of ['rejected', 'lost_response'] as const) {
         const check = page.getByRole('button', { name: 'Check server status', exact: true })
         await expect(check).toBeVisible()
         await expect(action).toBeDisabled()
-        await expect(page.getByRole('status', { name: /^(Saved|Draft kept)$/ })).toBeVisible()
+        await expect(page.getByRole('status', { name: /^(Saved|Changes pending)$/ })).toBeVisible()
         await expect(content).toHaveText('Saved version awaiting application')
         const after = await pair.read(page, pair.first)
         if (outcome === 'rejected') expect(after.selectedTarget).toEqual(before.selectedTarget)

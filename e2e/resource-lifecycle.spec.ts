@@ -64,7 +64,8 @@ for (const [locale, messages] of [
             ).status()
         ).toBe(409)
         await page.goto(`/dashboard/projects/${project.id}/publications/${publications[0].id}`)
-        await expect(page.locator('[data-publication-source="true"]')).toContainText(
+        // A locked publication shows its content once, in the channel preview.
+        await expect(page.locator('[data-composer-editor="true"]')).toContainText(
             'Retained publication'
         )
         await expect(page.locator('[contenteditable="true"]')).toHaveCount(0)

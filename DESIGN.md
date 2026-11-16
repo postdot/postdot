@@ -618,3 +618,15 @@ explain their disabled state.
 A tool that reconciles state appears only when there is something to reconcile.
 It names what it acts on in the user's words, such as channel versions that still
 use the post's previous content.
+
+## Post text and channel versions (owner review, 2026-11-16)
+
+On a publication page, the editor at the top is the post's text, shared by every channel, and
+says so when the post has more than one channel. A channel version that publishes that text as
+it is follows it while the person types, so the preview always shows what this channel will
+publish. "Adapt for {channel}" is where a channel gets its own text; once it has one, a notice
+under the post text says that typing there no longer changes this channel and offers to take
+the post text again. Pending changes are named as pending, with what will be published stated
+as unchanged, and can be discarded with an undo toast. A locked publication shows its content
+once, as the channel shows it. Content languages are picked by name; the BCP 47 tag stays out
+of sight.

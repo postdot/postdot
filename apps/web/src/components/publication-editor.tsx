@@ -6,9 +6,11 @@ import {
     DialogDescription,
     DialogFooter,
 } from '@postdot/ui/components/dialog'
+import { toast } from '@postdot/ui/components/toast'
 import { Tooltip, TooltipTrigger, TooltipContent } from '@postdot/ui/components/tooltip'
 import { AltArrowDownIcon } from '@solar-icons/react/linear/alt-arrow-down'
 import { AltArrowLeftIcon } from '@solar-icons/react/linear/alt-arrow-left'
+import { InfoCircleIcon } from '@solar-icons/react/linear/info-circle'
 import { useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
@@ -59,6 +61,12 @@ import {
     type PublisherConnection,
     type PublicationSummary,
 } from '@/lib/api'
+import {
+    applyPostToChannel,
+    channelVersionFollowsSource,
+    followSourceChange,
+    postFromChannelVersion,
+} from '@/lib/channel-version-follow'
 import {
     dateTimeLocalErrorMessage,
     parseDateTimeLocal,
@@ -306,9 +314,11 @@ export function PublicationEditor({
     // A revision gap pauses writes until review, but is only a conflict with local work.
     const sourceConflict = editor.draft.sourceRevision !== editor.post.sourceRevision
     const draftRequiresReview = editor.draft.reviewState !== 'compatible'
+    // What matters is whether applying would change what is published: a revision number
+    // that moved while the content came back (an undone change) leaves nothing to apply.
     const draftDiffersFromTarget =
         editor.selectedTarget === null ||
-        editor.draft.sourceRevision !== editor.selectedTarget.sourceRevision ||
+        editor.draft.profileVersionId !== editor.selectedTarget.profileVersionId ||
         formatJson(editor.draft.content) !== formatJson(editor.selectedTarget.content)
     const hasLocalChanges = dirty || scheduleDirty
     const isRebasing = saveState === 'rebasing'
@@ -664,44 +674,49 @@ export function PublicationEditor({
         targetResult.value,
     ])
 
-    function updateSourceText(text: string) {
-        setSourceContent(current => {
-            const next = { ...current }
-            if (text.trim() === '') {
-                delete next.body
-            } else {
-                next.body = {
-                    format: current.body?.format ?? 'plain_text',
-                    text,
-                }
-            }
-            return next
-        })
+    // The post's text, title and media are shared. A channel version that publishes them as
+    // they are keeps doing so while the person types; one with its own text is left alone.
+    function changeSource(next: SourceContent) {
+        const target = targetResult.value
+        if (target !== null) {
+            const followed = followSourceChange(editor.profile.profile, sourceContent, next, target)
+            if (followed !== null) setTargetText(formatJson(followed))
+        }
+        setSourceContent(next)
         setDirty(true)
+    }
+
+    function updateSourceText(text: string) {
+        const next = { ...sourceContent }
+        if (text.trim() === '') {
+            delete next.body
+        } else {
+            next.body = {
+                format: sourceContent.body?.format ?? 'plain_text',
+                text,
+            }
+        }
+        changeSource(next)
     }
 
     function updateSourceFormat(format: 'plain_text' | 'markdown') {
-        setSourceContent(current => ({
-            ...current,
+        changeSource({
+            ...sourceContent,
             body: {
                 format,
-                text: current.body?.text ?? '',
+                text: sourceContent.body?.text ?? '',
             },
-        }))
-        setDirty(true)
+        })
     }
 
     function updateSourceOptionalField(field: 'headline' | 'language', value: string) {
-        setSourceContent(current => {
-            const next = { ...current }
-            if (value.trim() === '') {
-                delete next[field]
-            } else {
-                next[field] = value
-            }
-            return next
-        })
-        setDirty(true)
+        const next = { ...sourceContent }
+        if (value.trim() === '') {
+            delete next[field]
+        } else {
+            next[field] = value
+        }
+        changeSource(next)
     }
 
     function updateSourceMedia(media: MediaSelection[]) {
@@ -711,6 +726,57 @@ export function PublicationEditor({
                 formatJson(updateTargetMedia(editor.profile.profile, targetResult.value, media))
             )
         }
+        setDirty(true)
+    }
+
+    // Brings this channel version (and, when it follows the post, the post's text) back to
+    // the applied version. Autosave then writes it with the usual revision checks; a toast
+    // offers to restore what was discarded (ADR-103 §6).
+    const applied = editor.selectedTarget
+    const canDiscard =
+        publicationEditable &&
+        applied !== null &&
+        applied.profileVersionId === editor.draft.profileVersionId &&
+        targetResult.value !== null
+    function discardChanges() {
+        if (!canDiscard || applied === null || targetResult.value === null) return
+        const before = {
+            sourceContent,
+            targetText,
+            scheduleValue,
+            scheduleDirty,
+        }
+        const restoredSource = channelFollowsPost
+            ? postFromChannelVersion(editor.profile.profile, applied.content, sourceContent)
+            : sourceContent
+        setSourceContent(restoredSource)
+        setTargetText(formatJson(applied.content))
+        setScheduleValue(toDateTimeLocal(editor.publication.scheduledAt, timeZone))
+        setScheduleDirty(false)
+        setDirty(true)
+        toast.add({
+            actionProps: {
+                children: m.editor_restore_changes(),
+                onClick: () => {
+                    setSourceContent(before.sourceContent)
+                    setTargetText(before.targetText)
+                    setScheduleValue(before.scheduleValue)
+                    setScheduleDirty(before.scheduleDirty)
+                    setDirty(true)
+                },
+            },
+            timeout: 10_000,
+            title: m.editor_changes_discarded(),
+            type: 'info',
+        })
+    }
+
+    function applyPostTextToChannel() {
+        const target = targetResult.value
+        if (target === null) return
+        const applied = applyPostToChannel(editor.profile.profile, sourceContent, target)
+        if (applied === null) return
+        setTargetText(formatJson(applied))
         setDirty(true)
     }
 
@@ -1306,6 +1372,41 @@ export function PublicationEditor({
             }}
         />
     )
+    // Behind-only versions still follow the post they were written from; the rail notice
+    // covers them. Only a version with its own text gets the "own text" notice.
+    const channelFollowsPost =
+        targetResult.value === null ||
+        channelVersionFollowsSource(editor.profile.profile, sourceContent, targetResult.value) ||
+        channelVersionFollowsSource(
+            editor.profile.profile,
+            editor.draft.baseSourceContent,
+            targetResult.value
+        )
+    const sharedPostCaption =
+        editorChannelIds.size > 1 ? (
+            <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                <h2 className="text-sm font-medium">{m.editor_post_text()}</h2>
+                <span className="text-xs text-muted-foreground">{m.editor_post_text_shared()}</span>
+            </div>
+        ) : null
+    const ownTextNotice =
+        publicationEditable && !channelFollowsPost ? (
+            <div
+                className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-border bg-surface-raised px-3 py-2.5 text-sm text-muted-foreground"
+                data-channel-own-text="true">
+                <InfoCircleIcon aria-hidden="true" className="size-4 shrink-0" />
+                <p className="min-w-0 flex-1 basis-56">
+                    {m.editor_channel_customized_notice({ channel: editor.channel.name })}
+                </p>
+                <Button
+                    size="sm"
+                    variant="secondary"
+                    disabled={accessWritesBlocked || isRebasing || editorMutationPending}
+                    onClick={applyPostTextToChannel}>
+                    {m.editor_channel_follow_again()}
+                </Button>
+            </div>
+        ) : null
     const sourceSection = (
         <div className="space-y-4">
             <PublicationEditorSourceSection
@@ -1434,6 +1535,10 @@ export function PublicationEditor({
                 targetError={targetResult.error}
                 issueCode={issueCode}
                 issueMessage={issueMessage}
+                summaryTitle={m.editor_channel_adapt({ channel: editor.channel.name })}
+                summaryDescription={
+                    channelFollowsPost ? m.editor_channel_follows() : m.editor_channel_customized()
+                }
             />
         </div>
     )
@@ -1810,11 +1915,15 @@ export function PublicationEditor({
                             {sourceReview}
                         </div>
                     }
-                    editorSurface={!publicationEditable}
+                    editorSurface={false}
                     editor={
                         publicationEditable ? (
                             <div className="min-w-0 space-y-5">
-                                {sourceSection}
+                                <div className="min-w-0 space-y-2">
+                                    {sharedPostCaption}
+                                    {sourceSection}
+                                    {ownTextNotice}
+                                </div>
                                 {targetSection}
                                 {tagsSection}
                             </div>
@@ -1858,6 +1967,14 @@ export function PublicationEditor({
                                             draftDiffersFromTarget || scheduleDirty
                                         }
                                         onPromote={() => void promoteDraft()}
+                                        appliedVersionExists={editor.selectedTarget !== null}
+                                        onDiscard={canDiscard ? discardChanges : undefined}
+                                        discardDisabled={
+                                            accessWritesBlocked ||
+                                            isRebasing ||
+                                            editorMutationPending ||
+                                            saveState === 'saving'
+                                        }
                                     />
                                 ) : null}
                             </div>
@@ -1870,10 +1987,9 @@ export function PublicationEditor({
 
                 <div
                     className={`mt-5 grid min-w-0 gap-3 ${publicationEditable ? '' : 'mx-auto max-w-2xl'}`}>
-                    {/* A locked publication still shows its content; a conflict is shown, not
-                        folded away (ADR-103 §1, audit D1/D3). */}
-                    {!publicationEditable ? sourceSection : null}
-                    {!publicationEditable ? targetSection : null}
+                    {/* A locked publication shows its content once, as the channel shows it,
+                        in the preview above; a conflict is shown, not folded away
+                        (ADR-103 §1, audit D1/D3). */}
                     {!publicationEditable ? tagsSection : null}
                     {saveState === 'conflict' ? (
                         <div ref={conflictRef}>

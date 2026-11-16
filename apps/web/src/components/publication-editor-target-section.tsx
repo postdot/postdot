@@ -30,6 +30,10 @@ interface PublicationEditorTargetSectionProps {
     readonly targetError: string | null
     readonly issueCode: (issue: Record<string, unknown>) => string
     readonly issueMessage: (issue: Record<string, unknown>) => string
+    /** The disclosure's name; defaults to the generic channel customization label. */
+    readonly summaryTitle?: string
+    /** One line under the name saying whether this channel follows the post. */
+    readonly summaryDescription?: string
 }
 
 export function PublicationEditorTargetSection({
@@ -48,6 +52,8 @@ export function PublicationEditorTargetSection({
     targetError,
     issueCode,
     issueMessage,
+    summaryTitle,
+    summaryDescription,
 }: PublicationEditorTargetSectionProps) {
     const { locale } = useLanguage()
     const fields = getTargetEditorFields(profile, locale, target)
@@ -108,7 +114,16 @@ export function PublicationEditorTargetSection({
                 onToggle={event => onOpenChange?.(event.currentTarget.open)}>
                 <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 py-3 text-sm [&::-webkit-details-marker]:hidden">
                     <span className="min-w-0">
-                        <span className="block font-medium">{m.editor_channel_details()}</span>
+                        <span className="block font-medium">
+                            {summaryTitle ?? m.editor_channel_details()}
+                        </span>
+                        {summaryDescription ? (
+                            <span
+                                className="mt-0.5 block text-xs text-muted-foreground"
+                                data-channel-version-mode="true">
+                                {summaryDescription}
+                            </span>
+                        ) : null}
                     </span>
                     <span className="flex shrink-0 items-center gap-3">
                         {reviewState !== 'compatible' ||
