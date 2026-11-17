@@ -72,6 +72,8 @@ export interface PostComposerProps {
     readonly tags?: ReactNode
     readonly sharedPanel?: ReactNode
     readonly channelPanel?: (target: PostCompositionTarget) => ReactNode
+    /** The active channel's state strip, above the title and editor it acts on. */
+    readonly channelStatus?: (target: PostCompositionTarget) => ReactNode
     readonly pickerTags: TagPickerProps['tags']
     readonly onCreateProjectTag?: TagPickerProps['onCreateTag']
     readonly mediaDisabled: boolean
@@ -94,6 +96,7 @@ export function PostComposer({
     createChannel,
     footer,
     channelPanel,
+    channelStatus,
     channelNavigation,
     headlineVisible,
     preview,
@@ -234,6 +237,9 @@ export function PostComposer({
     return (
         <>
             <PublicationComposer
+                // The editor, title and options draw their own surfaces; a frame around them
+                // would push the title label against its edge.
+                editorSurface={false}
                 channelNavigation={
                     channelNavigation ?? (
                         <PublicationChannelTabs
@@ -256,6 +262,9 @@ export function PostComposer({
                 }
                 editor={
                     <div className="min-w-0">
+                        {activeContentTarget && channelStatus ? (
+                            <div className="mb-4">{channelStatus(activeContentTarget)}</div>
+                        ) : null}
                         {showHeadline ? (
                             <DashboardFormField
                                 htmlFor="new-post-title"
@@ -323,27 +332,39 @@ export function PostComposer({
                         <div
                             data-new-publication-editor="true"
                             className="overflow-hidden rounded-xl bg-surface-field shadow-surface focus-within:shadow-control">
-                            {activeContentTarget !== undefined &&
-                            !activeContentTargetUsesSharedContent ? (
-                                <div className="flex justify-end px-3 pt-2">
-                                    <ActionTooltip
-                                        label={m.publication_new_reset_channel_content({
-                                            channel: activePreviewChannel?.name ?? '',
-                                        })}>
-                                        <Button
-                                            type="button"
-                                            variant="ghost"
-                                            size="icon-xs"
-                                            disabled={pending || contentReadOnly}
-                                            aria-label={m.publication_new_reset_channel_content({
+                            {activeContentTarget !== undefined && !contentReadOnly ? (
+                                <div
+                                    className="flex min-h-9 items-center justify-between gap-2 px-4 pt-2"
+                                    data-channel-text-mode={
+                                        activeContentTargetUsesSharedContent ? 'shared' : 'own'
+                                    }>
+                                    <span className="text-xs text-muted-foreground">
+                                        {activeContentTargetUsesSharedContent
+                                            ? m.composer_channel_shared_text()
+                                            : m.composer_channel_own_text()}
+                                    </span>
+                                    {activeContentTargetUsesSharedContent ? null : (
+                                        <ActionTooltip
+                                            label={m.publication_new_reset_channel_content({
                                                 channel: activePreviewChannel?.name ?? '',
-                                            })}
-                                            onClick={() =>
-                                                useSharedTargetContent(activeContentTarget.id)
-                                            }>
-                                            <RestartIcon aria-hidden="true" />
-                                        </Button>
-                                    </ActionTooltip>
+                                            })}>
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="icon-xs"
+                                                disabled={pending || contentReadOnly}
+                                                aria-label={m.publication_new_reset_channel_content(
+                                                    {
+                                                        channel: activePreviewChannel?.name ?? '',
+                                                    }
+                                                )}
+                                                onClick={() =>
+                                                    useSharedTargetContent(activeContentTarget.id)
+                                                }>
+                                                <RestartIcon aria-hidden="true" />
+                                            </Button>
+                                        </ActionTooltip>
+                                    )}
                                 </div>
                             ) : null}
                             <div>

@@ -371,15 +371,6 @@ function ExistingPostEditor({
                         onApplied={() => void session.reload()}
                     />
                 ) : null}
-                {activeTarget && !activeTarget.locked ? (
-                    <p
-                        className="mb-3 text-xs text-muted-foreground"
-                        data-channel-version-mode="true">
-                        {activeTarget.customized
-                            ? m.editor_channel_customized()
-                            : m.editor_channel_follows()}
-                    </p>
-                ) : null}
                 {session.saveState === 'conflict' && (activeEditor ?? data.editors[0]) ? (
                     <PublicationEditorSidebar
                         editor={(activeEditor ?? data.editors[0])!}
@@ -413,6 +404,30 @@ function ExistingPostEditor({
                                         target => target.id === previewEditor.publication.id
                                     )?.locked === true
                                 }
+                            />
+                        ) : null
+                    }
+                    channelStatus={target =>
+                        activeEditor ? (
+                            <PostChannelPanel
+                                part="status"
+                                key={`status:${target.id}`}
+                                editor={activeEditor}
+                                backToCalendar={backToCalendar}
+                                content={previewContent!}
+                                locked={target.locked === true}
+                                blocked={blocked}
+                                pendingChanges={
+                                    session.dirty ||
+                                    mediaPending ||
+                                    session.saving ||
+                                    session.applying
+                                }
+                                onContentChange={changeTarget}
+                                onRefresh={() => session.reload()}
+                                onAccessRefused={access.onAccessRefused}
+                                getAccessEpoch={access.getAccessEpoch}
+                                timeZone={project.timeZone}
                             />
                         ) : null
                     }
@@ -450,6 +465,7 @@ function ExistingPostEditor({
                                     </div>
                                 ) : null}
                                 <PostChannelPanel
+                                    part="details"
                                     key={target.id}
                                     editor={activeEditor}
                                     backToCalendar={backToCalendar}

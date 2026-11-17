@@ -2,7 +2,6 @@ import { Button } from '@postdot/ui/components/button'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { useState } from 'react'
 
-import { CopyPublicationLink } from '@/components/copy-publication-link'
 import { PublicationActivityTimeline } from '@/components/publication-activity-timeline'
 import { PublicationAdoptionHistory } from '@/components/publication-adoption-history'
 import { PublicationCadenceStatus } from '@/components/publication-cadence-status'
@@ -28,6 +27,7 @@ import * as m from '@/paraglide/messages.js'
 import { providerForProfile } from '@/providers/registry'
 
 export function PostChannelPanel({
+    part,
     editor,
     backToCalendar,
     content,
@@ -40,6 +40,11 @@ export function PostChannelPanel({
     getAccessEpoch,
     timeZone,
 }: {
+    /**
+     * "status" is the channel's state strip and its actions, shown above the editor where they
+     * act; "details" is everything about this channel version under the editor.
+     */
+    readonly part: 'status' | 'details'
     readonly backToCalendar?: { readonly date?: string; readonly view?: PublicationCalendarView }
     readonly editor: PublicationEditorState
     readonly content: Record<string, unknown>
@@ -92,8 +97,122 @@ export function PostChannelPanel({
             return true
         })
     }
+    if (part === 'status') {
+        return (
+            <div className="min-w-0 space-y-3" data-post-channel-status={publication.id}>
+                <PublicationLifecyclePanel
+                    publication={publication}
+                    timeZone={timeZone}
+                    connection={
+                        connections.find(
+                            connection => connection.channelId === editor.channel.id
+                        ) ?? null
+                    }
+                    readOnly={blocked}
+                    pending={lifecycleBlocked}
+                    cancelDisabled={lifecycleBlocked}
+                    retryDisabled={lifecycleBlocked}
+                    onPublish={
+                        blocked ? undefined : () => run(() => actions.onPublish(publication.id))
+                    }
+                    onUndoPublish={
+                        blocked
+                            ? undefined
+                            : () => void run(() => actions.onUndoPublish(publication.id))
+                    }
+                    onCancel={blocked ? undefined : () => setCancelOpen(true)}
+                    onRetry={
+                        blocked
+                            ? undefined
+                            : () => run(() => actions.onRetryPublication(publication.id))
+                    }
+                    otherActions={
+                        !blocked && editor.movement?.canMove ? (
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                disabled={lifecycleBlocked}
+                                onClick={() => setMoveOpen(true)}>
+                                {m.publication_move_action()}
+                            </Button>
+                        ) : undefined
+                    }
+                />
+                <PublicationCancellationDialog
+                    open={cancelOpen}
+                    onOpenChange={setCancelOpen}
+                    pending={pending}
+                    onCancel={() => run(() => actions.onCancelPublications([publication.id]))}
+                />
+                {moveOpen ? (
+                    <PublicationMoveDialog
+                        editor={editor}
+                        channels={channels}
+                        disabled={disabled}
+                        onError={onAccessRefused}
+                        onClose={() => setMoveOpen(false)}
+                        onMoved={async publicationId => {
+                            const epoch = getAccessEpoch()
+                            await onRefresh()
+                            if (epoch !== getAccessEpoch()) return
+                            await navigate({
+                                to: '/dashboard/projects/$projectId/publications/$publicationId',
+                                params: { projectId: publication.projectId, publicationId },
+                                search: backToCalendar
+                                    ? { ...backToCalendar, from: 'calendar' }
+                                    : undefined,
+                            })
+                        }}
+                    />
+                ) : null}
+                {editor.movement?.fromPublicationId ? (
+                    <Link
+                        className="text-sm text-link hover:underline"
+                        to="/dashboard/projects/$projectId/publications/$publicationId"
+                        params={{
+                            projectId: publication.projectId,
+                            publicationId: editor.movement.fromPublicationId,
+                        }}>
+                        {m.publication_move_original()}
+                    </Link>
+                ) : null}
+                {editor.movement?.toPublicationId ? (
+                    <Link
+                        className="text-sm text-link hover:underline"
+                        to="/dashboard/projects/$projectId/publications/$publicationId"
+                        params={{
+                            projectId: publication.projectId,
+                            publicationId: editor.movement.toPublicationId,
+                        }}>
+                        {m.publication_move_replacement()}
+                    </Link>
+                ) : null}
+                {publication.state === 'draft' && editor.movement?.requestedScheduledAt != null ? (
+                    <p className="text-sm">
+                        {m.publication_move_requested({
+                            time: new Intl.DateTimeFormat(locale, {
+                                dateStyle: 'medium',
+                                timeStyle: 'short',
+                                timeZone,
+                            }).format(editor.movement.requestedScheduledAt),
+                        })}
+                    </p>
+                ) : null}
+                {error ? (
+                    <p role="alert" className="text-sm text-state-failed">
+                        {error}
+                    </p>
+                ) : null}
+            </div>
+        )
+    }
     return (
         <div className="mt-5 min-w-0 space-y-4" data-post-channel-panel={publication.id}>
+            {error ? (
+                <p role="alert" className="text-sm text-state-failed">
+                    {error}
+                </p>
+            ) : null}
             <PublicationEditorTargetSection
                 projectId={publication.projectId}
                 publicationId={publication.id}
@@ -142,112 +261,6 @@ export function PostChannelPanel({
                         void onRefresh()
                     }}
                 />
-            ) : null}
-            <div className="flex flex-wrap justify-end">
-                <CopyPublicationLink
-                    projectId={publication.projectId}
-                    publicationId={publication.id}
-                />
-            </div>
-            <PublicationLifecyclePanel
-                publication={publication}
-                timeZone={timeZone}
-                connection={
-                    connections.find(connection => connection.channelId === editor.channel.id) ??
-                    null
-                }
-                readOnly={blocked}
-                pending={lifecycleBlocked}
-                cancelDisabled={lifecycleBlocked}
-                retryDisabled={lifecycleBlocked}
-                onPublish={blocked ? undefined : () => run(() => actions.onPublish(publication.id))}
-                onUndoPublish={
-                    blocked
-                        ? undefined
-                        : () => void run(() => actions.onUndoPublish(publication.id))
-                }
-                onCancel={blocked ? undefined : () => setCancelOpen(true)}
-                onRetry={
-                    blocked
-                        ? undefined
-                        : () => run(() => actions.onRetryPublication(publication.id))
-                }
-                otherActions={
-                    !blocked && editor.movement?.canMove ? (
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            disabled={lifecycleBlocked}
-                            onClick={() => setMoveOpen(true)}>
-                            {m.publication_move_action()}
-                        </Button>
-                    ) : undefined
-                }
-            />
-            <PublicationCancellationDialog
-                open={cancelOpen}
-                onOpenChange={setCancelOpen}
-                pending={pending}
-                onCancel={() => run(() => actions.onCancelPublications([publication.id]))}
-            />
-            {moveOpen ? (
-                <PublicationMoveDialog
-                    editor={editor}
-                    channels={channels}
-                    disabled={disabled}
-                    onError={onAccessRefused}
-                    onClose={() => setMoveOpen(false)}
-                    onMoved={async publicationId => {
-                        const epoch = getAccessEpoch()
-                        await onRefresh()
-                        if (epoch !== getAccessEpoch()) return
-                        await navigate({
-                            to: '/dashboard/projects/$projectId/publications/$publicationId',
-                            params: { projectId: publication.projectId, publicationId },
-                            search: backToCalendar
-                                ? { ...backToCalendar, from: 'calendar' }
-                                : undefined,
-                        })
-                    }}
-                />
-            ) : null}
-            {editor.movement?.fromPublicationId ? (
-                <Link
-                    className="text-sm text-link hover:underline"
-                    to="/dashboard/projects/$projectId/publications/$publicationId"
-                    params={{
-                        projectId: publication.projectId,
-                        publicationId: editor.movement.fromPublicationId,
-                    }}>
-                    {m.publication_move_original()}
-                </Link>
-            ) : null}
-            {editor.movement?.toPublicationId ? (
-                <Link
-                    className="text-sm text-link hover:underline"
-                    to="/dashboard/projects/$projectId/publications/$publicationId"
-                    params={{
-                        projectId: publication.projectId,
-                        publicationId: editor.movement.toPublicationId,
-                    }}>
-                    {m.publication_move_replacement()}
-                </Link>
-            ) : null}
-            {publication.state === 'draft' && editor.movement?.requestedScheduledAt != null ? (
-                <p className="text-sm">
-                    {m.publication_move_requested({
-                        time: new Intl.DateTimeFormat(locale, {
-                            dateStyle: 'medium',
-                            timeStyle: 'short',
-                            timeZone,
-                        }).format(editor.movement.requestedScheduledAt),
-                    })}
-                </p>
-            ) : null}
-            {error ? (
-                <p role="alert" className="text-sm text-state-failed">
-                    {error}
-                </p>
             ) : null}
             <PublicationThreadProgress messages={editor.threadMessages} />
             {publication.deliveryMode === 'automatic' &&

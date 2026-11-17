@@ -1648,6 +1648,8 @@
     "publication_new_add_channel_button": "Añadir canal",
     "publication_new_add_channel_named": "Añadir {channel}",
     "publication_new_remove_channel": "Eliminar {channel}",
+    "composer_channel_shared_text": "Mismo texto que todos los canales",
+    "composer_channel_own_text": "Este canal tiene su propio texto",
     "publication_new_reset_channel_content": "Usar contenido común para {channel}",
     "publication_new_editing_scope": "Contenido en edición",
     "publication_new_post_title": "Título",

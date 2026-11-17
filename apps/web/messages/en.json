@@ -1648,6 +1648,8 @@
     "publication_new_add_channel_button": "Add channel",
     "publication_new_add_channel_named": "Add {channel}",
     "publication_new_remove_channel": "Remove {channel}",
+    "composer_channel_shared_text": "Same text as all channels",
+    "composer_channel_own_text": "This channel has its own text",
     "publication_new_reset_channel_content": "Use common content for {channel}",
     "publication_new_editing_scope": "Content being edited",
     "publication_new_post_title": "Title",
