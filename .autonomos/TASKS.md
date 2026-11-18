@@ -9,8 +9,6 @@
 
 - [/] **[PUB-627]** Complete GitHub profile, application releases and clean-install acceptance `Priority: 🟠` `Complexity: L`
 
-- [/] **[UX-683]** Edit mode and route unification on the shared composer (SPEC-013) `Priority: 🟠` `Complexity: XL`
-
 ## Current direction
 
 Shared-channel implementation follows [ADR-095](decisions/ADR-095-workspace-channels-and-project-attachments.md)
