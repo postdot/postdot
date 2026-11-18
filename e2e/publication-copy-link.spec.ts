@@ -51,7 +51,13 @@ test('copies a canonical internal link from Queue and publication details', asyn
         await expect(
             page.getByRole('heading', { name: 'A publication to share with the team', exact: true })
         ).toBeVisible()
-        await page.getByRole('button', { name: 'Copy publication link', exact: true }).click()
+        // In the post editor the link is copied from the channel's menu (SPEC-013).
+        await page
+            .locator(
+                `[data-publication-id="${publications[0].id}"] [data-publication-row-actions="true"]`
+            )
+            .click()
+        await page.getByRole('menuitem', { name: 'Copy publication link', exact: true }).click()
         await expect
             .poll(() =>
                 page.evaluate(
@@ -112,7 +118,12 @@ test('readers can copy manually when clipboard permission is denied, in French',
         await openLanguageMenu(reader)
         await reader.getByRole('menuitem', { name: 'Français', exact: true }).click()
         await reader
-            .getByRole('button', { name: 'Copier le lien de la publication', exact: true })
+            .locator(
+                `[data-publication-id="${publications[0].id}"] [data-publication-row-actions="true"]`
+            )
+            .click()
+        await reader
+            .getByRole('menuitem', { name: 'Copier le lien de la publication', exact: true })
             .click()
         const dialog = reader.getByRole('dialog', {
             name: 'Copier le lien de la publication',

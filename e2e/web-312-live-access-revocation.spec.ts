@@ -2,6 +2,8 @@ import { randomUUID } from 'node:crypto'
 
 import { expect, test, type Page } from '@playwright/test'
 
+import { composerText } from './support/post-editor'
+
 // WEB-312 is a diagnosis mission. This spec pins the behavior that exists today
 // when project access disappears in the middle of a session, so a later
 // correction can be proved against a known starting point. Nothing here asserts
@@ -60,7 +62,7 @@ test('an open session keeps the last known project state after access is removed
         await editorPage.goto(
             `/dashboard/projects/${owner.projectId}/publications/${publication.id}`
         )
-        const sourceBody = editorPage.getByRole('textbox', { name: 'Body', exact: true })
+        const sourceBody = composerText(editorPage)
         await expect(sourceBody).toBeVisible()
         await sourceBody.click()
         await editorPage.keyboard.type('Unsaved work that only exists in this browser')
@@ -120,7 +122,7 @@ test('an open session keeps the last known project state after access is removed
         await expect(
             editorPage.getByRole('link', { name: 'Select project', exact: true })
         ).toBeVisible()
-        await expect(editorPage.getByRole('textbox', { name: 'Body', exact: true })).toHaveCount(0)
+        await expect(composerText(editorPage)).toHaveCount(0)
 
         // 3. Local work is preserved, which is what the bounded correction
         //    keeps: the recovery buffer still holds the unsaved copy.
@@ -208,7 +210,7 @@ async function countRecoveryBuffers(page: Page) {
     return page.evaluate(
         () =>
             Object.keys(window.localStorage).filter(key =>
-                key.startsWith('postdot:publication-editor:')
+                key.startsWith('postdot:post-composition:')
             ).length
     )
 }

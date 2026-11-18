@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto'
 import { expect, test, type Page } from '@playwright/test'
 
 import { frenchTranslation, openLanguageMenu } from './locale'
+import { composerText } from './support/post-editor'
 
 async function createProject(page: Page) {
     const suffix = randomUUID().slice(0, 8)
@@ -82,7 +83,7 @@ test('creates tags without losing composition and synchronizes archived assignme
         new RegExp(`/dashboard/projects/${projectId}/tags`)
     )
     await page.keyboard.press('Escape')
-    const source = page.getByRole('textbox', { name: 'Body', exact: true })
+    const source = composerText(page)
     await source.fill('Unsaved editor changes stay intact.')
 
     const manager = await page.context().newPage()
