@@ -109,6 +109,8 @@ test('restricts paste and keyboard formatting and protects unsupported source sy
 test('supports rich editing and emoji undo at desktop and mobile widths', async ({
     page,
 }, info) => {
+    // Theme colors transition; measure contrast on settled colors, not mid-transition.
+    await page.emulateMedia({ reducedMotion: 'reduce' })
     await page.goto('/editor-lab')
     await page.getByRole('button', { name: 'DEV.to', exact: true }).click()
     const content = page.getByRole('textbox', { name: 'Test content', exact: true })
