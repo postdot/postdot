@@ -156,7 +156,14 @@ export function PostChannelPanel({
                     open={cancelOpen}
                     onOpenChange={setCancelOpen}
                     pending={pending}
-                    onCancel={() => run(() => actions.onCancelPublications([publication.id]))}
+                    onCancel={() =>
+                        run(() => actions.onCancelPublications([publication.id])).then(
+                            cancelled => {
+                                if (cancelled) setNotice(m.editor_cancelled())
+                                return cancelled
+                            }
+                        )
+                    }
                 />
                 {moveOpen ? (
                     <PublicationMoveDialog
@@ -271,7 +278,7 @@ export function PostChannelPanel({
                 <PublicationProfileAdoption
                     projectId={publication.projectId}
                     editor={editor}
-                    localContent={content}
+                    localContent={pendingChanges ? content : null}
                     blocked={disabled || locked}
                     onCancel={() => setAdoptionOpen(false)}
                     onError={onAccessRefused}

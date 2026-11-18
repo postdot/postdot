@@ -129,9 +129,18 @@ export function useExistingPostComposition({
             readOnly,
         })
     )
+    // The route names the channel to show. After a move or a duplicate the new publication
+    // arrives with the next data load, so its tab is selected once it exists.
+    const selectedRoutePublication = useRef<string | null>(null)
+    const routeTargetLoaded = composition.publicationTargets.some(
+        target => target.id === activePublicationId
+    )
     useEffect(() => {
-        if (activePublicationId) composition.selectContentScope(activePublicationId)
-    }, [activePublicationId])
+        if (!activePublicationId || !routeTargetLoaded) return
+        if (selectedRoutePublication.current === activePublicationId) return
+        selectedRoutePublication.current = activePublicationId
+        composition.selectContentScope(activePublicationId)
+    }, [activePublicationId, routeTargetLoaded])
     const [saveState, setSaveState] = useState<PublicationEditorSaveState>('saved')
     const [message, setMessage] = useState<string | null>(null)
     const [passive, setPassive] = useState(false)
