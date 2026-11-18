@@ -1,6 +1,12 @@
 import AxeBuilder from '@axe-core/playwright'
 import { expect, test } from '@playwright/test'
 
+// The editor lab is a development page; a production build redirects it to the start page.
+test.skip(
+    process.env.POSTDOT_E2E_PRODUCTION_WEB === 'true',
+    'The editor lab exists only in development builds'
+)
+
 test('keeps the original text unchanged and restores isolated editing scopes', async ({ page }) => {
     await page.goto('/editor-lab')
     const output = page.getByRole('textbox', { name: /^Serialized output/ })
