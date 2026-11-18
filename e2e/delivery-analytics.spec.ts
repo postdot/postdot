@@ -188,6 +188,8 @@ test('warns about incomplete history and suppresses misleading period changes', 
         )
     ).toBeVisible()
     await expect(dashboard.getByText('Comparison unavailable', { exact: true })).toHaveCount(0)
+    // Later analytics reads may still be in the handler when the test ends.
+    await page.unrouteAll({ behavior: 'ignoreErrors' })
 })
 
 test('keeps publishing filters available when a channel has no results', async ({ page }) => {
@@ -263,4 +265,5 @@ test('hides destination filter for a single channel, adapts non-zero counters, a
     await expect(
         dashboard.getByText('Nothing was published in this period', { exact: true })
     ).toHaveCount(0)
+    await page.unrouteAll({ behavior: 'ignoreErrors' })
 })
