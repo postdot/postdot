@@ -181,35 +181,6 @@
 - Resolution: the CI trace showed a navigation to `/publications/new`. The live revocation froze the editor while the test was typing; the frozen editor lost focus, so the typed letters reached the document and the plain N shortcut (new post) fired. A real hazard for anyone typing at that moment. N now does nothing when it arrives within a second of another key. 4/4 local repeats in development mode.
 - Tasks: none
 
-## [ISSUE-206] A CI round takes about 20 minutes, set by the slowest browser shard
-
-- Type: proposal
-- Status: accepted
-- Evidence: PR #40 needed eight CI rounds. In each, static checks took 4-5 min, PostgreSQL unit tests 8 min, image restore 1 min, and the four browser shards 12-20 min; Verify waits for the slowest, so a round is about 21 min. The browser shards run against the Vite development server (`playwright test --shard=n/4`, no `POSTDOT_E2E_PRODUCTION_WEB`), which compiles modules on demand and is slower and less like what ships than the production build used locally (266 tests in about 22 min on one local worker). Several failures in that PR appeared only in development mode (timing), while the production-only regressions (anonymous entry budget) were caught locally.
-- Impact: Slow feedback; fixes pushed one at a time each cost a full round; the suite tests a mode nobody runs in production.
-- Desired outcome, to measure before deciding: (1) run the browser shards against the production build (`vite preview`), keeping the few development-only specs (editor lab) in a small separate job or local only; (2) balance shards by recorded duration, or use more shards, so the slowest is near the mean; (3) on pull requests, consider running the specs touched by the change first and the full suite on main. Record before/after round times.
-- Source: owner feedback on PR #40, 2026-11-18.
-- Tasks: CI-687
-
-## [ISSUE-208] A manual publication cannot be copied out of Postdot quickly
-
-- Type: problem
-- Status: accepted
-- Evidence: For a manual channel the person recreates the post by hand in the platform's own editor. The publication view offers "copy link" (`dashboard-publication-parts.tsx`) and "mark as published", but no way to copy the title or the text, nor to copy or download the images and videos. Today the person must select text by hand and fetch each file from the media library.
-- Impact: Manual channels are the fallback for every network without an API; each manual post costs several extra steps and invites mistakes (wrong channel variant, missing image, lost line breaks).
-- Desired outcome: From the publication view of a due manual post, the person copies the channel's title and text in one action each, and copies or downloads each media item (or all of them at once) in the variant prepared for that channel, then marks it published.
-- Source: owner feedback, 2026-11-18.
-- Tasks: UX-688
-
-## [ISSUE-209] Open Dependabot alerts on development dependencies
-
-- Type: problem
-- Status: accepted
-- Evidence: On 2026-11-18 GitHub reported 27 open alerts on `main` (5 high, 19 moderate, 3 low). All are in development scope: vite (18, fixed in 8.3.3), lodash, form-data, minimatch, qs, stream-json and uuid. None is in the shipped container runtime according to the alert scope.
-- Impact: The Vite alerts concern the development server, which developers and the CI browser shards run; the rest are build and test tooling. Unattended alerts also hide a future runtime alert in the noise.
-- Desired outcome: Development dependencies upgraded to the patched versions with checks green, alerts closed, and a routine so the list stays near zero.
-- Tasks: DEPS-686
-
 ## [ISSUE-210] External tools cannot react to what happens in Postdot
 
 - Type: proposal
@@ -250,4 +221,13 @@
 - Impact: Adding a logo nobody can connect brings no value; each provider costs maintenance.
 - Desired outcome: A short list ranked by "a self-hoster can connect it alone in minutes" and demand, with setup effort recorded per provider (as `providers/setup-effort.mdx` does). Likely first candidates to verify: Pixelfed (Mastodon-like API, per-instance app registration), Threads, Reddit.
 - Source: owner discussion, 2026-11-18.
+- Tasks: none
+
+## [ISSUE-214] Browser tests fail intermittently on the production build
+
+- Type: problem
+- Status: open
+- Evidence: On PR #46 (run 44408936164, shard 4/5) `e2e/settings-people.spec.ts` measured the invitation e-mail and role labels 1.4 px apart (limit 1 px) and `e2e/queue-bulk-actions.spec.ts` did not find the bulk action bar after rescheduling two publications. Both passed on rerun and twice locally with `POSTDOT_E2E_PRODUCTION_WEB=true`. The same run also showed `publication-media` depending on which of two same-time publications leads a grouped calendar entry (fixed on PR #43), and `editor-experiment` emoji undo failing once on the development server. On PR #43 (run 44411996480, shard 3/5) `publication-concurrent-editing.spec.ts` "applies a scheduled version once" hit its 30 s timeout in CI while it takes about 6 s locally (3 of 3 passes); a full rerun passed.
+- Impact: A red round costs about 8 minutes and erodes trust in the suite.
+- Desired outcome: Each test waits for the state it asserts (dialog open animation finished, bar rendered after the refresh) instead of measuring a transient frame; no rerun needed for these specs.
 - Tasks: none

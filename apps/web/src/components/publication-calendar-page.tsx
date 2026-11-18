@@ -352,6 +352,15 @@ export function PublicationCalendarPage({
                                         if (readOnly) return
                                         setSelectedPublicationIds(new Set(publicationIds))
                                     }}
+                                    onReschedule={async times => {
+                                        const moved = await onReschedulePublications(
+                                            Object.keys(times),
+                                            Math.min(...Object.values(times)),
+                                            times
+                                        )
+                                        if (moved) await refreshCalendarPublications()
+                                        return moved
+                                    }}
                                     projectId={project.id}
                                     publications={filteredPublications}
                                     readOnly={readOnly}

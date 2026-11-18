@@ -1471,10 +1471,18 @@ test('persists mixed and media-only publications through the dashboard', async (
 
     await page.getByRole('link', { name: 'Overview', exact: true }).click()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/overview$/)
+    // The post's two channels share one month entry, led by whichever publication sorts first
+    // (same time, then id), so the entry may carry either id.
     const calendarEditorEvent = page.locator(
-        `[data-calendar-view="month"] [data-slot="event-calendar-event"][data-event-id="${mixedPublicationId}"]`
+        mixedResult.publications
+            .map(
+                item =>
+                    `[data-calendar-view="month"] [data-slot="event-calendar-event"][data-event-id="${item.id}"]`
+            )
+            .join(', ')
     )
     await expect(calendarEditorEvent).toBeVisible()
+    const calendarLeadId = await calendarEditorEvent.getAttribute('data-event-id')
     await calendarEditorEvent.click()
     await expect(page.getByRole('heading', { name: sourceText, exact: true })).toBeVisible()
     await expect(
@@ -1485,7 +1493,7 @@ test('persists mixed and media-only publications through the dashboard', async (
     await page.getByRole('button', { name: 'Edit publication', exact: true }).click()
     await expect(page).toHaveURL(
         new RegExp(
-            `/dashboard/projects/[^/]+/publications/${mixedPublicationId}\\?date=\\d{4}-\\d{2}-\\d{2}&from=calendar&view=month$`
+            `/dashboard/projects/[^/]+/publications/${calendarLeadId}\\?date=\\d{4}-\\d{2}-\\d{2}&from=calendar&view=month$`
         )
     )
     await expect(page.getByRole('link', { name: 'Back to calendar', exact: true })).toBeVisible()
