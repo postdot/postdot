@@ -38,7 +38,7 @@ test('an ambiguous signal suspends writes, verifies once, then shows removal', a
         await editorPage.goto(
             `/dashboard/projects/${owner.projectId}/publications/${publication.id}`
         )
-        const sourceBody = editorPage.getByRole('textbox', { name: 'Body', exact: true })
+        const sourceBody = editorPage.getByRole('textbox', { name: /^(Content|Channel content)$/ })
         await expect(sourceBody).toBeVisible()
         await sourceBody.click()
         await editorPage.keyboard.type('Local work written before the revocation')
@@ -60,7 +60,7 @@ test('an ambiguous signal suspends writes, verifies once, then shows removal', a
         let draftPatchRequests = 0
         editorPage.on('request', request => {
             const url = new URL(request.url())
-            if (request.method() === 'PATCH' && url.pathname.endsWith('/draft')) {
+            if (request.method() === 'PUT' && url.pathname.endsWith('/composition')) {
                 draftPatchRequests += 1
             }
         })
@@ -82,9 +82,11 @@ test('an ambiguous signal suspends writes, verifies once, then shows removal', a
         await expect(editorPage.getByText('Checking project access…')).toBeVisible({
             timeout: 90_000,
         })
-        expect(draftPatchRequests).toBeGreaterThan(0)
+        // The live revocation signal may start the verification before the debounced
+        // write leaves; either way no write may follow while the editor is frozen.
         const draftPatchAfterReveal = draftPatchRequests
-        await expect(sourceBody).toHaveCount(0)
+        // Frozen: the editor stays visible with the local work but cannot be edited.
+        await expect(sourceBody).toHaveAttribute('contenteditable', 'false')
         await expect(
             editorPage
                 .getByText('Local work written before the revocation', { exact: false })
@@ -176,7 +178,7 @@ test('a late draft response is quarantined instead of applied', async ({ page })
         await editorPage.goto(
             `/dashboard/projects/${owner.projectId}/publications/${publication.id}`
         )
-        const sourceBody = editorPage.getByRole('textbox', { name: 'Body', exact: true })
+        const sourceBody = editorPage.getByRole('textbox', { name: /^(Content|Channel content)$/ })
         await expect(sourceBody).toBeVisible()
         await sourceBody.click()
         await editorPage.keyboard.type('Local work saved before the revocation')
@@ -205,8 +207,8 @@ test('a late draft response is quarantined instead of applied', async ({ page })
             await membershipGate
             await route.continue()
         })
-        await editorPage.route('**/api/projects/*/publications/*/draft', async route => {
-            if (route.request().method() !== 'PATCH') {
+        await editorPage.route('**/api/projects/*/posts/*/composition', async route => {
+            if (route.request().method() !== 'PUT') {
                 await route.continue()
                 return
             }
@@ -221,7 +223,8 @@ test('a late draft response is quarantined instead of applied', async ({ page })
         await editorPage.keyboard.type(' plus held unsent work')
         const heldRequest = editorPage.waitForRequest(
             request =>
-                request.method() === 'PATCH' && new URL(request.url()).pathname.endsWith('/draft'),
+                request.method() === 'PUT' &&
+                new URL(request.url()).pathname.endsWith('/composition'),
             { timeout: 30_000 }
         )
         await heldRequest
@@ -237,7 +240,8 @@ test('a late draft response is quarantined instead of applied', async ({ page })
         await expect(editorPage.getByText('Checking project access…')).toBeVisible({
             timeout: 90_000,
         })
-        await expect(sourceBody).toHaveCount(0)
+        // Frozen: the editor stays visible with the local work but cannot be edited.
+        await expect(sourceBody).toHaveAttribute('contenteditable', 'false')
 
         // The held first write now answers with success, after the freeze. It
         // must change nothing: no saved state, no cleared buffer, no actions.
@@ -247,7 +251,7 @@ test('a late draft response is quarantined instead of applied', async ({ page })
         // Installed before the response is produced, so the event cannot be missed
         // by a race with fulfil().
         const responseReceived = editorPage.waitForEvent('requestfinished', {
-            predicate: request => request.method() === 'PATCH' && draftPatchPath(request.url()),
+            predicate: request => request.method() === 'PUT' && draftPatchPath(request.url()),
             timeout: 30_000,
         })
         await routeToRelease.fulfill({
@@ -346,7 +350,7 @@ test('a technical error retries once and confirms into a concurrent conflict', a
         await editorPage.goto(
             `/dashboard/projects/${owner.projectId}/publications/${publication.id}`
         )
-        const sourceBody = editorPage.getByRole('textbox', { name: 'Body', exact: true })
+        const sourceBody = editorPage.getByRole('textbox', { name: /^(Content|Channel content)$/ })
         await expect(sourceBody).toBeVisible()
         await sourceBody.click()
         await editorPage.keyboard.type('Local work concurrent with the owner')
@@ -414,7 +418,7 @@ test('a technical error retries once and confirms into a concurrent conflict', a
         // The first write attempted after the downgrade is refused, which
         // starts verification; the intercepted membership read then fails
         // technically instead of claiming a revocation.
-        const triggerBody = editorPage.getByRole('textbox', { name: 'Body', exact: true })
+        const triggerBody = editorPage.getByRole('textbox', { name: /^(Content|Channel content)$/ })
         await triggerBody.click()
         await editorPage.keyboard.type(' plus a revealing attempt')
         await expect(editorPage.getByText('Application could not be confirmed.')).toBeVisible({
@@ -473,9 +477,9 @@ test('a technical error retries once and confirms into a concurrent conflict', a
             publicationId: publication.id,
         })
         await expect(editorPage.getByText('The server has newer work')).toBeVisible()
-        await expect(editorPage.getByRole('textbox', { name: 'Body', exact: true })).toContainText(
-            'Local work concurrent with the owner'
-        )
+        await expect(
+            editorPage.getByRole('textbox', { name: /^(Content|Channel content)$/ })
+        ).toContainText('Local work concurrent with the owner')
         expect(await countRecoveryBuffers(editorPage)).toBe(1)
         const bufferText = await readRecoveryBufferText(editorPage)
         expect(bufferText).toContain('Local work concurrent with the owner')
@@ -488,7 +492,7 @@ async function countRecoveryBuffers(page: Page) {
     return page.evaluate(
         () =>
             Object.keys(window.localStorage).filter(key =>
-                key.startsWith('postdot:publication-editor:')
+                key.startsWith('postdot:post-composition:')
             ).length
     )
 }
@@ -524,8 +528,8 @@ async function countRecoveryBuffers(page: Page) {
 // mechanism is unobserved there.
 const SETTLEMENT_OBSERVATION_MS = 1_500
 
-const draftPatchPath = (url: string): boolean =>
-    new URL(url).pathname.endsWith('/draft') && !new URL(url).pathname.endsWith('/editor/draft')
+// The post editor writes every pending change through the post composition route (SPEC-013).
+const draftPatchPath = (url: string): boolean => new URL(url).pathname.endsWith('/composition')
 
 /** Counts the aborted stream attempts this spec induces by cutting the streams. */
 function countStreamAttempts(page: Page): () => number {
@@ -671,7 +675,7 @@ async function driveEditorReread(input: {
 async function readRecoveryBufferText(page: Page) {
     return page.evaluate(() => {
         const key = Object.keys(window.localStorage).find(candidate =>
-            candidate.startsWith('postdot:publication-editor:')
+            candidate.startsWith('postdot:post-composition:')
         )
         return key === undefined ? '' : (window.localStorage.getItem(key) ?? '')
     })
@@ -833,7 +837,7 @@ test('defers the editor reread after confirmation and starts nothing first', asy
         await editorPage.goto(
             `/dashboard/projects/${owner.projectId}/publications/${publication.id}`
         )
-        const sourceBody = editorPage.getByRole('textbox', { name: 'Body', exact: true })
+        const sourceBody = editorPage.getByRole('textbox', { name: /^(Content|Channel content)$/ })
         await expect(sourceBody).toBeVisible()
         await sourceBody.click()
         await editorPage.keyboard.type('Local work awaiting reconciliation')
@@ -921,10 +925,10 @@ test('defers the editor reread after confirmation and starts nothing first', asy
         ).toBeVisible({
             timeout: 60_000,
         })
-        await expect(editorPage.getByRole('textbox', { name: 'Body', exact: true })).toContainText(
-            'Local work awaiting reconciliation'
-        )
-        expect(await countRecoveryBuffers(editorPage)).toBe(0)
+        await expect(
+            editorPage.getByRole('textbox', { name: /^(Content|Channel content)$/ })
+        ).toContainText('Local work awaiting reconciliation')
+        await expect.poll(() => countRecoveryBuffers(editorPage), { timeout: 15_000 }).toBe(0)
     } finally {
         await editorContext.close()
     }
@@ -961,7 +965,7 @@ test('a failing reread stays suspended with explicit resume', async ({ page }) =
         await editorPage.goto(
             `/dashboard/projects/${owner.projectId}/publications/${publication.id}`
         )
-        const sourceBody = editorPage.getByRole('textbox', { name: 'Body', exact: true })
+        const sourceBody = editorPage.getByRole('textbox', { name: /^(Content|Channel content)$/ })
         await expect(sourceBody).toBeVisible()
         await sourceBody.click()
         await editorPage.keyboard.type('Local work surviving a failed reread')
@@ -1020,7 +1024,9 @@ test('a failing reread stays suspended with explicit resume', async ({ page }) =
             timeout: 60_000,
         })
         await expect(editorPage.getByRole('button', { name: 'Retry', exact: true })).toBeVisible()
-        await expect(editorPage.getByRole('textbox', { name: 'Body', exact: true })).toHaveCount(0)
+        await expect(
+            editorPage.getByRole('textbox', { name: /^(Content|Channel content)$/ })
+        ).toHaveAttribute('contenteditable', 'false')
         await expect(
             editorPage.getByText('Local work surviving a failed reread').first()
         ).toBeVisible()
@@ -1038,13 +1044,13 @@ test('a failing reread stays suspended with explicit resume', async ({ page }) =
         ).toBeVisible({
             timeout: 60_000,
         })
-        await expect(editorPage.getByRole('textbox', { name: 'Body', exact: true })).toContainText(
-            'Local work surviving a failed reread'
-        )
+        await expect(
+            editorPage.getByRole('textbox', { name: /^(Content|Channel content)$/ })
+        ).toContainText('Local work surviving a failed reread')
         // The resumed save completed with no remaining local changes, so the
         // existing clean-save cleanup removed the buffer; that absence proves
         // the resume path really applied instead of quarantining.
-        expect(await countRecoveryBuffers(editorPage)).toBe(0)
+        await expect.poll(() => countRecoveryBuffers(editorPage), { timeout: 15_000 }).toBe(0)
     } finally {
         await editorContext.close()
     }
@@ -1089,7 +1095,7 @@ test('close refusals before the next render still verify once', async ({ page })
         await editorPage.goto(
             `/dashboard/projects/${owner.projectId}/publications/${publication.id}`
         )
-        const sourceBody = editorPage.getByRole('textbox', { name: 'Body', exact: true })
+        const sourceBody = editorPage.getByRole('textbox', { name: /^(Content|Channel content)$/ })
         await expect(sourceBody).toBeVisible()
 
         // Hold every draft write and the verification read. Two writes stuck
@@ -1099,8 +1105,8 @@ test('close refusals before the next render still verify once', async ({ page })
         const draftsGate = new Promise<void>(resolve => {
             releaseDrafts = resolve
         })
-        await editorPage.route('**/api/projects/*/publications/*/draft', async route => {
-            if (route.request().method() !== 'PATCH') {
+        await editorPage.route('**/api/projects/*/posts/*/composition', async route => {
+            if (route.request().method() !== 'PUT') {
                 await route.continue()
                 return
             }
@@ -1125,10 +1131,11 @@ test('close refusals before the next render still verify once', async ({ page })
         await sourceBody.click()
         await editorPage.keyboard.type('first stuck write')
         const draftWritePattern = (request: Request) =>
-            request.method() === 'PATCH' && new URL(request.url()).pathname.endsWith('/draft')
+            request.method() === 'PUT' && new URL(request.url()).pathname.endsWith('/composition')
         await editorPage.waitForRequest(draftWritePattern, { timeout: 30_000 })
+        // The post editor keeps one write in flight; later keystrokes wait behind it, so the
+        // refusal and the pending local work arrive together.
         await editorPage.keyboard.type(' plus second stuck write')
-        await editorPage.waitForRequest(draftWritePattern, { timeout: 30_000 })
         await expect
             .poll(() => countRecoveryBuffers(editorPage), { timeout: 15_000 })
             .toBeGreaterThan(0)
@@ -1138,8 +1145,8 @@ test('close refusals before the next render still verify once', async ({ page })
         )
         expect(removalResponse.status()).toBe(200)
 
-        // Release both writes at once: the two refusals land in the same
-        // microtask drain, yet a single verification read must start.
+        // Release the held write: its refusal and the queued work land together, yet a
+        // single verification read must start.
         releaseDrafts()
         await expect(editorPage.getByText('Checking project access…')).toBeVisible({
             timeout: 90_000,
