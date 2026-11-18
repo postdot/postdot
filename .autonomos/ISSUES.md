@@ -210,3 +210,12 @@
 - Desired outcome: From the publication view of a due manual post, the person copies the channel's title and text in one action each, and copies or downloads each media item (or all of them at once) in the variant prepared for that channel, then marks it published.
 - Source: owner feedback, 2026-11-18.
 - Tasks: none
+
+## [ISSUE-209] Open Dependabot alerts on development dependencies
+
+- Type: problem
+- Status: open
+- Evidence: On 2026-11-18 GitHub reported 27 open alerts on `main` (5 high, 19 moderate, 3 low). All are in development scope: vite (18, fixed in 8.3.3), lodash, form-data, minimatch, qs, stream-json and uuid. None is in the shipped container runtime according to the alert scope.
+- Impact: The Vite alerts concern the development server, which developers and the CI browser shards run; the rest are build and test tooling. Unattended alerts also hide a future runtime alert in the noise.
+- Desired outcome: Development dependencies upgraded to the patched versions with checks green, alerts closed, and a routine so the list stays near zero.
+- Tasks: none
