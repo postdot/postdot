@@ -5,6 +5,14 @@ import AxeBuilder from '@axe-core/playwright'
 import { expect, test, type Page } from '@playwright/test'
 
 import { switchTheme } from './locale'
+import {
+    composerText,
+    compositionSaved,
+    openAllChannels,
+    openChannel,
+    openContentOptions,
+    saveButton,
+} from './support/post-editor'
 
 test('recovers composition text, target formatting and media through the existing draft contract', async ({
     page,
@@ -167,9 +175,10 @@ test('recovers composition text, target formatting and media through the existin
     expect(editor.draft.content.body_markdown).toBe('## Shared 👋 draft')
     expect(editor.draft.content.media).toEqual(created.post.sourceContent.media)
 
+    // SPEC-013: the article opens on its channel tab. Its title and text are this channel's;
+    // the post text is on "All channels"; validation details sit in Content options.
     await page.goto(`/dashboard/projects/${id}/publications/${article.id}?editor=tiptap`)
-    const headline = page.locator('[data-target-field="title"]')
-    await openCustomization(page, headline)
+    const headline = page.locator('[data-channel-title] [data-target-field="title"]')
     await expect(headline.getByRole('textbox')).toHaveAttribute('aria-invalid', 'true')
     await expect(headline).toContainText('Enter Title.')
     for (const width of [1280, 390]) {
@@ -181,6 +190,7 @@ test('recovers composition text, target formatting and media through the existin
         })
     }
     await page.setViewportSize({ width: 1280, height: 900 })
+    await openContentOptions(page)
     const diagnostics = page.locator('[data-validation-diagnostics="true"]')
     await expect(diagnostics).not.toHaveAttribute('open', '')
     await diagnostics.locator('summary').click()
@@ -190,45 +200,26 @@ test('recovers composition text, target formatting and media through the existin
     await expect(diagnostics).not.toContainText('schema.minLength')
     await expect(headline.getByRole('textbox')).toHaveAttribute('aria-invalid', 'true')
     await expect(headline).toContainText('Enter Title.')
-    const titleSaved = page.waitForResponse(
-        response =>
-            response.url().endsWith(`/publications/${article.id}/draft`) &&
-            response.request().method() === 'PATCH' &&
-            response.ok()
-    )
+    const titleSaved = compositionSaved(page)
     await headline.getByRole('textbox').fill('An article headline')
     await titleSaved
     await expect(headline.getByRole('textbox')).not.toHaveAttribute('aria-invalid', 'true')
-    const sourceBody = page.locator('#source-body')
+    const activeScope = page.locator('[data-editor-scope]:not([hidden])')
+    const sourceBody = await openAllChannels(page)
     await expect(sourceBody).toHaveAttribute('contenteditable', 'true')
-    await expect(
-        sourceBody
-            .locator('xpath=ancestor::section[1]')
-            .getByRole('button', { name: 'Markup', exact: true })
-    ).toHaveCount(0)
-    const sourceSaved = page.waitForResponse(
-        response =>
-            response.url().endsWith(`/publications/${article.id}/draft`) &&
-            response.request().method() === 'PATCH' &&
-            response.ok()
-    )
+    // The post text is plain: it offers no markup mode.
+    await expect(activeScope.getByRole('button', { name: 'Markup', exact: true })).toHaveCount(0)
+    const sourceSaved = compositionSaved(page)
     await sourceBody.fill('Updated common copy')
     await sourceSaved
-    const articleField = page.locator('[data-target-field="body_markdown"]')
-    const articleBody = articleField.locator('[contenteditable="true"]')
-    await openCustomization(page, articleField)
+    const articleBody = await openChannel(page, 'Pilot article')
     await expect(articleBody.locator('h2')).toHaveText('Shared 👋 draft')
-    const targetSaved = page.waitForResponse(
-        response =>
-            response.url().endsWith(`/publications/${article.id}/draft`) &&
-            response.request().method() === 'PATCH' &&
-            response.ok()
-    )
+    const targetSaved = compositionSaved(page)
     await articleBody.fill('Updated article')
     await articleBody.press('Control+a')
-    await articleField.getByRole('button', { name: 'Strikethrough', exact: true }).click()
+    await activeScope.getByRole('button', { name: 'Strikethrough', exact: true }).click()
     await expect(
-        articleField.getByRole('button', { name: 'Strikethrough', exact: true })
+        activeScope.getByRole('button', { name: 'Strikethrough', exact: true })
     ).toHaveAttribute('aria-pressed', 'true')
     await targetSaved
     const externalImage = 'https://images.example.com/article.png'
@@ -240,7 +231,7 @@ test('recovers composition text, target formatting and media through the existin
     )
     await articleBody.press('Control+End')
     await articleBody.press('Enter')
-    await articleField.getByRole('button', { name: 'External image', exact: true }).click()
+    await activeScope.getByRole('button', { name: 'External image', exact: true }).click()
     await page.getByRole('textbox', { name: 'Image URL', exact: true }).fill(externalImage)
     await page
         .getByRole('textbox', { name: 'Alternative text', exact: true })
@@ -269,8 +260,8 @@ test('recovers composition text, target formatting and media through the existin
             media: 1,
         })
     await page.reload()
-    await expect(sourceBody).toHaveText('Updated common copy')
-    await openCustomization(page, articleField)
+    await expect(await openAllChannels(page)).toHaveText('Updated common copy')
+    await openChannel(page, 'Pilot article')
     await expect(articleBody.locator('s')).toHaveText('Updated article')
     await expect(articleBody.locator('img')).toHaveAttribute('src', externalImage)
     for (const width of [1280, 820, 390]) {
@@ -283,15 +274,14 @@ test('recovers composition text, target formatting and media through the existin
     }
     await page.setViewportSize({ width: 1280, height: 900 })
     await page.goto(`/dashboard/projects/${id}/publications/${article.id}`)
-    await expect(sourceBody).toHaveAttribute('contenteditable', 'true')
-    await expect(sourceBody).toHaveText('Updated common copy')
-    await openCustomization(page, articleField)
-    await articleField.getByRole('button', { name: 'Markup', exact: true }).click()
+    await expect(articleBody).toHaveAttribute('contenteditable', 'true')
+    await activeScope.getByRole('button', { name: 'Markup', exact: true }).click()
     await expect(
-        articleField.getByRole('textbox', { name: 'Markup text', exact: true })
+        activeScope.getByRole('textbox', { name: 'Markup text', exact: true })
     ).toHaveValue(
         '## ~~Updated article~~\n\n![Article landscape](<https://images.example.com/article.png>)'
     )
+    await expect(await openAllChannels(page)).toHaveText('Updated common copy')
 
     // Identify the Discord contract, rather than relying on selected destination ordering.
     let discordId: string | undefined
@@ -304,33 +294,30 @@ test('recovers composition text, target formatting and media through the existin
     }
     expect(discordId).toBeDefined()
     await page.goto(`/dashboard/projects/${id}/publications/${discordId}?editor=tiptap`)
-    // A version that is only behind the post is not a conflict: the rail notice offers the
-    // review, and the update keeps the channel's own formatting rules.
-    await expect(page.getByRole('button', { name: 'Review the changes', exact: true })).toHaveCount(
+    // Discord followed the post, so editing "All channels" carried the new text to it in the
+    // same save (SPEC-013): nothing is behind and no review is offered.
+    await expect(page.getByRole('button', { name: 'Review and update', exact: true })).toHaveCount(
         0
     )
-    await page.getByRole('button', { name: 'Review and update', exact: true }).click()
-    const review = page.getByRole('dialog')
-    // Only the Discord version is taken forward here; the X version keeps its own review.
-    await expect(review.getByRole('checkbox', { name: 'Pilot Discord', exact: true })).toBeChecked()
-    await review.getByRole('checkbox', { name: 'Pilot X', exact: true }).click()
-    await expect(review.getByRole('checkbox', { name: 'Pilot X', exact: true })).not.toBeChecked()
-    await review.getByRole('button', { name: 'Update 1 channel', exact: true }).click()
-    await expect(page.getByRole('dialog')).toHaveCount(0)
-    const discordField = page.locator('[data-target-field="text"]')
-    await openCustomization(page, discordField)
-    await discordField.getByRole('button', { name: 'Markup', exact: true }).click()
-    await discordField
+    await expect(composerText(page)).toHaveText('Updated common copy')
+    const discordBody = await openChannel(page, 'Pilot Discord')
+    await activeScope.getByRole('button', { name: 'Markup', exact: true }).click()
+    await activeScope
         .getByRole('textbox', { name: 'Markup text', exact: true })
         .fill('x'.repeat(2000))
-    await discordField.getByRole('button', { name: 'Markup', exact: true }).click()
-    const discordBody = discordField.locator('[contenteditable="true"]')
+    await activeScope.getByRole('button', { name: 'Markup', exact: true }).click()
     await discordBody.press('Control+End')
     await discordBody.pressSequentially('a')
-    await expect(discordBody).toHaveText('x'.repeat(2000))
+    // Like the new post composer, the editor lets the text run past Discord's limit and marks
+    // it invalid instead of swallowing keystrokes.
+    await expect(discordBody).toHaveText(`${'x'.repeat(2000)}a`)
+    await expect(discordBody).toHaveAttribute('aria-invalid', 'true')
+    await discordBody.press('Backspace')
+    await expect(discordBody).not.toHaveAttribute('aria-invalid', 'true')
     await discordBody.press('Control+a')
-    await discordField.getByRole('button', { name: 'Bold', exact: true }).click()
-    await expect(discordBody.locator('strong')).toHaveCount(0)
+    await activeScope.getByRole('button', { name: 'Bold', exact: true }).click()
+    // Bold markers count toward Discord's serialized limit, so the text is flagged as over it.
+    await expect(discordBody).toHaveAttribute('aria-invalid', 'true')
 })
 
 test('keeps a native editor draft byte-for-byte across navigation and reload', async ({ page }) => {

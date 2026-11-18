@@ -74,6 +74,11 @@ export interface PostComposerProps {
     readonly channelPanel?: (target: PostCompositionTarget) => ReactNode
     /** The active channel's state strip, above the title and editor it acts on. */
     readonly channelStatus?: (target: PostCompositionTarget) => ReactNode
+    /**
+     * The active channel's own title field. On a channel tab the title, like the text, is the
+     * channel's; the post title stays on "All channels".
+     */
+    readonly channelTitle?: (target: PostCompositionTarget) => ReactNode
     readonly pickerTags: TagPickerProps['tags']
     readonly onCreateProjectTag?: TagPickerProps['onCreateTag']
     readonly mediaDisabled: boolean
@@ -97,6 +102,7 @@ export function PostComposer({
     footer,
     channelPanel,
     channelStatus,
+    channelTitle,
     channelNavigation,
     headlineVisible,
     preview,
@@ -265,7 +271,9 @@ export function PostComposer({
                         {activeContentTarget && channelStatus ? (
                             <div className="mb-4">{channelStatus(activeContentTarget)}</div>
                         ) : null}
-                        {showHeadline ? (
+                        {activeContentTarget && channelTitle ? (
+                            channelTitle(activeContentTarget)
+                        ) : showHeadline ? (
                             <DashboardFormField
                                 htmlFor="new-post-title"
                                 label={

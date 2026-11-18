@@ -29,6 +29,7 @@ import {
     PublicationEditorStatus,
 } from '@/components/publication-editor-status'
 import { PublicationRecoveryComparison } from '@/components/publication-recovery-comparison'
+import { PublicationTargetEditor } from '@/components/publication-target-editor'
 import { useProjectLifecycle } from '@/components/resource-lifecycle-section'
 import { ApiError } from '@/lib/api'
 import {
@@ -417,6 +418,27 @@ function ExistingPostEditor({
                             />
                         ) : null
                     }
+                    channelTitle={target => {
+                        if (!activeEditor || !previewContent) return null
+                        const fields = getTargetEditorFields(activeEditor.profile.profile)
+                        if (!fields.some(field => field.semantic === 'headline')) return null
+                        return (
+                            <div className="mb-4" data-channel-title>
+                                <PublicationTargetEditor
+                                    profile={activeEditor.profile.profile}
+                                    target={previewContent}
+                                    validationIssues={activeEditor.draft.validationIssues}
+                                    omitPaths={fields
+                                        .filter(field => field.semantic !== 'headline')
+                                        .map(field => field.path)}
+                                    onTargetChange={changeTarget}
+                                    disabled={blocked || target.locked === true}
+                                    readOnly={blocked || target.locked === true}
+                                    compact
+                                />
+                            </div>
+                        )
+                    }}
                     channelStatus={target =>
                         activeEditor ? (
                             <PostChannelPanel
