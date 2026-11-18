@@ -231,3 +231,12 @@
 - Impact: A red round costs about 8 minutes and erodes trust in the suite.
 - Desired outcome: Each test waits for the state it asserts (dialog open animation finished, bar rendered after the refresh) instead of measuring a transient frame; no rerun needed for these specs.
 - Tasks: none
+
+## [ISSUE-215] Should media be shareable between projects?
+
+- Type: question
+- Status: open
+- Evidence: Media belong to one project. Owner scenario (2026-11-18): two projects announce the same event (a personal account and the product account both post about a stable release) and want the same video or image. Today this works by uploading the file twice, or by sharing the channel of one project with the other (ADR-095) and posting from there. The owner has not met the need in practice and considers it rare.
+- Impact: Sharing would add cross-project ownership, permissions, usage protection and deletion rules to media, which today rely on one project owning each asset (usage protection, trash and retention); a mistake there produces orphan files or posts whose media disappear.
+- Desired outcome: Decide from real use. Until a case shows that duplication or channel sharing is not enough, keep media project-scoped. If it comes back, compare "copy to another project" (no shared ownership) before any shared library.
+- Tasks: none
