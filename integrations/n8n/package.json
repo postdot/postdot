@@ -36,8 +36,8 @@
         "postbuild": "node scripts/copy-metadata.cjs"
     },
     "devDependencies": {
-        "@n8n/node-cli": "0.54.5",
-        "n8n-workflow": "2.16.0",
+        "@n8n/node-cli": "0.57.4",
+        "n8n-workflow": "2.48.3",
         "typescript": "5.9.3"
     },
     "peerDependencies": {
