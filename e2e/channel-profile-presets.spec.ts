@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto'
 import { expect, test, type Locator, type Page } from '@playwright/test'
 
 import { switchTheme } from './locale'
+import { composerText } from './support/post-editor'
 
 test('offers provider profiles as custom channel starters with read-only provider rules', async ({
     page,
@@ -198,7 +199,7 @@ test('shows affected publications before stricter rules apply, without rewriting
     await longRow.getByRole('link', { name: 'Open', exact: true }).click()
     await expect(page).toHaveURL(new RegExp(`/publications/${publications[1].id}$`))
     await expect(page.getByRole('dialog')).toHaveCount(0)
-    await expect(page.locator('#source-body')).toContainText('This publication has a longer body.')
+    await expect(composerText(page)).toContainText('This publication has a longer body.')
 })
 
 test('applies compatible rules in one save', async ({ page }) => {

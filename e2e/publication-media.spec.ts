@@ -6,6 +6,13 @@ import type { MediaReference } from '@postdot/client'
 
 import en from '../apps/web/messages/en.json' with { type: 'json' }
 import { openLanguageMenu, switchTheme } from './locale'
+import {
+    composerText,
+    compositionSaved,
+    openAllChannels,
+    openChannel,
+    saveButton,
+} from './support/post-editor'
 
 const e2eApiPort = process.env.POSTDOT_E2E_API_PORT
 if (e2eApiPort === undefined) {
@@ -410,10 +417,10 @@ test('keeps dashboard and composer media journeys reliable', async ({ page, requ
         )
         .click()
     await expect(page.locator('[data-publication-lifecycle="true"]')).toBeVisible()
-    await expect(page.getByText('Draft', { exact: true })).toBeVisible()
     await expect(
-        page.getByRole('button', { name: /^Save changes(?:\s*(?:Ctrl|⌘)↵)?$/ })
+        page.locator('[data-publication-lifecycle="true"]').getByText('Draft', { exact: true })
     ).toBeVisible()
+    await expect(saveButton(page)).toBeVisible()
     await page.getByRole('link', { name: /Back to queue/ }).click()
     await page.getByRole('link', { name: 'New post', exact: true }).click()
 
@@ -1480,12 +1487,10 @@ test('persists mixed and media-only publications through the dashboard', async (
     await expect(page.getByRole('link', { name: 'Back to calendar', exact: true })).toBeVisible()
 
     const editedCalendarSource = `${sourceText} edited from calendar`
-    const calendarDraftResponse = page.waitForResponse(
-        response =>
-            response.url().endsWith(`/publications/${mixedPublicationId}/draft`) &&
-            response.request().method() === 'PATCH'
-    )
-    await page.locator('#source-body').fill(editedCalendarSource)
+    // The post text is edited on "All channels"; the calendar preview reads the post text.
+    const postText = await openAllChannels(page)
+    const calendarDraftResponse = compositionSaved(page)
+    await postText.fill(editedCalendarSource)
     await expect((await calendarDraftResponse).status()).toBe(200)
     await page.getByRole('link', { name: 'Back to calendar', exact: true }).click()
     await expect(page).toHaveURL(
@@ -1508,25 +1513,15 @@ test('persists mixed and media-only publications through the dashboard', async (
     ).toBeVisible()
 
     await mixedPublications.filter({ hasText: channelName }).first().click()
-    // The edit made from the calendar is kept as this channel's draft (ADR-103 §6).
+    // The edit made from the calendar changed the post text, kept as pending work (ADR-103
+    // §6); each channel keeps its own text in its tab (SPEC-013).
     await expect(page.getByRole('heading', { name: editedCalendarSource, level: 1 })).toBeVisible()
-    await expect(page.locator('#source-body')).toHaveText(editedCalendarSource)
-    await expect(page.locator('[data-target-field="body"] textarea')).toHaveValue(targetText)
-    const publicationChannelRail = page.locator('[data-publication-channel-selection="true"]')
-    await expect(publicationChannelRail).toBeVisible()
-    await expect(
-        publicationChannelRail.getByRole('button', { name: secondChannelName, exact: true })
-    ).toBeVisible()
-    await publicationChannelRail
-        .getByRole('button', { name: secondChannelName, exact: true })
-        .click()
-    await expect(page.locator('[data-target-field="commentary"] textarea')).toHaveValue(
-        secondTargetText
-    )
-    await publicationChannelRail.getByRole('button', { name: channelName, exact: true }).click()
-    await expect(page.locator('[data-target-field="body"] textarea')).toHaveValue(targetText)
+    await expect(composerText(page)).toHaveText(targetText)
+    await expect(await openAllChannels(page)).toHaveText(editedCalendarSource)
+    await expect(await openChannel(page, secondChannelName)).toHaveText(secondTargetText)
+    await expect(await openChannel(page, channelName)).toHaveText(targetText)
     const editorMediaPicker = page.locator(
-        '[data-publication-source="true"] [data-media-picker="true"]'
+        '[data-new-publication-editor="true"] [data-media-picker="true"]'
     )
     await expect(editorMediaPicker.locator('[data-media-selection-preview="true"]')).toHaveCount(1)
     await expect(editorMediaPicker.locator('input[id^="media-alt-"]')).toHaveCount(0)
@@ -1577,15 +1572,24 @@ test('persists mixed and media-only publications through the dashboard', async (
     await page.setViewportSize({ width: 1280, height: 720 })
 
     const promotedSchedule = localDateTimeInHours(4)
+    const channelSettings = page
+        .locator(`[data-publication-id="${mixedPublicationId}"]`)
+        .getByRole('button', { name: /: When and how$/ })
+    await channelSettings.click()
     await setDateTimePicker(page, 'Publish on', promotedSchedule)
-    await page.getByRole('button', { name: /^Save changes(?:\s*(?:Ctrl|⌘)↵)?$/ }).click()
+    await page.keyboard.press('Escape')
+    await saveButton(page).click()
+    await channelSettings.click()
     await expect(page.getByLabel('Publish on', { exact: true })).toContainText(
         formatDisplayTime(promotedSchedule)
     )
+    await page.keyboard.press('Escape')
     await page.reload()
+    await channelSettings.click()
     await expect(page.getByLabel('Publish on', { exact: true })).toContainText(
         formatDisplayTime(promotedSchedule)
     )
+    await page.keyboard.press('Escape')
 
     const mixedTarget = await savedTargetContent(page)
     expect(mixedTarget.body).toBe(targetText)
@@ -1596,9 +1600,7 @@ test('persists mixed and media-only publications through the dashboard', async (
     await page.getByRole('link', { name: /Back to queue/ }).click()
     await mixedPublications.filter({ hasText: secondChannelName }).first().click()
     await expect(page.getByRole('heading', { name: editedCalendarSource, level: 1 })).toBeVisible()
-    await expect(page.locator('[data-target-field="commentary"] textarea')).toHaveValue(
-        secondTargetText
-    )
+    await expect(composerText(page)).toHaveText(secondTargetText)
     const secondMixedTarget = await savedTargetContent(page)
     expect(secondMixedTarget.commentary).toBe(secondTargetText)
     expect(secondMixedTarget.media).toHaveLength(1)
@@ -1607,14 +1609,16 @@ test('persists mixed and media-only publications through the dashboard', async (
     await page.getByRole('link', { name: /Back to queue/ }).click()
     await page.locator(mediaOnlySelector).first().click()
     await expect(page.getByRole('heading', { name: 'Media · 1' })).toBeVisible()
-    const mediaToolbar = page.locator('[data-source-media-toolbar="true"]')
-    await expect(mediaToolbar.getByRole('button', { name: 'Add text', exact: true })).toBeVisible()
+    // A media-only post opens with an empty editor and its media; the editor toolbar sits above
+    // the attachments in every theme and width.
+    const mediaOnlyEditor = page.locator('[data-new-publication-editor="true"]')
+    // Hidden editor scopes keep their own toolbar; the visible one belongs to the active tab.
+    const mediaToolbar = mediaOnlyEditor.locator('[data-editor-toolbar="true"]:visible')
     await expect(mediaToolbar.getByRole('button', { name: 'Add media', exact: true })).toBeVisible()
     await expect(
-        page
-            .locator('[data-publication-source="true"]')
-            .getByRole('button', { name: 'Add media', exact: true })
+        mediaOnlyEditor.getByRole('button', { name: 'Add media', exact: true })
     ).toHaveCount(1)
+    await expect(composerText(page)).toHaveText('')
     for (const theme of ['light', 'dark']) {
         const dark = (await page.locator('html').getAttribute('class'))?.split(' ').includes('dark')
         if (dark !== (theme === 'dark')) await switchTheme(page, theme as 'light' | 'dark')
@@ -1622,8 +1626,8 @@ test('persists mixed and media-only publications through the dashboard', async (
         for (const width of [1280, 390]) {
             await page.setViewportSize({ width, height: 900 })
             const tools = await mediaToolbar.boundingBox()
-            const image = await page
-                .locator('[data-publication-source="true"] [data-media-selection-preview="true"]')
+            const image = await mediaOnlyEditor
+                .locator('[data-media-selection-preview="true"]')
                 .boundingBox()
             expect(tools).not.toBeNull()
             expect(image).not.toBeNull()
@@ -1640,23 +1644,8 @@ test('persists mixed and media-only publications through the dashboard', async (
     await mediaToolbar.getByRole('button', { name: 'Add media', exact: true }).press('Enter')
     await expect(page.locator('[data-media-library="true"]')).toBeVisible()
     await page.keyboard.press('Escape')
-    await mediaToolbar.getByRole('button', { name: 'Add text', exact: true }).click()
-    await expect(page.locator('#source-body')).toHaveText('')
-    await expect(page.locator('[data-source-media-toolbar="true"]')).toHaveCount(0)
-    await expect(
-        page
-            .locator('[data-editor-toolbar="true"]')
-            .getByRole('button', { name: 'Add media', exact: true })
-    ).toBeVisible()
-    await expect(
-        page
-            .locator('[data-publication-source="true"]')
-            .getByRole('button', { name: 'Add media', exact: true })
-    ).toHaveCount(1)
     await page.setViewportSize({ width: 1280, height: 900 })
-    await expect(
-        page.locator('[data-publication-source="true"] [data-media-selection-preview="true"]')
-    ).toHaveCount(1)
+    await expect(mediaOnlyEditor.locator('[data-media-selection-preview="true"]')).toHaveCount(1)
 
     const mediaOnlyTarget = await savedTargetContent(page)
     expect(mediaOnlyTarget.body).toBeUndefined()
@@ -1683,7 +1672,7 @@ test('persists mixed and media-only publications through the dashboard', async (
         })
     })
     await page.reload()
-    await expect(page.locator('#source-body')).toHaveCount(0)
+    await expect(composerText(page)).toHaveCount(0)
     await expect(page.locator('[data-publication-preview-media="true"] > div')).toHaveCount(1)
     await page.unrouteAll({ behavior: 'wait' })
 
