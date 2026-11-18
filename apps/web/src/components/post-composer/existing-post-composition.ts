@@ -2,7 +2,7 @@ import type { Post, PublicationEditorState } from '@/lib/api'
 import {
     applyPostToChannel,
     channelVersionFollowsSource,
-    postFromChannelVersion,
+    withChannelText,
 } from '@/lib/channel-version-follow'
 import { toDateTimeLocal } from '@/lib/date-time'
 import { canEditPublication } from '@/lib/publication-lifecycle'
@@ -102,25 +102,7 @@ export function compositionChannelContent(
     const source = compositionSource(state, editor.post.sourceContent)
     if (!target.customized)
         return applyPostToChannel(editor.profile.profile, source, document) ?? document
-    const ownSource = postFromChannelVersion(editor.profile.profile, document, source)
-    const { body: _body, ...rest } = ownSource
-    return (
-        applyPostToChannel(
-            editor.profile.profile,
-            {
-                ...rest,
-                ...(target.content === ''
-                    ? {}
-                    : {
-                          body: {
-                              format: ownSource.body?.format ?? 'plain_text',
-                              text: target.content,
-                          },
-                      }),
-            },
-            document
-        ) ?? document
-    )
+    return withChannelText(editor.profile.profile, document, target.content)
 }
 
 export function channelHasPendingChanges(editor: PublicationEditorState) {

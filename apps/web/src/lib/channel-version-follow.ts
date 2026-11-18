@@ -128,3 +128,35 @@ export function postFromChannelVersion(
     }
     return next
 }
+
+/**
+ * Sets only the channel's primary text, leaving every other field of its version exactly as
+ * it is (an emptied title stays an empty title).
+ */
+export function withChannelText(
+    profile: unknown,
+    target: TargetContent,
+    text: string
+): TargetContent {
+    const bindings = ((profile as { fieldBindings?: readonly Binding[] }).fieldBindings ??
+        []) as readonly Binding[]
+    const binding = bindings.find(item => item.semantic === 'primary_text')
+    if (!binding) return target
+    const next = structuredClone(target) as Record<string, unknown>
+    const segments = binding.path
+        .slice(1)
+        .split('/')
+        .map(part => part.replaceAll('~1', '/').replaceAll('~0', '~'))
+    let parent: Record<string, unknown> = next
+    for (const segment of segments.slice(0, -1)) {
+        const child = parent[segment]
+        if (child === null || typeof child !== 'object' || Array.isArray(child)) {
+            parent[segment] = {}
+        }
+        parent = parent[segment] as Record<string, unknown>
+    }
+    const key = segments.at(-1)!
+    if (text === '') delete parent[key]
+    else parent[key] = text
+    return next
+}
