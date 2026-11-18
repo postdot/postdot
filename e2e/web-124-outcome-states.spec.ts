@@ -303,6 +303,18 @@ test('reviews mixed operational work across responsive locale and theme combinat
         })
     })
 
+    // The post editor reads each review post before its channels (SPEC-013).
+    await page.route(`**/api/projects/${projectId}/posts/review-*`, async route => {
+        const postId = new URL(route.request().url()).pathname.split('/').at(-1)
+        const index = publications.findIndex(item => item.postId === postId)
+        if (index < 0) throw new Error('Unknown review post')
+        const base = editors.get(channels[scenarios[index]!.channel]!.id)!
+        const post = base.post as Record<string, unknown>
+        await route.fulfill({
+            json: { post: { ...post, id: postId, title: scenarios[index]!.title } },
+        })
+    })
+
     const matrix = [
         { locale: 'en', theme: 'dark', width: 1280 },
         { locale: 'en', theme: 'light', width: 820 },
@@ -468,6 +480,8 @@ function publicationFixture(input: {
         scheduledByActorId: 'e2e-124-actor',
         state: input.state,
         stateChangedByActorId: 'e2e-124-actor',
+        // Every publication summary carries its tags, as the API returns them.
+        tagIds: [] as string[],
         targetRevisionId: `${input.id}-target`,
     }
 }
