@@ -11,7 +11,6 @@ import {
     openAllChannels,
     openChannel,
     openContentOptions,
-    saveButton,
 } from './support/post-editor'
 
 test('recovers composition text, target formatting and media through the existing draft contract', async ({
