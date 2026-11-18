@@ -7,21 +7,27 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@postdot/ui/components/dialog'
-import { CameraRotateIcon } from '@solar-icons/react/linear/camera-rotate'
 import { CropMinimalisticIcon } from '@solar-icons/react/linear/crop-minimalistic'
 import { GalleryEditIcon } from '@solar-icons/react/linear/gallery-edit'
-import { RefreshCircleIcon } from '@solar-icons/react/linear/refresh-circle'
-import { useEffect, useMemo, useState } from 'react'
-import Cropper, { type Area } from 'react-easy-crop'
+import { exportCrop } from '@zriz/core/dom'
+import type { Cropper as CropperApi } from '@zriz/react'
+import { useEffect, useRef, useState } from 'react'
 
 import { readyRepresentation } from '@/components/media-asset-card'
+import {
+    Cropper,
+    CropperAngle,
+    CropperAspect,
+    CropperAspectItem,
+    CropperDial,
+    CropperFlip,
+    CropperReset,
+    CropperRotate,
+    CropperViewport,
+} from '@/components/media-cropper'
 import { api, type MediaReference } from '@/lib/api'
 import { useLanguage } from '@/lib/i18n'
 import * as m from '@/paraglide/messages.js'
-
-import 'react-easy-crop/react-easy-crop.css'
-
-type EditorAspect = 'source' | 'square' | 'portrait' | 'landscape'
 
 interface MediaImageEditorDialogProps {
     readonly asset: MediaReference | null
@@ -31,6 +37,8 @@ interface MediaImageEditorDialogProps {
     readonly onSave: (file: File) => Promise<void>
 }
 
+type LoadState = 'loading' | 'ready' | 'failed'
+
 export function MediaImageEditorDialog({
     asset,
     open,
@@ -39,72 +47,58 @@ export function MediaImageEditorDialog({
     onSave,
 }: MediaImageEditorDialogProps) {
     useLanguage()
-    const [crop, setCrop] = useState({ x: 0, y: 0 })
-    const [zoom, setZoom] = useState(1)
-    const [rotation, setRotation] = useState(0)
-    const [aspectMode, setAspectMode] = useState<EditorAspect>('source')
-    const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null)
+    const cropper = useRef<CropperApi>(null)
+    const [loadState, setLoadState] = useState<LoadState>('loading')
+    const [exporting, setExporting] = useState(false)
     const [error, setError] = useState<string | null>(null)
-
-    const representation = asset === null ? undefined : readyRepresentation(asset)
-    const sourceAspect =
-        representation?.width !== null &&
-        representation?.width !== undefined &&
-        representation.height !== null &&
-        representation.height !== undefined &&
-        representation.height > 0
-            ? representation.width / representation.height
-            : 1
-    const aspect = useMemo(
-        () => aspectForMode(aspectMode, sourceAspect),
-        [aspectMode, sourceAspect]
-    )
 
     useEffect(() => {
         if (!open) return
-        setCrop({ x: 0, y: 0 })
-        setZoom(1)
-        setRotation(0)
-        setAspectMode('source')
-        setCroppedAreaPixels(null)
+        setLoadState('loading')
         setError(null)
     }, [asset?.asset.id, open])
 
+    const representation = asset === null ? undefined : readyRepresentation(asset)
     if (asset === null || representation?.family !== 'image') return null
 
     const editorAsset = asset
-    const editorRepresentation = representation
+    const sourceType =
+        representation.detectedContentType ?? representation.declaredContentType ?? ''
     const imageSrc = api.mediaContentUrl(editorAsset.asset.projectId, editorAsset.asset.id)
+    const busy = saving || exporting
 
     async function save() {
-        if (croppedAreaPixels === null) return
+        const current = cropper.current
+        if (current === null || busy) return
         setError(null)
+        setExporting(true)
         try {
-            const edited = await createEditedImage({
-                imageSrc,
-                crop: croppedAreaPixels,
-                rotation,
-                contentType:
-                    editorRepresentation.detectedContentType ??
-                    editorRepresentation.declaredContentType ??
-                    '',
-                originalFilename: editorAsset.asset.originalFilename,
-            })
-            await onSave(edited)
+            // JPEG stays JPEG (photos, and what most networks expect); everything else keeps its
+            // transparency as PNG.
+            const type = sourceType === 'image/jpeg' ? 'image/jpeg' : 'image/png'
+            const { blob } = await exportCrop(current, { type, quality: 0.92 })
+            await onSave(
+                new File(
+                    [blob],
+                    createEditedFilename(editorAsset.asset.originalFilename, blob.type),
+                    {
+                        type: blob.type,
+                        lastModified: Date.now(),
+                    }
+                )
+            )
         } catch {
             setError(m.media_editor_failed())
+        } finally {
+            setExporting(false)
         }
-    }
-
-    function rotateBy(degrees: -90 | 90) {
-        setRotation(current => normalizeRotation(current + degrees))
     }
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent
                 showCloseButton
-                className="max-h-[calc(100vh-2rem)] gap-0 overflow-hidden p-0 sm:max-w-5xl">
+                className="max-h-[calc(100vh-2rem)] gap-0 overflow-hidden p-0 sm:max-w-4xl">
                 <DialogHeader className="border-b border-border/60 px-5 py-4 sm:px-6">
                     <DialogTitle className="flex min-w-0 items-center gap-2 pr-8">
                         <CropMinimalisticIcon aria-hidden="true" className="shrink-0" />
@@ -115,130 +109,69 @@ export function MediaImageEditorDialog({
                     </DialogDescription>
                 </DialogHeader>
 
-                <div className="relative h-[min(58vh,34rem)] min-h-64 bg-surface-canvas">
-                    <Cropper
-                        image={imageSrc}
-                        crop={crop}
-                        zoom={zoom}
-                        rotation={rotation}
-                        aspect={aspect}
-                        minZoom={1}
-                        maxZoom={3}
-                        zoomSpeed={0.1}
-                        cropShape="rect"
-                        objectFit="contain"
-                        showGrid
-                        zoomWithScroll
-                        roundCropAreaPixels
-                        keyboardStep={1}
-                        onCropChange={setCrop}
-                        onZoomChange={setZoom}
-                        onRotationChange={setRotation}
-                        onCropComplete={(_, pixels) => setCroppedAreaPixels(pixels)}
-                        classes={{
-                            containerClassName: 'bg-surface-canvas',
-                            cropAreaClassName: 'border-2 border-primary',
-                        }}
-                    />
-                </div>
+                <Cropper
+                    key={editorAsset.asset.id}
+                    actionsRef={cropper}
+                    src={imageSrc}
+                    // Most crops keep the photo's own shape; a network's ratio is one click away.
+                    defaultValue={{ aspect: 'original' }}
+                    onLoad={() => setLoadState('ready')}
+                    onError={() => setLoadState('failed')}>
+                    <CropperViewport className="h-[min(56vh,32rem)] min-h-64 bg-surface-canvas" />
 
-                <div className="grid gap-4 border-t border-border/60 bg-muted px-5 py-4 sm:px-6">
-                    <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
-                        <label className="flex min-w-52 flex-1 items-center gap-3 text-sm">
-                            <span className="shrink-0 font-medium">{m.media_editor_zoom()}</span>
-                            <input
-                                aria-label={m.media_editor_zoom()}
-                                className="min-w-0 flex-1 accent-primary"
-                                type="range"
-                                min="1"
-                                max="3"
-                                step="0.05"
-                                value={zoom}
-                                onChange={event => setZoom(Number(event.target.value))}
-                            />
-                            <span className="w-10 text-right text-xs text-muted-foreground">
-                                {zoom.toFixed(1)}×
-                            </span>
-                        </label>
-                        <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium">{m.media_editor_rotation()}</span>
-                            <Button
-                                type="button"
-                                variant="secondary"
-                                size="icon-sm"
-                                aria-label={m.media_editor_rotate_left()}
-                                onClick={() => rotateBy(-90)}>
-                                <CameraRotateIcon aria-hidden="true" />
-                            </Button>
-                            <span className="w-10 text-center text-xs text-muted-foreground">
-                                {rotation}°
-                            </span>
-                            <Button
-                                type="button"
-                                variant="secondary"
-                                size="icon-sm"
-                                aria-label={m.media_editor_rotate_right()}
-                                onClick={() => rotateBy(90)}>
-                                <CameraRotateIcon aria-hidden="true" className="rotate-180" />
-                            </Button>
+                    <div
+                        className="grid gap-3 border-t border-border/60 bg-muted px-5 pt-3 pb-4 sm:px-6"
+                        data-media-editor-controls>
+                        <div className="mx-auto flex w-full max-w-md items-end gap-1">
+                            <CropperRotate className="mb-1" />
+                            <div className="flex min-w-0 flex-1 flex-col items-center">
+                                <CropperAngle />
+                                <CropperDial className="w-full flex-none" />
+                            </div>
+                            <CropperFlip className="mb-1" />
                         </div>
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                                setCrop({ x: 0, y: 0 })
-                                setZoom(1)
-                                setRotation(0)
-                                setAspectMode('source')
-                            }}>
-                            <RefreshCircleIcon aria-hidden="true" />
-                            {m.media_editor_reset()}
-                        </Button>
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                            <CropperAspect>
+                                <CropperAspectItem value="original">
+                                    {m.media_editor_aspect_source()}
+                                </CropperAspectItem>
+                                <CropperAspectItem value="free">
+                                    {m.media_editor_aspect_free()}
+                                </CropperAspectItem>
+                                <CropperAspectItem value={1}>1:1</CropperAspectItem>
+                                <CropperAspectItem value={4 / 5}>4:5</CropperAspectItem>
+                                <CropperAspectItem value={16 / 9}>16:9</CropperAspectItem>
+                            </CropperAspect>
+                            <CropperReset />
+                        </div>
                     </div>
+                </Cropper>
 
-                    <div className="flex flex-wrap items-center gap-2">
-                        <span className="mr-1 text-sm font-medium">{m.media_editor_aspect()}</span>
-                        {(
-                            [
-                                ['source', m.media_editor_aspect_source()],
-                                ['square', m.media_editor_aspect_square()],
-                                ['portrait', m.media_editor_aspect_portrait()],
-                                ['landscape', m.media_editor_aspect_landscape()],
-                            ] as const
-                        ).map(([value, label]) => (
-                            <Button
-                                key={value}
-                                type="button"
-                                variant={aspectMode === value ? 'secondary' : 'ghost'}
-                                size="sm"
-                                aria-pressed={aspectMode === value}
-                                onClick={() => setAspectMode(value)}>
-                                {label}
-                            </Button>
-                        ))}
-                    </div>
-
+                <div className="grid gap-3 bg-muted px-5 pb-4 sm:px-6">
+                    {loadState === 'failed' ? (
+                        <Alert variant="destructive">
+                            <AlertDescription>{m.media_editor_unreadable()}</AlertDescription>
+                        </Alert>
+                    ) : null}
                     {error !== null ? (
                         <Alert variant="destructive">
                             <AlertDescription>{error}</AlertDescription>
                         </Alert>
                     ) : null}
-
                     <div className="flex flex-col-reverse justify-end gap-2 sm:flex-row">
                         <Button
                             type="button"
                             variant="ghost"
-                            disabled={saving}
+                            disabled={busy}
                             onClick={() => onOpenChange(false)}>
                             {m.common_cancel()}
                         </Button>
                         <Button
                             type="button"
-                            disabled={saving || croppedAreaPixels === null}
+                            disabled={busy || loadState !== 'ready'}
                             onClick={() => void save()}>
                             <GalleryEditIcon aria-hidden="true" />
-                            {saving ? m.media_editor_saving() : m.media_editor_save()}
+                            {busy ? m.media_editor_saving() : m.media_editor_save()}
                         </Button>
                     </div>
                 </div>
@@ -251,115 +184,4 @@ export function createEditedFilename(originalFilename: string, contentType: stri
     const base = originalFilename.replace(/\.[^.]+$/, '') || 'media'
     const extension = contentType === 'image/jpeg' ? 'jpg' : 'png'
     return `${base}-edited.${extension}`
-}
-
-function aspectForMode(mode: EditorAspect, sourceAspect: number) {
-    switch (mode) {
-        case 'square':
-            return 1
-        case 'portrait':
-            return 4 / 5
-        case 'landscape':
-            return 16 / 9
-        case 'source':
-        default:
-            return sourceAspect
-    }
-}
-
-function normalizeRotation(rotation: number) {
-    return ((rotation % 360) + 360) % 360
-}
-
-async function createEditedImage({
-    imageSrc,
-    crop,
-    rotation,
-    contentType,
-    originalFilename,
-}: {
-    readonly imageSrc: string
-    readonly crop: Area
-    readonly rotation: number
-    readonly contentType: string
-    readonly originalFilename: string
-}) {
-    const response = await fetch(imageSrc, { credentials: 'same-origin' })
-    if (!response.ok) throw new Error(`media_editor_source_${response.status}`)
-
-    const sourceBlob = await response.blob()
-    const sourceUrl = URL.createObjectURL(sourceBlob)
-    try {
-        const image = await loadImage(sourceUrl)
-        const rotated = document.createElement('canvas')
-        const rotatedSize = rotateSize(image.width, image.height, rotation)
-        rotated.width = rotatedSize.width
-        rotated.height = rotatedSize.height
-
-        const rotatedContext = rotated.getContext('2d')
-        if (rotatedContext === null) throw new Error('media_editor_canvas_unavailable')
-        rotatedContext.translate(rotatedSize.width / 2, rotatedSize.height / 2)
-        rotatedContext.rotate((rotation * Math.PI) / 180)
-        rotatedContext.translate(-image.width / 2, -image.height / 2)
-        rotatedContext.drawImage(image, 0, 0)
-
-        const cropped = document.createElement('canvas')
-        cropped.width = crop.width
-        cropped.height = crop.height
-        const croppedContext = cropped.getContext('2d')
-        if (croppedContext === null) throw new Error('media_editor_canvas_unavailable')
-        croppedContext.drawImage(
-            rotated,
-            crop.x,
-            crop.y,
-            crop.width,
-            crop.height,
-            0,
-            0,
-            crop.width,
-            crop.height
-        )
-
-        const outputType = contentType === 'image/jpeg' ? 'image/jpeg' : 'image/png'
-        const blob = await canvasToBlob(cropped, outputType)
-        return new File([blob], createEditedFilename(originalFilename, blob.type), {
-            type: blob.type,
-            lastModified: Date.now(),
-        })
-    } finally {
-        URL.revokeObjectURL(sourceUrl)
-    }
-}
-
-function loadImage(source: string) {
-    return new Promise<HTMLImageElement>((resolve, reject) => {
-        const image = new Image()
-        image.onload = () => resolve(image)
-        image.onerror = () => reject(new Error('media_editor_source_unreadable'))
-        image.src = source
-    })
-}
-
-function canvasToBlob(canvas: HTMLCanvasElement, type: string) {
-    return new Promise<Blob>((resolve, reject) => {
-        canvas.toBlob(
-            blob => {
-                if (blob === null) {
-                    reject(new Error('media_editor_export_failed'))
-                    return
-                }
-                resolve(blob)
-            },
-            type,
-            0.92
-        )
-    })
-}
-
-function rotateSize(width: number, height: number, rotation: number) {
-    const angle = (rotation * Math.PI) / 180
-    return {
-        width: Math.abs(Math.cos(angle) * width) + Math.abs(Math.sin(angle) * height),
-        height: Math.abs(Math.sin(angle) * width) + Math.abs(Math.cos(angle) * height),
-    }
 }

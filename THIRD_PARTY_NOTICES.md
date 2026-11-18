@@ -11,6 +11,7 @@ This inventory is a preparation record, not a certificate of distribution compli
 | Material                                | License / provenance                                    | Existing notice                                                                                                    |
 | --------------------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
 | Adapted shadcn/ui toast code            | MIT                                                     | `packages/ui/LICENSE.shadcn.md`                                                                                    |
+| Adapted zriz crop editor blocks         | MIT                                                     | `apps/web/src/components/LICENSE.zriz.md`                                                                          |
 | Bluesky preview symbols                 | MIT                                                     | `apps/web/src/assets/platform-preview-icons/LICENSE.bluesky.txt`                                                   |
 | Material preview symbols                | Apache-2.0                                              | `apps/web/src/assets/platform-preview-icons/LICENSE.material.txt`                                                  |
 | MP4Box.js                               | BSD-3-Clause                                            | `licenses/MP4Box.LICENSE`; copied into the runtime image                                                           |
@@ -105,6 +106,8 @@ license texts or a transitive dependency review.
 | `@uppy/golden-retriever`                | 6.0.0             | MIT                       |
 | `@uppy/react`                           | 6.0.0             | MIT                       |
 | `@wrksz/themes`                         | 2.0.2             | MIT                       |
+| `@zriz/core`                            | 0.2.1             | MIT                       |
+| `@zriz/react`                           | 0.2.1             | MIT                       |
 | `better-auth`                           | 1.7.7             | MIT                       |
 | `class-variance-authority`              | 0.7.1             | Apache-2.0                |
 | `clsx`                                  | 2.1.1             | MIT                       |
@@ -125,7 +128,6 @@ license texts or a transitive dependency review.
 | `react`                                 | 19.3.0            | MIT                       |
 | `react-day-picker`                      | 10.0.2            | MIT                       |
 | `react-dom`                             | 19.3.0            | MIT                       |
-| `react-easy-crop`                       | 6.2.3             | MIT                       |
 | `react-full-screen`                     | 1.1.1             | MIT                       |
 | `react-markdown`                        | 10.1.0            | MIT                       |
 | `react-zoom-pan-pinch`                  | 4.2.0             | MIT                       |

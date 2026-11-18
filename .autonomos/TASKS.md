@@ -9,8 +9,6 @@
 
 - [/] **[PUB-627]** Complete GitHub profile, application releases and clean-install acceptance `Priority: 🟠` `Complexity: L`
 
-- [ ] **[UX-690]** Rebuild the image editor on the zriz engine with our own interface `Priority: 🔵` `Complexity: L` [ISSUE-207](ISSUES.md)
-
 ## Current direction
 
 Shared-channel implementation follows [ADR-095](decisions/ADR-095-workspace-channels-and-project-attachments.md)
