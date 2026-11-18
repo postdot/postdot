@@ -26,6 +26,8 @@ import type { PublicationCalendarView } from '@/lib/publication-calendar-events'
 import * as m from '@/paraglide/messages.js'
 import { providerForProfile } from '@/providers/registry'
 
+import { ManualPublicationKit } from './manual-publication-kit'
+
 export function PostChannelPanel({
     part,
     editor,
@@ -152,6 +154,10 @@ export function PostChannelPanel({
                         ) : undefined
                     }
                 />
+                {publication.deliveryMode === 'manual' &&
+                ['draft', 'scheduled', 'ready'].includes(publication.state) ? (
+                    <ManualPublicationKit editor={editor} content={content} locked={locked} />
+                ) : null}
                 <PublicationCancellationDialog
                     open={cancelOpen}
                     onOpenChange={setCancelOpen}

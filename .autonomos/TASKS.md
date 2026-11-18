@@ -13,7 +13,7 @@
 
 - [/] **[CI-687]** Run browser shards against the production build and balance them `Priority: 🟠` `Complexity: M` [ISSUE-206](ISSUES.md)
 
-- [/] **[UX-688]** Copy the title, text and media of a manual publication `Priority: 🟠` `Complexity: M` [ISSUE-208](ISSUES.md)
+- [x] **[UX-688]** Copy the title, text and media of a manual publication `Priority: 🟠` `Complexity: M` Completed: 2026-11-18 [ISSUE-208](ISSUES.md) [worklog](worklogs/2026-11-18-UX-688.md)
 
 - [ ] **[UX-689]** Reschedule publications by dragging them in the calendar `Priority: 🔵` `Complexity: M`
 
