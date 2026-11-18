@@ -2772,5 +2772,15 @@
     "notifications_more_channels": "{count} más",
     "notifications_today": "Hoy",
     "notifications_yesterday": "Ayer",
-    "notifications_earlier": "Anteriores"
+    "notifications_earlier": "Anteriores",
+    "manual_kit_title": "Contenido para copiar en {channel}",
+    "manual_kit_copy_title": "Copiar título",
+    "manual_kit_copy_text": "Copiar texto",
+    "manual_kit_download_all": "Descargar todo ({count})",
+    "manual_kit_share": "Compartir",
+    "manual_kit_copy_image": "Copiar la imagen {name}",
+    "manual_kit_download_media": "Descargar {name}",
+    "manual_kit_copy_description": "Copiar la descripción de {name}",
+    "manual_kit_copied": "Copiado",
+    "manual_kit_failed": "No se pudo copiar. Descarga el archivo o selecciona el texto."
 }

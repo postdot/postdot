@@ -202,16 +202,6 @@
 - Source: owner request, 2026-11-18. Library survey: [image editor survey](reviews/2026-11-18-image-editor-survey.md); best fits are `@zriz/react` (headless, Base UI blocks, straighten dial, very new), `@zag-js/image-cropper` (headless, maintained by the Zag and Ark UI team, preview status) or an improved `react-easy-crop` wrapper.
 - Tasks: UX-690
 
-## [ISSUE-208] A manual publication cannot be copied out of Postdot quickly
-
-- Type: problem
-- Status: accepted
-- Evidence: For a manual channel the person recreates the post by hand in the platform's own editor. The publication view offers "copy link" (`dashboard-publication-parts.tsx`) and "mark as published", but no way to copy the title or the text, nor to copy or download the images and videos. Today the person must select text by hand and fetch each file from the media library.
-- Impact: Manual channels are the fallback for every network without an API; each manual post costs several extra steps and invites mistakes (wrong channel variant, missing image, lost line breaks).
-- Desired outcome: From the publication view of a due manual post, the person copies the channel's title and text in one action each, and copies or downloads each media item (or all of them at once) in the variant prepared for that channel, then marks it published.
-- Source: owner feedback, 2026-11-18.
-- Tasks: UX-688
-
 ## [ISSUE-209] Open Dependabot alerts on development dependencies
 
 - Type: problem

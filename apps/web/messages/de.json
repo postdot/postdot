@@ -2772,5 +2772,15 @@
     "notifications_more_channels": "{count} weiteren",
     "notifications_today": "Heute",
     "notifications_yesterday": "Gestern",
-    "notifications_earlier": "Früher"
+    "notifications_earlier": "Früher",
+    "manual_kit_title": "Inhalt zum Kopieren nach {channel}",
+    "manual_kit_copy_title": "Titel kopieren",
+    "manual_kit_copy_text": "Text kopieren",
+    "manual_kit_download_all": "Alle herunterladen ({count})",
+    "manual_kit_share": "Teilen",
+    "manual_kit_copy_image": "Bild {name} kopieren",
+    "manual_kit_download_media": "{name} herunterladen",
+    "manual_kit_copy_description": "Beschreibung von {name} kopieren",
+    "manual_kit_copied": "Kopiert",
+    "manual_kit_failed": "Kopieren ist nicht verfügbar. Laden Sie die Datei herunter oder markieren Sie den Text."
 }
