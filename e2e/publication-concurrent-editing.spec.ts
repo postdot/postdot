@@ -4,7 +4,12 @@ import AxeBuilder from '@axe-core/playwright'
 import { expect, test, type Locator, type Page, type Request } from '@playwright/test'
 import type { PublicationEditorState } from '@postdot/client'
 
-import { composerText, openAllChannels, openContentOptions } from './support/post-editor'
+import {
+    composerText,
+    openAllChannels,
+    openContentOptions,
+    saveButton,
+} from './support/post-editor'
 
 // Seeded local copies are written in UTC; the project must share that time zone.
 test.use({ timezoneId: 'UTC' })
@@ -526,9 +531,7 @@ for (const scheduled of [false, true]) {
         }
         await page.goto(pair.pageUrl(pair.first))
         await openCustomization(page)
-        await page
-            .locator('[data-target-field="text"] [contenteditable="true"]')
-            .fill('Version to apply')
+        await composerText(page).fill('Version to apply')
         await expect
             .poll(async () => (await pair.read(page, pair.first)).draft.content.text)
             .toBe('Version to apply')
@@ -545,18 +548,15 @@ for (const scheduled of [false, true]) {
             await route.continue()
         })
         try {
-            const action = page.locator('[data-publication-promotion-action]')
+            const action = saveButton(page)
             await expect(action).toBeEnabled()
-            await expect(action.locator('span').first()).toHaveText(
-                scheduled ? 'Save changes' : 'Save changes'
-            )
+            await expect(action).toHaveText('Save')
             await action.dblclick()
             await expect(action).toBeDisabled()
             await expect(action).toHaveAttribute('aria-busy', 'true')
-            await expect(action.locator('span').first()).toHaveText('Applying…')
-            await expect(
-                page.locator('[data-target-field="text"] [contenteditable]')
-            ).toHaveAttribute('contenteditable', 'false')
+            await expect(action).toHaveText('Saving…')
+            // One write at a time: the text stays visible but cannot change while it applies.
+            await expect(composerText(page)).toHaveAttribute('contenteditable', 'false')
             expect(requests).toBe(1)
             await page.screenshot({
                 path: info.outputPath(`promotion-pending-${scheduled ? 'scheduled' : 'draft'}.png`),
@@ -564,20 +564,27 @@ for (const scheduled of [false, true]) {
             })
             release?.()
             await expect(action).toHaveAttribute('aria-busy', 'false')
-            await expect(action).toBeEnabled()
+            await expect(composerText(page)).toHaveAttribute('contenteditable', 'true')
             const after = await pair.read(page, pair.first)
             expect(after.selectedTarget?.content.text).toBe('Version to apply')
             expect(after.selectedTarget?.sequence).toBe((before.selectedTarget?.sequence ?? 0) + 1)
             expect(after.publication.state).toBe(scheduled ? 'scheduled' : 'draft')
             expect(after.publication.scheduledAt).toBe(before.publication.scheduledAt)
             expect(after.post.sourceContent).toEqual(before.post.sourceContent)
-            expect((await pair.read(page, pair.second)).selectedTarget).toBeNull()
+            // Save applies every channel with pending changes (SPEC-013); the second
+            // channel's never-applied version is applied unchanged.
+            const second = await pair.read(page, pair.second)
+            expect(second.selectedTarget?.content).toEqual(second.draft.content)
             expect(requests).toBe(1)
             await page.unroute(routeUrl)
             if (scheduled) {
-                await page.locator('#deliver-at').click()
+                await page
+                    .getByRole('button', { name: 'First channel: When and how', exact: true })
+                    .click()
+                await page.locator(`#deliver-at-${pair.first}`).click()
                 await page.getByRole('button', { name: 'Clear', exact: true }).click()
-                await expect(action.locator('span').first()).toHaveText('Unschedule')
+                await page.keyboard.press('Escape')
+                await expect(action).toBeEnabled()
                 await page.screenshot({
                     path: info.outputPath('return-to-draft-before-confirming.png'),
                     fullPage: true,
@@ -589,7 +596,7 @@ for (const scheduled of [false, true]) {
                 const unscheduled = await pair.read(page, pair.first)
                 expect(unscheduled.publication.scheduledAt).toBeNull()
                 expect(unscheduled.selectedTarget?.content).toEqual(after.selectedTarget?.content)
-                await expect(action.locator('span').first()).toHaveText('Save changes')
+                await expect(action).toBeDisabled()
             }
         } finally {
             release?.()

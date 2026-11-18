@@ -597,7 +597,7 @@ function ExistingPostEditor({
                     project={project}
                     activeChannels={channels}
                     connections={connections}
-                    pending={false}
+                    pending={session.applying}
                     disabled={access.status !== 'confirmed'}
                     readOnly={readOnly}
                     mediaDisabled={readOnly || access.status !== 'confirmed'}
