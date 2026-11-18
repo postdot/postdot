@@ -1443,9 +1443,10 @@ for (const platform of ['linkedin', 'mastodon', 'discord', 'bluesky'] as const) 
         }
         const video = page.locator(`[data-preview-platform="${platform}"] video`)
         await expect(video).toHaveAttribute('controls', '')
+        // Media timings are floats; a decoder may report 4.0x seconds.
         await expect
             .poll(() => video.evaluate((element: HTMLVideoElement) => element.duration))
-            .toBe(4)
+            .toBeCloseTo(4, 1)
         await video.evaluate(async (element: HTMLVideoElement) => {
             element.muted = true
             await element.play()
@@ -1453,13 +1454,18 @@ for (const platform of ['linkedin', 'mastodon', 'discord', 'bluesky'] as const) 
         await expect
             .poll(() => video.evaluate((element: HTMLVideoElement) => element.currentTime))
             .toBeGreaterThan(0)
-        await video.evaluate((element: HTMLVideoElement) => {
-            element.pause()
-            element.currentTime = 2
-        })
+        // Wait for the seek itself to finish; it lands on the nearest frame.
+        await video.evaluate(
+            (element: HTMLVideoElement) =>
+                new Promise<void>(resolve => {
+                    element.pause()
+                    element.addEventListener('seeked', () => resolve(), { once: true })
+                    element.currentTime = 2
+                })
+        )
         await expect
             .poll(() => video.evaluate((element: HTMLVideoElement) => element.currentTime))
-            .toBe(2)
+            .toBeCloseTo(2, 1)
         for (const width of [1280, 390]) {
             await page.setViewportSize({ width, height: 900 })
             await expect(video).toBeVisible()
