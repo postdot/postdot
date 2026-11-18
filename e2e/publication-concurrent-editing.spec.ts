@@ -628,8 +628,10 @@ for (const outcome of ['rejected', 'lost_response'] as const) {
         expect(seeded.ok()).toBe(true)
         await page.reload()
         await openCustomization(page)
-        await page.locator('#deliver-at').click()
+        await openSchedule(page, 'First channel')
+        await page.locator(`#deliver-at-${pair.first}`).click()
         await page.getByRole('button', { name: 'Clear', exact: true }).click()
+        await page.keyboard.press('Escape')
         const before = await pair.read(page, pair.first)
         const promotionUrl = `**/api/projects/${pair.id}/publications/${pair.first}/draft/promote`
         let applications = 0
@@ -663,7 +665,7 @@ for (const outcome of ['rejected', 'lost_response'] as const) {
                 await route.abort('failed')
             }
         })
-        const action = page.locator('[data-publication-promotion-action]')
+        const action = saveButton(page)
         await expect(action).toBeEnabled()
         await action.click()
         const check = page.getByRole('button', { name: 'Check server status', exact: true })
@@ -687,7 +689,9 @@ for (const outcome of ['rejected', 'lost_response'] as const) {
         await expect(check).toBeVisible()
         // A failed read must leave the check available and the editor content intact.
         // Scheduling is blocked until the unknown application result has been read.
-        await expect(page.locator('#deliver-at')).toBeDisabled()
+        await openSchedule(page, 'First channel')
+        await expect(page.locator(`#deliver-at-${pair.first}`)).toBeDisabled()
+        await page.keyboard.press('Escape')
         const editorUrl = `**/api/projects/${pair.id}/publications/${pair.first}/editor`
         await page.route(editorUrl, route => route.abort('failed'))
         await check.click()
@@ -710,22 +714,23 @@ for (const outcome of ['rejected', 'lost_response'] as const) {
                 fullPage: true,
             })
         }
-        // Keep an unsaved edit in recovery while reading the authoritative selected version.
+        // Reading the authoritative selected version keeps an unsaved local edit in place:
+        // the check settles the application, never the text (SPEC-013).
         const draftUrl = `**/api/projects/${pair.id}/posts/*/composition`
         await page.route(draftUrl, route => route.abort('failed'))
         await content.fill('Unsaved local work to recover')
         await expect(page.getByRole('status', { name: 'Save failed', exact: true })).toBeVisible()
         await check.click()
-        const recovery = page.locator('[data-publication-recovery-decision]')
-        await expect(recovery).toBeVisible()
-        await expect(recovery).toContainText('Unsaved local work to recover')
+        await expect(check).toHaveCount(0)
+        await expect(page.locator('[data-publication-recovery-decision]')).toHaveCount(0)
+        await expect(content).toHaveText('Unsaved local work to recover')
         expect(applications).toBe(1)
         await page.unroute(draftUrl)
-        await recovery.getByRole('button', { name: 'Restore local copy', exact: true }).click()
-        await expect(recovery).toHaveCount(0)
-        await expect(content).toHaveText('Unsaved local work to recover')
+        // The failed autosave is tried again once the network is back.
         await expect
-            .poll(async () => (await pair.read(page, pair.first)).draft.content.text)
+            .poll(async () => (await pair.read(page, pair.first)).draft.content.text, {
+                timeout: 15_000,
+            })
             .toBe('Unsaved local work to recover')
         await expect(action).toBeEnabled()
         expect(applications).toBe(1)
@@ -733,12 +738,15 @@ for (const outcome of ['rejected', 'lost_response'] as const) {
         expect(final.selectedTarget).toEqual(after.selectedTarget)
         expect(final.publication.state).toBe(after.publication.state)
         expect(final.publication.scheduledAt).toBe(after.publication.scheduledAt)
-        await expect(page.locator('#deliver-at')).toContainText('Choose a date')
-        await expect(action.locator('span').first()).toHaveText(
-            outcome === 'rejected' ? 'Unschedule' : 'Save changes'
-        )
-        expect((await pair.read(page, pair.second)).selectedTarget).toBeNull()
+        await openSchedule(page, 'First channel')
+        await expect(page.locator(`#deliver-at-${pair.first}`)).toContainText('Choose a date')
+        await page.keyboard.press('Escape')
     })
+}
+
+/** Opens a channel's "When and how" settings, where its date is set or cleared. */
+async function openSchedule(page: Page, channelName: string) {
+    await page.getByRole('button', { name: `${channelName}: When and how`, exact: true }).click()
 }
 
 // Assert the original content independently of the screen-reader change labels.

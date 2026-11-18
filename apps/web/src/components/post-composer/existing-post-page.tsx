@@ -585,6 +585,11 @@ function ExistingPostEditor({
                                         session.applying ||
                                         session.saveState === 'conflict' ||
                                         session.sourceConflict ||
+                                        // An application with an unknown result is checked
+                                        // before anything else is applied.
+                                        Object.values(session.applyResults).some(
+                                            result => result?.state === 'unconfirmed'
+                                        ) ||
                                         !(pendingApply || session.dirty || session.scheduleDirty)
                                     }
                                     aria-busy={session.applying}

@@ -145,6 +145,10 @@ export function useExistingPostComposition({
     const [message, setMessage] = useState<string | null>(null)
     const [passive, setPassive] = useState(false)
     const [saving, setSaving] = useState(false)
+    // A write that failed for a passing reason (network, server unavailable) is tried again;
+    // each failure bumps the tick so the retry timer restarts.
+    const [retryTick, setRetryTick] = useState(0)
+    const retryable = useRef(false)
     const [applying, setApplying] = useState(false)
     const applyingRef = useRef(false)
     const [applyResults, setApplyResults] = useState<Record<string, ChannelApplyResult>>({})
@@ -368,6 +372,9 @@ export function useExistingPostComposition({
                 } catch (error) {
                     if (!validEpoch(epoch)) return false
                     reportError(error)
+                    retryable.current =
+                        !(error instanceof ApiError) || error.status >= 500 || error.status === 429
+                    if (retryable.current) setRetryTick(tick => tick + 1)
                     setSaveState(
                         error instanceof ApiError && error.code === 'write_conflict'
                             ? 'conflict'
@@ -394,14 +401,15 @@ export function useExistingPostComposition({
             sourceConflict ||
             recoveryChoice ||
             saveState === 'conflict' ||
-            saveState === 'error' ||
+            (saveState === 'error' && !retryable.current) ||
             saving ||
             applying
         )
             return
-        const timer = window.setTimeout(() => void flush(), 650)
+        const timer = window.setTimeout(() => void flush(), saveState === 'error' ? 5000 : 650)
         return () => window.clearTimeout(timer)
     }, [
+        retryTick,
         dirty,
         readOnly,
         accessStatus,
@@ -697,7 +705,13 @@ export function useExistingPostComposition({
         composition.restoreComposition(
             discardCompositionChanges(before, current.current.data.editors, timeZone)
         )
-        setApplyResults({})
+        // An application whose result is unknown stays to be checked; discarding text does
+        // not settle it.
+        setApplyResults(previous =>
+            Object.fromEntries(
+                Object.entries(previous).filter(([, result]) => result?.state === 'unconfirmed')
+            )
+        )
         setSaveState('saved')
         toast.add({
             title: m.editor_changes_discarded(),

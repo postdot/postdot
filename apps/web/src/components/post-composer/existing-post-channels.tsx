@@ -147,7 +147,11 @@ export function ExistingPostChannels({
                                                     )
                                                 }
                                                 disabled={
-                                                    blocked || target.locked || session.applying
+                                                    blocked ||
+                                                    target.locked ||
+                                                    session.applying ||
+                                                    session.applyResults[target.id]?.state ===
+                                                        'unconfirmed'
                                                 }
                                                 timeZone={project.timeZone}
                                                 locale={locale}
