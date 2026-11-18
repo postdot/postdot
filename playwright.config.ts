@@ -145,6 +145,7 @@ export default defineConfig({
                   '**/native-session.spec.ts',
                   '**/auth-client-ip.spec.ts',
               ]),
+        ...(productionWeb ? ['**/editor-experiment.spec.ts'] : []),
         ...(useMailpit ? [] : ['**/access-219-password-reset.spec.ts']),
         ...(realtimeAcceptance ? [] : ['**/realtime-automatic-acceptance.spec.ts']),
         ...(experienceAudit ? [] : ['**/experience/**']),
@@ -153,7 +154,9 @@ export default defineConfig({
     metadata: {
         postdotE2eDataDirectory: dataDirectory,
     },
-    fullyParallel: false,
+    // Shards split individual tests rather than whole multi-test files while
+    // keeping one sequential worker per shard against the shared API/database.
+    fullyParallel: true,
     forbidOnly: Boolean(process.env.CI),
     retries: 0,
     // All specs share one isolated API/database runtime; parallel workers can
