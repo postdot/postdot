@@ -168,3 +168,13 @@
 - Desired outcome: Fire-and-forget work started inside a request transaction runs outside it (or the cleanup is disabled during bootstrap); a test that reproduces the race.
 - Source: PR #40 CI, 2026-11-18.
 - Tasks: none
+
+## [ISSUE-205] The access suspension journey is timing-sensitive
+
+- Type: problem
+- Status: open
+- Evidence: `e2e/web-314-editor-access-state.spec.ts:10` ("an ambiguous signal suspends writes, verifies once, then shows removal") failed in PR #40 CI (run 44319733363: the editor textbox was gone while "Checking project access…" should hold it frozen) and once in five local development-mode repeats (test timeout; the typed attempt after revocation never reached the editor). The live revocation signal can start verification, or conclude removal, before the test's held membership read and its typed write.
+- Impact: Intermittent CI; possibly a real path where removal is shown without the frozen intermediate state.
+- Desired outcome: Determine whether the product can skip the frozen state (then decide if that is acceptable) and make the journey deterministic by controlling the live signal as well as the membership read.
+- Source: PR #40 CI, 2026-11-18.
+- Tasks: none
