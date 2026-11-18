@@ -1988,3 +1988,28 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Source: owner feedback, 2026-11-18.
 - Resolution: UX-688 adds copy and download actions on the post page ([worklog](../../worklogs/2026-11-18-UX-688.md)).
 - Tasks: UX-688
+
+## Closed 2026-11-18
+
+## [ISSUE-206] A CI round takes about 20 minutes, set by the slowest browser shard
+
+- Type: proposal
+- Status: resolved (2026-11-18)
+- Evidence: PR #40 needed eight CI rounds. In each, static checks took 4-5 min, PostgreSQL unit tests 8 min, image restore 1 min, and the four browser shards 12-20 min; Verify waits for the slowest, so a round is about 21 min. The browser shards run against the Vite development server (`playwright test --shard=n/4`, no `POSTDOT_E2E_PRODUCTION_WEB`), which compiles modules on demand and is slower and less like what ships than the production build used locally (266 tests in about 22 min on one local worker). Several failures in that PR appeared only in development mode (timing), while the production-only regressions (anonymous entry budget) were caught locally.
+- Impact: Slow feedback; fixes pushed one at a time each cost a full round; the suite tests a mode nobody runs in production.
+- Desired outcome, to measure before deciding: (1) run the browser shards against the production build (`vite preview`), keeping the few development-only specs (editor lab) in a small separate job or local only; (2) balance shards by recorded duration, or use more shards, so the slowest is near the mean; (3) on pull requests, consider running the specs touched by the change first and the full suite on main. Record before/after round times.
+- Source: owner feedback on PR #40, 2026-11-18.
+- Resolution: CI-687 runs the browser shards on the production build in five weighted shards; a round dropped from about 17m30s to about 8m25s ([worklog](../../worklogs/2026-11-18-CI-687.md)).
+- Tasks: CI-687
+
+## Closed 2026-11-18
+
+## [ISSUE-209] Open Dependabot alerts on development dependencies
+
+- Type: problem
+- Status: resolved (2026-11-18)
+- Evidence: On 2026-11-18 GitHub reported 27 open alerts on `main` (5 high, 19 moderate, 3 low). All are in development scope: vite (18, fixed in 8.3.3), lodash, form-data, minimatch, qs, stream-json and uuid. None is in the shipped container runtime according to the alert scope.
+- Impact: The Vite alerts concern the development server, which developers and the CI browser shards run; the rest are build and test tooling. Unattended alerts also hide a future runtime alert in the noise.
+- Desired outcome: Development dependencies upgraded to the patched versions with checks green, alerts closed, and a routine so the list stays near zero.
+- Resolution: DEPS-686 upgraded Vite and the n8n tooling and overrode the remaining transitive packages (PR #45, [worklog](../../worklogs/2026-11-18-DEPS-686.md)).
+- Tasks: DEPS-686

@@ -94,6 +94,7 @@ presigning
 prevalidated
 previewable
 privkey
+PWTEST
 pyyaml
 quicktime
 reblog
