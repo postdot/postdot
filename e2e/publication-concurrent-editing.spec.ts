@@ -6,6 +6,7 @@ import type { PublicationEditorState } from '@postdot/client'
 
 import {
     composerText,
+    compositionSaved,
     openAllChannels,
     openContentOptions,
     saveButton,
@@ -179,14 +180,13 @@ test('recovers unsaved destination changes after another session saves a newer d
             .toBe('Newer saved destination')
         const conflict = other.locator('[data-publication-conflict="true"]')
         await expect(conflict).toBeVisible()
-        await expect(other.locator('[data-publication-editor-message]')).toHaveAttribute(
+        // The conflict is told once, as an alert with its choices.
+        await expect(other.locator('[data-publication-conflict="true"]')).toHaveAttribute(
             'role',
             'alert'
         )
+        await expect(other.locator('[data-publication-editor-message]')).toHaveCount(0)
         await expect(other.getByRole('status', { name: 'Conflict', exact: true })).toBeVisible()
-        await expect(
-            other.getByRole('button', { name: 'Review the changes', exact: true })
-        ).toBeVisible()
         await expect(local).toHaveText('Local destination adaptation')
         await expect(other.locator('[data-post-save]')).toBeDisabled()
         await other.unroute(draftUrl)
@@ -324,14 +324,13 @@ test('exposes reconciliation when a server refresh overtakes an in-flight autosa
         await incoming
         releaseSave?.()
         await expect(other.locator('[data-publication-conflict="true"]')).toBeVisible()
-        await expect(other.locator('[data-publication-editor-message]')).toHaveAttribute(
+        // The conflict is told once, as an alert with its choices.
+        await expect(other.locator('[data-publication-conflict="true"]')).toHaveAttribute(
             'role',
             'alert'
         )
+        await expect(other.locator('[data-publication-editor-message]')).toHaveCount(0)
         await expect(other.getByRole('status', { name: 'Conflict', exact: true })).toBeVisible()
-        await expect(
-            other.getByRole('button', { name: 'Review the changes', exact: true })
-        ).toBeVisible()
         await expect(local).toHaveText('In-flight local destination')
         await expect(other.locator('[data-post-save]')).toBeDisabled()
         expect((await pair.read(page, pair.first)).draft.content.text).toBe(
@@ -1109,9 +1108,8 @@ test('opens the shared post from queue and keeps every destination reachable', a
         'aria-current',
         'page'
     )
-    await expect(page.getByRole('region', { name: 'Post', exact: true })).toContainText(
-        'Initial common source'
-    )
+    // The post opens on "All channels", with the post text in the editor.
+    await expect(composerText(page)).toHaveText('Initial common source')
     const destinations = page.getByRole('region', { name: 'Channels', exact: true })
     await expect(destinations.getByRole('link', { name: /First channel/ }).first()).toBeVisible()
     await expect(destinations.getByRole('link', { name: /Second channel/ }).first()).toBeVisible()
@@ -1138,33 +1136,34 @@ test('opens the shared post from queue and keeps every destination reachable', a
     await expect(page).toHaveURL(new RegExp(`/projects/${pair.id}/queue$`))
 })
 
-test('saves the post source explicitly and preserves local text on a concurrent source change', async ({
+test('saves the post text without touching channels with their own text and keeps local text on a concurrent change', async ({
     page,
 }, info) => {
     const pair = await createDraftPair(page)
     const first = await pair.read(page, pair.first)
     const second = await pair.read(page, pair.second)
-    const postUrl = `/api/projects/${pair.id}/posts/${first.post.id}`
     await page.goto(`/dashboard/projects/${pair.id}/posts/${first.post.id}`)
-    await page.getByRole('button', { name: 'Edit text', exact: true }).click()
-    await page.locator('#source-body').fill('Independent shared source')
-    expect((await pair.read(page, pair.first)).post.sourceRevision).toBe(1)
-    await expect(
-        page.getByRole('button', { name: 'Update channel versions', exact: true })
-    ).toHaveCount(0)
-    const saved = page.waitForResponse(
-        response => response.url().endsWith(postUrl) && response.request().method() === 'PATCH'
+    const text = composerText(page)
+    await expect(text).toHaveText('Initial common source')
+    // Both channels have their own text, so a post text change leaves them as they are.
+    const saved = compositionSaved(page)
+    await text.fill('Independent shared source')
+    await saved
+    await expect
+        .poll(async () => (await pair.read(page, pair.first)).post.sourceContent.body?.text)
+        .toBe('Independent shared source')
+    expect((await pair.read(page, pair.first)).draft.content).toEqual(first.draft.content)
+    expect((await pair.read(page, pair.second)).draft.content).toEqual(second.draft.content)
+    await expect(page.getByRole('button', { name: 'Review and update', exact: true })).toHaveCount(
+        0
     )
-    await page.getByRole('button', { name: 'Save', exact: true }).click()
-    expect((await saved).status()).toBe(200)
-    await expect(page.getByRole('region', { name: 'Post', exact: true })).toContainText(
-        'Independent shared source'
-    )
-    expect((await pair.read(page, pair.first)).draft).toEqual(first.draft)
-    expect((await pair.read(page, pair.second)).draft).toEqual(second.draft)
-    await page.getByRole('button', { name: 'Edit text', exact: true }).click()
-    await page.locator('#source-body').fill('My unsaved source')
-    const external = await page.request.patch(postUrl, {
+    // An unsaved local change meets a change made elsewhere: the local text stays and
+    // nothing can be saved until the person decides.
+    const compositionUrl = `**/api/projects/${pair.id}/posts/*/composition`
+    await page.route(compositionUrl, route => route.abort('failed'))
+    await text.fill('My unsaved source')
+    await expect(page.getByRole('status', { name: 'Save failed', exact: true })).toBeVisible()
+    const external = await page.request.patch(`/api/projects/${pair.id}/posts/${first.post.id}`, {
         data: {
             expectedSourceRevision: 2,
             sourceContent: {
@@ -1174,11 +1173,10 @@ test('saves the post source explicitly and preserves local text on a concurrent 
         },
     })
     expect(external.status()).toBe(200)
-    await expect(
-        page.getByRole('alert').filter({ hasText: 'The post changed elsewhere.' })
-    ).toBeVisible()
-    await expect(page.locator('#source-body')).toHaveText('My unsaved source')
-    await expect(page.getByRole('button', { name: 'Save', exact: true })).toBeDisabled()
+    const conflict = page.locator('[data-publication-conflict="true"]')
+    await expect(conflict).toBeVisible()
+    await expect(text).toHaveText('My unsaved source')
+    await expect(saveButton(page)).toBeDisabled()
     for (const width of [1280, 390]) {
         await page.setViewportSize({ width, height: 900 })
         expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(
@@ -1186,12 +1184,15 @@ test('saves the post source explicitly and preserves local text on a concurrent 
         )
         await page.screenshot({ path: info.outputPath(`source-edit-conflict-${width}.png`) })
     }
-    await page.getByRole('button', { name: 'Cancel', exact: true }).click()
-    await page.getByRole('dialog').getByRole('button', { name: 'Discard', exact: true }).click()
-    await page.getByRole('button', { name: 'Edit text', exact: true }).click()
-    await expect(page.locator('#source-body')).toHaveText('Concurrent shared source')
-    await page.getByRole('button', { name: 'Cancel', exact: true }).click()
-    await expect(page.getByRole('button', { name: 'Add a channel', exact: true })).toBeVisible()
+    await page.unroute(compositionUrl)
+    await conflict.getByRole('button', { name: 'Load the saved version', exact: true }).click()
+    const decision = page.locator('[data-publication-recovery-decision]')
+    await expect(decision).toContainText('My unsaved source')
+    await decision.getByRole('button', { name: 'Discard local copy', exact: true }).click()
+    await expect(decision).toHaveCount(0)
+    await expect(await postText(page)).toHaveText('Concurrent shared source')
+    // Adding a channel to the post keeps the existing channel versions.
+    await page.setViewportSize({ width: 1280, height: 900 })
     await page.getByRole('button', { name: 'Add a channel', exact: true }).click()
     const addition = page.getByRole('dialog')
     await addition.getByRole('combobox', { name: 'Channel', exact: true }).click()
@@ -1199,12 +1200,8 @@ test('saves the post source explicitly and preserves local text on a concurrent 
     await addition.getByRole('button', { name: 'Create draft', exact: true }).click()
     await addition.getByRole('button', { name: 'Confirm another draft', exact: true }).click()
     await expect(addition).toHaveCount(0)
-    await expect(
-        page
-            .getByRole('region', { name: 'Channels', exact: true })
-            .locator('[data-publication-selection-card="true"]')
-    ).toHaveCount(3)
-    expect((await pair.read(page, pair.second)).draft).toEqual(second.draft)
+    await expect(page.locator('[data-channel-selected-button]')).toHaveCount(3)
+    expect((await pair.read(page, pair.second)).draft.content).toEqual(second.draft.content)
 })
 
 test('shows review skeletons and retries a failed comparison read', async ({ page }) => {
@@ -1224,6 +1221,9 @@ test('shows review skeletons and retries a failed comparison read', async ({ pag
         ).ok()
     ).toBe(true)
     await page.goto(pair.pageUrl(pair.first))
+    // The post editor reads every channel when it opens; fail only the review's own read.
+    const review = page.getByRole('button', { name: 'Review and update', exact: true })
+    await expect(review).toBeEnabled()
     await page.route(
         `**/publications/${pair.second}/editor`,
         route =>
@@ -1236,7 +1236,7 @@ test('shows review skeletons and retries a failed comparison read', async ({ pag
             }),
         { times: 1 }
     )
-    await page.getByRole('button', { name: 'Review and update', exact: true }).click()
+    await review.click()
     const dialog = page.getByRole('dialog', { name: 'Update channel versions', exact: true })
     await expect(dialog.getByRole('alert')).toBeVisible()
     let release: (() => void) | undefined

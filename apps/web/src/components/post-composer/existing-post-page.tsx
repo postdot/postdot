@@ -406,8 +406,9 @@ function ExistingPostEditor({
                         </Link>
                     }
                 />
-                {/* A background update is told after the work it updated, never above it. */}
-                {session.passive ? null : (
+                {/* A background update is told after the work it updated, never above it.
+                    A conflict is told once, by the card below with its choices. */}
+                {session.passive || session.saveState === 'conflict' ? null : (
                     <PublicationEditorStatus
                         message={session.message}
                         passive={session.passive}
@@ -440,6 +441,7 @@ function ExistingPostEditor({
                         onRebase={() => void session.rebase()}
                         onReload={() => void session.reload()}
                         onRestore={() => void session.reload(true)}
+                        postLevel
                     />
                 ) : null}
                 <PostComposer

@@ -1524,6 +1524,8 @@
     "editor_comparison_collapse": "Contraer texto",
     "editor_comparison_media_unavailable": "Medios no disponibles",
     "editor_sidebar_source_review_title": "La publicación cambió desde esta versión del canal",
+    "editor_post_conflict_title": "Esta publicación cambió en otro lugar",
+    "editor_post_conflict_detail": "Se guardó en otra pestaña, por otra persona o mediante la API después de que empezaras. Conserva tu copia o carga la versión guardada antes de continuar.",
     "editor_sidebar_reconcile_title": "Alguien guardó una versión más reciente",
     "editor_sidebar_source_conflict_detail": "Actualiza esta versión del canal con el nuevo texto de la publicación. Se conservan tus cambios propios del canal.",
     "editor_sidebar_revision_conflict_detail": "Otra persona guardó esta versión después de que empezaras. Conserva tu copia o carga la suya antes de continuar.",

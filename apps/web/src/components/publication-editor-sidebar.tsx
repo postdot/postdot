@@ -28,6 +28,8 @@ interface PublicationEditorSidebarProps {
     readonly onRebase: () => void
     readonly onReload: () => void
     readonly onRestore: () => void
+    /** The post editor: the conflict is about the whole post, not one channel version. */
+    readonly postLevel?: boolean
 }
 
 export function PublicationEditorSidebar({
@@ -42,6 +44,7 @@ export function PublicationEditorSidebar({
     onRebase,
     onReload,
     onRestore,
+    postLevel = false,
 }: PublicationEditorSidebarProps) {
     return (
         <aside
@@ -55,12 +58,16 @@ export function PublicationEditorSidebar({
                     <AlertTitle className="text-state-attention">
                         {sourceConflict
                             ? m.editor_sidebar_source_review_title()
-                            : m.editor_sidebar_reconcile_title()}
+                            : postLevel
+                              ? m.editor_post_conflict_title()
+                              : m.editor_sidebar_reconcile_title()}
                     </AlertTitle>
                     <AlertDescription className="text-foreground group-data-[variant=destructive]/alert:text-foreground">
                         {sourceConflict
                             ? m.editor_sidebar_source_conflict_detail()
-                            : m.editor_sidebar_revision_conflict_detail()}
+                            : postLevel
+                              ? m.editor_post_conflict_detail()
+                              : m.editor_sidebar_revision_conflict_detail()}
                     </AlertDescription>
                     <div className="mt-4 flex flex-wrap gap-2">
                         {sourceConflict ? (

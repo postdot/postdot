@@ -1524,6 +1524,8 @@
     "editor_comparison_collapse": "Réduire le texte",
     "editor_comparison_media_unavailable": "Média indisponible",
     "editor_sidebar_source_review_title": "Le post a changé depuis cette version du canal",
+    "editor_post_conflict_title": "Ce post a changé ailleurs",
+    "editor_post_conflict_detail": "Il a été enregistré dans un autre onglet, par quelqu’un d’autre ou via l’API après le début de votre modification. Gardez votre copie ou chargez la version enregistrée avant de continuer.",
     "editor_sidebar_reconcile_title": "Quelqu’un a enregistré une version plus récente",
     "editor_sidebar_source_conflict_detail": "Mettez cette version du canal au nouveau texte du post. Vos changements propres au canal sont conservés.",
     "editor_sidebar_revision_conflict_detail": "Une autre personne a enregistré cette version après le début de votre modification. Gardez votre copie ou chargez la sienne avant de continuer.",

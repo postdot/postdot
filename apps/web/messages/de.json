@@ -1524,6 +1524,8 @@
     "editor_comparison_collapse": "Text einklappen",
     "editor_comparison_media_unavailable": "Medien nicht verfügbar",
     "editor_sidebar_source_review_title": "Der Beitrag hat sich seit dieser Kanalversion geändert",
+    "editor_post_conflict_title": "Dieser Beitrag wurde anderswo geändert",
+    "editor_post_conflict_detail": "Er wurde nach Beginn deiner Bearbeitung in einem anderen Tab, von jemand anderem oder über die API gespeichert. Behalte deine Kopie oder lade die gespeicherte Version, bevor du weitermachst.",
     "editor_sidebar_reconcile_title": "Jemand hat eine neuere Version gespeichert",
     "editor_sidebar_source_conflict_detail": "Aktualisieren Sie diese Kanalversion auf den neuen Text des Beitrags. Ihre kanalspezifischen Änderungen bleiben erhalten.",
     "editor_sidebar_revision_conflict_detail": "Jemand anderes hat diese Version gespeichert, nachdem Sie begonnen haben. Behalten Sie Ihre Kopie oder laden Sie die andere, bevor Sie weitermachen.",

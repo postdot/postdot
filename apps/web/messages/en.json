@@ -1524,6 +1524,8 @@
     "editor_comparison_collapse": "Collapse text",
     "editor_comparison_media_unavailable": "Media unavailable",
     "editor_sidebar_source_review_title": "The post changed since this channel version",
+    "editor_post_conflict_title": "This post changed elsewhere",
+    "editor_post_conflict_detail": "It was saved in another tab, by someone else or through the API after you started. Keep your copy or load the saved version before continuing.",
     "editor_sidebar_reconcile_title": "Someone saved a newer version",
     "editor_sidebar_source_conflict_detail": "Update this channel version to the post’s new text. Your channel-specific changes are kept.",
     "editor_sidebar_revision_conflict_detail": "Another person saved this channel version after you started. Keep your copy or load theirs before continuing.",
