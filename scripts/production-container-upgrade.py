@@ -52,6 +52,15 @@ def comparable(editor, shared=False):
     copy = json.loads(json.dumps(editor).replace("sha256:postbot-", "sha256:postdot-"))
     # Added editor metadata is checked explicitly on the candidate below.
     copy.get("editor", {}).pop("movement", None)
+    # Fields added after the previous release (0.1.0-alpha.8: channel identity and thread
+    # messages) are only ignored while they hold their neutral value, so data stays compared.
+    editor_copy = copy.get("editor", {})
+    added = [(editor_copy, "threadMessages")]
+    if isinstance(editor_copy.get("channel"), dict):
+        added += [(editor_copy["channel"], key) for key in ("imageSource", "imageUrl", "websiteUrl")]
+    for owner, key in added:
+        if key in owner and owner[key] in (None, "", [], {}):
+            owner.pop(key)
     for name in ("profile", "selectedTargetProfile"):
         profile = copy.get("editor", {}).get(name)
         if isinstance(profile, dict):
