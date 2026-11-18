@@ -8,6 +8,7 @@
 - [/] **[SITE-626]** Publish and verify public documentation updates `Priority: 🟠` `Complexity: S`
 
 - [/] **[PUB-627]** Complete GitHub profile, application releases and clean-install acceptance `Priority: 🟠` `Complexity: L`
+- [/] **[RELEASE-685]** Publish 0.1.0-alpha.8 with the Studio experience milestone (PR #40) `Priority: 🟠` `Complexity: L`
 
 ## Current direction
 
