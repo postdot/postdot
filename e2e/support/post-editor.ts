@@ -10,6 +10,24 @@ export function composerText(page: Page): Locator {
     return page.getByRole('textbox', { name: /^(Content|Channel content)$/ })
 }
 
+/** The media of the active tab, under its editor (thumbnails, order and descriptions). */
+export function composerMedia(page: Page): Locator {
+    return page.locator('[data-new-publication-editor="true"] > [data-media-picker="true"]')
+}
+
+/**
+ * Opens a media item's optional description from its "ALT" badge and returns the field.
+ * Press Escape to close it; the description saves as it is typed.
+ */
+export async function openMediaDescription(page: Page, filename: string): Promise<Locator> {
+    await composerMedia(page)
+        .getByRole('button', { name: new RegExp(`description (of|for) ${filename}$`) })
+        .click()
+    const field = page.getByRole('textbox', { name: 'Accessibility text', exact: true })
+    await expect(field).toBeVisible()
+    return field
+}
+
 /** Opens the "All channels" tab, whose editor holds the post text shared by every channel. */
 export async function openAllChannels(page: Page): Promise<Locator> {
     const tab = page.getByRole('button', { name: 'All channels', exact: true })

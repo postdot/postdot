@@ -133,10 +133,14 @@ test('shows one calm notice for a stale sibling and keeps its text and attachmen
         await openCustomization(other)
         await expect(composerText(other)).toHaveText('Second destination')
         await expect(
-            other.locator('[data-target-field="media"] [data-media-selection-preview]')
+            other.locator(
+                '[data-new-publication-editor="true"] > [data-media-picker="true"] [data-media-selection-preview]'
+            )
         ).toHaveCount(1)
         await other.setViewportSize({ width: 390, height: 900 })
-        await other.locator('[data-target-field="media"]').scrollIntoViewIfNeeded()
+        await other
+            .locator('[data-new-publication-editor="true"] > [data-media-picker="true"]')
+            .scrollIntoViewIfNeeded()
         expect((await new AxeBuilder({ page: other }).analyze()).violations).toEqual([])
         await other.screenshot({
             path: info.outputPath('rebased-destination-mobile.png'),
@@ -167,7 +171,7 @@ test('recovers unsaved destination changes after another session saves a newer d
         const local = composerText(other)
         await local.fill('Local destination adaptation')
         await other
-            .locator('[data-target-field="media"]')
+            .locator('[data-new-publication-editor="true"] > [data-media-picker="true"]')
             .getByRole('button', { name: 'Remove second.png', exact: true })
             .click()
         const key = `postdot:publication-editor:v3:${pair.id}:${pair.first}`
@@ -230,7 +234,9 @@ test('recovers unsaved destination changes after another session saves a newer d
         await openCustomization(other)
         await expect(local).toHaveText('Local destination adaptation')
         await expect(
-            other.locator('[data-target-field="media"] [data-media-selection-preview]')
+            other.locator(
+                '[data-new-publication-editor="true"] > [data-media-picker="true"] [data-media-selection-preview]'
+            )
         ).toHaveCount(1)
         const saved = await pair.read(other, pair.first)
         await other.evaluate(

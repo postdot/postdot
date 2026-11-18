@@ -2,6 +2,13 @@ import { Alert, AlertDescription, AlertTitle } from '@postdot/ui/components/aler
 import { Button } from '@postdot/ui/components/button'
 import { Field, FieldLabel } from '@postdot/ui/components/field'
 import { Input } from '@postdot/ui/components/input'
+import {
+    Popover,
+    PopoverContent,
+    PopoverDescription,
+    PopoverTrigger,
+} from '@postdot/ui/components/popover'
+import { Textarea } from '@postdot/ui/components/textarea'
 import { CloseIcon } from '@solar-icons/react/linear/close'
 import { GalleryAddIcon } from '@solar-icons/react/linear/gallery-add'
 import { PaperclipIcon } from '@solar-icons/react/linear/paperclip'
@@ -1726,9 +1733,11 @@ function MediaAttachmentPickerView({
                                         showAccessibilityText={
                                             showAccessibilityText ??
                                             (showSelectedAccessibilityText ||
-                                                (asset !== undefined &&
+                                                (!inline &&
+                                                    asset !== undefined &&
                                                     readyRepresentation(asset)?.family === 'video'))
                                         }
+                                        accessibilityBadge={inline}
                                         onAccessibilityTextChange={updateAccessibilityText}
                                         onMove={moveSelection}
                                         onRemove={removeSelection}
@@ -1820,10 +1829,12 @@ function MediaAttachmentPickerView({
                                             showAccessibilityText={
                                                 showAccessibilityText ??
                                                 (showSelectedAccessibilityText ||
-                                                    (asset !== undefined &&
+                                                    (!inline &&
+                                                        asset !== undefined &&
                                                         readyRepresentation(asset)?.family ===
                                                             'video'))
                                             }
+                                            accessibilityBadge={inline}
                                             onAccessibilityTextChange={updateAccessibilityText}
                                             onMove={moveSelection}
                                             onRemove={removeSelection}
@@ -2076,6 +2087,7 @@ function CompactMediaPreview({
     projectId,
     selection,
     showAccessibilityText,
+    accessibilityBadge = false,
     total,
     onAccessibilityTextChange,
     onMove,
@@ -2088,6 +2100,8 @@ function CompactMediaPreview({
     readonly projectId: string
     readonly selection: MediaSelection
     readonly showAccessibilityText: boolean
+    /** Offer the text behind a small "ALT" badge on the thumbnail instead of a field. */
+    readonly accessibilityBadge?: boolean
     readonly total: number
     readonly onAccessibilityTextChange: (assetId: string, text: string) => void
     readonly onMove: (index: number, offset: -1 | 1) => void
@@ -2178,6 +2192,14 @@ function CompactMediaPreview({
                         <CloseIcon aria-hidden="true" />
                     </Button>
                 </ActionTooltip>
+                {accessibilityBadge && !showAccessibilityText && asset !== undefined ? (
+                    <AccessibilityTextBadge
+                        disabled={disabled}
+                        filename={filename}
+                        value={selection.accessibilityText ?? ''}
+                        onChange={text => onAccessibilityTextChange(asset.asset.id, text)}
+                    />
+                ) : null}
             </div>
             {showAccessibilityText && asset !== undefined ? (
                 <Field className="min-w-0 w-full max-w-full gap-1 sm:w-56">
@@ -2197,6 +2219,62 @@ function CompactMediaPreview({
                 </Field>
             ) : null}
         </Reorder.Item>
+    )
+}
+
+/**
+ * Optional description for screen readers, sent to the channels that carry one. It stays out
+ * of the way: a small badge on the thumbnail, filled once a description exists.
+ */
+function AccessibilityTextBadge({
+    disabled,
+    filename,
+    value,
+    onChange,
+}: {
+    readonly disabled: boolean
+    readonly filename: string
+    readonly value: string
+    readonly onChange: (text: string) => void
+}) {
+    const inputId = useId()
+    const hintId = useId()
+    const described = value.trim() !== ''
+    return (
+        <Popover>
+            <PopoverTrigger
+                disabled={disabled}
+                data-media-accessibility-badge={described ? 'described' : 'empty'}
+                aria-label={
+                    described
+                        ? m.media_accessibility_edit({ filename })
+                        : m.media_accessibility_add({ filename })
+                }
+                className={
+                    described
+                        ? 'absolute right-1 bottom-1 rounded-sm bg-foreground px-1 text-[10px] leading-4 font-semibold text-background shadow-field focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-60'
+                        : 'absolute right-1 bottom-1 rounded-sm bg-surface-overlay/90 px-1 text-[10px] leading-4 font-semibold text-muted-foreground shadow-field hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-60'
+                }>
+                {m.media_accessibility_badge()}
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-72 max-w-[calc(100vw-2rem)]">
+                <Field className="gap-1.5">
+                    <FieldLabel htmlFor={inputId}>{m.media_accessibility_text()}</FieldLabel>
+                    <Textarea
+                        id={inputId}
+                        aria-describedby={hintId}
+                        value={value}
+                        disabled={disabled}
+                        rows={3}
+                        placeholder={m.media_accessibility_placeholder()}
+                        onChange={event => onChange(event.target.value)}
+                    />
+                    <PopoverDescription id={hintId} className="text-xs">
+                        {m.media_accessibility_hint()}
+                    </PopoverDescription>
+                </Field>
+            </PopoverContent>
+        </Popover>
     )
 }
 

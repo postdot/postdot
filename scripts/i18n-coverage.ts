@@ -28,6 +28,7 @@ const allowedUnchangedByLocale = new Map<string, ReadonlySet<string>>([
     [
         'fr',
         new Set([
+            'media_accessibility_badge',
             'help_docs',
             'identity_image', // Image is the native French noun too.
             'release_studio',
@@ -111,6 +112,7 @@ const allowedUnchangedByLocale = new Map<string, ReadonlySet<string>>([
     [
         'es',
         new Set([
+            'media_accessibility_badge',
             'release_studio',
             'channel_bluesky_profile',
             'channel_devto_profile',
@@ -164,6 +166,7 @@ const allowedUnchangedByLocale = new Map<string, ReadonlySet<string>>([
     [
         'de',
         new Set([
+            'media_accessibility_badge',
             'help_community_title',
             'identity_website', // Website is used in German as well.
             'release_studio',

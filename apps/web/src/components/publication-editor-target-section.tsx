@@ -146,8 +146,12 @@ export function PublicationEditorTargetSection({
                         omitPaths={
                             composer
                                 ? fields
+                                      // The composer shows the text, title and media (with
+                                      // their descriptions) itself.
                                       .filter(field =>
-                                          ['primary_text', 'headline'].includes(field.semantic)
+                                          ['primary_text', 'headline', 'ordered_media'].includes(
+                                              field.semantic
+                                          )
                                       )
                                       .map(field => field.path)
                                 : threadField

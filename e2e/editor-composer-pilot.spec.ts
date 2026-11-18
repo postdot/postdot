@@ -11,6 +11,7 @@ import {
     openAllChannels,
     openChannel,
     openContentOptions,
+    openMediaDescription,
     saveButton,
 } from './support/post-editor'
 
@@ -453,8 +454,13 @@ test('corrects destination attachments without changing shared media or another 
     const siblingUrl = `/api/projects/${id}/publications/${sibling.id}/editor`
     const before = (await (await page.request.get(siblingUrl)).json()).editor.draft.content
     await page.goto(`/dashboard/projects/${id}/publications/${publication.id}`)
-    const mediaField = page.locator('[data-target-field="media"]')
-    await openCustomization(page, mediaField)
+    // The channel's media sit under its editor, not in Content options.
+    const mediaField = page.locator(
+        '[data-new-publication-editor="true"] > [data-media-picker="true"]'
+    )
+    await expect(page.locator('[data-post-channel-panel] [data-target-field="media"]')).toHaveCount(
+        0
+    )
     // Two images are valid under the current LinkedIn profile; customization
     // must still isolate destination media from the shared source and sibling.
     await expect(mediaField).not.toContainText('Select at most 1 item.')
@@ -473,7 +479,6 @@ test('corrects destination attachments without changing shared media or another 
     await expect(mediaField).not.toContainText('Select at most 1 item.')
     expect((await (await page.request.get(siblingUrl)).json()).editor.draft.content).toEqual(before)
     await page.reload()
-    await openCustomization(page, mediaField)
     await expect(mediaField.locator('[data-media-selection-preview="true"]')).toHaveCount(1)
     for (const theme of ['light', 'dark'] as const) {
         if (!(await page.locator('html').getAttribute('class'))?.split(' ').includes(theme))
@@ -481,9 +486,7 @@ test('corrects destination attachments without changing shared media or another 
         await expect(page.locator('html')).toHaveClass(new RegExp(`\\b${theme}\\b`))
         for (const width of [1280, 820, 390]) {
             await page.setViewportSize({ width, height: 900 })
-            await expect(
-                mediaField.getByRole('button', { name: 'Add media', exact: true })
-            ).toBeVisible()
+            await expect(page.getByRole('button', { name: 'Add media', exact: true })).toBeVisible()
             expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([])
             await mediaField.scrollIntoViewIfNeeded()
             await page.screenshot({
@@ -492,7 +495,7 @@ test('corrects destination attachments without changing shared media or another 
             })
         }
     }
-    await mediaField.getByRole('button', { name: 'Add media', exact: true }).focus()
+    await page.getByRole('button', { name: 'Add media', exact: true }).focus()
     await page.keyboard.press('Enter')
     await expect(library).toBeVisible()
     await page.getByRole('button', { name: 'Done', exact: true }).click()
@@ -1098,14 +1101,6 @@ async function createProject(page: Page) {
     return id
 }
 
-async function openCustomization(page: Page, field: ReturnType<Page['locator']>) {
-    await expect(field).toBeAttached()
-    const details = page.locator('[data-publication-customization="true"]')
-    if ((await details.getAttribute('open')) === null)
-        await details.locator(':scope > summary').click()
-    await expect(field).toBeVisible()
-}
-
 test('composer native presentation follows execution rather than profile identity', async ({
     page,
 }) => {
@@ -1442,9 +1437,9 @@ for (const platform of ['linkedin', 'mastodon', 'discord', 'bluesky'] as const) 
         await card.locator('[data-media-selection-toggle]').click()
         await page.getByRole('button', { name: 'Done', exact: true }).click()
         if (platform === 'discord' || platform === 'bluesky') {
-            await page
-                .getByRole('textbox', { name: 'Accessibility text', exact: true })
-                .fill('A moving scene')
+            // The description is optional and sits behind the thumbnail's "ALT" badge.
+            await (await openMediaDescription(page, 'native-video.mp4')).fill('A moving scene')
+            await page.keyboard.press('Escape')
         }
         const video = page.locator(`[data-preview-platform="${platform}"] video`)
         await expect(video).toHaveAttribute('controls', '')
@@ -1496,12 +1491,7 @@ for (const platform of ['linkedin', 'mastodon', 'discord', 'bluesky'] as const) 
         expect(editor.profile.profile.execution).toEqual(preset.execution)
         if (platform === 'discord' || platform === 'bluesky') {
             await page.goto(`/dashboard/projects/${projectId}/publications/${publication.id}`)
-            const targetSection = await openContentOptions(page)
-            await expect(targetSection.locator('summary')).toContainText('Content options')
-            const description = targetSection.getByRole('textbox', {
-                name: 'Accessibility text',
-                exact: true,
-            })
+            const description = await openMediaDescription(page, 'native-video.mp4')
             await expect(description).toHaveValue('A moving scene')
             const savedDescription = compositionSaved(page)
             await description.fill('Destination video description')
