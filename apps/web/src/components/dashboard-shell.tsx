@@ -56,11 +56,11 @@ export function DashboardShell({
         activeSection === 'preferences' ||
         activeSection === 'preferences-api-keys' ||
         activeSection === 'preferences-account'
-    const isProjectSettings =
-        activeSection === 'access' || activeSection === 'invitations' || activeSection === 'tags'
-    const isWorkspaceSettings = activeSection === 'settings-workspace'
+    const isWorkspaceSettings =
+        activeSection === 'settings-workspace' || activeSection === 'settings-workspace-settings'
     const isInstanceSettings =
         activeSection === 'settings-archives' ||
+        activeSection === 'settings-help' ||
         activeSection === 'settings' ||
         activeSection === 'settings-access' ||
         activeSection === 'settings-provider-applications'
@@ -86,12 +86,10 @@ export function DashboardShell({
                 channels={channels}
                 isInstanceAdmin={global.isInstanceAdmin}
                 isInstanceSettings={isInstanceSettings}
-                isProjectSettings={isProjectSettings}
                 isWorkspaceSettings={isWorkspaceSettings}
                 isUserPreferences={isUserPreferences}
                 isPublicationRoute={isPublicationRoute}
                 onProjectCategoryChange={global.onProjectCategoryChange}
-                onSignOut={onSignOut}
                 pending={pending}
                 projects={shellProjects}
                 categories={global.categories}
@@ -105,19 +103,8 @@ export function DashboardShell({
             <SidebarInset className="!m-0 !rounded-none !bg-surface-canvas !shadow-none">
                 <div className="flex min-h-0 flex-1 flex-col bg-surface-canvas">
                     <DashboardHeader
-                        hasPageBack={
-                            isProjectSettings ||
-                            isWorkspaceSettings ||
-                            activeSection === 'workspace-channels' ||
-                            activeSection === 'settings-archives' ||
-                            activeSection === 'settings-access' ||
-                            activeSection === 'settings-provider-applications'
-                        }
                         canCreateWorkspace={global.canCreateWorkspace}
                         categories={global.categories}
-                        isInstanceSettings={isInstanceSettings}
-                        isProjectSettings={isProjectSettings}
-                        isWorkspaceSettings={isWorkspaceSettings}
                         isUserPreferences={isUserPreferences}
                         onCreateProject={onCreateProject}
                         onCreateWorkspace={global.onCreateWorkspace}
@@ -144,6 +131,7 @@ export function DashboardShell({
                             key={pathname}
                             ref={scrollRegionRef}
                             data-dashboard-scroll="true"
+                            tabIndex={0}
                             className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain">
                             {error ? (
                                 <div className="px-4 pt-4 sm:px-6 lg:px-8">

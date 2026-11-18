@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto'
 import AxeBuilder from '@axe-core/playwright'
 import { expect, test, type Page } from '@playwright/test'
 
-import en from '../apps/web/messages/en.json' with { type: 'json' }
+import { switchTheme } from './locale'
 
 test('an instance admin can create, copy, revoke, and accept invitations', async ({
     page,
@@ -14,9 +14,7 @@ test('an instance admin can create, copy, revoke, and accept invitations', async
     const account = await createAccountAndProject(page, suffix)
     await page.goto(`/dashboard/settings/access?projectId=${account.projectId}`)
 
-    await expect(
-        page.getByRole('heading', { name: 'Members & invitations', exact: true }).first()
-    ).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'People', exact: true }).first()).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Your access', exact: true })).toHaveCount(0)
     await expect(page.getByRole('heading', { name: 'Members', exact: true })).toBeVisible()
     await expect(page.getByText('Administrator', { exact: true }).first()).toBeVisible()
@@ -37,15 +35,15 @@ test('an instance admin can create, copy, revoke, and accept invitations', async
     for (const width of [1280, 820, 390]) {
         await page.setViewportSize({ width, height: 844 })
         const geometry = await page.locator('main').evaluate(main => {
+            // ADR-103 §2: the title starts the header row, left-aligned.
             const title = main.querySelector('h1')!.getBoundingClientRect()
-            const bounds = main.getBoundingClientRect()
+            const bounds = main.querySelector('[data-page-header]')!.getBoundingClientRect()
             return {
-                titleCenter: title.x + title.width / 2,
-                mainCenter: bounds.x + bounds.width / 2,
+                titleLeftDelta: Math.abs(title.x - bounds.x),
                 overflow: document.documentElement.scrollWidth > window.innerWidth,
             }
         })
-        expect(Math.abs(geometry.titleCenter - geometry.mainCenter)).toBeLessThan(2)
+        expect(geometry.titleLeftDelta).toBeLessThan(2)
         expect(geometry.overflow).toBe(false)
     }
     expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([])
@@ -53,12 +51,7 @@ test('an instance admin can create, copy, revoke, and accept invitations', async
 
     for (const theme of ['light', 'dark'] as const) {
         if (!(await page.locator('html').getAttribute('class'))?.split(' ').includes(theme)) {
-            await page
-                .getByRole('button', {
-                    name: en.theme_switch_to.replace('{theme}', en[`theme_${theme}`]),
-                    exact: true,
-                })
-                .click()
+            await switchTheme(page, theme)
         }
         for (const width of [1280, 820, 390]) {
             await page.setViewportSize({ width, height: 844 })
@@ -88,7 +81,8 @@ test('an instance admin can create, copy, revoke, and accept invitations', async
     await page.getByRole('button', { name: 'Copy invitation link', exact: true }).click()
 
     const pendingInvitation = page.locator('li').filter({ hasText: pendingEmail })
-    await pendingInvitation.getByRole('button', { name: 'Revoke', exact: true }).click()
+    await pendingInvitation.getByRole('button', { name: /Actions for/ }).click()
+    await page.getByRole('menuitem', { name: 'Revoke', exact: true }).click()
     await expect(pendingInvitation).toHaveCount(0)
     await expect(page.locator('code')).toHaveCount(0)
 
@@ -147,9 +141,7 @@ test('a member cannot enter instance administration', async ({ page }) => {
 
     await page.goto(`/dashboard/settings/access?projectId=${account.projectId}`)
     await expect(page).toHaveURL(new RegExp(`/dashboard/projects/${account.projectId}/overview$`))
-    await expect(
-        page.getByRole('heading', { name: 'Members & invitations', exact: true })
-    ).toHaveCount(0)
+    await expect(page.getByRole('heading', { name: 'People', exact: true })).toHaveCount(0)
     await expect(page.getByRole('button', { name: 'Invite', exact: true })).toHaveCount(0)
 })
 
@@ -179,11 +171,11 @@ async function createAccountAndProject(page: Page, suffix: string) {
 
         await page.getByRole('combobox', { name: 'Select project', exact: true }).click()
         await page.getByRole('button', { name: 'Create project', exact: true }).last().click()
-        await page.getByRole('textbox', { name: 'New project', exact: true }).fill(projectName)
+        await page.getByRole('textbox', { name: 'Name', exact: true }).fill(projectName)
         await page
             .locator('form')
-            .filter({ has: page.getByRole('textbox', { name: 'New project', exact: true }) })
-            .getByRole('button', { name: 'Add project', exact: true })
+            .filter({ has: page.getByRole('textbox', { name: 'Name', exact: true }) })
+            .getByRole('button', { name: 'Create project', exact: true })
             .click()
     } else {
         const response = await page.request.post('/api/auth/sign-up/email', {

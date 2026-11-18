@@ -1,13 +1,11 @@
 import { cn } from '@postdot/ui/lib/utils'
 import { ChatRoundIcon } from '@solar-icons/react/linear/chat-round'
-import { EarthIcon } from '@solar-icons/react/linear/earth'
 import { HeartIcon } from '@solar-icons/react/linear/heart'
 import { MenuDotsVerticalIcon } from '@solar-icons/react/linear/menu-dots-vertical'
 import { RepeatIcon } from '@solar-icons/react/linear/repeat'
 import { ShareIcon } from '@solar-icons/react/linear/share'
 import { Suspense } from 'react'
 
-import sampleSocialPortrait from '@/assets/sample-social-portrait.jpg'
 import { ChannelAvatar } from '@/components/identity-visuals'
 import { MediaPreview, readyRepresentation } from '@/components/media-asset-card'
 import { PublicationArticleBody } from '@/components/publication-article-body'
@@ -24,7 +22,6 @@ interface PublicationDraftPreviewProps {
     readonly channel: Channel | undefined
     readonly execution: ChannelListItem['execution']
     readonly className?: string
-    readonly identityMode?: 'sample' | 'channel'
     readonly media: readonly MediaReference[]
     readonly mediaSelections?: readonly MediaSelection[]
     readonly postContent: string
@@ -38,7 +35,6 @@ export function PublicationDraftPreview({
     channel,
     execution,
     className,
-    identityMode = 'sample',
     media,
     mediaSelections,
     postContent,
@@ -73,7 +69,6 @@ export function PublicationDraftPreview({
     const professional = definition?.preview.layout === 'professional'
     const ProviderMedia = definition?.preview.Media
     const Footer = definition?.preview.Footer
-    const SampleEngagement = definition?.preview.SampleEngagement
     const Poll = definition?.preview.Poll
     const article = definition?.preview.layout === 'article'
     const message = definition?.preview.layout === 'message'
@@ -94,9 +89,9 @@ export function PublicationDraftPreview({
     const wideContent = definition?.preview.mosaic === 'tight'
     const social = definition !== undefined && !article && !message
     const accountDriven = definition?.preview.accountDriven ?? false
-    const sampleIdentity = definition?.preview.sampleIdentity === true && identityMode === 'sample'
-    const authorName = sampleIdentity ? m.publication_preview_sample_author() : channel.name
-    const hasPreviewBody = preview.hasText || media.length > 0
+    // ADR-103 §8: the preview speaks as the channel itself and never invents people,
+    // ages or engagement.
+    const authorName = channel.name
     const compactMedia = article || !accountDriven
     const spacedMosaic =
         definition?.preview.mosaic === 'spaced' && media.length >= 2 && media.length <= 4
@@ -158,7 +153,7 @@ export function PublicationDraftPreview({
                     'min-w-0 overflow-hidden bg-surface-raised shadow-surface',
                     definition ? 'font-[Arial,sans-serif]' : undefined,
                     professional
-                        ? 'rounded-lg border border-[#e8e8e8] bg-white text-[#1f2328]'
+                        ? 'rounded-lg border border-[#e8e8e8] bg-white text-[#1f2328] dark:border-[#38434f] dark:bg-[#1b1f23] dark:text-[#e9e9e9] [&_.text-muted-foreground]:text-[#60666f] dark:[&_.text-muted-foreground]:text-[#b0b7bf]'
                         : message
                           ? 'rounded-md bg-white text-[#313338] dark:bg-[#313338] dark:text-[#dbdee1] [&_.text-muted-foreground]:text-[#60666f] dark:[&_.text-muted-foreground]:text-[#b5bac1]'
                           : article
@@ -170,46 +165,9 @@ export function PublicationDraftPreview({
                         'flex min-w-0 items-center gap-2.5',
                         professional ? 'px-3 pt-3 pb-1' : 'px-4 pt-4 pb-2'
                     )}>
-                    {sampleIdentity ? (
-                        <img
-                            alt=""
-                            aria-hidden="true"
-                            className="size-10 shrink-0 rounded-full object-cover"
-                            src={sampleSocialPortrait}
-                        />
-                    ) : (
-                        <ChannelAvatar channel={channel} size="lg" className="rounded-full" />
-                    )}
+                    <ChannelAvatar channel={channel} size="lg" className="rounded-full" />
                     <div className="min-w-0 flex-1">
-                        <div className="flex min-w-0 items-baseline gap-2">
-                            <p className="truncate text-sm font-semibold">{authorName}</p>
-                            {message && sampleIdentity ? (
-                                <span className="shrink-0 text-xs text-muted-foreground">
-                                    {m.publication_preview_sample_age()}
-                                </span>
-                            ) : null}
-                        </div>
-                        {!professional && !message && sampleIdentity ? (
-                            <p className="truncate text-xs text-muted-foreground">
-                                {article
-                                    ? m.publication_preview_sample_age()
-                                    : wideContent
-                                      ? definition?.preview.handle
-                                      : (definition?.preview.handle ?? '@alex_example')}
-                            </p>
-                        ) : null}
-                        {professional && sampleIdentity ? (
-                            <>
-                                <p className="truncate text-[11px] text-[#666c72]">
-                                    {m.publication_preview_sample_headline()}
-                                </p>
-                                <p className="flex items-center gap-1 text-[11px] text-[#666c72]">
-                                    {m.publication_preview_sample_age()}
-                                    <span aria-hidden="true">·</span>
-                                    <EarthIcon aria-hidden="true" className="size-3" />
-                                </p>
-                            </>
-                        ) : null}
+                        <p className="truncate text-sm font-semibold">{authorName}</p>
                     </div>
                     {social ? (
                         <MenuDotsVerticalIcon
@@ -321,7 +279,6 @@ export function PublicationDraftPreview({
                         </div>
                     ) : null}
                 </div>
-                {SampleEngagement && hasPreviewBody && sampleIdentity ? <SampleEngagement /> : null}
                 {social ? (
                     <div
                         aria-hidden="true"

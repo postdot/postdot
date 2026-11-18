@@ -19,7 +19,9 @@ test('keeps navigation entries aligned with their route and context', async ({ p
         const link = page.getByRole('link', { name: entry.label, exact: true })
         await expect(link).toBeVisible()
         await link.click()
-        await expect(page).toHaveURL(new RegExp(`/dashboard/projects/${projectId}/${entry.path}$`))
+        await expect(page).toHaveURL(
+            new RegExp(`/dashboard/projects/${projectId}/${entry.path}(?:\\?.*)?$`)
+        )
         await expect(page.getByRole('heading', { name: entry.heading, exact: true })).toBeVisible()
         await expect(link).toHaveAttribute('aria-current', 'page')
 
@@ -31,37 +33,39 @@ test('keeps navigation entries aligned with their route and context', async ({ p
         }
     }
 
-    await expect(page.getByRole('link', { name: 'Access', exact: true })).toHaveCount(0)
+    // ADR-103 §4: project administration is reached from visible sidebar entries.
+    const projectNavigation = page.getByRole('navigation', {
+        name: 'Project navigation',
+        exact: true,
+    })
+    await projectNavigation.getByRole('link', { name: 'People', exact: true }).click()
+    await expect(page).toHaveURL(new RegExp(`/dashboard/projects/${projectId}/access$`))
+    await expect(page.getByRole('heading', { name: 'People', exact: true, level: 1 })).toBeVisible()
+    await expect(
+        projectNavigation.getByRole('link', { name: 'People', exact: true })
+    ).toHaveAttribute('aria-current', 'page')
+    await expect(page.getByRole('link', { name: 'API keys', exact: true })).toHaveCount(0)
+    // Old invitation links land on the People page.
+    await page.goto(`/dashboard/projects/${projectId}/invitations`)
+    await expect(page).toHaveURL(new RegExp(`/dashboard/projects/${projectId}/access$`))
+
+    await projectNavigation.getByRole('link', { name: 'Project settings', exact: true }).click()
+    await expect(page).toHaveURL(new RegExp(`/dashboard/projects/${projectId}/settings$`))
+    await expect(
+        page.getByRole('heading', { name: 'Project settings', exact: true, level: 1 })
+    ).toBeVisible()
+    await expect(
+        projectNavigation.getByRole('link', { name: 'Project settings', exact: true })
+    ).toHaveAttribute('aria-current', 'page')
+    // The page is a sidebar destination: no return control.
+    await expect(page.locator('main a[aria-label^="Back to"]')).toHaveCount(0)
     await page.getByRole('combobox', { name: 'Select project', exact: true }).click()
     await expect(
-        page.getByRole('link', { name: 'Project configuration', exact: true })
+        page.getByRole('link', { name: 'Project settings', exact: true }).last()
     ).toBeVisible()
-    await page.getByRole('link', { name: 'Project configuration', exact: true }).click()
-    await expect(page).toHaveURL(new RegExp(`/dashboard/projects/${projectId}/access$`))
-    await expect(page.getByRole('heading', { name: 'Project access', exact: true })).toBeVisible()
-    await expect(
-        page.getByRole('navigation', { name: 'Project configuration', exact: true })
-    ).toBeVisible()
-    await expect(page.getByRole('link', { name: 'Access', exact: true })).toHaveAttribute(
-        'aria-current',
-        'page'
-    )
-    await expect(
-        page.getByRole('navigation', { name: 'Project navigation', exact: true })
-    ).toHaveCount(0)
-    await expect(page.getByRole('link', { name: 'Project invitations', exact: true })).toBeVisible()
-    await expect(page.getByRole('link', { name: 'API keys', exact: true })).toHaveCount(0)
+    await page.keyboard.press('Escape')
 
-    await page.getByRole('link', { name: 'Project invitations', exact: true }).click()
-    await expect(page).toHaveURL(new RegExp(`/dashboard/projects/${projectId}/invitations$`))
-    await expect(
-        page.getByRole('heading', { name: 'Project invitations', exact: true })
-    ).toBeVisible()
-    await expect(
-        page.getByRole('link', { name: 'Project invitations', exact: true })
-    ).toHaveAttribute('aria-current', 'page')
-
-    await page.getByRole('button', { name: 'Back to project', exact: true }).click()
+    await page.getByRole('link', { name: 'Overview', exact: true }).click()
     await expect(page).toHaveURL(new RegExp(`/dashboard/projects/${projectId}/overview$`))
     await page.getByRole('button', { name: 'Open account menu', exact: true }).click()
     await page.getByRole('menuitem', { name: 'Settings', exact: true }).click()
@@ -88,9 +92,7 @@ test('keeps navigation entries aligned with their route and context', async ({ p
 
     await page.goto(`/dashboard/settings?projectId=${projectId}`)
     await expect(page).toHaveURL(/\/dashboard\/settings(?:\?.*)?$/)
-    await expect(
-        page.getByRole('heading', { name: 'Installation settings', exact: true })
-    ).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'System', exact: true })).toBeVisible()
     await expect(
         page.getByRole('navigation', { name: 'Installation administration', exact: true })
     ).toBeVisible()
@@ -103,28 +105,30 @@ test('keeps navigation entries aligned with their route and context', async ({ p
     await expect(
         page
             .getByRole('navigation', { name: 'Installation administration', exact: true })
-            .getByRole('link', { name: 'Settings', exact: true })
+            .getByRole('link', { name: 'System', exact: true })
     ).toHaveAttribute('aria-current', 'page')
 
-    await page.getByRole('link', { name: 'OAuth applications', exact: true }).click()
+    await page.getByRole('link', { name: 'Platform setup', exact: true }).click()
     await expect(page).toHaveURL(/\/dashboard\/settings\/provider-applications(?:\?.*)?$/)
-    await expect(
-        page.getByRole('heading', { name: 'OAuth applications', exact: true })
-    ).toBeVisible()
-    await expect(
-        page.getByRole('link', { name: 'OAuth applications', exact: true })
-    ).toHaveAttribute('aria-current', 'page')
+    await expect(page.getByRole('heading', { name: 'Platform setup', exact: true })).toBeVisible()
+    await expect(page.getByRole('link', { name: 'Platform setup', exact: true })).toHaveAttribute(
+        'aria-current',
+        'page'
+    )
     await expect(
         page.getByRole('navigation', { name: 'Work navigation', exact: true })
     ).toHaveCount(0)
 
-    await page.getByRole('link', { name: 'Members & invitations', exact: true }).click()
+    await page
+        .getByRole('navigation', { name: 'Installation administration', exact: true })
+        .getByRole('link', { name: 'People', exact: true })
+        .click()
     await expect(page).toHaveURL(/\/dashboard\/settings\/access(?:\?.*)?$/)
+    await expect(page.getByRole('heading', { name: 'People', exact: true }).first()).toBeVisible()
     await expect(
-        page.getByRole('heading', { name: 'Members & invitations', exact: true }).first()
-    ).toBeVisible()
-    await expect(
-        page.getByRole('link', { name: 'Members & invitations', exact: true })
+        page
+            .getByRole('navigation', { name: 'Installation administration', exact: true })
+            .getByRole('link', { name: 'People', exact: true })
     ).toHaveAttribute('aria-current', 'page')
 
     await page.goto(`/dashboard/projects/${projectId}/overview`)
@@ -147,10 +151,10 @@ test('keeps navigation entries aligned with their route and context', async ({ p
 
     await page.goto(`/dashboard/projects/${projectId}/overview`)
     await page.getByRole('combobox', { name: 'Select workspace', exact: true }).click()
-    await expect(page.getByRole('link', { name: 'Members & groups', exact: true })).toBeVisible()
-    await page.getByRole('link', { name: 'Members & groups', exact: true }).click()
-    await expect(page).toHaveURL(/\/dashboard\/settings\/workspace(?:\?.*)?$/)
-    await expect(page.getByRole('heading', { name: 'Members & groups', exact: true })).toBeVisible()
+    await expect(page.locator('a[href*="/settings/workspace/people"]')).toBeVisible()
+    await page.locator('a[href*="/settings/workspace/people"]').click()
+    await expect(page).toHaveURL(/\/dashboard\/settings\/workspace\/people(?:\?.*)?$/)
+    await expect(page.getByRole('heading', { name: 'People', exact: true })).toBeVisible()
     expect(new URL(page.url()).searchParams.get('projectId')).toBe(projectId)
     await expect(page.locator('[data-context-kind="project"]')).toContainText(
         `E2E navigation project ${suffix}`
@@ -158,14 +162,17 @@ test('keeps navigation entries aligned with their route and context', async ({ p
     await expect(
         page.getByRole('navigation', { name: 'Workspace navigation', exact: true })
     ).toBeVisible()
-    await expect(page.getByRole('link', { name: 'Members & groups', exact: true })).toHaveAttribute(
-        'aria-current',
-        'page'
-    )
+    await expect(
+        page
+            .getByRole('navigation', { name: 'Workspace navigation', exact: true })
+            .getByRole('link', { name: 'People', exact: true })
+    ).toHaveAttribute('aria-current', 'page')
     await expect(
         page.getByRole('navigation', { name: 'Installation administration', exact: true })
     ).toBeVisible()
-    const returnToProject = page.getByRole('button', { name: 'Back to project', exact: true })
+    // The settings list opens with one return row naming the project.
+    const returnToProject = page.locator('[data-settings-return="true"]')
+    await expect(returnToProject).toContainText(`E2E navigation project ${suffix}`)
     await expect(returnToProject).toHaveAttribute(
         'href',
         `/dashboard/projects/${projectId}/overview`
@@ -174,13 +181,14 @@ test('keeps navigation entries aligned with their route and context', async ({ p
     await expect(page).toHaveURL(new RegExp(`/dashboard/projects/${projectId}/overview$`))
 
     await page.goto(`/dashboard/preferences?projectId=${projectId}`)
-    await expect(
-        page.getByRole('button', { name: 'Back to project', exact: true })
-    ).toHaveAttribute('href', `/dashboard/projects/${projectId}/overview`)
+    await expect(page.locator('[data-settings-return="true"]')).toHaveAttribute(
+        'href',
+        `/dashboard/projects/${projectId}/overview`
+    )
     await page.goto('/dashboard/preferences?projectId=none')
-    await expect(
-        page.getByRole('button', { name: 'Back to projects', exact: true })
-    ).toHaveAttribute('href', /projectId=none/)
+    const returnToProjects = page.locator('[data-settings-return="true"]')
+    await expect(returnToProjects).toHaveText('Back to projects')
+    await expect(returnToProjects).toHaveAttribute('href', /projectId=none/)
 })
 
 async function createAccountAndProject(page: Page, suffix: string): Promise<string> {
@@ -202,12 +210,12 @@ async function createAccountAndProject(page: Page, suffix: string): Promise<stri
     await page.getByRole('combobox', { name: 'Select project', exact: true }).click()
     await page.getByRole('button', { name: 'Create project', exact: true }).last().click()
     await page
-        .getByRole('textbox', { name: 'New project', exact: true })
+        .getByRole('textbox', { name: 'Name', exact: true })
         .fill(`E2E navigation project ${suffix}`)
     await page
         .locator('form')
-        .filter({ has: page.getByRole('textbox', { name: 'New project', exact: true }) })
-        .getByRole('button', { name: 'Add project', exact: true })
+        .filter({ has: page.getByRole('textbox', { name: 'Name', exact: true }) })
+        .getByRole('button', { name: 'Create project', exact: true })
         .click()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/overview$/)
 

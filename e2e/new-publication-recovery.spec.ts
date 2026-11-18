@@ -44,7 +44,7 @@ for (const [locale, copy, theme] of [
                     })
                 ).status()
             ).toBe(201)
-            const path = `/dashboard/projects/${project.id}/publications/new?editor=legacy`
+            const path = `/dashboard/projects/${project.id}/publications/new`
             const draftPath = `/api/projects/${project.id}/publication-composer-draft`
             const form = page.locator('[data-new-publication-form="true"]')
             const editor = page.getByRole('textbox', {
@@ -80,6 +80,7 @@ for (const [locale, copy, theme] of [
             await editor.fill(text)
             await saved
             const before = (await (await page.request.get(draftPath)).json()).draft
+            expect(before.content.postContent).toBe(text)
             if (!localCopy)
                 await page.evaluate(id => {
                     // Recovery keys carry the author after the project; match every author.
@@ -110,21 +111,12 @@ for (const [locale, copy, theme] of [
                 page.getByRole('button', { name: copy.common_retry, exact: true })
             ).toBeVisible()
             await expect(form).toHaveAttribute('inert', '')
+            // A local copy waits, untouched, until the saved draft can be compared with it.
             const recovery = page.locator('[data-new-publication-recovery="true"]')
-            if (localCopy) {
-                await expect(
-                    recovery.getByRole('button', {
-                        name: copy.publication_new_recovery_restore,
-                        exact: true,
-                    })
-                ).toBeDisabled()
-                await expect(
-                    recovery.getByRole('button', {
-                        name: copy.publication_new_recovery_discard,
-                        exact: true,
-                    })
-                ).toBeDisabled()
-            } else await expect(recovery).toHaveCount(0)
+            const restored = page.locator('[data-new-publication-restored="true"]')
+            if (localCopy) await expect(recovery).toBeVisible()
+            else await expect(recovery).toHaveCount(0)
+            await expect(restored).toHaveCount(0)
             await page.setViewportSize({ width: 390, height: 900 })
             expect(
                 await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)
@@ -134,17 +126,16 @@ for (const [locale, copy, theme] of [
             expect(writes).toBe(0)
             await page.unroute(endpoint)
             await page.getByRole('button', { name: copy.common_retry, exact: true }).click()
-            await expect(
-                recovery.getByRole('button', {
-                    name: copy.publication_new_recovery_restore,
-                    exact: true,
-                })
-            ).toBeEnabled()
+            // ADR-103 §6: once readable, the draft comes back without a question.
+            await expect(restored).toBeVisible()
             expect((await (await page.request.get(draftPath)).json()).draft).toEqual(before)
-            await recovery
-                .getByRole('button', { name: copy.publication_new_recovery_restore, exact: true })
-                .click()
-            await expect(editor).toHaveValue(text)
+            await expect
+                .poll(() =>
+                    editor
+                        .locator('p')
+                        .evaluateAll(nodes => nodes.map(node => node.textContent).join('\n'))
+                )
+                .toBe(text)
             await expect(form).not.toHaveAttribute('inert', '')
             const savedAgain = page.waitForResponse(
                 response =>
@@ -193,7 +184,7 @@ for (const [locale, copy] of [
             ).status()
         ).toBe(201)
         const draftPath = `/api/projects/${project.id}/publication-composer-draft`
-        await page.goto(`/dashboard/projects/${project.id}/publications/new?editor=legacy`)
+        await page.goto(`/dashboard/projects/${project.id}/publications/new`)
         const form = page.locator('[data-new-publication-form="true"]')
         await expect(form).not.toHaveAttribute('inert', '')
         const editor = page.getByRole('textbox', {
@@ -209,13 +200,12 @@ for (const [locale, copy] of [
         await editor.fill('Keep this draft until discard succeeds')
         await saved
         await page.reload()
-        const recovery = page.locator('[data-new-publication-recovery="true"]')
-        await expect(
-            recovery.getByRole('button', {
-                name: copy.publication_new_recovery_discard,
-                exact: true,
-            })
-        ).toBeEnabled()
+        const recovery = page.locator('[data-new-publication-restored="true"]')
+        const startOver = recovery.getByRole('button', {
+            name: copy.publication_new_recovery_start_over,
+            exact: true,
+        })
+        await expect(startOver).toBeEnabled()
         const before = (await (await page.request.get(draftPath)).json()).draft
         const endpoint = `**${draftPath}*`
         await page.route(endpoint, route =>
@@ -226,11 +216,10 @@ for (const [locale, copy] of [
                   })
                 : route.continue()
         )
-        await recovery
-            .getByRole('button', { name: copy.publication_new_recovery_discard, exact: true })
-            .click()
+        await startOver.click()
+        // A failed start over keeps the draft, says so, and leaves the text in place.
         await expect(recovery.getByRole('alert')).toBeVisible()
-        await expect(form).toHaveAttribute('inert', '')
+        await expect(editor).toHaveText('Keep this draft until discard succeeds')
         expect((await (await page.request.get(draftPath)).json()).draft).toEqual(before)
         expect(
             await page.evaluate(id => {
@@ -243,11 +232,9 @@ for (const [locale, copy] of [
         expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([])
         await page.screenshot({ path: info.outputPath('discard-error.png') })
         await page.unroute(endpoint)
-        await recovery
-            .getByRole('button', { name: copy.publication_new_recovery_discard, exact: true })
-            .click()
+        await startOver.click()
         await expect(recovery).toHaveCount(0)
-        await expect(editor).toHaveValue('')
+        await expect(editor).toHaveText('')
         expect((await (await page.request.get(draftPath)).json()).draft).toBeNull()
     })
 }

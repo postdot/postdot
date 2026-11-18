@@ -7,6 +7,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@postdot/ui/components/dialog'
+import { Tooltip, TooltipTrigger, TooltipContent } from '@postdot/ui/components/tooltip'
 import { useQueries } from '@tanstack/react-query'
 
 import { MediaPreview, mediaStateLabel, readyRepresentation } from '@/components/media-asset-card'
@@ -94,7 +95,7 @@ export function ComposerDraftConflict({
         return (
             <section
                 aria-label={label}
-                className="min-w-0 space-y-3 rounded-md bg-surface-inset p-3">
+                className="min-w-0 space-y-3 rounded-lg border border-border bg-surface-raised p-3">
                 <h3 className="font-medium">{label}</h3>
                 {content === null ? (
                     <p className="text-muted-foreground">{m.composer_conflict_removed()}</p>
@@ -270,19 +271,26 @@ export function ComposerDraftConflict({
                         {unavailableDetails ? (
                             <p>{m.composer_conflict_details_unavailable()}</p>
                         ) : null}
-                        <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            disabled={loadingDetails}
-                            focusableWhenDisabled
-                            title={loadingDetails ? m.common_loading() : undefined}
-                            onClick={() => {
-                                void tagCatalog.refetch()
-                                for (const query of mediaQueries) void query.refetch()
-                            }}>
-                            {m.composer_conflict_retry_details()}
-                        </Button>
+                        <Tooltip disabled={!loadingDetails}>
+                            <TooltipTrigger
+                                render={
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        disabled={loadingDetails}
+                                        focusableWhenDisabled
+
+                                        onClick={() => {
+                                            void tagCatalog.refetch()
+                                            for (const query of mediaQueries) void query.refetch()
+                                        }}>
+                                        {m.composer_conflict_retry_details()}
+                                    </Button>
+                                }
+                            />
+                            <TooltipContent>{m.common_loading()}</TooltipContent>
+                        </Tooltip>
                     </div>
                 ) : null}
                 <div className="flex flex-wrap gap-2">
@@ -308,10 +316,14 @@ export function ComposerDraftConflict({
                                 local.publicationTargets.every(target => !target.content.trim()))
                         }
                         onClick={onSaveLocal}
+                        className="h-auto min-h-9 whitespace-normal"
                         variant="destructive">
                         {m.composer_conflict_replace()}
                     </Button>
-                    <Button disabled={busy || !savedKnown} onClick={onUseSaved}>
+                    <Button
+                        disabled={busy || !savedKnown}
+                        onClick={onUseSaved}
+                        className="h-auto min-h-9 whitespace-normal">
                         {saved === null
                             ? m.composer_conflict_start_new()
                             : m.composer_conflict_use_saved()}

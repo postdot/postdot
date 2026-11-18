@@ -398,6 +398,45 @@ describe('manual workflow store', () => {
                 await store.listDueManualPublications(createdProject.project.id, 'user-1', now)
             ).toEqual([])
 
+            // Published work is listed on its own for the history view.
+            const history = await store.listPublicationSummaryPage(
+                createdProject.project.id,
+                'user-1',
+                { state: 'published' }
+            )
+            expect(history?.publications.map(item => item.id)).toEqual([published?.id ?? ''])
+            expect(history?.summary.published).toBe(1)
+
+            // A mistaken "mark published" can be undone; the work is due by hand again.
+            const undone = await store.undoManualPublication({
+                projectId: createdProject.project.id,
+                publicationId: published?.id ?? '',
+                subjectId: 'user-1',
+            })
+            expect(undone).toMatchObject({
+                externalId: null,
+                externalUrl: null,
+                publishedAt: null,
+                state: 'scheduled',
+            })
+            expect(
+                (
+                    await store.listDueManualPublications(createdProject.project.id, 'user-1', now)
+                )?.map(item => item.id)
+            ).toEqual([published?.id ?? ''])
+            expect(
+                await store.undoManualPublication({
+                    projectId: createdProject.project.id,
+                    publicationId: published?.id ?? '',
+                    subjectId: 'user-1',
+                })
+            ).toBeNull()
+            await store.publishManualPublication({
+                projectId: createdProject.project.id,
+                publicationId: published?.id ?? '',
+                subjectId: 'user-1',
+            })
+
             expect(
                 (await store.listAuditEvents(createdProject.project.id, 'user-1'))
                     ?.map(event => event.action)
@@ -409,7 +448,10 @@ describe('manual workflow store', () => {
                 'project.created',
                 'publication.created',
                 'publication.created',
+                'publication.publish_undone',
                 'publication.published',
+                'publication.published',
+                'publication.ready',
                 'publication.ready',
             ])
         } finally {
@@ -521,7 +563,7 @@ describe('manual workflow store', () => {
                         filter: { tagIds: [beta?.id ?? '', alpha?.id ?? ''] },
                     })
                 )?.summary
-            ).toEqual({ total: 1, manual: 1, automatic: 0, scheduled: 0, draft: 1 })
+            ).toEqual({ total: 1, manual: 1, automatic: 0, scheduled: 0, draft: 1, published: 0 })
             expect(
                 await store.listPublicationSummaries(project.project.id, 'user-1', {
                     tagIds: [foreignTag?.id ?? ''],
@@ -533,7 +575,7 @@ describe('manual workflow store', () => {
                         filter: { tagIds: [foreignTag?.id ?? ''] },
                     })
                 )?.summary
-            ).toEqual({ total: 0, manual: 0, automatic: 0, scheduled: 0, draft: 0 })
+            ).toEqual({ total: 0, manual: 0, automatic: 0, scheduled: 0, draft: 0, published: 0 })
         } finally {
             await closeTestDatabase(database)
         }
@@ -596,6 +638,7 @@ describe('manual workflow store', () => {
                 automatic: 1,
                 scheduled: 100,
                 draft: 1,
+                published: 0,
             })
 
             const secondPage = await store.listPublicationSummaryPage(
@@ -630,6 +673,7 @@ describe('manual workflow store', () => {
                 automatic: 0,
                 scheduled: 1,
                 draft: 0,
+                published: 0,
             })
 
             const drafts = await store.listPublicationSummaryPage(project.project.id, 'user-1', {
@@ -1260,15 +1304,41 @@ describe('manual workflow store', () => {
                 throw new Error('The bulk scheduling publications are missing')
             }
 
+            await expect(
+                store.reschedulePublications({
+                    projectId: project.project.id,
+                    publicationIds: [firstPublication.id, secondPublication.id],
+                    scheduledAt: now + 120_000,
+                    scheduledTimes: { [firstPublication.id]: now + 120_000 },
+                    subjectId: 'user-1',
+                })
+            ).rejects.toThrow('scheduledTimes must include every selected publication exactly once')
+            await expect(
+                store.reschedulePublications({
+                    projectId: project.project.id,
+                    publicationIds: [firstPublication.id, secondPublication.id],
+                    scheduledAt: now + 120_000,
+                    scheduledTimes: {
+                        [firstPublication.id]: now + 120_000,
+                        [secondPublication.id]: now - 1,
+                    },
+                    subjectId: 'user-1',
+                })
+            ).rejects.toThrow('scheduledAt must not be before now')
+
             const rescheduled = await store.reschedulePublications({
                 projectId: project.project.id,
                 publicationIds: [firstPublication.id, secondPublication.id],
                 scheduledAt: now + 120_000,
+                scheduledTimes: {
+                    [firstPublication.id]: now + 120_000,
+                    [secondPublication.id]: now + 180_000,
+                },
                 subjectId: 'user-1',
             })
             expect(rescheduled).toMatchObject([
                 { id: firstPublication.id, state: 'scheduled', scheduledAt: now + 120_000 },
-                { id: secondPublication.id, state: 'scheduled', scheduledAt: now + 120_000 },
+                { id: secondPublication.id, state: 'scheduled', scheduledAt: now + 180_000 },
             ])
             expect(
                 await database.sql
@@ -1278,7 +1348,7 @@ describe('manual workflow store', () => {
                     .all()
             ).toMatchObject([
                 { publicationId: firstPublication.id, runAt: now + 120_000 },
-                { publicationId: secondPublication.id, runAt: now + 120_000 },
+                { publicationId: secondPublication.id, runAt: now + 180_000 },
             ])
             expect(
                 await database.sql
@@ -1307,7 +1377,7 @@ describe('manual workflow store', () => {
                     }),
                     expect.objectContaining({
                         id: secondPublication.id,
-                        scheduledAt: now + 120_000,
+                        scheduledAt: now + 180_000,
                     }),
                     expect.objectContaining({
                         id: draftPublication.id,
@@ -1543,6 +1613,7 @@ describe('manual workflow store', () => {
                 {
                     id: publication.id,
                     draftRevision: 2,
+                    draftSourceRevision: 2,
                     draftReviewState: 'compatible',
                     draftDiffersFromTarget: true,
                 },
@@ -3068,6 +3139,77 @@ describe('manual workflow store', () => {
         }
     })
 
+    it('keeps sibling versions current when a source change leaves them unchanged', async () => {
+        const database = (await openTestDatabase()).database
+        const now = 1_800_000_000_000
+
+        try {
+            const store = createManualStore(database, { now: () => now })
+            const project = await store.createProject({
+                workspaceId: await seedTestWorkspace(database),
+                name: 'Undo Source Project',
+                subjectId: 'user-1',
+                displayName: 'Operator',
+            })
+            const firstChannel = await store.createChannel({
+                projectId: project.project.id,
+                subjectId: 'user-1',
+                name: 'First Channel',
+            })
+            const secondChannel = await store.createChannel({
+                projectId: project.project.id,
+                subjectId: 'user-1',
+                name: 'Second Channel',
+            })
+            if (firstChannel === null || secondChannel === null) {
+                throw new Error('The channels were not created')
+            }
+            const created = await store.createPost({
+                projectId: project.project.id,
+                subjectId: 'user-1',
+                sourceContent: sourceContent('Initial source'),
+                publications: [{ channelId: firstChannel.id }, { channelId: secondChannel.id }],
+            })
+            const first = created?.publications[0]
+            const second = created?.publications[1]
+            if (first === undefined || second === undefined) {
+                throw new Error('The publications are missing')
+            }
+
+            // A change the sibling does not show yet leaves it behind for review.
+            await store.savePublicationDraft({
+                projectId: project.project.id,
+                publicationId: first.id,
+                subjectId: 'user-1',
+                expectedRevision: 1,
+                sourceContent: sourceContent('Typed by mistake'),
+                targetContent: { body: 'Typed by mistake', media: [] },
+            })
+            expect(
+                await store.getPublicationWorkingDraft(project.project.id, second.id, 'user-1')
+            ).toMatchObject({ revision: 1, sourceRevision: 1 })
+
+            // Undoing it brings the post back to what the sibling shows: nothing to review.
+            await store.savePublicationDraft({
+                projectId: project.project.id,
+                publicationId: first.id,
+                subjectId: 'user-1',
+                expectedRevision: 2,
+                sourceContent: sourceContent('Initial source'),
+                targetContent: { body: 'Initial source', media: [] },
+            })
+            expect(
+                await store.getPublicationWorkingDraft(project.project.id, second.id, 'user-1')
+            ).toMatchObject({
+                revision: 2,
+                sourceRevision: 3,
+                baseSourceContent: sourceContent('Initial source'),
+                content: { body: 'Initial source', media: [] },
+            })
+        } finally {
+            await closeTestDatabase(database)
+        }
+    })
     it('reconciles an ambiguous publication with explicit operator attribution', async () => {
         const database = (await openTestDatabase()).database
         const now = 1_800_000_000_000

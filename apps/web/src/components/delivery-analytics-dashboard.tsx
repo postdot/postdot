@@ -1,18 +1,20 @@
-import { Button } from '@postdot/ui/components/button'
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@postdot/ui/components/select'
+import { Tooltip, TooltipTrigger, TooltipContent } from '@postdot/ui/components/tooltip'
+import { CalendarIcon } from '@solar-icons/react/linear/calendar'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { useMemo, useRef, useState } from 'react'
 
+import { EmptyState } from '@/components/empty-state'
+import {
+    ActiveFilters,
+    ChoiceMenu,
+    type FilterGroup,
+    FilterMenu,
+} from '@/components/filter-controls'
 import { QueryErrorState } from '@/components/query-error-state'
 import { api } from '@/lib/api'
 import { useProjectDashboard } from '@/lib/dashboard-context'
+import { formatProjectDate } from '@/lib/date-time'
 import {
     deliveryCounters,
     deliveryCoverageIncomplete,
@@ -20,7 +22,7 @@ import {
     deliveryDestinations,
     previousDeliveryRange,
 } from '@/lib/delivery-analytics'
-import { formatNumber, formatDateTime } from '@/lib/format'
+import { formatNumber } from '@/lib/format'
 import { useLanguage } from '@/lib/i18n'
 import { projectQueryKeys } from '@/lib/project-realtime'
 import {
@@ -32,9 +34,11 @@ import * as m from '@/paraglide/messages.js'
 export function DeliveryAnalyticsDashboard({
     days,
     channelId,
+    neverPublished,
 }: {
     readonly days: DeliveryAnalyticsPeriod
     readonly channelId?: string
+    readonly neverPublished: boolean
 }) {
     const { project, channels } = useProjectDashboard()
     const { locale } = useLanguage()
@@ -46,6 +50,7 @@ export function DeliveryAnalyticsDashboard({
         queryFn: () => api.getProjectAnalytics(project.id, { days, channelId }),
         staleTime: 30_000,
         retry: 1,
+        refetchInterval: 30_000,
     })
     const report = query.data
     const comparisonQuery = useQuery({
@@ -87,106 +92,135 @@ export function DeliveryAnalyticsDashboard({
         ambiguous: m.delivery_ambiguous(),
         retries: m.delivery_retries(),
     }
+    const isReportEmpty =
+        report !== undefined && counters !== null && !Object.values(counters).some(Boolean)
+    const showControls = !neverPublished || (report !== undefined && !isReportEmpty)
+    const showDestinationSelect = channels.length > 1 || channelId !== undefined
+    const visibleCounterKeys = counters
+        ? (Object.keys(labels) as (keyof typeof labels)[]).filter(
+              key => key === 'published' || counters[key] > 0
+          )
+        : []
+    const counterGridClass =
+        visibleCounterKeys.length === 1
+            ? 'grid-cols-1 sm:w-fit sm:min-w-64'
+            : visibleCounterKeys.length === 2
+              ? 'grid-cols-2 [&>div:nth-child(2)]:border-l'
+              : visibleCounterKeys.length === 3
+                ? 'grid-cols-1 sm:grid-cols-3 [&>div:nth-child(n+2)]:border-t sm:[&>div:nth-child(n+2)]:border-t-0 sm:[&>div:nth-child(n+2)]:border-l'
+                : 'grid-cols-2 lg:grid-cols-4 [&>div:nth-child(n+2)]:lg:border-l [&>div:nth-child(2n)]:border-l [&>div:nth-child(n+3)]:border-t [&>div:nth-child(n+3)]:lg:border-t-0'
+    const destinationFilter: FilterGroup[] = [
+        {
+            anyValue: 'all',
+            id: 'destination',
+            label: m.delivery_destination(),
+            onChange: values => {
+                setSelectedDate(null)
+                const value = values[0]
+                void navigate({
+                    search: current => ({
+                        ...current,
+                        deliveryChannel: value === undefined || value === 'all' ? undefined : value,
+                    }),
+                })
+            },
+            options: [
+                { label: m.delivery_all_destinations(), value: 'all' },
+                ...(channelId && !channels.some(channel => channel.id === channelId)
+                    ? [{ label: m.delivery_retired_destination(), value: channelId }]
+                    : []),
+                ...channels.map(channel => ({ label: channel.name, value: channel.id })),
+            ],
+            selected: [channelId ?? 'all'],
+        },
+    ]
+    const hasDailyBars = daily.some(day => day.published || day.failed || day.ambiguous)
     return (
         <section
             aria-labelledby="delivery-analytics-heading"
             data-delivery-dashboard
             className="mt-6 min-w-0 space-y-4">
             <div className="flex flex-wrap items-end justify-between gap-3">
-                <h2 id="delivery-analytics-heading" className="text-lg font-semibold">
-                    {m.delivery_title()}
+                {/* With nothing to report the tab name already says it; the heading stays for readers. */}
+                <h2
+                    id="delivery-analytics-heading"
+                    className={showControls ? 'text-lg font-semibold' : 'sr-only'}>
+                    {m.delivery_results_heading()}
                 </h2>
-                <div className="flex max-w-full flex-wrap items-center gap-2 sm:flex-nowrap">
-                    <Select
-                        value={String(days)}
-                        onValueChange={value => {
-                            setSelectedDate(null)
-                            void navigate({
-                                search: current => ({
-                                    ...current,
-                                    days: Number(value) as DeliveryAnalyticsPeriod,
-                                }),
-                            })
-                        }}>
-                        <SelectTrigger aria-label={m.delivery_period()} className="w-auto">
-                            <SelectValue>{m.delivery_period_days({ days })}</SelectValue>
-                        </SelectTrigger>
-                        <SelectContent>
-                            {deliveryAnalyticsPeriods.map(period => (
-                                <SelectItem key={period} value={String(period)}>
-                                    {m.delivery_period_days({ days: period })}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                    <Select
-                        value={channelId ?? 'all'}
-                        onValueChange={value => {
-                            setSelectedDate(null)
-                            void navigate({
-                                search: current => ({
-                                    ...current,
-                                    deliveryChannel:
-                                        value === 'all' ? undefined : (value ?? undefined),
-                                }),
-                            })
-                        }}>
-                        <SelectTrigger
-                            aria-label={m.delivery_destination()}
-                            className="w-48 min-w-0 max-w-full">
-                            <SelectValue>
-                                {channelId
-                                    ? (channels.find(channel => channel.id === channelId)?.name ??
-                                      m.delivery_retired_destination())
-                                    : m.delivery_all_destinations()}
-                            </SelectValue>
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">{m.delivery_all_destinations()}</SelectItem>
-                            {channelId && !channels.some(channel => channel.id === channelId) ? (
-                                <SelectItem value={channelId}>
-                                    {m.delivery_retired_destination()}
-                                </SelectItem>
-                            ) : null}
-                            {channels.map(channel => (
-                                <SelectItem key={channel.id} value={channel.id}>
-                                    {channel.name}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        disabled={query.isFetching}
-                        onClick={() => void query.refetch()}>
-                        {query.isFetching && report ? m.realtime_refreshing() : m.delivery_reload()}
-                    </Button>
-                </div>
+                {showControls ? (
+                    <div className="flex max-w-full flex-wrap items-center gap-1">
+                        {/* A period is not a filter: it keeps its own control (DESIGN.md "Filters"). */}
+                        <ChoiceMenu
+                            ariaLabel={m.delivery_period()}
+                            data-delivery-period="true"
+                            detail={project.timeZone}
+                            heading={m.delivery_period()}
+                            icon={<CalendarIcon aria-hidden="true" />}
+                            onChange={value => {
+                                setSelectedDate(null)
+                                void navigate({
+                                    search: current => ({
+                                        ...current,
+                                        days: Number(value) as DeliveryAnalyticsPeriod,
+                                    }),
+                                })
+                            }}
+                            options={deliveryAnalyticsPeriods.map(period => ({
+                                label: m.delivery_period_days({ days: period }),
+                                value: String(period),
+                            }))}
+                            value={String(days)}
+                        />
+                        {showDestinationSelect ? <FilterMenu groups={destinationFilter} /> : null}
+                    </div>
+                ) : null}
             </div>
+            {showControls ? (
+                <div className="empty:hidden">
+                    <ActiveFilters groups={destinationFilter} />
+                </div>
+            ) : null}
             {query.isError ? <QueryErrorState onRetry={() => void query.refetch()} /> : null}
             {!report && query.isPending ? (
                 <p role="status" className="py-6 text-sm text-muted-foreground">
                     {m.common_loading()}
                 </p>
             ) : null}
-            {report && counters ? (
+            {report && counters && isReportEmpty ? (
+                <EmptyState
+                    className="mt-2"
+                    description={
+                        // Nothing exists yet: say when results come, not what the log lacks (pattern 4).
+                        neverPublished
+                            ? m.delivery_empty_description()
+                            : incomplete
+                              ? m.delivery_incomplete()
+                              : null
+                    }
+                    illustration="data"
+                    title={m.delivery_empty()}
+                />
+            ) : report && counters ? (
                 <>
                     <p className="text-xs leading-5 text-muted-foreground">
                         {m.delivery_range({
-                            from: formatDateTime(report.range.from, report.projectTimeZone, locale),
-                            to: formatDateTime(report.range.to, report.projectTimeZone, locale),
+                            from: formatProjectDate(
+                                report.range.from,
+                                report.projectTimeZone,
+                                locale
+                            ),
+                            to: formatProjectDate(report.range.to, report.projectTimeZone, locale),
                         })}
                     </p>
                     {incomplete ? (
-                        <p role="status" className="text-sm text-state-attention">
+                        <p role="status" className="text-xs text-muted-foreground">
                             {m.delivery_incomplete()}
                         </p>
                     ) : null}
                     <dl
-                        className="grid grid-cols-2 gap-x-6 gap-y-5 border-y border-border py-4 lg:grid-cols-4"
+                        className={`grid overflow-hidden rounded-lg border border-border bg-surface-raised [&>div]:border-border [&>div]:p-4 ${counterGridClass}`}
                         data-delivery-counters>
-                        {(Object.keys(labels) as (keyof typeof labels)[]).map(key => (
+                        {visibleCounterKeys.map(key => (
                             <div key={key}>
                                 <dt className="text-xs text-muted-foreground">{labels[key]}</dt>
                                 <dd
@@ -194,33 +228,32 @@ export function DeliveryAnalyticsDashboard({
                                     data-delivery-counter={key}>
                                     {formatNumber(counters[key], locale)}
                                 </dd>
-                                <dd className="mt-1 text-xs text-muted-foreground">
-                                    {comparisonAvailable && previousCounters
-                                        ? m.delivery_comparison({
-                                              difference: formatNumber(
-                                                  counters[key] - previousCounters[key],
-                                                  locale,
-                                                  { signDisplay: 'exceptZero' }
-                                              ),
-                                          })
-                                        : comparisonQuery.isPending && !incomplete
-                                          ? m.common_loading()
-                                          : m.delivery_comparison_unavailable()}
-                                </dd>
+                                {/* A comparison shows only when one exists (pattern 4). */}
+                                {counters[key] !== 0 && comparisonAvailable && previousCounters ? (
+                                    <dd className="mt-1 text-xs text-muted-foreground">
+                                        {m.delivery_comparison({
+                                            difference: formatNumber(
+                                                counters[key] - previousCounters[key],
+                                                locale,
+                                                { signDisplay: 'exceptZero' }
+                                            ),
+                                        })}
+                                    </dd>
+                                ) : null}
                             </div>
                         ))}
                     </dl>
-                    <p className="text-xs leading-5 text-muted-foreground">{m.delivery_scope()}</p>
-                    <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(18rem,1fr)]">
-                        <div className="min-w-0">
-                            <div className="flex flex-wrap items-baseline justify-between gap-2">
-                                <h3 className="text-sm font-medium">{m.delivery_daily()}</h3>
-                                <span className="text-xs text-muted-foreground">
-                                    {report.projectTimeZone}
-                                </span>
-                            </div>
-                            {daily.some(day => day.published || day.failed || day.ambiguous) ? (
-                                <>
+
+                    {hasDailyBars || destinations.length > 0 ? (
+                        <div
+                            className={`grid min-w-0 gap-4 ${hasDailyBars && destinations.length > 0 ? 'xl:grid-cols-[minmax(0,1.4fr)_minmax(18rem,1fr)]' : 'grid-cols-1'}`}>
+                            {hasDailyBars ? (
+                                <div className="min-w-0 rounded-lg border border-border bg-surface-raised p-4">
+                                    <div className="flex flex-wrap items-baseline justify-between gap-2">
+                                        <h3 className="text-sm font-medium">
+                                            {m.delivery_daily()}
+                                        </h3>
+                                    </div>
                                     <div className="mt-4 overflow-x-auto pb-2">
                                         <div
                                             className="flex h-40 items-end gap-1 border-b border-border"
@@ -228,63 +261,93 @@ export function DeliveryAnalyticsDashboard({
                                             role="group"
                                             aria-label={m.delivery_daily()}>
                                             {daily.map((day, index) => (
-                                                <button
-                                                    key={day.date}
-                                                    type="button"
-                                                    data-delivery-day={day.date}
-                                                    title={m.delivery_day_label({
-                                                        date: dayLabel(day.date),
-                                                        published: day.published,
-                                                        failed: day.failed,
-                                                        ambiguous: day.ambiguous,
-                                                    })}
-                                                    aria-pressed={selectedDay?.date === day.date}
-                                                    tabIndex={
-                                                        selectedDay?.date === day.date ? 0 : -1
-                                                    }
-                                                    aria-label={m.delivery_day_label({
-                                                        date: dayLabel(day.date),
-                                                        published: day.published,
-                                                        failed: day.failed,
-                                                        ambiguous: day.ambiguous,
-                                                    })}
-                                                    ref={node => {
-                                                        if (node) bars.current.set(day.date, node)
-                                                        else bars.current.delete(day.date)
-                                                    }}
-                                                    onClick={() => setSelectedDate(day.date)}
-                                                    onKeyDown={event => {
-                                                        const next =
-                                                            event.key === 'ArrowRight'
-                                                                ? Math.min(
-                                                                      daily.length - 1,
-                                                                      index + 1
-                                                                  )
-                                                                : event.key === 'ArrowLeft'
-                                                                  ? Math.max(0, index - 1)
-                                                                  : event.key === 'Home'
-                                                                    ? 0
-                                                                    : event.key === 'End'
-                                                                      ? daily.length - 1
-                                                                      : null
-                                                        if (next !== null) {
-                                                            event.preventDefault()
-                                                            const date = daily[next]!.date
-                                                            setSelectedDate(date)
-                                                            bars.current.get(date)?.focus()
+                                                <Tooltip>
+                                                    <TooltipTrigger
+                                                        render={
+                                                            <button
+                                                                key={day.date}
+                                                                type="button"
+                                                                data-delivery-day={day.date}
+
+                                                                aria-pressed={
+                                                                    selectedDay?.date === day.date
+                                                                }
+                                                                tabIndex={
+                                                                    selectedDay?.date === day.date
+                                                                        ? 0
+                                                                        : -1
+                                                                }
+                                                                aria-label={m.delivery_day_label({
+                                                                    date: dayLabel(day.date),
+                                                                    published: day.published,
+                                                                    failed: day.failed,
+                                                                    ambiguous: day.ambiguous,
+                                                                })}
+                                                                ref={node => {
+                                                                    if (node)
+                                                                        bars.current.set(
+                                                                            day.date,
+                                                                            node
+                                                                        )
+                                                                    else
+                                                                        bars.current.delete(
+                                                                            day.date
+                                                                        )
+                                                                }}
+                                                                onClick={() =>
+                                                                    setSelectedDate(day.date)
+                                                                }
+                                                                onKeyDown={event => {
+                                                                    const next =
+                                                                        event.key === 'ArrowRight'
+                                                                            ? Math.min(
+                                                                                  daily.length - 1,
+                                                                                  index + 1
+                                                                              )
+                                                                            : event.key ===
+                                                                                'ArrowLeft'
+                                                                              ? Math.max(
+                                                                                    0,
+                                                                                    index - 1
+                                                                                )
+                                                                              : event.key === 'Home'
+                                                                                ? 0
+                                                                                : event.key ===
+                                                                                    'End'
+                                                                                  ? daily.length - 1
+                                                                                  : null
+                                                                    if (next !== null) {
+                                                                        event.preventDefault()
+                                                                        const date =
+                                                                            daily[next]!.date
+                                                                        setSelectedDate(date)
+                                                                        bars.current
+                                                                            .get(date)
+                                                                            ?.focus()
+                                                                    }
+                                                                }}
+                                                                className="group flex h-full min-w-2 flex-1 items-end rounded-t-sm outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset">
+                                                                <span
+                                                                    aria-hidden="true"
+                                                                    className={`block w-full rounded-t-sm ${selectedDay?.date === day.date ? 'bg-primary' : 'bg-foreground/50 group-hover:bg-foreground/70'}`}
+                                                                    style={{
+                                                                        height: day.published
+                                                                            ? `${Math.max(2, (day.published / maximum) * 100)}%`
+                                                                            : 2,
+                                                                    }}
+                                                                />
+                                                            </button>
                                                         }
-                                                    }}
-                                                    className="group flex h-full min-w-2 flex-1 items-end rounded-t-sm outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset">
-                                                    <span
-                                                        aria-hidden="true"
-                                                        className={`block w-full rounded-t-sm ${selectedDay?.date === day.date ? 'bg-primary' : 'bg-foreground/50 group-hover:bg-foreground/70'}`}
-                                                        style={{
-                                                            height: day.published
-                                                                ? `${Math.max(2, (day.published / maximum) * 100)}%`
-                                                                : 2,
-                                                        }}
                                                     />
-                                                </button>
+                                                    <TooltipContent>
+                                                        {m.delivery_day_label({
+                                                            date: dayLabel(day.date),
+                                                            published: day.published,
+                                                            failed: day.failed,
+                                                            ambiguous: day.ambiguous,
+                                                        })}
+                                                    </TooltipContent>
+                                                </Tooltip>
                                             ))}
                                         </div>
                                         <div
@@ -308,69 +371,66 @@ export function DeliveryAnalyticsDashboard({
                                               })
                                             : ''}
                                     </p>
-                                </>
-                            ) : (
-                                <p className="py-8 text-sm text-muted-foreground">
-                                    {m.delivery_empty()}
-                                </p>
-                            )}
-                        </div>
-                        {destinations.length ? (
-                            <div className="min-w-0">
-                                <h3 className="mb-3 text-sm font-medium">
-                                    {m.delivery_by_destination()}
-                                </h3>
-                                <table
-                                    className="w-full table-fixed text-left text-sm"
-                                    data-delivery-destinations>
-                                    <thead className="[&_th]:break-words">
-                                        <tr className="text-xs text-muted-foreground">
-                                            <th scope="col" className="w-2/5 pb-2 font-normal">
-                                                {m.delivery_destination()}
-                                            </th>
-                                            <th
-                                                scope="col"
-                                                className="pb-2 pl-3 text-right font-normal">
-                                                {m.delivery_published()}
-                                            </th>
-                                            <th
-                                                scope="col"
-                                                className="pb-2 pl-3 text-right font-normal">
-                                                {m.delivery_failed()}
-                                            </th>
-                                            <th
-                                                scope="col"
-                                                className="pb-2 pl-3 text-right font-normal">
-                                                {m.delivery_ambiguous()}
-                                            </th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {destinations.map((row, index) => (
-                                            <tr
-                                                key={row.channelId ?? `unknown-${index}`}
-                                                className="border-t border-border">
-                                                <th
-                                                    scope="row"
-                                                    className="max-w-48 break-words py-3 font-normal">
-                                                    {row.name ?? m.delivery_retired_destination()}
+                                </div>
+                            ) : null}
+                            {destinations.length ? (
+                                <div className="min-w-0 rounded-lg border border-border bg-surface-raised p-4">
+                                    <h3 className="mb-3 text-sm font-medium">
+                                        {m.delivery_by_destination()}
+                                    </h3>
+                                    <table
+                                        className="w-full table-fixed text-left text-sm"
+                                        data-delivery-destinations>
+                                        <thead className="[&_th]:break-words">
+                                            <tr className="text-xs text-muted-foreground">
+                                                <th scope="col" className="w-1/4 pb-2 font-normal">
+                                                    {m.delivery_destination()}
                                                 </th>
-                                                <td className="py-3 pl-3 text-right tabular-nums">
-                                                    {formatNumber(row.published, locale)}
-                                                </td>
-                                                <td className="py-3 pl-3 text-right tabular-nums">
-                                                    {formatNumber(row.failed, locale)}
-                                                </td>
-                                                <td className="py-3 pl-3 text-right tabular-nums">
-                                                    {formatNumber(row.ambiguous, locale)}
-                                                </td>
+                                                <th
+                                                    scope="col"
+                                                    className="pb-2 pl-2 text-right font-normal">
+                                                    {m.delivery_published()}
+                                                </th>
+                                                <th
+                                                    scope="col"
+                                                    className="pb-2 pl-2 text-right font-normal">
+                                                    {m.delivery_failed()}
+                                                </th>
+                                                <th
+                                                    scope="col"
+                                                    className="pb-2 pl-2 text-right font-normal">
+                                                    {m.delivery_ambiguous()}
+                                                </th>
                                             </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        ) : null}
-                    </div>
+                                        </thead>
+                                        <tbody>
+                                            {destinations.map((row, index) => (
+                                                <tr
+                                                    key={row.channelId ?? `unknown-${index}`}
+                                                    className="border-t border-border">
+                                                    <th
+                                                        scope="row"
+                                                        className="max-w-48 break-words py-3 font-normal">
+                                                        {row.name ??
+                                                            m.delivery_retired_destination()}
+                                                    </th>
+                                                    <td className="py-3 pl-2 text-right tabular-nums">
+                                                        {formatNumber(row.published, locale)}
+                                                    </td>
+                                                    <td className="py-3 pl-2 text-right tabular-nums">
+                                                        {formatNumber(row.failed, locale)}
+                                                    </td>
+                                                    <td className="py-3 pl-2 text-right tabular-nums">
+                                                        {formatNumber(row.ambiguous, locale)}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            ) : null}
+                        </div>
+                    ) : null}
                 </>
             ) : null}
         </section>

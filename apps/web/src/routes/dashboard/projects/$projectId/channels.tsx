@@ -2,6 +2,8 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 
 import { ChannelManagementPage } from '@/components/channel-management-page'
+import { WorkspaceChannelsPage } from '@/components/workspace-channels-page'
+import { useDashboardGlobal } from '@/lib/dashboard-context'
 import {
     parsePublisherCallbackResult,
     type PublisherCallbackResult,
@@ -9,6 +11,7 @@ import {
 
 export const Route = createFileRoute('/dashboard/projects/$projectId/channels')({
     validateSearch: (search: Record<string, unknown>): ChannelsSearch => ({
+        scope: search.scope === 'workspace' ? 'workspace' : undefined,
         add: search.add === true || search.add === 'true' ? true : undefined,
         publisher: parsePublisherCallbackResult(search.publisher),
         facebook_selection:
@@ -25,6 +28,7 @@ export const Route = createFileRoute('/dashboard/projects/$projectId/channels')(
 })
 
 export interface ChannelsSearch {
+    scope?: 'workspace'
     add?: true
     facebook_selection?: string
     publisher?: PublisherCallbackResult
@@ -32,6 +36,7 @@ export interface ChannelsSearch {
 }
 
 function ChannelsRoute() {
+    const { selectedWorkspaceId } = useDashboardGlobal()
     const navigate = useNavigate()
     const search = Route.useSearch()
     const { projectId } = Route.useParams()
@@ -61,6 +66,8 @@ function ChannelsRoute() {
         })
     }
 
+    if (search.scope === 'workspace' && selectedWorkspaceId)
+        return <WorkspaceChannelsPage projectId={projectId} />
     return (
         <ChannelManagementPage
             startCreating={startCreating}

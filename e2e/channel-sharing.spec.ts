@@ -66,13 +66,11 @@ for (const [locale, messages] of [
         await expect(
             dialog.getByText(messages.channel_share_withdraw_consequence, { exact: true })
         ).toBeVisible()
-        await expect(dialog.getByText(targetName, { exact: true })).toBeVisible()
 
         await dialog
-            .getByRole('button', {
-                name: fill(messages.channel_share_add, { project: targetName }),
-            })
+            .getByRole('button', { name: messages.channel_share_available, exact: true })
             .click()
+        await page.getByRole('menuitem', { name: targetName, exact: true }).click()
         await expect(
             page.getByRole('heading', {
                 name: fill(messages.channel_share_added, {
@@ -178,11 +176,11 @@ test('keeps the sharing dialog within a narrow viewport', async ({ page }) => {
     expect(box).not.toBeNull()
     expect(box!.x).toBeGreaterThanOrEqual(0)
     expect(box!.x + box!.width).toBeLessThanOrEqual(390)
+    await dialog.getByRole('button', { name: en.channel_share_available, exact: true }).click()
     await expect(
-        dialog.getByRole('button', {
-            name: fill(en.channel_share_add, {
-                project: `Narrow target with a long name ${suffix}`,
-            }),
+        page.getByRole('menuitem', {
+            name: `Narrow target with a long name ${suffix}`,
+            exact: true,
         })
     ).toBeInViewport()
     expect(

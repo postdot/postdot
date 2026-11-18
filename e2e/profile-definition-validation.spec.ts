@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto'
 import { expect, test, type Locator, type Page } from '@playwright/test'
 
 import en from '../apps/web/messages/en.json' with { type: 'json' }
-import { frenchTranslation } from './locale'
+import { frenchTranslation, openLanguageMenu } from './locale'
 
 interface EditableProfile {
     contentSchema: { properties: { body: { maxLength: number } } }
@@ -123,21 +123,23 @@ test('explains profile errors by field and preserves work until a valid draft is
 
     await page.goto(`/dashboard/projects/${projectId}/channels`)
     await page.getByRole('button', { name: 'Manage Validation channel', exact: true }).click()
-    await page.getByRole('menuitem', { name: 'Edit profile', exact: true }).click()
-    const dialog = page.getByRole('dialog')
-    await expect(bodyMaximum(dialog)).toHaveValue('1000000')
+    await page.getByRole('menuitem', { name: 'Content rules', exact: true }).click()
+    const dialog = page.locator('[data-slot="dialog-content"]')
+    await expect(bodyMaximum(dialog)).toHaveValue('1,000,000')
 
     await bodyMaximum(dialog).fill('900')
-    await dialog.getByRole('button', { name: 'Save draft', exact: true }).click()
+    await dialog.getByRole('button', { name: 'Save', exact: true }).click()
     const alert = dialog.getByRole('alert')
-    await expect(alert).toContainText('Correct the profile definition')
-    await expect(alert).toContainText('/capabilities/textFields/0/bindingId')
-    await expect(alert).toContainText('Reference an ID declared in fieldBindings.')
+    await expect(alert).toContainText(en.profile_definition_invalid)
+    // The reason is stated in words; the internal field path stays out of Studio.
+    await expect(alert).not.toContainText('/capabilities/textFields/0/bindingId')
+    await expect(alert).toContainText('Reference a field identifier defined in the channel rules.')
     await expect(alert).not.toContainText('FAKE_SENTINEL')
-    await expect(alert).not.toContainText('The request could not be completed.')
+    await expect(alert).not.toContainText(
+        'Something went wrong. Check your connection and try again.'
+    )
     // The refusal keeps the operator's work and stays a single, field-level signal.
     await expect(bodyMaximum(dialog)).toHaveValue('900')
-    await expect(dialog.getByRole('button', { name: 'Preview impact', exact: true })).toBeDisabled()
     await expect(page.getByText(en.channels_action_failed, { exact: true })).toHaveCount(0)
     expect(await (await page.request.get(url)).json()).toEqual(original)
     await page.setViewportSize({ width: 390, height: 844 })
@@ -155,18 +157,16 @@ test('explains profile errors by field and preserves work until a valid draft is
         response =>
             response.url().endsWith('/profile-drafts') && response.request().method() === 'POST'
     )
-    await dialog.getByRole('button', { name: 'Save draft', exact: true }).click()
+    await dialog.getByRole('button', { name: 'Save', exact: true }).click()
     expect((await valid).status()).toBe(200)
-    await expect(dialog.getByRole('alert')).toHaveCount(0)
-    await expect(dialog.getByRole('button', { name: 'Preview impact', exact: true })).toBeEnabled()
-    await expect(bodyMaximum(dialog)).toHaveValue('800')
+    // No publication is affected, so the one save applies the rules and closes.
+    await expect(page.locator('[data-channel-dialog-body]')).toHaveCount(0)
     const saved = await (await page.request.get(url)).json()
-    expect(saved.active).toEqual(original.active)
-    expect(saved.draft.revision).toBe(1)
-    await dialog.getByRole('button', { name: 'Close', exact: true }).click()
+    expect(saved.active.version).toBe(original.active.version + 1)
+    expect(saved.draft).toBeNull()
 
-    await page.locator('[data-slot="language-switcher-trigger"]').click()
-    await page.getByRole('menuitem', { name: 'French', exact: true }).click()
+    await openLanguageMenu(page)
+    await page.getByRole('menuitem', { name: 'Français', exact: true }).click()
     await page
         .getByRole('button', {
             name: frenchTranslation('channel_manage').replace('{channel}', 'Validation channel'),
@@ -176,7 +176,7 @@ test('explains profile errors by field and preserves work until a valid draft is
     await page
         .getByRole('menuitem', { name: frenchTranslation('channel_edit_profile'), exact: true })
         .click()
-    const frenchDialog = page.getByRole('dialog')
+    const frenchDialog = page.locator('[data-slot="dialog-content"]')
     await expect(
         frenchDialog
             .getByRole('group', { name: frenchTranslation('editor_source_body'), exact: true })
@@ -185,22 +185,23 @@ test('explains profile errors by field and preserves work until a valid draft is
     refusal.path = '/execution'
     refusal.code = 'profile.object_required'
     refuse = true
-    await page
-        .getByRole('button', { name: frenchTranslation('profile_save_draft'), exact: true })
-        .click()
+    // A save needs a change: edit the rules so the refused save is a real attempt.
+    await frenchDialog
+        .getByRole('group', { name: frenchTranslation('editor_source_body'), exact: true })
+        .getByLabel(frenchTranslation('builder_max_length'), { exact: true })
+        .fill('700')
+    await page.getByRole('button', { name: frenchTranslation('common_save'), exact: true }).click()
     const frenchAlert = frenchDialog.getByRole('alert')
     await expect(frenchAlert).toContainText(frenchTranslation('profile_definition_invalid'))
-    await expect(frenchAlert).toContainText('/execution')
+    await expect(frenchAlert).not.toContainText('/execution')
     await expect(frenchAlert).toContainText(frenchTranslation('profile_issue_object'))
     await expect(frenchAlert).not.toContainText('FAKE_SENTINEL')
     refusal.path = ''
     refusal.code = 'FAKE_SENTINEL'
-    await page
-        .getByRole('button', { name: frenchTranslation('profile_save_draft'), exact: true })
-        .click()
+    await page.getByRole('button', { name: frenchTranslation('common_save'), exact: true }).click()
     await expect(frenchAlert).toContainText(frenchTranslation('profile_issue_general'))
     await expect(frenchAlert).not.toContainText('FAKE_SENTINEL')
-    // The refused French saves changed nothing: active and draft stay exactly as saved.
+    // The refused French saves changed nothing: the active rules stay exactly as saved.
     expect(await (await page.request.get(url)).json()).toEqual(saved)
 })
 
@@ -230,7 +231,7 @@ function bodyGroup(scope: Locator): Locator {
 }
 
 function bodyMaximum(scope: Locator): Locator {
-    return bodyGroup(scope).getByLabel('Maximum characters', { exact: true })
+    return bodyGroup(scope).getByLabel('Maximum length', { exact: true })
 }
 
 async function createAccountAndProject(page: Page, suffix: string): Promise<void> {
@@ -251,13 +252,11 @@ async function createAccountAndProject(page: Page, suffix: string): Promise<void
 
     await page.getByRole('combobox', { name: 'Select project', exact: true }).click()
     await page.getByRole('button', { name: 'Create project', exact: true }).last().click()
-    await page
-        .getByRole('textbox', { name: 'New project', exact: true })
-        .fill(`E2E-142 project ${suffix}`)
+    await page.getByRole('textbox', { name: 'Name', exact: true }).fill(`E2E-142 project ${suffix}`)
     await page
         .locator('form')
-        .filter({ has: page.getByRole('textbox', { name: 'New project', exact: true }) })
-        .getByRole('button', { name: 'Add project', exact: true })
+        .filter({ has: page.getByRole('textbox', { name: 'Name', exact: true }) })
+        .getByRole('button', { name: 'Create project', exact: true })
         .click()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/overview$/)
     await expect(page.getByRole('heading', { name: 'Overview', exact: true })).toBeVisible()

@@ -1,41 +1,56 @@
-import { Button } from '@postdot/ui/components/button'
-import { MoonIcon } from '@solar-icons/react/linear/moon'
-import { SunIcon } from '@solar-icons/react/linear/sun'
-import type { ComponentProps } from 'react'
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@postdot/ui/components/select'
 
-import { ActionTooltip } from '@/components/action-tooltip'
 import { useLanguage } from '@/lib/i18n'
 import { useTheme } from '@/lib/theme'
 import * as m from '@/paraglide/messages.js'
 
-type ThemeToggleProps = Omit<ComponentProps<typeof Button>, 'children' | 'onClick'>
+export const themeOptions = ['system', 'light', 'dark'] as const
+export type ThemeOption = (typeof themeOptions)[number]
 
-export function ThemeToggle({ className, ...props }: ThemeToggleProps) {
+export function themeLabel(theme: ThemeOption) {
+    return theme === 'system'
+        ? m.theme_option_system()
+        : theme === 'dark'
+          ? m.theme_option_dark()
+          : m.theme_option_light()
+}
+
+export function ThemeSelect({ id }: { readonly id?: string }) {
     useLanguage()
-    const { resolvedTheme, setTheme } = useTheme()
-    const nextTheme = resolvedTheme === 'dark' ? 'light' : 'dark'
-    const label =
-        resolvedTheme === undefined
-            ? m.theme_switch()
-            : m.theme_switch_to({
-                  theme: nextTheme === 'dark' ? m.theme_dark() : m.theme_light(),
-              })
+    const { theme, setTheme } = useTheme()
+    const current = selectedThemeOption(theme)
 
     return (
-        <ActionTooltip label={label}>
-            <Button
-                {...props}
-                aria-label={label}
-                className={className}
-                size="icon-sm"
-                variant="ghost"
-                onClick={() => setTheme(nextTheme)}>
-                {resolvedTheme === 'dark' ? (
-                    <SunIcon aria-hidden="true" />
-                ) : (
-                    <MoonIcon aria-hidden="true" />
-                )}
-            </Button>
-        </ActionTooltip>
+        <Select
+            value={current}
+            onValueChange={value => {
+                if (value === 'system' || value === 'light' || value === 'dark') setTheme(value)
+            }}>
+            <SelectTrigger
+                aria-label={m.preferences_theme()}
+                className="w-44"
+                data-slot="theme-select"
+                id={id}>
+                <SelectValue>{themeLabel(current)}</SelectValue>
+            </SelectTrigger>
+            <SelectContent align="end">
+                {themeOptions.map(option => (
+                    <SelectItem key={option} value={option}>
+                        {themeLabel(option)}
+                    </SelectItem>
+                ))}
+            </SelectContent>
+        </Select>
     )
+}
+
+/** The person's choice, which may be to follow the system. */
+export function selectedThemeOption(theme: string | undefined): ThemeOption {
+    return theme === 'light' || theme === 'dark' ? theme : 'system'
 }

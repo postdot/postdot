@@ -109,6 +109,22 @@ describe('MCP endpoint', () => {
             ])
                 expect(names).not.toContain(hidden)
 
+            for (const scope of ['project', 'workspace', 'project_channel']) {
+                for (const operation of [
+                    `set_${scope}_website`,
+                    `upload_${scope}_image`,
+                    `import_${scope}_image_url`,
+                    `use_${scope}_website_icon`,
+                    `remove_${scope}_image`,
+                ])
+                    expect(names).toContain(operation)
+                expect(
+                    tools.find(tool => tool.name === `upload_${scope}_image`)?.inputSchema
+                ).toMatchObject({
+                    required: expect.arrayContaining(['base64']),
+                    properties: { base64: { type: 'string' } },
+                })
+            }
             for (const adminTool of [
                 'list_access_members',
                 'create_access_member',
@@ -340,6 +356,46 @@ describe('MCP endpoint', () => {
 
             const accepted = await client.callTool(post(true))
             expect(accepted.isError).toBe(false)
+            const saved = JSON.parse(textOf(accepted)) as {
+                post: { id: string }
+                publications: { id: string }[]
+            }
+            const composition = {
+                projectId: project,
+                postId: saved.post.id,
+                expectedSourceRevision: 1,
+                publications: [{ publicationId: saved.publications[0]!.id, expectedRevision: 1 }],
+            }
+            const reschedule = {
+                ...composition,
+                publications: [
+                    { ...composition.publications[0], scheduledAt: now + 72 * 3_600_000 },
+                ],
+            }
+            const timingRefused = await client.callTool({
+                name: 'save_post_composition',
+                arguments: reschedule,
+            })
+            expect(timingRefused.isError).toBe(true)
+            expect(textOf(timingRefused)).toContain('confirm:true')
+            const draftSaved = await client.callTool({
+                name: 'save_post_composition',
+                arguments: composition,
+            })
+            expect(draftSaved.isError).toBe(false)
+            expect(JSON.parse(textOf(draftSaved)).publications[0].draft.revision).toBe(2)
+            const timingSaved = await client.callTool({
+                name: 'save_post_composition',
+                arguments: {
+                    ...reschedule,
+                    confirm: true,
+                    publications: [{ ...reschedule.publications[0], expectedRevision: 2 }],
+                },
+            })
+            expect(timingSaved).toMatchObject({ isError: false })
+            expect(JSON.parse(textOf(timingSaved)).publications[0].publication.scheduledAt).toBe(
+                now + 72 * 3_600_000
+            )
             const after = await client.callTool({
                 name: 'list_publication_summaries',
                 arguments: { projectId: project },
@@ -550,4 +606,44 @@ describe('MCP endpoint', () => {
             await closeTestDatabase(database)
         }
     })
+})
+
+it('uploads identity image bytes through MCP using the same API normalization and authorization', async () => {
+    const f = await setup()
+    const projectId = await f.project('MCP identity')
+    const token = await f.apiKey({
+        name: 'Identity editor',
+        capabilities: ['project:read', 'project:manage'],
+        projectIds: [projectId],
+    })
+    const { client } = await connect(f.app, token)
+    try {
+        // cspell:disable-next-line
+        const png =
+            'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aX1sAAAAASUVORK5CYII='
+        const uploaded = await client.callTool({
+            name: 'upload_project_image',
+            arguments: { projectId, base64: png },
+        })
+        expect(uploaded.isError).toBe(false)
+        expect(JSON.parse(textOf(uploaded))).toMatchObject({
+            project: {
+                imageSource: 'upload',
+                imageUrl: expect.stringMatching(/^\/api\/identity-images\/[a-f0-9]{64}$/),
+            },
+        })
+        const refused = await client.callTool({
+            name: 'upload_project_image',
+            arguments: { projectId, base64: 'AAAA' },
+        })
+        expect(refused.isError).toBe(true)
+        const removed = await client.callTool({
+            name: 'remove_project_image',
+            arguments: { projectId },
+        })
+        expect(removed.isError).toBe(false)
+    } finally {
+        await client.close()
+        await closeTestDatabase(f.database)
+    }
 })

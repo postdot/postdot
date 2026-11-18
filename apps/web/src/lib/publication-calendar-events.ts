@@ -1,5 +1,6 @@
 import type { CalendarEvent } from '@/components/reui/event-calendar/event-calendar-types'
 import type { ChannelOccupancy, PublicationSummary } from '@/lib/api'
+import { toDateKey } from '@/lib/publication-calendar'
 import { publicationIdentityLabel } from '@/lib/publication-identity'
 
 type PublicationCalendarView = 'month' | 'week' | 'day' | 'agenda'
@@ -7,7 +8,10 @@ type PublicationCalendarView = 'month' | 'week' | 'day' | 'agenda'
 export interface PublicationEventData {
     readonly due: boolean
     readonly occupancy?: undefined
+    /** The first publication of the group, used for the title and the preview. */
     readonly publication: PublicationSummary
+    /** Every channel publication of the same post at the same minute (ADR-103 §3). */
+    readonly publications: readonly PublicationSummary[]
 }
 
 /** Read-only time taken on a shared channel by another project; it is never selectable. */
@@ -45,6 +49,7 @@ export function toPublicationCalendarEvents(
                 data: {
                     due: duePublicationIds.has(publication.id),
                     publication,
+                    publications: [publication],
                 },
                 end: start,
                 id: publication.id,
@@ -59,6 +64,60 @@ export function toPublicationCalendarEvents(
             if (startDifference !== 0) return startDifference
             return left.id.localeCompare(right.id)
         })
+}
+
+/**
+ * A post sent to several channels is one calendar entry with its channels, not one line per
+ * channel (ADR-103 §3). Views that only show the day (month, agenda) group a post's channels
+ * across the whole civil day in `dayTimeZone`, so channels staggered by a cadence still read
+ * as one post; views placed on a time axis (week, day) group the same minute only. The group
+ * keeps its earliest publication as lead, so a single-channel entry is unchanged, and takes
+ * the most urgent state colour of its members.
+ */
+export function groupPublicationCalendarEvents(
+    events: readonly CalendarEvent<PublicationEventData>[],
+    dayTimeZone?: string
+): CalendarEvent<PublicationEventData>[] {
+    const groups = new Map<string, CalendarEvent<PublicationEventData>>()
+    for (const event of events) {
+        const data = event.data
+        if (data === undefined) continue
+        const slot =
+            dayTimeZone === undefined
+                ? String(Math.floor(event.start.getTime() / 60_000))
+                : toDateKey(event.start, dayTimeZone)
+        const key = `${data.publication.postId}:${slot}`
+        const current = groups.get(key)
+        if (current?.data === undefined) {
+            groups.set(key, event)
+            continue
+        }
+        groups.set(key, {
+            ...current,
+            color: mostUrgentColor(current.color, event.color),
+            data: {
+                ...current.data,
+                due: current.data.due || data.due,
+                publications: [...current.data.publications, ...data.publications],
+            },
+        })
+    }
+    return [...groups.values()]
+}
+
+const colorUrgency = [
+    'var(--color-state-failed)',
+    'var(--color-state-attention)',
+    'var(--color-primary)',
+    'var(--color-state-published)',
+]
+
+function mostUrgentColor(left: string | undefined, right: string | undefined) {
+    const rank = (color: string | undefined) => {
+        const index = colorUrgency.indexOf(color ?? '')
+        return index < 0 ? colorUrgency.length : index
+    }
+    return rank(right) < rank(left) ? right : left
 }
 
 /**

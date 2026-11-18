@@ -146,3 +146,38 @@ test('manual creation starts from current server rules without making optional t
     expect(manualBuilderStarter([])).toBeUndefined()
     expect(original.origin).toBe('built_in')
 })
+
+test('copies nested provider URL rules into the supported custom schema subset', () => {
+    const original = createManualChannelProfile()
+    const source = {
+        ...original,
+        id: 'bluesky',
+        execution: { kind: 'built_in' as const, contractId: 'bluesky', revision: 'post-v3' },
+        contentSchema: {
+            ...original.contentSchema,
+            properties: {
+                ...(original.contentSchema as { properties: Record<string, unknown> }).properties,
+                external: {
+                    type: 'object',
+                    properties: {
+                        uri: { type: 'string', maxLength: 2048, pattern: '^https?://' },
+                    },
+                    required: ['uri'],
+                    additionalProperties: false,
+                },
+            },
+        },
+    }
+    const [template] = templatesFromPresets([{ id: 'bluesky', version: 1, profile: source }])
+    expect(template!.profile.execution).toEqual(source.execution)
+    expect(template!.profile.contentSchema).toMatchObject({
+        properties: { external: { properties: { uri: { type: 'string', maxLength: 2048 } } } },
+    })
+    expect(JSON.stringify(template!.profile.contentSchema)).not.toContain('"pattern"')
+    expect(JSON.stringify(source.contentSchema)).toContain('"pattern"')
+    expect(
+        new ChannelProfileCompiler().compile(
+            template!.profile as unknown as ChannelProfileDefinition
+        ).ok
+    ).toBe(true)
+})

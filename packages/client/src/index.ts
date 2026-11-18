@@ -27,6 +27,7 @@ import type {
     MediaUploadResponse,
     MediaUrlImportResponse,
     EmailAlertPreferenceResponse,
+    NotificationContextResponse,
     NotificationInboxResponse,
     NotificationPreferenceResponse,
     NotificationResponse,
@@ -35,6 +36,7 @@ import type {
     PublisherConnectionResponse,
     PublisherConnectionsResponse,
     ProjectResponse,
+    ProjectListItemResponse,
     PublicationResponse,
     PublicationApprovalRequestResponse,
     PublicationSummaryResponse,
@@ -180,6 +182,11 @@ export type WorkspaceTeamMember = NonNullable<
 export type WorkspaceInvitation = NonNullable<
     Awaited<ReturnType<WorkspaceRoute['invitations']['get']>>['data']
 >['invitations'][number]
+export type WorkspaceChannelsResponse = NonNullable<
+    Awaited<ReturnType<WorkspaceRoute['channels']['get']>>['data']
+>
+export type WorkspaceChannel = WorkspaceChannelsResponse['channels'][number]
+export type WorkspaceChannelConnectionState = WorkspaceChannel['connectionState']
 
 type ProjectRoute = ReturnType<PostdotClient['api']['projects']>
 
@@ -259,6 +266,7 @@ export type WebApiRequests = {
         ChannelRoute['publisher']['custom-http']['connect']['post']
     >
     savePostSource: RequestBody<ReturnType<ProjectRoute['posts']>['patch']>
+    savePostComposition: RequestBody<ReturnType<ProjectRoute['posts']>['composition']['put']>
     addPostDestinations: RequestBody<ReturnType<ProjectRoute['posts']>['destinations']['post']>
     createPost: Omit<RequestBody<ProjectRoute['posts']['post']>, 'title'> & {
         title?: NonNullable<RequestBody<ProjectRoute['posts']['post']>['title']>
@@ -331,6 +339,7 @@ export type ProjectTeamGrant = NonNullable<
 >['grants'][number]
 
 export type Project = ProjectResponse
+export type ProjectListItem = ProjectListItemResponse
 export type ProjectCategory = ProjectCategoryResponse
 export type ProjectTag = ProjectTagResponse
 export type ChannelListItem = ChannelListItemResponse
@@ -367,6 +376,7 @@ export type PublicationListQuery = PublicationListQueryResponse
 export type AuditEvent = AuditEventResponse
 export type PublisherConnection = PublisherConnectionResponse
 export type PublisherConnections = PublisherConnectionsResponse
+export type NotificationContext = NotificationContextResponse
 export type Notification = NotificationResponse
 export type NotificationInbox = NotificationInboxResponse
 export type NotificationPreference = NotificationPreferenceResponse

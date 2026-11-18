@@ -12,10 +12,12 @@ import { useId, useState } from 'react'
 import * as m from '@/paraglide/messages.js'
 
 export function ChannelManagementTransfer({
+    managerLabel = null,
     projects,
     pending,
     onTransfer,
 }: {
+    managerLabel?: string | null
     projects: readonly { id: string; name: string }[]
     pending: boolean
     onTransfer: (projectId: string) => Promise<boolean>
@@ -23,11 +25,14 @@ export function ChannelManagementTransfer({
     const id = useId()
     const [projectId, setProjectId] = useState<string | null>(null)
     const selected = projects.find(p => p.id === projectId)
-    if (projects.length === 0) return null
+    if (projects.length === 0)
+        return managerLabel ? <p className="text-xs text-muted-foreground">{managerLabel}</p> : null
     return (
-        <section className="space-y-3">
-            <h3 className="text-sm font-medium">{m.channel_transfer_title()}</h3>
-            <p className="text-sm text-muted-foreground">{m.channel_transfer_description()}</p>
+        <details data-channel-transfer className="space-y-3 text-sm">
+            <summary className="cursor-pointer text-muted-foreground">
+                {managerLabel ?? m.channel_transfer_title()}
+            </summary>
+            <p className="mt-3 text-sm text-muted-foreground">{m.channel_transfer_description()}</p>
             <div className="space-y-2">
                 <Label htmlFor={id}>{m.channel_transfer_project()}</Label>
                 <Select
@@ -59,6 +64,6 @@ export function ChannelManagementTransfer({
                 }}>
                 {m.channel_transfer_confirm()}
             </Button>
-        </section>
+        </details>
     )
 }

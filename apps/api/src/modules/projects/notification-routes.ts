@@ -36,6 +36,16 @@ export function registerNotificationRoutes<const Routes extends Record<string, u
     notifications: NotificationStore,
     emailAlerts?: { store: NotificationEmailStore; available: boolean | (() => boolean) }
 ) {
+    async function withPublicationContexts(items: readonly UserNotification[], userId: string) {
+        const contexts = await notifications.publicationContexts(
+            userId,
+            items.map(item => item.id)
+        )
+        return items.map(item => ({
+            ...toNotificationResponse(item),
+            context: contexts.get(item.id) ?? null,
+        }))
+    }
     const available = () =>
         typeof emailAlerts?.available === 'function'
             ? emailAlerts.available()
@@ -148,7 +158,7 @@ export function registerNotificationRoutes<const Routes extends Record<string, u
                     includeArchived: query.view === 'all',
                 })
                 return {
-                    notifications: page.items.map(toNotificationResponse),
+                    notifications: await withPublicationContexts(page.items, user.id),
                     unreadCount: await notifications.countUnreadForUser(user.id, projectId),
                     totalUnreadCount: await notifications.countUnreadForUser(user.id),
                     nextCursor: page.nextCursor,
@@ -292,7 +302,7 @@ export function registerNotificationRoutes<const Routes extends Record<string, u
                 const unreadCount = await notifications.countUnread(params.projectId, user.id)
                 if (page === null || unreadCount === null) return status(404, notFoundResponse)
                 return {
-                    notifications: page.items.map(toNotificationResponse),
+                    notifications: await withPublicationContexts(page.items, user.id),
                     unreadCount,
                     totalUnreadCount: await notifications.countUnreadForUser(user.id),
                     nextCursor: page.nextCursor,

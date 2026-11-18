@@ -3,15 +3,18 @@ import { AddIcon } from '@solar-icons/react/linear/add'
 import { CalendarAddIcon } from '@solar-icons/react/linear/calendar-add'
 import { TrashBinMinimalisticIcon } from '@solar-icons/react/linear/trash-bin-minimalistic'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Link } from '@tanstack/react-router'
+import { Link, useNavigate } from '@tanstack/react-router'
 import { useEffect, useMemo, useState } from 'react'
 
 import { BulkActionBar } from '@/components/bulk-action-bar'
-import { DashboardPageHeader } from '@/components/dashboard-page-header'
 import { EmptyState } from '@/components/empty-state'
+import { ActiveFilters, FilterMenu } from '@/components/filter-controls'
+import { ProjectPage } from '@/components/project-page'
 import { PublicationBulkCancellationDialog } from '@/components/publication-bulk-cancellation-dialog'
+import { PublicationBulkMoveDialog } from '@/components/publication-bulk-move-dialog'
 import { PublicationBulkScheduleDialog } from '@/components/publication-bulk-schedule-dialog'
 import { PublicationCalendar } from '@/components/publication-calendar'
+import { calendarFilterGroups, calendarFilterState } from '@/components/publication-calendar-filter'
 import { PublicationSummaryBar } from '@/components/publication-summary-bar'
 import { QueryErrorState } from '@/components/query-error-state'
 import { api } from '@/lib/api'
@@ -32,6 +35,7 @@ import {
     type PublicationCalendarView,
 } from '@/lib/publication-calendar-events'
 import * as m from '@/paraglide/messages.js'
+import { Route } from '@/routes/dashboard/projects/$projectId/overview'
 
 export function PublicationCalendarPage({
     initialCalendarDateKey,
@@ -41,8 +45,23 @@ export function PublicationCalendarPage({
     readonly initialCalendarView?: PublicationCalendarView
 } = {}) {
     const { locale } = useLanguage()
+    const search = Route.useSearch()
+    const navigate = useNavigate({ from: '/dashboard/projects/$projectId/overview' })
+    const filterChannels = search.channelIds?.split(',').filter(Boolean) ?? []
+    const filterStates = search.states?.split(',').filter(Boolean) ?? []
+    function changeFilters(channelIds: string[], states: string[]) {
+        setSelectedPublicationIds(new Set())
+        void navigate({
+            search: previous => ({
+                ...previous,
+                channelIds: channelIds.join(',') || undefined,
+                states: states.join(',') || undefined,
+            }),
+            replace: true,
+        })
+    }
     const { channels, project, projectRole } = useProjectDashboard()
-    const { due, publications } = useProjectPublicationData(project.id)
+    const { due, publications, publicationSummary } = useProjectPublicationData(project.id)
     const { onCancelPublications, onReschedulePublications, pending } =
         useProjectPublicationActions()
     const queryClient = useQueryClient()
@@ -87,33 +106,47 @@ export function PublicationCalendarPage({
         retry: 1,
     })
     const occupancy = hasSharedChannel ? (occupancyQuery.data ?? []) : []
-    const channelNames = useMemo(
-        () => new Map(channels.map(channel => [channel.id, channel.name])),
-        [channels]
-    )
     const dueIds = useMemo(() => new Set(due.map(publication => publication.id)), [due])
+    const filteredPublications = calendarPublications.filter(
+        p =>
+            (filterChannels.length === 0 || filterChannels.includes(p.channelId)) &&
+            (filterStates.length === 0 || filterStates.includes(calendarFilterState(p, dueIds)))
+    )
+    const filterGroups = calendarFilterGroups({
+        channels,
+        states: [...new Set(calendarPublications.map(p => calendarFilterState(p, dueIds)))],
+        channelIds: filterChannels,
+        selectedStates: filterStates,
+        onChange: (nextChannels, nextStates) => changeFilters(nextChannels, nextStates),
+    })
+    // The next publication is read from the project's work, not the visible month.
     const nextScheduledPublication = useMemo(() => {
-        const upcoming = calendarPublications.filter(
+        const upcoming = [...publications, ...calendarPublications].filter(
             publication =>
                 publication.state === 'scheduled' &&
                 publication.scheduledAt !== null &&
-                toDateKey(new Date(publication.scheduledAt), project.timeZone) >= calendarDateKey
+                // C9: "next" is strictly in the future.
+                publication.scheduledAt > Date.now()
         )
         upcoming.sort((left, right) => left.scheduledAt! - right.scheduledAt!)
         return upcoming[0] ?? null
-    }, [calendarDateKey, calendarPublications, project.timeZone])
+    }, [publications, calendarPublications])
+    const failedCount = publications.filter(
+        publication => publication.state === 'failed' || publication.state === 'ambiguous'
+    ).length
     const calendarPublicationIds = useMemo(
-        () => toPublicationCalendarEvents(calendarPublications, dueIds).map(event => event.id),
-        [calendarPublications, dueIds]
+        () => toPublicationCalendarEvents(filteredPublications, dueIds).map(event => event.id),
+        [filteredPublications, dueIds]
     )
     const [selectedPublicationIds, setSelectedPublicationIds] = useState<Set<string>>(
         () => new Set()
     )
+    const [moveDialogOpen, setMoveDialogOpen] = useState(false)
     const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false)
     const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
     useEffect(() => {
         setSelectedPublicationIds(new Set())
-    }, [calendarDateKey])
+    }, [calendarDateKey, search.channelIds, search.states])
 
     const selectedCalendarPublications = calendarPublications.filter(publication =>
         selectedPublicationIds.has(publication.id)
@@ -149,10 +182,14 @@ export function PublicationCalendarPage({
         })
     }
 
-    async function rescheduleSelection(scheduledAt: number): Promise<boolean> {
+    async function rescheduleSelection(
+        scheduledAt: number,
+        scheduledTimes?: Record<string, number>
+    ): Promise<boolean> {
         const succeeded = await onReschedulePublications(
             selectedCalendarPublications.map(publication => publication.id),
-            scheduledAt
+            scheduledAt,
+            scheduledTimes
         )
         if (succeeded) {
             clearPublicationSelection()
@@ -180,28 +217,26 @@ export function PublicationCalendarPage({
     const readOnly = !canEditProject
 
     return (
-        <main className="min-w-0 px-4 py-7 sm:px-6 lg:px-8 lg:py-8">
-            <DashboardPageHeader
-                action={
-                    noChannels || !canEditProject ? undefined : (
-                        <Button
-                            className="md:hidden"
-                            nativeButton={false}
-                            render={
-                                <Link
-                                    params={{ projectId: project.id }}
-                                    search={{ date: todayDate }}
-                                    to="/dashboard/projects/$projectId/publications/new"
-                                />
-                            }>
-                            <AddIcon aria-hidden="true" />
-                            {m.overview_new_publication()}
-                        </Button>
-                    )
-                }
-                title={m.overview_title()}
-            />
-
+        <ProjectPage
+            width="full"
+            action={
+                noChannels || !canEditProject ? undefined : (
+                    <Button
+                        className="md:hidden"
+                        nativeButton={false}
+                        render={
+                            <Link
+                                params={{ projectId: project.id }}
+                                search={{ date: todayDate }}
+                                to="/dashboard/projects/$projectId/publications/new"
+                            />
+                        }>
+                        <AddIcon aria-hidden="true" />
+                        {m.overview_new_publication()}
+                    </Button>
+                )
+            }
+            title={m.overview_title()}>
             {noChannels ? (
                 <EmptyState
                     action={
@@ -223,7 +258,7 @@ export function PublicationCalendarPage({
                     className="w-full"
                     description={m.overview_setup_channels_description()}
                     illustration="network"
-                    layout="compact"
+                    layout="default"
                     title={m.overview_setup_channels_title()}
                 />
             ) : (
@@ -231,14 +266,25 @@ export function PublicationCalendarPage({
                     <PublicationSummaryBar
                         ariaLabel={m.overview_summary_aria()}
                         dueCount={due.length}
+                        failedCount={failedCount}
                         locale={locale}
+                        nextChannel={
+                            channels.find(
+                                channel => channel.id === nextScheduledPublication?.channelId
+                            ) ?? null
+                        }
                         nextPublication={nextScheduledPublication}
+                        scheduledCount={publicationSummary.scheduled}
+                        unscheduledCount={unscheduledPublications.length}
                         projectId={project.id}
                         timeZone={project.timeZone}
                     />
 
+                    {/* C10: the selection bar floats above the calendar instead of pushing it down. */}
                     {!readOnly && selectedCount > 0 ? (
-                        <div className="mt-4">
+                        <div
+                            className="fixed bottom-5 left-1/2 z-40 w-[min(48rem,calc(100vw-2rem))] -translate-x-1/2"
+                            data-calendar-selection-bar="true">
                             <BulkActionBar
                                 actions={[
                                     {
@@ -248,6 +294,13 @@ export function PublicationCalendarPage({
                                         id: 'reschedule',
                                         label: m.queue_reschedule(),
                                         onSelect: () => setScheduleDialogOpen(true),
+                                    },
+                                    {
+                                        disabled: !canRescheduleSelection,
+                                        disabledReason: m.queue_reschedule_only_scheduled(),
+                                        id: 'move',
+                                        label: m.calendar_move_by(),
+                                        onSelect: () => setMoveDialogOpen(true),
                                     },
                                     {
                                         disabled: !canCancelSelection,
@@ -282,8 +335,14 @@ export function PublicationCalendarPage({
                         <>
                             <section aria-labelledby="calendar-title" className="mt-7 min-w-0">
                                 <PublicationCalendar
-                                    channelNames={channelNames}
-                                    occupancy={occupancy}
+                                    filterControl={<FilterMenu groups={filterGroups} />}
+                                    filterSummary={<ActiveFilters groups={filterGroups} />}
+                                    channels={channels}
+                                    occupancy={occupancy.filter(
+                                        item =>
+                                            filterChannels.length === 0 ||
+                                            filterChannels.includes(item.channelId)
+                                    )}
                                     duePublicationIds={dueIds}
                                     loading={calendarPublicationsQuery.isFetching}
                                     locale={locale}
@@ -294,7 +353,7 @@ export function PublicationCalendarPage({
                                         setSelectedPublicationIds(new Set(publicationIds))
                                     }}
                                     projectId={project.id}
-                                    publications={calendarPublications}
+                                    publications={filteredPublications}
                                     readOnly={readOnly}
                                     selectedPublicationIds={selectedPublicationIds}
                                     timeZone={project.timeZone}
@@ -305,31 +364,19 @@ export function PublicationCalendarPage({
                                     </p>
                                 ) : null}
                             </section>
-
-                            {unscheduledPublications.length > 0 ? (
-                                <p className="mt-5 text-sm text-muted-foreground">
-                                    {m.calendar_unscheduled_description({
-                                        count: unscheduledPublications.length,
-                                    })}{' '}
-                                    <Link
-                                        className="text-primary underline underline-offset-4 hover:text-foreground"
-                                        params={{ projectId: project.id }}
-                                        search={{
-                                            filter: undefined,
-                                            sort: undefined,
-                                            tagIds: undefined,
-                                        }}
-                                        to="/dashboard/projects/$projectId/queue">
-                                        {m.calendar_review_queue()}
-                                    </Link>
-                                    .
-                                </p>
-                            ) : null}
                         </>
                     )}
                 </>
             )}
 
+            <PublicationBulkMoveDialog
+                open={moveDialogOpen}
+                onOpenChange={setMoveDialogOpen}
+                publications={selectedCalendarPublications}
+                pending={pending}
+                timeZone={project.timeZone}
+                onMove={times => rescheduleSelection(Math.min(...Object.values(times)), times)}
+            />
             <PublicationBulkScheduleDialog
                 open={scheduleDialogOpen}
                 onOpenChange={setScheduleDialogOpen}
@@ -345,7 +392,7 @@ export function PublicationCalendarPage({
                 pending={pending}
                 selectedCount={selectedCount}
             />
-        </main>
+        </ProjectPage>
     )
 }
 

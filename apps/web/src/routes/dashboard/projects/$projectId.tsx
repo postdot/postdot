@@ -70,7 +70,9 @@ function ProjectDashboardFrame() {
     const projectDashboard = useProjectDashboard()
     const lifecycle = useProjectLifecycle(projectDashboard.project.id)
     const editorOwnsAccess = useMatches().some(
-        match => match.routeId === '/dashboard/projects/$projectId/publications/$publicationId'
+        match =>
+            match.routeId === '/dashboard/projects/$projectId/publications/$publicationId' ||
+            match.routeId === '/dashboard/projects/$projectId/posts/$postId'
     )
 
     if (projectDashboard.access.status === 'denied' && !editorOwnsAccess) {
@@ -108,7 +110,7 @@ function ProjectDashboardFrame() {
                         fallback={
                             <main
                                 aria-busy="true"
-                                className="min-w-0 px-4 py-7 sm:px-6 lg:px-8 lg:py-8">
+                                className="min-w-0 px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
                                 <h1 className="sr-only">{m.common_loading()}</h1>
                                 <p role="status" className="text-sm text-muted-foreground">
                                     {m.common_loading()}

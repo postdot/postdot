@@ -300,3 +300,95 @@ it('requires live ownership even for former initiators and hides unknown project
         expect((await other('GET')).status).toBe(403)
     }, true)
 })
+
+it('includes upcomingScheduledCount across multiple, empty, and archived projects', async () => {
+    await fixture(async (request, _cookie, { database }) => {
+        const activeResponse = await request('POST', '/api/projects', { name: 'Scheduled project' })
+        const emptyResponse = await request('POST', '/api/projects', { name: 'Empty project' })
+        const archivedResponse = await request('POST', '/api/projects', {
+            name: 'Archived project',
+        })
+        expect(activeResponse.status).toBe(201)
+        expect(emptyResponse.status).toBe(201)
+        expect(archivedResponse.status).toBe(201)
+
+        const { project: activeProject } = (await activeResponse.json()) as {
+            project: { id: string }
+        }
+        const { project: emptyProject } = (await emptyResponse.json()) as {
+            project: { id: string }
+        }
+        const { project: archivedProject } = (await archivedResponse.json()) as {
+            project: { id: string }
+        }
+
+        for (const projectId of [activeProject.id, archivedProject.id]) {
+            const channelResponse = await request('POST', `/api/projects/${projectId}/channels`, {
+                name: 'Manual channel',
+                profile: 'manual-message',
+            })
+            expect(channelResponse.status).toBe(201)
+            const { channel } = (await channelResponse.json()) as { channel: { id: string } }
+            for (const offsetMs of [3_600_000, 7_200_000]) {
+                const postResponse = await request('POST', `/api/projects/${projectId}/posts`, {
+                    sourceContent: {
+                        body: { text: 'Future post', format: 'plain_text' },
+                        media: [],
+                    },
+                    publications: [
+                        {
+                            channelId: channel.id,
+                            deliveryMode: 'manual',
+                            scheduledAt: Date.now() + offsetMs,
+                        },
+                    ],
+                })
+                expect(postResponse.status).toBe(201)
+            }
+        }
+
+        const activePub = await database.sql
+            .statement<{ id: string }, [string]>(
+                'select id from publications where project_id = ?1 limit 1'
+            )
+            .get(activeProject.id)
+        expect(activePub).not.toBeNull()
+        await database.sql
+            .statement("update publications set state = 'ready' where id = ?1")
+            .run(activePub!.id)
+
+        const preview = (await (
+            await request('GET', `/api/projects/${archivedProject.id}/lifecycle`)
+        ).json()) as { fingerprint: string }
+        const archived = await request(
+            'POST',
+            `/api/projects/${archivedProject.id}/lifecycle/archive`,
+            {
+                ...preview,
+                cancelPending: true,
+            }
+        )
+        expect(archived.status).toBe(200)
+
+        const activeList = (await (await request('GET', '/api/projects')).json()) as {
+            projects: { id: string; upcomingScheduledCount: number }[]
+        }
+        // Projects created in the same instant have no guaranteed order; compare counts by id.
+        expect(
+            Object.fromEntries(
+                activeList.projects.map(project => [project.id, project.upcomingScheduledCount])
+            )
+        ).toEqual({ [activeProject.id]: 2, [emptyProject.id]: 0 })
+
+        const allList = (await (
+            await request('GET', '/api/projects?includeArchived=true')
+        ).json()) as {
+            projects: { id: string; upcomingScheduledCount: number }[]
+        }
+        expect(
+            Object.fromEntries(
+                allList.projects.map(project => [project.id, project.upcomingScheduledCount])
+            )
+        ).toEqual({ [activeProject.id]: 2, [emptyProject.id]: 0, [archivedProject.id]: 0 })
+    })
+})

@@ -9,12 +9,13 @@ for (const sameAuthor of [false, true]) {
     test(`revalidating the same project ${sameAuthor ? 'preserves the same author composition' : 'resets composition for a different author'}`, async ({
         page,
     }) => {
-        const data = await accounts(page)
+        const data = await accounts(page, 'default')
         try {
             await page.goto(data.url)
             const form = page.locator('[data-new-publication-form]')
             await expect(form).not.toHaveAttribute('inert', '')
             const content = page.getByRole('textbox', { name: 'Content', exact: true })
+            await expect(content).toHaveAttribute('contenteditable', 'true')
             const saved = page.waitForResponse(
                 response =>
                     new URL(response.url()).pathname === data.endpoint &&
@@ -45,8 +46,9 @@ for (const sameAuthor of [false, true]) {
                     .getByText(sameAuthor ? 'Original author' : 'Second author', { exact: true })
                     .first()
             ).toBeVisible()
-            await page.getByRole('link', { name: 'New publication', exact: true }).click()
+            await page.getByRole('link', { name: 'New post', exact: true }).click()
             await expect(form).not.toHaveAttribute('inert', '')
+            await expect(content).toHaveAttribute('contenteditable', 'true')
             await expect(content).toHaveText(sameAuthor ? text : '')
             if (!sameAuthor) {
                 expect(
@@ -77,7 +79,7 @@ for (const [locale, copy, theme] of [
                 },
                 { locale, theme }
             )
-            const data = await accounts(page)
+            const data = await accounts(page, 'default')
             try {
                 await page.goto(data.url)
                 const form = page.locator('[data-new-publication-form]')
@@ -86,6 +88,7 @@ for (const [locale, copy, theme] of [
                     name: copy.publication_new_source_content,
                     exact: true,
                 })
+                await expect(content).toHaveAttribute('contenteditable', 'true')
                 // Revoke the current cookie's server session while leaving the mounted UI in place.
                 expect((await page.request.post('/api/auth/sign-out')).status()).toBe(200)
                 const text = 'Keep my text through session renewal'
@@ -139,15 +142,10 @@ for (const [locale, copy, theme] of [
                     submit: copy.auth_sign_in_button,
                 })
                 await expect(page).toHaveURL(data.url)
-                const recovery = page.locator('[data-new-publication-recovery]')
-                await expect(recovery).toContainText(text)
-                await recovery
-                    .getByRole('button', {
-                        name: copy.publication_new_recovery_restore,
-                        exact: true,
-                    })
-                    .click()
-                await expect(content).toHaveValue(text)
+                // ADR-103 §6: the draft is restored without a question.
+                await expect(page.locator('[data-new-publication-restored]')).toBeVisible()
+                await expect(content).toHaveAttribute('contenteditable', 'true')
+                await expect(content).toHaveText(text)
             } finally {
                 await data.close()
             }

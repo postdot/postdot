@@ -13,17 +13,25 @@ import { Kbd, KbdGroup } from '@postdot/ui/components/kbd'
 import { Switch } from '@postdot/ui/components/switch'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@postdot/ui/components/tooltip'
 import { ArchiveIcon } from '@solar-icons/react/linear/archive'
+import { BookIcon } from '@solar-icons/react/linear/book'
 import { CalendarAddIcon } from '@solar-icons/react/linear/calendar-add'
 import { CalendarMinimalisticIcon } from '@solar-icons/react/linear/calendar-minimalistic'
 import { ChartSquareIcon } from '@solar-icons/react/linear/chart-square'
 import { DocumentTextIcon } from '@solar-icons/react/linear/document-text'
 import { FileTextIcon } from '@solar-icons/react/linear/file-text'
 import { GalleryIcon } from '@solar-icons/react/linear/gallery'
+import { KeyMinimalisticIcon } from '@solar-icons/react/linear/key-minimalistic'
 import { KeyboardIcon } from '@solar-icons/react/linear/keyboard'
 import { LinkIcon } from '@solar-icons/react/linear/link'
 import { ListIcon } from '@solar-icons/react/linear/list'
 import { MagnifierIcon } from '@solar-icons/react/linear/magnifier'
+import { ServerIcon } from '@solar-icons/react/linear/server'
 import { SettingsIcon } from '@solar-icons/react/linear/settings'
+import { SettingsMinimalisticIcon } from '@solar-icons/react/linear/settings-minimalistic'
+import { TagIcon } from '@solar-icons/react/linear/tag'
+import { UserCircleIcon } from '@solar-icons/react/linear/user-circle'
+import { UserPlusRoundedIcon } from '@solar-icons/react/linear/user-plus-rounded'
+import { UsersGroupTwoRoundedIcon } from '@solar-icons/react/linear/users-group-two-rounded'
 import { Widget2Icon } from '@solar-icons/react/linear/widget-2'
 import { useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
@@ -89,13 +97,26 @@ export function DashboardSearch({
     const allShortcuts = getAppShortcuts()
 
     useEffect(() => {
+        let previousKeyAt = 0
         const onKeyDown = (event: KeyboardEvent) => {
             if (event.isComposing) return
+            // A plain N in the middle of typing is text, even if the field it was meant for
+            // just became read-only (an editor frozen during an access check, for example).
+            const typing = event.timeStamp - previousKeyAt < 1000
+            previousKeyAt = event.timeStamp
             const hasMod = event.metaKey || event.ctrlKey
             if (hasMod && event.key.toLowerCase() === 'k') {
                 event.preventDefault()
                 setOpen(value => !value)
-            } else if (hasMod && event.key.toLowerCase() === 'n' && projectId !== null) {
+            } else if (
+                // S15: browsers reserve Ctrl/⌘+N for a new window; a plain N starts a post.
+                !hasMod &&
+                !event.altKey &&
+                !event.shiftKey &&
+                event.key.toLowerCase() === 'n' &&
+                projectId !== null &&
+                !typing
+            ) {
                 if (!isEditableTarget(event.target)) {
                     event.preventDefault()
                     setOpen(false)
@@ -169,6 +190,11 @@ export function DashboardSearch({
                   href: `/dashboard/settings/archives?${context}`,
                   keywords: m.nav_resources(),
               },
+              {
+                  title: m.help_title(),
+                  href: `/dashboard/settings/help?${context}`,
+                  keywords: m.search_aliases_help(),
+              },
               ...(isInstanceAdmin
                   ? [
                         {
@@ -178,6 +204,7 @@ export function DashboardSearch({
                         },
                         {
                             title: m.nav_instance_access(),
+                            scopeLabel: m.nav_installation(),
                             href: `/dashboard/settings/access?${context}`,
                             keywords: m.search_aliases_instance_access(),
                         },
@@ -196,14 +223,31 @@ export function DashboardSearch({
                   ? [
                         {
                             title: m.nav_workspace_administration(),
-                            href: `/dashboard/settings/workspace?${context}`,
+                            scopeLabel: m.nav_workspace(),
+                            href: `/dashboard/settings/workspace/people?${context}`,
                             keywords: m.search_aliases_workspace(),
+                        },
+                        {
+                            title: m.nav_workspace_settings(),
+                            href: `/dashboard/settings/workspace/settings?${context}`,
+                            keywords: `${m.search_aliases_workspace()} ${m.lifecycle_title()}`,
                         },
                     ]
                   : []),
               ...(projectId === null
                   ? []
                   : [
+                        {
+                            title: m.nav_access(),
+                            scopeLabel: m.nav_project(),
+                            href: `/dashboard/projects/${encodeURIComponent(projectId)}/access`,
+                            keywords: m.search_aliases_instance_access(),
+                        },
+                        {
+                            title: m.nav_project_configuration(),
+                            href: `/dashboard/projects/${encodeURIComponent(projectId)}/settings`,
+                            keywords: `${m.nav_project_configuration()} ${m.project_timezone_title()} ${m.lifecycle_title()}`,
+                        },
                         {
                             title: m.nav_overview(),
                             href: `/dashboard/projects/${encodeURIComponent(projectId)}/overview`,
@@ -337,10 +381,7 @@ export function DashboardSearch({
                                                 {m.search_action_new_publication_desc()}
                                             </div>
                                         </div>
-                                        <KbdGroup className="shrink-0">
-                                            <Kbd>{isMac() ? '⌘' : 'Ctrl'}</Kbd>
-                                            <Kbd>N</Kbd>
-                                        </KbdGroup>
+                                        <Kbd className="shrink-0">N</Kbd>
                                     </CommandItem>
                                 ) : null}
                                 <CommandItem
@@ -447,21 +488,7 @@ export function DashboardSearch({
                         {pages.length > 0 && (
                             <CommandGroup heading={m.search_pages()}>
                                 {pages.map(page => {
-                                    const PageIcon = page.href.startsWith(
-                                        '/dashboard/settings/archives'
-                                    )
-                                        ? ArchiveIcon
-                                        : page.href.endsWith('/overview')
-                                          ? Widget2Icon
-                                          : page.href.endsWith('/queue')
-                                            ? ListIcon
-                                            : page.href.endsWith('/channels')
-                                              ? LinkIcon
-                                              : page.href.endsWith('/media')
-                                                ? GalleryIcon
-                                                : page.href.endsWith('/performance')
-                                                  ? ChartSquareIcon
-                                                  : SettingsIcon
+                                    const PageIcon = pageIcon(page.href)
                                     return (
                                         <CommandItem
                                             key={page.href}
@@ -471,7 +498,12 @@ export function DashboardSearch({
                                                 aria-hidden="true"
                                                 className="size-5 shrink-0 text-muted-foreground"
                                             />
-                                            <span>{page.title}</span>
+                                            <span className="flex-1">{page.title}</span>
+                                            {'scopeLabel' in page ? (
+                                                <span className="text-xs text-muted-foreground">
+                                                    {page.scopeLabel}
+                                                </span>
+                                            ) : null}
                                         </CommandItem>
                                     )
                                 })}
@@ -628,4 +660,28 @@ export function DashboardSearch({
             </CommandDialog>
         </>
     )
+}
+
+/** The palette shows each destination with the icon the sidebar gives it. */
+function pageIcon(href: string) {
+    const path = href.split('?')[0] ?? href
+    if (path === '/dashboard') return Widget2Icon
+    if (path.endsWith('/overview')) return Widget2Icon
+    if (path.endsWith('/queue')) return ListIcon
+    if (path.endsWith('/performance')) return ChartSquareIcon
+    if (path.endsWith('/channels')) return LinkIcon
+    if (path.endsWith('/media')) return GalleryIcon
+    if (path.endsWith('/tags')) return TagIcon
+    if (path.endsWith('/access') || path.endsWith('/people')) return UsersGroupTwoRoundedIcon
+    if (path.endsWith('/settings/archives')) return ArchiveIcon
+    if (path.endsWith('/settings/help')) return BookIcon
+    if (path.endsWith('/preferences/account')) return UserCircleIcon
+    if (path.endsWith('/preferences/api-keys')) return KeyMinimalisticIcon
+    if (path === '/dashboard/settings') return ServerIcon
+    if (path.endsWith('/settings/access')) return UserPlusRoundedIcon
+    if (path.endsWith('/provider-applications')) return LinkIcon
+    if (path.endsWith('/settings') && path.startsWith('/dashboard/projects/'))
+        return SettingsMinimalisticIcon
+    if (path.endsWith('/workspace/settings')) return SettingsMinimalisticIcon
+    return SettingsIcon
 }

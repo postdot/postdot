@@ -7,6 +7,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@postdot/ui/components/dialog'
+import { Tooltip, TooltipTrigger, TooltipContent } from '@postdot/ui/components/tooltip'
 import { TrashBinMinimalisticIcon } from '@solar-icons/react/linear/trash-bin-minimalistic'
 import { useEffect, useState } from 'react'
 
@@ -110,20 +111,26 @@ export function MediaBulkDeletionDialog({
                         data-media-bulk-delete-previews="true"
                         className="flex max-w-full gap-2 overflow-x-auto pb-1">
                         {previewAssets.map(asset => (
-                            <div
-                                key={asset.asset.id}
-                                role="img"
-                                aria-label={asset.asset.originalFilename}
-                                data-media-bulk-delete-preview="true"
-                                title={asset.asset.originalFilename}
-                                className="size-16 shrink-0 overflow-hidden rounded-md bg-muted">
-                                <MediaPreview
-                                    projectId={asset.asset.projectId}
-                                    asset={asset}
-                                    representation={readyRepresentation(asset)}
-                                    className="size-full object-cover text-xs font-medium uppercase text-muted-foreground"
+                            <Tooltip>
+                                <TooltipTrigger
+                                    render={
+                                        <div
+                                            key={asset.asset.id}
+                                            role="img"
+                                            aria-label={asset.asset.originalFilename}
+                                            data-media-bulk-delete-preview="true"
+                                            className="size-16 shrink-0 overflow-hidden rounded-md bg-muted">
+                                            <MediaPreview
+                                                projectId={asset.asset.projectId}
+                                                asset={asset}
+                                                representation={readyRepresentation(asset)}
+                                                className="size-full object-cover text-xs font-medium uppercase text-muted-foreground"
+                                            />
+                                        </div>
+                                    }
                                 />
-                            </div>
+                                <TooltipContent>{asset.asset.originalFilename}</TooltipContent>
+                            </Tooltip>
                         ))}
                         {hiddenPreviewCount > 0 ? (
                             <div className="flex size-16 shrink-0 items-center justify-center rounded-md bg-muted text-sm font-medium text-muted-foreground">

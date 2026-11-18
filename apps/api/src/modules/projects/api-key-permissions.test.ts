@@ -34,6 +34,7 @@ describe('user API-key capability policy', () => {
         ['PUT', '/api/projects/project-1/publication-composer-draft', 'publication:manage'],
         ['POST', '/api/projects/project-1/posts', 'publication:manage'],
         ['PATCH', '/api/projects/project-1/posts/post-1', 'publication:manage'],
+        ['PUT', '/api/projects/project-1/posts/post-1/composition', 'publication:manage'],
         [
             'POST',
             '/api/projects/project-1/publications/publication-1/draft/promote',
@@ -189,6 +190,26 @@ describe('user API-key capability policy', () => {
             '/api/projects/project-1/channels/channel-1/publisher/telegram/connect',
             'channel:manage',
         ],
+        [
+            'GET',
+            '/api/identity-images/0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
+            'project:read',
+        ],
+        ['PUT', '/api/projects/project-1/website', 'project:manage'],
+        ['POST', '/api/projects/project-1/image', 'project:manage'],
+        ['POST', '/api/projects/project-1/image/url', 'project:manage'],
+        ['POST', '/api/projects/project-1/image/favicon', 'project:manage'],
+        ['DELETE', '/api/projects/project-1/image', 'project:manage'],
+        ['PUT', '/api/workspaces/workspace-1/website', 'workspace:manage'],
+        ['POST', '/api/workspaces/workspace-1/image', 'workspace:manage'],
+        ['POST', '/api/workspaces/workspace-1/image/url', 'workspace:manage'],
+        ['POST', '/api/workspaces/workspace-1/image/favicon', 'workspace:manage'],
+        ['DELETE', '/api/workspaces/workspace-1/image', 'workspace:manage'],
+        ['PUT', '/api/projects/project-1/channels/channel-1/website', 'channel:manage'],
+        ['POST', '/api/projects/project-1/channels/channel-1/image', 'channel:manage'],
+        ['POST', '/api/projects/project-1/channels/channel-1/image/url', 'channel:manage'],
+        ['POST', '/api/projects/project-1/channels/channel-1/image/favicon', 'channel:manage'],
+        ['DELETE', '/api/projects/project-1/channels/channel-1/image', 'channel:manage'],
     ] as const)('maps %s %s to %s', (method, path, expected) => {
         expect(requiredApiKeyCapability(method, path)).toBe(expected)
     })

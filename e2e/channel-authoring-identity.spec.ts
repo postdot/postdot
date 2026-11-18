@@ -5,6 +5,11 @@ import { expect, test, type Page } from '@playwright/test'
 
 import en from '../apps/web/messages/en.json' with { type: 'json' }
 import fr from '../apps/web/messages/fr.json' with { type: 'json' }
+import { switchTheme } from './locale'
+import { composerText } from './support/post-editor'
+
+const fill = (template: string, values: Record<string, string>) =>
+    template.replace(/\{(\w+)\}/g, (_, key: string) => values[key] ?? '')
 
 test('creates manual channels with defaults and explains provider setup before connection', async ({
     page,
@@ -32,13 +37,16 @@ test('creates manual channels with defaults and explains provider setup before c
     expect(manual.execution).toEqual({ kind: 'manual' })
     await page.getByRole('button', { name: en.channel_add, exact: true }).click()
     await dialog.getByRole('radio', { name: en.channel_x_profile, exact: true }).click()
-    await expect(dialog).toContainText(en.channel_provider_application_help)
+    await expect(dialog).toContainText(en.channel_platform_setup_missing)
     await dialog.getByLabel(en.channel_name).fill('X setup test')
     await dialog.getByRole('button', { name: en.channel_create_button, exact: true }).click()
     const row = page.getByRole('article').filter({ hasText: 'X setup test' })
-    await row.getByRole('button', { name: en.publisher_setup_required, exact: true }).click()
-    await expect(dialog).toContainText(en.channel_provider_setup_explanation)
-    const settings = dialog.getByRole('link', { name: en.provider_apps_title, exact: true })
+    // The row states the missing setup and offers it directly to the administrator.
+    await expect(row.getByText(en.publisher_setup_required, { exact: true })).toBeVisible()
+    const settings = row.getByRole('link', {
+        name: fill(en.channel_setup_platform, { platform: 'X' }),
+        exact: true,
+    })
     await expect(settings).toHaveAttribute('href', /settings\/provider-applications/)
     for (const width of [1280, 820, 390]) {
         await page.setViewportSize({ width, height: 844 })
@@ -52,14 +60,14 @@ test('creates manual channels with defaults and explains provider setup before c
     await expect(page).toHaveURL(/settings\/provider-applications/)
     await page.evaluate(() => localStorage.setItem('PARAGLIDE_LOCALE', 'fr'))
     await page.goto(`/dashboard/projects/${projectId}/channels`)
-    await page
-        .getByRole('article')
-        .filter({ hasText: 'X setup test' })
-        .getByRole('button', { name: fr.publisher_setup_required, exact: true })
-        .click()
-    await expect(dialog).toContainText(fr.channel_provider_setup_explanation)
     await expect(
-        dialog.getByRole('link', { name: fr.provider_apps_title, exact: true })
+        page
+            .getByRole('article')
+            .filter({ hasText: 'X setup test' })
+            .getByRole('link', {
+                name: fill(fr.channel_setup_platform, { platform: 'X' }),
+                exact: true,
+            })
     ).toBeVisible()
     await page.screenshot({ path: info.outputPath('provider-setup-fr-390.png') })
 })
@@ -82,16 +90,10 @@ test('explains missing provider setup to a project owner without installation ad
         ).status()
     ).toBe(201)
     await page.goto(`/dashboard/projects/${projectId}/channels`)
-    await page
-        .getByRole('article')
-        .filter({ hasText: 'Needs administrator' })
-        .getByRole('button', { name: en.publisher_setup_required, exact: true })
-        .click()
-    const dialog = page.getByRole('dialog')
-    await expect(dialog).toContainText(en.publisher_oauth_contact_admin)
-    await expect(
-        dialog.getByRole('link', { name: en.provider_apps_title, exact: true })
-    ).toHaveCount(0)
+    const row = page.getByRole('article').filter({ hasText: 'Needs administrator' })
+    await expect(row.getByText(en.publisher_setup_required, { exact: true })).toBeVisible()
+    await expect(row).toContainText(fill(en.channel_setup_waiting, { platform: 'X' }))
+    await expect(row.getByRole('link')).toHaveCount(0)
 })
 
 test('distinguishes repeated platforms and creates a channel without leaving the composition', async ({
@@ -120,12 +122,7 @@ test('distinguishes repeated platforms and creates a channel without leaving the
     await expect(page.getByRole('heading', { name: en.nav_channels, exact: true })).toBeVisible()
     for (const theme of ['light', 'dark'] as const) {
         if (!(await page.locator('html').getAttribute('class'))?.split(' ').includes(theme)) {
-            await page
-                .getByRole('button', {
-                    name: en.theme_switch_to.replace('{theme}', en[`theme_${theme}`]),
-                    exact: true,
-                })
-                .click()
+            await switchTheme(page, theme)
         }
         expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([])
         await page.screenshot({ path: testInfo.outputPath(`channels-surfaces-${theme}.png`) })
@@ -133,12 +130,7 @@ test('distinguishes repeated platforms and creates a channel without leaving the
     await page.goto(`/dashboard/projects/${projectId}/publications/new`)
     await expect(page.locator('[data-new-publication-form]')).toHaveAttribute('aria-busy', 'false')
     for (const theme of ['light', 'dark'] as const) {
-        await page
-            .getByRole('button', {
-                name: en.theme_switch_to.replace('{theme}', en[`theme_${theme}`]),
-                exact: true,
-            })
-            .click()
+        await switchTheme(page, theme)
         await page.screenshot({ path: testInfo.outputPath(`compose-surfaces-${theme}.png`) })
     }
 
@@ -291,13 +283,11 @@ async function createAccountAndProject(page: Page, suffix: string): Promise<stri
 
     await page.getByRole('combobox', { name: 'Select project', exact: true }).click()
     await page.getByRole('button', { name: 'Create project', exact: true }).last().click()
-    await page
-        .getByRole('textbox', { name: 'New project', exact: true })
-        .fill(`E2E-124 project ${suffix}`)
+    await page.getByRole('textbox', { name: 'Name', exact: true }).fill(`E2E-124 project ${suffix}`)
     await page
         .locator('form')
-        .filter({ has: page.getByRole('textbox', { name: 'New project', exact: true }) })
-        .getByRole('button', { name: 'Add project', exact: true })
+        .filter({ has: page.getByRole('textbox', { name: 'Name', exact: true }) })
+        .getByRole('button', { name: 'Create project', exact: true })
         .click()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/overview$/)
     await expect(page.getByRole('heading', { name: 'Overview', exact: true })).toBeVisible()
@@ -329,7 +319,12 @@ test('keeps Bluesky connection failures inside the dialog and preserves the hand
         })
     )
     await page.goto(`/dashboard/projects/${projectId}/channels`)
-    await expect(page.getByText(en.publisher_oauth_setup_required, { exact: true })).toBeVisible()
+    await expect(
+        page
+            .getByRole('article')
+            .filter({ hasText: 'Bluesky test' })
+            .getByText(en.publisher_setup_required, { exact: true })
+    ).toBeVisible()
     await expect(page.getByRole('button', { name: 'Connect Bluesky', exact: true })).toHaveCount(0)
     await page.route('**/publishers', async route => {
         const response = await route.fetch()
@@ -583,7 +578,8 @@ test('creates the first destination while preserving the first publication', asy
     await page.goto(`/dashboard/projects/${projectId}/queue`)
     await expect(page.locator('a[data-publication-edit-link]').first()).toBeVisible()
     await page.locator('a[data-publication-edit-link]').first().click()
-    await expect(page.locator('#source-body')).toHaveText(body)
+    // The channel's tab shows the post text it follows.
+    await expect(composerText(page)).toHaveText(body)
 })
 
 test('resumes composition from channel setup and after an OAuth callback reload', async ({
@@ -604,7 +600,7 @@ test('resumes composition from channel setup and after an OAuth callback reload'
     const channelId = (await response.json()).channel.id
     await page.goto(`/dashboard/projects/${projectId}/channels`)
     await expect(
-        page.getByRole('link', { name: en.nav_back_to_overview, exact: true })
+        page.getByRole('heading', { name: en.nav_channels, exact: true, level: 1 })
     ).toBeVisible()
     await expect(
         page.getByRole('link', { name: en.publication_resume_composition, exact: true })
@@ -620,7 +616,11 @@ test('resumes composition from channel setup and after an OAuth callback reload'
     const body = 'Keep this text and destination through connection setup.'
     await content.fill(body)
     await page.getByRole('link', { name: 'Channels', exact: true }).click()
-    await page.getByRole('link', { name: en.publication_resume_composition, exact: true }).click()
+    // P10-01 / ADR-103 §2: sidebar destination Channels has no return control above its title.
+    await expect(
+        page.getByRole('link', { name: en.publication_resume_composition, exact: true })
+    ).toHaveCount(0)
+    await page.getByRole('link', { name: en.nav_new_publication, exact: true }).click()
     await expect(content).toHaveText(body)
     for (const result of ['authorization_denied', 'connected'] as const) {
         // A full navigation models the existing callback landing URL, not a provider exchange.
@@ -644,14 +644,8 @@ test('resumes composition from channel setup and after an OAuth callback reload'
         ).toHaveCount(0)
         await page.screenshot({ path: info.outputPath(`resume-${result}.png`) })
         await resume.click()
-        const recovery = page.getByRole('dialog', {
-            name: en.publication_new_recovery_title,
-            exact: true,
-        })
-        await expect(recovery).toContainText(body)
-        await recovery
-            .getByRole('button', { name: en.publication_new_recovery_restore, exact: true })
-            .click()
+        // ADR-103 §6: the composition comes back without a question.
+        await expect(page.locator('[data-new-publication-restored]')).toBeVisible()
         await expect(content).toHaveText(body)
         await expect(page.locator('[data-channel-selected-button]')).toHaveCount(1)
         await expect(page.locator('[data-channel-selected-button]')).toContainText(

@@ -1,6 +1,5 @@
 import { Avatar as DiceBearAvatar, Style } from '@dicebear/core'
 import lorelei from '@dicebear/styles/lorelei.json' with { type: 'json' }
-import shapes from '@dicebear/styles/shapes.json' with { type: 'json' }
 import blueskyIcon from '@iconify-icons/logos/bluesky'
 import devIcon from '@iconify-icons/logos/dev-icon'
 import discordIcon from '@iconify-icons/logos/discord-icon'
@@ -16,10 +15,9 @@ import { cn } from '@postdot/ui/lib/utils'
 import { useMemo, type HTMLAttributes } from 'react'
 
 import type { Channel } from '@/lib/api'
-import { useChannelVariant } from '@/lib/channel-identity-context'
+import { useChannelVariant, useChannelImage } from '@/lib/channel-identity-context'
 
 const userStyle = new Style(lorelei)
-const channelStyle = new Style(shapes)
 
 const channelIcons = {
     bluesky: blueskyIcon,
@@ -33,38 +31,95 @@ const channelIcons = {
     x: xIcon,
 } as const
 
-type ChannelIdentity = Pick<Channel, 'id' | 'name' | 'profileId'>
-type ChannelAvatarSize = 'sm' | 'md' | 'lg'
+type ChannelIdentity = Pick<Channel, 'id' | 'name' | 'profileId' | 'imageUrl'>
+type ChannelAvatarSize = 'xs' | 'sm' | 'md' | 'lg'
 
 export function ResourceAvatar({
+    imageUrl,
     kind,
     name,
     seed = name,
     size = 'sm',
 }: {
+    readonly imageUrl?: string | null
     readonly kind: 'workspace' | 'project'
     readonly name: string
     readonly seed?: string
     readonly size?: 'sm' | 'lg'
 }) {
-    const generatedImage = useMemo(
-        () => createDiceBearImage(channelStyle, `${kind}:${seed}`),
-        [kind, seed]
-    )
-
     return (
-        <span
-            aria-hidden="true"
+        <MonogramAvatar
             data-resource-avatar="true"
             data-resource-kind={kind}
             className={cn(
-                'inline-flex shrink-0 items-center justify-center overflow-hidden bg-primary/10',
-                size === 'lg' ? 'size-10' : 'size-6',
+                size === 'lg' ? 'size-10 text-sm' : 'size-6 text-[10px]',
                 kind === 'workspace' ? 'rounded-full' : 'rounded-md'
-            )}>
-            <img alt="" className="size-full object-cover" src={generatedImage} />
+            )}
+            imageUrl={imageUrl}
+            name={name}
+            seed={`${kind}:${seed}`}
+        />
+    )
+}
+
+/**
+ * Identity that helps tell objects apart: an uploaded image when there is one,
+ * otherwise the object's initials on a colour derived from its identity.
+ */
+export function MonogramAvatar({
+    className,
+    imageUrl,
+    name,
+    seed = name,
+    ...props
+}: {
+    readonly className?: string
+    readonly imageUrl?: string | null
+    readonly name: string
+    readonly seed?: string
+} & Omit<HTMLAttributes<HTMLSpanElement>, 'children'>) {
+    const hue = identityHue(seed)
+    return (
+        <span
+            aria-hidden="true"
+            className={cn(
+                'inline-flex shrink-0 items-center justify-center overflow-hidden font-semibold leading-none tracking-tight text-white select-none',
+                className
+            )}
+            style={
+                imageUrl
+                    ? undefined
+                    : {
+                          backgroundImage: `linear-gradient(135deg, oklch(0.64 0.13 ${hue}), oklch(0.5 0.14 ${(hue + 35) % 360}))`,
+                      }
+            }
+            {...props}>
+            {imageUrl ? (
+                <img alt="" className="size-full bg-white object-contain" src={imageUrl} />
+            ) : (
+                identityInitials(name)
+            )}
         </span>
     )
+}
+
+/** "Spring launch" → "SL", "Newsroom" → "N". */
+export function identityInitials(name: string): string {
+    const words = name.trim().split(/\s+/).filter(Boolean)
+    const letters =
+        words.length > 1
+            ? [words[0], words[1]].map(word => Array.from(word!)[0] ?? '')
+            : [Array.from(words[0] ?? '')[0] ?? '']
+    return letters.join('').toLocaleUpperCase() || '·'
+}
+
+function identityHue(seed: string): number {
+    let hash = 2166136261
+    for (const character of seed) {
+        hash ^= character.codePointAt(0) ?? 0
+        hash = Math.imul(hash, 16777619)
+    }
+    return (hash >>> 0) % 360
 }
 
 export function UserAvatar({
@@ -104,17 +159,7 @@ export function ChannelAvatar({
 } & Omit<HTMLAttributes<HTMLSpanElement>, 'children'>) {
     const icon = getChannelIcon(channel.profileId)
     const variant = useChannelVariant(channel.id)
-    const initials = channel.name
-        .trim()
-        .split(/\s+/)
-        .slice(0, 2)
-        .map(word => Array.from(word)[0] ?? '')
-        .join('')
-        .toLocaleUpperCase()
-    const generatedImage = useMemo(
-        () => (icon === undefined ? createDiceBearImage(channelStyle, channel.id) : null),
-        [channel.id, icon]
-    )
+    const storedImage = useChannelImage(channel.id)
 
     return (
         <span
@@ -124,20 +169,21 @@ export function ChannelAvatar({
             className={cn(
                 'relative inline-flex shrink-0 items-center justify-center overflow-hidden rounded-md',
                 channelAvatarSizeClass[size],
-                icon === undefined ? 'bg-primary/10' : 'bg-white',
+                icon === undefined ? undefined : 'bg-white',
                 className
             )}
             {...props}>
             {icon !== undefined ? (
                 <Icon icon={icon} className={channelLogoSizeClass[size]} />
             ) : (
-                <img alt="" className="size-full object-cover" src={generatedImage ?? undefined} />
+                <MonogramAvatar
+                    className={cn('size-full', channelInitialsSizeClass[size])}
+                    name={channel.name}
+                    imageUrl={channel.imageUrl === undefined ? storedImage : channel.imageUrl}
+                    seed={`channel:${channel.id}`}
+                />
             )}
-            {icon === undefined ? (
-                <span className="absolute inset-0 flex items-center justify-center bg-black/10 text-[11px] font-bold text-black drop-shadow-sm">
-                    {initials}
-                </span>
-            ) : variant !== undefined ? (
+            {icon !== undefined && variant !== undefined && size !== 'xs' ? (
                 <span
                     data-channel-variant={variant}
                     className="absolute bottom-0 right-0 rounded-tl-sm bg-[#171717] px-1 text-[9px] font-semibold leading-3 text-white">
@@ -168,12 +214,21 @@ function createDiceBearImage(style: Style, seed: string) {
 }
 
 const channelAvatarSizeClass: Record<ChannelAvatarSize, string> = {
+    xs: 'size-4 rounded-[0.25rem]',
     sm: 'size-6',
     md: 'size-8',
     lg: 'size-10',
 }
 
+const channelInitialsSizeClass: Record<ChannelAvatarSize, string> = {
+    xs: 'text-[7px]',
+    sm: 'text-[10px]',
+    md: 'text-xs',
+    lg: 'text-sm',
+}
+
 const channelLogoSizeClass: Record<ChannelAvatarSize, string> = {
+    xs: 'size-3',
     sm: 'size-4',
     md: 'size-5',
     lg: 'size-6',

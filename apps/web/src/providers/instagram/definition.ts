@@ -33,7 +33,6 @@ export const instagramProvider = {
     preview: {
         layout: 'social',
         accountDriven: false,
-        sampleIdentity: false,
         Media: InstagramMediaPreview,
     },
 } as const satisfies ProviderDefinition

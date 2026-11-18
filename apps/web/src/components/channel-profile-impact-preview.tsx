@@ -44,7 +44,10 @@ export function ChannelProfileImpactPreview({
             const found = new Map<string, PublicationSummary>()
             let cursor: string | undefined
             do {
-                const page = await api.listPublications(projectId, { limit: 100, cursor })
+                const page = await api.listPublications(projectId, {
+                    limit: 100,
+                    cursor,
+                })
                 for (const publication of page.publications) {
                     if (!missing.delete(publication.id)) continue
                     found.set(publication.id, publication)
@@ -60,15 +63,7 @@ export function ChannelProfileImpactPreview({
 
     return (
         <section aria-label={m.profile_impact_title()} data-profile-impact>
-            <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <h3 className="font-medium">{m.profile_impact_title()}</h3>
-                <p className="text-xs text-muted-foreground">
-                    {m.profile_impact_versions({
-                        current: assessment.currentProfileVersion,
-                        proposed: assessment.proposedProfileVersion,
-                    })}
-                </p>
-            </div>
+            <h3 className="font-medium">{m.profile_impact_title()}</h3>
             <p className="mt-1 text-sm text-muted-foreground">
                 {activated
                     ? assessment.hasReviewRequired
@@ -108,7 +103,7 @@ export function ChannelProfileImpactPreview({
                                     data-profile-impact-publication={row.id}>
                                     <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
                                         <p className="min-w-0 flex-1 break-words font-medium">
-                                            {title || m.profile_impact_publication({ id: row.id })}
+                                            {title || m.profile_impact_publication()}
                                         </p>
                                         <Link
                                             to="/dashboard/projects/$projectId/publications/$publicationId"
@@ -141,11 +136,6 @@ export function ChannelProfileImpactPreview({
                                                     <ul className="mt-1 space-y-1 text-sm">
                                                         {impact.issues.map((issue, index) => (
                                                             <li key={index} className="break-words">
-                                                                {issue.path ? (
-                                                                    <code className="mr-2 text-xs">
-                                                                        {issue.path}
-                                                                    </code>
-                                                                ) : null}
                                                                 {issue.message}
                                                             </li>
                                                         ))}
@@ -160,21 +150,6 @@ export function ChannelProfileImpactPreview({
                     </ul>
                 </>
             )}
-            {assessment.changes.length > 0 ? (
-                <details className="mt-4 text-sm">
-                    <summary className="cursor-pointer text-muted-foreground">
-                        {m.common_change_count({ count: assessment.changes.length })}
-                    </summary>
-                    <ul className="mt-2 space-y-1">
-                        {assessment.changes.map((change, index) => (
-                            <li key={index} className="break-words">
-                                <code className="mr-2 text-xs">{change.path}</code>
-                                {change.message}
-                            </li>
-                        ))}
-                    </ul>
-                </details>
-            ) : null}
             {!activated && rows.length > 0 ? (
                 <p className="mt-3 text-xs text-muted-foreground">
                     {m.profile_impact_adaptation_note()}

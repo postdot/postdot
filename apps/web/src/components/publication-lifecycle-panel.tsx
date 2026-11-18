@@ -3,6 +3,7 @@ import { CheckIcon } from '@solar-icons/react/linear/check'
 import { RestartIcon } from '@solar-icons/react/linear/restart'
 import { TrashBinMinimalisticIcon } from '@solar-icons/react/linear/trash-bin-minimalistic'
 import { Link } from '@tanstack/react-router'
+import type { ReactNode } from 'react'
 
 import { formatSchedule, PublicationStatus } from '@/components/dashboard-publication-parts'
 import type { Publication, PublisherConnection } from '@/lib/api'
@@ -17,6 +18,8 @@ export function PublicationLifecyclePanel({
     onCancel,
     onPublish,
     onRetry,
+    onUndoPublish,
+    otherActions,
     pending = false,
     publication,
     retryDisabled = false,
@@ -28,6 +31,9 @@ export function PublicationLifecyclePanel({
     readonly onCancel?: () => void
     readonly onPublish?: () => Promise<boolean>
     readonly onRetry?: () => void | Promise<unknown>
+    readonly onUndoPublish?: () => void
+    /** Quiet actions on this publication (moving it), placed before cancelling. */
+    readonly otherActions?: ReactNode
     readonly pending?: boolean
     readonly publication: Publication
     readonly retryDisabled?: boolean
@@ -37,6 +43,11 @@ export function PublicationLifecyclePanel({
     const due = isManualPublicationDue(publication)
     const showManualAction = due && onPublish !== undefined
     const showCancelAction = publication.state === 'scheduled' && onCancel !== undefined
+    const showUndoPublishAction =
+        publication.state === 'published' &&
+        publication.deliveryMode === 'manual' &&
+        !readOnly &&
+        onUndoPublish !== undefined
     const showRetryAction =
         publication.state === 'failed' &&
         publication.deliveryMode === 'automatic' &&
@@ -46,7 +57,13 @@ export function PublicationLifecyclePanel({
         ['draft', 'scheduled', 'ready', 'failed'].includes(publication.state) &&
         connection !== undefined &&
         connection?.state !== 'active'
-    const hasAction = showManualAction || showRetryAction || showCancelAction || needsConnection
+    const hasAction =
+        showManualAction ||
+        showRetryAction ||
+        showCancelAction ||
+        showUndoPublishAction ||
+        needsConnection ||
+        Boolean(otherActions)
 
     return (
         <>
@@ -54,15 +71,25 @@ export function PublicationLifecyclePanel({
                 data-publication-lifecycle="true"
                 className={
                     hasAction
-                        ? 'mb-5 flex flex-col items-stretch gap-3 rounded-xl bg-surface-inset/70 px-4 py-3 shadow-surface sm:flex-row sm:items-center sm:justify-between'
+                        ? 'mb-5 flex flex-col items-stretch gap-3 rounded-lg border border-border bg-surface-raised px-4 py-3 sm:flex-row sm:items-center sm:justify-between'
                         : 'mb-5 flex flex-wrap items-center gap-3'
                 }>
                 <div className="min-w-0 flex-1">
                     <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
                         <PublicationStatus due={due} state={publication.state} />
-                        {publication.scheduledAt !== null ? (
+                        {/* D9: published work shows when it went out, not when it was planned. */}
+                        {(publication.state === 'published' && publication.publishedAt !== null
+                            ? publication.publishedAt
+                            : publication.scheduledAt) !== null ? (
                             <span className="text-xs text-muted-foreground">
-                                {formatSchedule(publication.scheduledAt, timeZone, locale)}
+                                {formatSchedule(
+                                    publication.state === 'published' &&
+                                        publication.publishedAt !== null
+                                        ? publication.publishedAt
+                                        : publication.scheduledAt,
+                                    timeZone,
+                                    locale
+                                )}
                             </span>
                         ) : null}
                     </div>
@@ -125,13 +152,27 @@ export function PublicationLifecyclePanel({
                                 {m.publication_record_published()}
                             </Button>
                         ) : null}
+                        {showUndoPublishAction ? (
+                            <Button
+                                data-publication-action="undo-publish"
+                                disabled={pending}
+                                onClick={onUndoPublish}
+                                size="sm"
+                                variant="ghost">
+                                <RestartIcon aria-hidden="true" />
+                                {m.publication_undo_publish()}
+                            </Button>
+                        ) : null}
+                        {otherActions}
                         {showCancelAction ? (
                             <Button
                                 data-publication-action="cancel"
                                 disabled={pending || cancelDisabled}
                                 onClick={onCancel}
                                 size="sm"
-                                variant="destructive">
+                                // D4 / ADR-103 §5: a destructive action is never the most prominent.
+                                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                variant="ghost">
                                 <TrashBinMinimalisticIcon aria-hidden="true" />
                                 {m.publication_cancel_submit()}
                             </Button>

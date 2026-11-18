@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 
 import { expect, test } from '@playwright/test'
 
-import { frenchTranslation } from './locale'
+import { frenchTranslation, openLanguageMenu } from './locale'
 
 test('filters real publication cohorts by current tags and retains selection across reload', async ({
     page,
@@ -122,22 +122,28 @@ test('filters real publication cohorts by current tags and retains selection acr
     const path = `/dashboard/projects/${project.id}/performance`
     await page.goto(path)
     const rows = page.locator('[data-performance-publication]')
-    const trigger = page.locator('[data-performance-tag-filter]')
+    const trigger = page.locator('[data-filter-menu="true"]')
+    const activeFilters = page.locator('[data-active-filters="true"]')
     await expect(rows).toHaveCount(3)
+    await expect(activeFilters).toHaveCount(0)
     await trigger.click()
-    await expect(page.locator(`[data-performance-tag-option="${tags[2].id}"]`)).toHaveCount(0)
-    await page.locator(`[data-performance-tag-option="${tags[0].id}"]`).click()
+    const archivedOption = page.getByRole('menuitemcheckbox', { name: /Legacy.*Archived/ })
+    await expect(archivedOption).toBeVisible()
+    await page.getByRole('menuitemcheckbox', { name: 'Release', exact: true }).click()
     await page.keyboard.press('Escape')
     await expect(rows).toHaveCount(2)
     await expect(page).toHaveURL(new RegExp(tags[0].id))
+    await expect(activeFilters).toContainText('Release')
     await trigger.click()
-    await page.locator(`[data-performance-tag-option="${tags[1].id}"]`).click()
+    await page.getByRole('menuitemcheckbox', { name: 'Docs', exact: true }).click()
     await page.keyboard.press('Escape')
     await expect(rows).toHaveCount(1)
     await expect(page.locator(`[data-performance-publication="${publications[0]}"]`)).toBeVisible()
     await page.reload()
     await expect(rows).toHaveCount(1)
     await expect(trigger).toContainText('2')
+    await expect(activeFilters).toContainText('Release')
+    await expect(activeFilters).toContainText('Docs')
     // Current attribution deliberately moves an already published item when its tags change.
     expect(
         (
@@ -147,24 +153,35 @@ test('filters real publication cohorts by current tags and retains selection acr
         ).status()
     ).toBe(200)
     await expect(rows).toHaveCount(0)
+    await expect(page.locator('[data-empty-state="data"]')).toHaveAttribute(
+        'data-empty-layout',
+        'default'
+    )
     await page.getByRole('button', { name: 'Clear tags', exact: true }).click()
     await expect(rows).toHaveCount(3)
+    await expect(activeFilters).toHaveCount(0)
     await trigger.click()
-    await page.locator('[data-performance-tag-archived-toggle]').click()
-    await page.locator(`[data-performance-tag-option="${tags[2].id}"]`).click()
+    await archivedOption.click()
     await page.keyboard.press('Escape')
     await expect(rows).toHaveCount(1)
+    await expect(activeFilters).toContainText('Legacy')
+    await expect(activeFilters).not.toContainText('Archived')
     await expect(page.locator(`[data-performance-publication="${publications[2]}"]`)).toBeVisible()
     await page.screenshot({
         path: info.outputPath('performance-tags-desktop-en.png'),
         fullPage: true,
         animations: 'disabled',
     })
+    await page.getByRole('tab', { name: 'Publishing', exact: true }).click()
+    await expect(trigger).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Export CSV', exact: true })).toHaveCount(0)
+    await page.getByRole('tab', { name: 'Engagement', exact: true }).click()
+    await expect(rows).toHaveCount(1)
     await page.setViewportSize({ width: 390, height: 844 })
-    await page.getByRole('button', { name: 'Language', exact: true }).click()
-    await page.getByRole('menuitem', { name: 'French', exact: true }).click()
+    await openLanguageMenu(page)
+    await page.getByRole('menuitem', { name: 'Français', exact: true }).click()
     await expect(
-        page.getByText(frenchTranslation('performance_tag_filter_scope'), { exact: true })
+        page.getByText(frenchTranslation('performance_grouped_description'), { exact: true })
     ).toBeVisible()
     await expect(rows).toHaveCount(1)
     expect(

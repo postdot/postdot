@@ -3,6 +3,7 @@ import { describe, expect, test } from 'bun:test'
 import type { PublicationSummary } from '@/lib/api'
 
 import {
+    groupPublicationCalendarEvents,
     isPublicationCalendarView,
     toPublicationCalendarEvents,
 } from './publication-calendar-events'
@@ -85,5 +86,53 @@ describe('publication calendar adapter', () => {
         )
 
         expect(events.map(event => event.id)).toEqual(['alpha', 'zulu'])
+    })
+
+    test('shows a post sent to several channels at the same minute once, with all its channels', () => {
+        const scheduledAt = Date.UTC(2026, 8, 12, 10, 30)
+        const events = groupPublicationCalendarEvents(
+            toPublicationCalendarEvents(
+                [
+                    publication('linkedin', scheduledAt, { postId: 'launch' }),
+                    publication('bluesky', scheduledAt + 20_000, {
+                        postId: 'launch',
+                        state: 'failed',
+                    }),
+                    publication('later', scheduledAt + 3_600_000, { postId: 'launch' }),
+                    publication('other', scheduledAt, { postId: 'other-post' }),
+                ],
+                new Set()
+            )
+        )
+
+        expect(events).toHaveLength(3)
+        const launch = events.find(event => event.id === 'bluesky' || event.id === 'linkedin')
+        expect(launch?.data?.publications.map(item => item.id).sort()).toEqual([
+            'bluesky',
+            'linkedin',
+        ])
+        expect(launch?.color).toBe('var(--color-state-failed)')
+    })
+    test('groups a post staggered across one civil day into a single entry led by its earliest channel', () => {
+        const morning = Date.UTC(2026, 10, 16, 8, 0)
+        const events = groupPublicationCalendarEvents(
+            toPublicationCalendarEvents(
+                [
+                    publication('newsletter', morning, { postId: 'spring' }),
+                    publication('digest', morning + 3_600_000, { postId: 'spring' }),
+                    // 23:30 UTC is already the next day in Paris.
+                    publication('late', Date.UTC(2026, 10, 16, 23, 30), { postId: 'spring' }),
+                    publication('other', morning, { postId: 'other-post' }),
+                ],
+                new Set()
+            ),
+            'Europe/Paris'
+        )
+
+        expect(events).toHaveLength(3)
+        const spring = events.find(event => event.id === 'newsletter')
+        expect(spring?.start.getTime()).toBe(morning)
+        expect(spring?.data?.publications.map(item => item.id)).toEqual(['newsletter', 'digest'])
+        expect(events.some(event => event.id === 'late')).toBe(true)
     })
 })

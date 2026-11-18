@@ -4,6 +4,17 @@ import { readFile } from 'node:fs/promises'
 import AxeBuilder from '@axe-core/playwright'
 import { expect, test, type Page } from '@playwright/test'
 
+import { switchTheme } from './locale'
+import {
+    composerText,
+    compositionSaved,
+    openAllChannels,
+    openChannel,
+    openContentOptions,
+    openMediaDescription,
+    saveButton,
+} from './support/post-editor'
+
 test('recovers composition text, target formatting and media through the existing draft contract', async ({
     page,
 }, info) => {
@@ -37,7 +48,7 @@ test('recovers composition text, target formatting and media through the existin
     await expect(target).toHaveText('Shared 👋 draft')
     await target.press('Control+a')
     await page.getByRole('button', { name: 'Underline', exact: true }).click()
-    await page.getByRole('button', { name: 'Common', exact: true }).click()
+    await page.getByRole('button', { name: 'All channels', exact: true }).click()
     await expect(common).toHaveText('Shared 👋 draft')
     await page.getByRole('button', { name: 'Pilot Discord', exact: true }).click()
     await expect(target.locator('u')).toHaveText('Shared 👋 draft')
@@ -89,9 +100,8 @@ test('recovers composition text, target formatting and media through the existin
         .toEqual({ common: 'Shared 👋 draft', target: '__Shared 👋 draft__', media: 1 })
 
     await page.reload()
-    const recovery = page.locator('[data-new-publication-recovery="true"]')
-    await expect(recovery).toBeVisible()
-    await recovery.getByRole('button', { name: 'Restore', exact: true }).click()
+    // ADR-103 §6: the draft is restored without a question.
+    await expect(page.locator('[data-new-publication-restored="true"]')).toBeVisible()
     await expect(target.locator('u')).toHaveText('Shared 👋 draft')
     await expect(page.locator('[data-media-selection-preview="true"]')).toHaveCount(1)
     await page
@@ -109,10 +119,8 @@ test('recovers composition text, target formatting and media through the existin
     await page.getByRole('button', { name: 'Pilot X', exact: true }).click()
     await target.fill('日'.repeat(141))
     await expect(target).toHaveAttribute('aria-invalid', 'true')
-    await expect(page.locator('[data-weighted-count="true"]')).toHaveText(
-        '282 / 280 weighted characters'
-    )
-    await page.getByRole('button', { name: 'Common', exact: true }).click()
+    await expect(page.locator('[data-weighted-count="true"]')).toHaveText('282 / 280 characters')
+    await page.getByRole('button', { name: 'All channels', exact: true }).click()
     await expect(common).toHaveText('Shared 👋 draft')
     await common.press('End')
     await page.getByRole('button', { name: 'Insert emoji', exact: true }).click()
@@ -128,11 +136,11 @@ test('recovers composition text, target formatting and media through the existin
     await page.getByRole('button', { name: 'Pilot X', exact: true }).click()
     await target.fill('X copy')
     await expect(target).not.toHaveAttribute('aria-invalid', 'true')
-    await page.getByRole('button', { name: 'Common', exact: true }).click()
+    await page.getByRole('button', { name: 'All channels', exact: true }).click()
     const createdResponse = page.waitForResponse(
         response => response.url().endsWith('/posts') && response.request().method() === 'POST'
     )
-    await page.getByRole('button', { name: 'Create draft', exact: true }).click()
+    await page.getByRole('button', { name: 'Save as draft', exact: true }).click()
     const response = await createdResponse
     expect(response.status()).toBe(201)
     const created = await response.json()
@@ -146,7 +154,7 @@ test('recovers composition text, target formatting and media through the existin
     await expect(
         page.getByRole('heading', { level: 1, name: 'Shared 👋 draft😀', exact: true })
     ).toBeVisible()
-    const destinations = page.getByRole('region', { name: 'Destinations', exact: true })
+    const destinations = page.getByRole('region', { name: 'Channels', exact: true })
     await expect(destinations.locator('a[data-publication-edit-link]')).toHaveCount(3)
     for (const publication of created.publications) {
         await expect(
@@ -168,11 +176,12 @@ test('recovers composition text, target formatting and media through the existin
     expect(editor.draft.content.body_markdown).toBe('## Shared 👋 draft')
     expect(editor.draft.content.media).toEqual(created.post.sourceContent.media)
 
+    // SPEC-013: the article opens on its channel tab. Its title and text are this channel's;
+    // the post text is on "All channels"; validation details sit in Content options.
     await page.goto(`/dashboard/projects/${id}/publications/${article.id}?editor=tiptap`)
-    const headline = page.locator('[data-target-field="title"]')
-    await openCustomization(page, headline)
+    const headline = page.locator('[data-channel-title] [data-target-field="title"]')
     await expect(headline.getByRole('textbox')).toHaveAttribute('aria-invalid', 'true')
-    await expect(headline).toContainText('Enter Headline.')
+    await expect(headline).toContainText('Enter Title.')
     for (const width of [1280, 390]) {
         await page.setViewportSize({ width, height: 900 })
         expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([])
@@ -182,49 +191,36 @@ test('recovers composition text, target formatting and media through the existin
         })
     }
     await page.setViewportSize({ width: 1280, height: 900 })
+    await openContentOptions(page)
     const diagnostics = page.locator('[data-validation-diagnostics="true"]')
     await expect(diagnostics).not.toHaveAttribute('open', '')
     await diagnostics.locator('summary').click()
-    await expect(diagnostics).toContainText('schema.minLength')
-    const titleSaved = page.waitForResponse(
-        response =>
-            response.url().endsWith(`/publications/${article.id}/draft`) &&
-            response.request().method() === 'PATCH' &&
-            response.ok()
-    )
+    await expect(diagnostics.locator('li')).toHaveText([
+        'This channel version doesn’t meet the channel’s content rules yet. Adjust the highlighted parts and save again.',
+    ])
+    await expect(diagnostics).not.toContainText('schema.minLength')
+    await expect(headline.getByRole('textbox')).toHaveAttribute('aria-invalid', 'true')
+    await expect(headline).toContainText('Enter Title.')
+    const titleSaved = compositionSaved(page)
     await headline.getByRole('textbox').fill('An article headline')
     await titleSaved
     await expect(headline.getByRole('textbox')).not.toHaveAttribute('aria-invalid', 'true')
-    const sourceBody = page.locator('#source-body')
+    const activeScope = page.locator('[data-editor-scope]:not([hidden])')
+    const sourceBody = await openAllChannels(page)
     await expect(sourceBody).toHaveAttribute('contenteditable', 'true')
-    await expect(
-        sourceBody
-            .locator('xpath=ancestor::section[1]')
-            .getByRole('button', { name: 'Source', exact: true })
-    ).toHaveCount(0)
-    const sourceSaved = page.waitForResponse(
-        response =>
-            response.url().endsWith(`/publications/${article.id}/draft`) &&
-            response.request().method() === 'PATCH' &&
-            response.ok()
-    )
+    // The post text is plain: it offers no markup mode.
+    await expect(activeScope.getByRole('button', { name: 'Markup', exact: true })).toHaveCount(0)
+    const sourceSaved = compositionSaved(page)
     await sourceBody.fill('Updated common copy')
     await sourceSaved
-    const articleField = page.locator('[data-target-field="body_markdown"]')
-    const articleBody = articleField.locator('[contenteditable="true"]')
-    await openCustomization(page, articleField)
+    const articleBody = await openChannel(page, 'Pilot article')
     await expect(articleBody.locator('h2')).toHaveText('Shared 👋 draft')
-    const targetSaved = page.waitForResponse(
-        response =>
-            response.url().endsWith(`/publications/${article.id}/draft`) &&
-            response.request().method() === 'PATCH' &&
-            response.ok()
-    )
+    const targetSaved = compositionSaved(page)
     await articleBody.fill('Updated article')
     await articleBody.press('Control+a')
-    await articleField.getByRole('button', { name: 'Strikethrough', exact: true }).click()
+    await activeScope.getByRole('button', { name: 'Strikethrough', exact: true }).click()
     await expect(
-        articleField.getByRole('button', { name: 'Strikethrough', exact: true })
+        activeScope.getByRole('button', { name: 'Strikethrough', exact: true })
     ).toHaveAttribute('aria-pressed', 'true')
     await targetSaved
     const externalImage = 'https://images.example.com/article.png'
@@ -236,7 +232,7 @@ test('recovers composition text, target formatting and media through the existin
     )
     await articleBody.press('Control+End')
     await articleBody.press('Enter')
-    await articleField.getByRole('button', { name: 'External image', exact: true }).click()
+    await activeScope.getByRole('button', { name: 'External image', exact: true }).click()
     await page.getByRole('textbox', { name: 'Image URL', exact: true }).fill(externalImage)
     await page
         .getByRole('textbox', { name: 'Alternative text', exact: true })
@@ -265,8 +261,8 @@ test('recovers composition text, target formatting and media through the existin
             media: 1,
         })
     await page.reload()
-    await expect(sourceBody).toHaveText('Updated common copy')
-    await openCustomization(page, articleField)
+    await expect(await openAllChannels(page)).toHaveText('Updated common copy')
+    await openChannel(page, 'Pilot article')
     await expect(articleBody.locator('s')).toHaveText('Updated article')
     await expect(articleBody.locator('img')).toHaveAttribute('src', externalImage)
     for (const width of [1280, 820, 390]) {
@@ -278,12 +274,15 @@ test('recovers composition text, target formatting and media through the existin
         })
     }
     await page.setViewportSize({ width: 1280, height: 900 })
-    await page.goto(`/dashboard/projects/${id}/publications/${article.id}?editor=legacy`)
-    await expect(sourceBody).toHaveValue('Updated common copy')
-    await openCustomization(page, articleField)
-    await expect(articleField.locator('textarea')).toHaveValue(
+    await page.goto(`/dashboard/projects/${id}/publications/${article.id}`)
+    await expect(articleBody).toHaveAttribute('contenteditable', 'true')
+    await activeScope.getByRole('button', { name: 'Markup', exact: true }).click()
+    await expect(
+        activeScope.getByRole('textbox', { name: 'Markup text', exact: true })
+    ).toHaveValue(
         '## ~~Updated article~~\n\n![Article landscape](<https://images.example.com/article.png>)'
     )
+    await expect(await openAllChannels(page)).toHaveText('Updated common copy')
 
     // Identify the Discord contract, rather than relying on selected destination ordering.
     let discordId: string | undefined
@@ -296,29 +295,33 @@ test('recovers composition text, target formatting and media through the existin
     }
     expect(discordId).toBeDefined()
     await page.goto(`/dashboard/projects/${id}/publications/${discordId}?editor=tiptap`)
-    await expect(
-        page.getByRole('button', { name: 'Reconcile before continuing', exact: true })
-    ).toBeVisible()
-    await page.getByRole('button', { name: 'Rebase draft to current source', exact: true }).click()
-    const discordField = page.locator('[data-target-field="text"]')
-    await openCustomization(page, discordField)
-    await discordField.getByRole('button', { name: 'Source', exact: true }).click()
-    await discordField
-        .getByRole('textbox', { name: 'Source text', exact: true })
+    // Discord followed the post, so editing "All channels" carried the new text to it in the
+    // same save (SPEC-013): nothing is behind and no review is offered.
+    await expect(page.getByRole('button', { name: 'Review and update', exact: true })).toHaveCount(
+        0
+    )
+    await expect(composerText(page)).toHaveText('Updated common copy')
+    const discordBody = await openChannel(page, 'Pilot Discord')
+    await activeScope.getByRole('button', { name: 'Markup', exact: true }).click()
+    await activeScope
+        .getByRole('textbox', { name: 'Markup text', exact: true })
         .fill('x'.repeat(2000))
-    await discordField.getByRole('button', { name: 'Source', exact: true }).click()
-    const discordBody = discordField.locator('[contenteditable="true"]')
+    await activeScope.getByRole('button', { name: 'Markup', exact: true }).click()
     await discordBody.press('Control+End')
     await discordBody.pressSequentially('a')
-    await expect(discordBody).toHaveText('x'.repeat(2000))
+    // Like the new post composer, the editor lets the text run past Discord's limit and marks
+    // it invalid instead of swallowing keystrokes.
+    await expect(discordBody).toHaveText(`${'x'.repeat(2000)}a`)
+    await expect(discordBody).toHaveAttribute('aria-invalid', 'true')
+    await discordBody.press('Backspace')
+    await expect(discordBody).not.toHaveAttribute('aria-invalid', 'true')
     await discordBody.press('Control+a')
-    await discordField.getByRole('button', { name: 'Bold', exact: true }).click()
-    await expect(discordBody.locator('strong')).toHaveCount(0)
+    await activeScope.getByRole('button', { name: 'Bold', exact: true }).click()
+    // Bold markers count toward Discord's serialized limit, so the text is flagged as over it.
+    await expect(discordBody).toHaveAttribute('aria-invalid', 'true')
 })
 
-test('keeps a native editor draft byte-for-byte when restored into the configured editor and back', async ({
-    page,
-}) => {
+test('keeps a native editor draft byte-for-byte across navigation and reload', async ({ page }) => {
     // Account setup and four full document/editor loads share this budget.
     test.setTimeout(60_000)
     const id = await createProject(page)
@@ -336,7 +339,7 @@ test('keeps a native editor draft byte-for-byte when restored into the configure
             response.request().method() === 'GET' &&
             response.ok()
     )
-    await page.goto(`${base}?editor=legacy`)
+    await page.goto(base)
     await draftLoaded
     const text = '  Original 👋\n\n**literal**\n'
     const saved = page.waitForResponse(
@@ -348,27 +351,31 @@ test('keeps a native editor draft byte-for-byte when restored into the configure
     await page.getByRole('textbox', { name: 'Content', exact: true }).fill(text)
     await saved
     await page.goto(`${base}?editor=tiptap`)
-    await page
-        .locator('[data-new-publication-recovery="true"]')
-        .getByRole('button', { name: 'Restore', exact: true })
-        .click()
+    await expect(page.locator('[data-new-publication-restored="true"]')).toBeVisible()
     await expect(page.getByRole('textbox', { name: 'Content', exact: true })).toHaveAttribute(
         'contenteditable',
         'true'
     )
-    const draft = await page.request.get(`/api/projects/${id}/publication-composer-draft`)
-    expect((await draft.json()).draft.content.postContent).toBe(text)
+    const content = page.getByRole('textbox', { name: 'Content', exact: true })
+    const assertRestored = async () => {
+        await expect(page.locator('[data-new-publication-restored="true"]')).toBeVisible()
+        // Paragraph boundaries preserve blank lines and the trailing newline;
+        // toHaveText would normalize the whitespace this journey protects.
+        await expect
+            .poll(() =>
+                content
+                    .locator('p')
+                    .evaluateAll(nodes => nodes.map(node => node.textContent).join('\n'))
+            )
+            .toBe(text)
+        const draft = await page.request.get(`/api/projects/${id}/publication-composer-draft`)
+        expect((await draft.json()).draft.content.postContent).toBe(text)
+    }
+    await assertRestored()
     await page.reload()
-    await page
-        .locator('[data-new-publication-recovery="true"]')
-        .getByRole('button', { name: 'Restore', exact: true })
-        .click()
-    await page.goto(`${base}?editor=legacy`)
-    await page
-        .locator('[data-new-publication-recovery="true"]')
-        .getByRole('button', { name: 'Restore', exact: true })
-        .click()
-    await expect(page.getByRole('textbox', { name: 'Content', exact: true })).toHaveValue(text)
+    await assertRestored()
+    await page.goto(base)
+    await assertRestored()
 })
 
 test('preserves a title-only article across autosave and recovery', async ({ page }) => {
@@ -380,7 +387,7 @@ test('preserves a title-only article across autosave and recovery', async ({ pag
     await page.goto(`/dashboard/projects/${id}/publications/new`)
     await page.getByRole('button', { name: 'Title article', exact: true }).click()
     const title = page.locator('#new-post-title')
-    await expect(title).toHaveAttribute('placeholder', 'Article title')
+    await expect(title).toHaveAttribute('placeholder', 'Title')
     await title.fill('A title worth preserving')
     await expect
         .poll(async () => {
@@ -391,9 +398,8 @@ test('preserves a title-only article across autosave and recovery', async ({ pag
         })
         .toBe('A title worth preserving')
     await page.reload()
-    const recovery = page.locator('[data-new-publication-recovery="true"]')
-    await expect(recovery).toBeVisible()
-    await recovery.getByRole('button', { name: 'Restore', exact: true }).click()
+    // ADR-103 §6: the draft is restored without a question.
+    await expect(page.locator('[data-new-publication-restored="true"]')).toBeVisible()
     await expect(title).toHaveValue('A title worth preserving')
     await expect(page.getByRole('textbox', { name: 'Channel content', exact: true })).toHaveText('')
 })
@@ -413,7 +419,7 @@ test('corrects destination attachments without changing shared media or another 
     }
     await page.goto(`/dashboard/projects/${id}/publications/new`)
     await page.getByRole('button', { name: 'Add Media discord', exact: true }).click()
-    await page.getByRole('button', { name: 'Common', exact: true }).click()
+    await page.getByRole('button', { name: 'All channels', exact: true }).click()
     await page.getByRole('textbox', { name: 'Content', exact: true }).fill('Shared images')
     await page.getByRole('button', { name: 'Add media', exact: true }).click()
     const library = page.locator('[data-media-library="true"]')
@@ -436,7 +442,7 @@ test('corrects destination attachments without changing shared media or another 
     const createdResponse = page.waitForResponse(
         response => response.url().endsWith('/posts') && response.request().method() === 'POST'
     )
-    await page.getByRole('button', { name: 'Create draft', exact: true }).click()
+    await page.getByRole('button', { name: 'Save as draft', exact: true }).click()
     const created = await (await createdResponse).json()
     const publication = created.publications.find(
         (item: { channelId: string }) => item.channelId === channelIds[0]
@@ -448,8 +454,13 @@ test('corrects destination attachments without changing shared media or another 
     const siblingUrl = `/api/projects/${id}/publications/${sibling.id}/editor`
     const before = (await (await page.request.get(siblingUrl)).json()).editor.draft.content
     await page.goto(`/dashboard/projects/${id}/publications/${publication.id}`)
-    const mediaField = page.locator('[data-target-field="media"]')
-    await openCustomization(page, mediaField)
+    // The channel's media sit under its editor, not in Content options.
+    const mediaField = page.locator(
+        '[data-new-publication-editor="true"] > [data-media-picker="true"]'
+    )
+    await expect(page.locator('[data-post-channel-panel] [data-target-field="media"]')).toHaveCount(
+        0
+    )
     // Two images are valid under the current LinkedIn profile; customization
     // must still isolate destination media from the shared source and sibling.
     await expect(mediaField).not.toContainText('Select at most 1 item.')
@@ -468,17 +479,14 @@ test('corrects destination attachments without changing shared media or another 
     await expect(mediaField).not.toContainText('Select at most 1 item.')
     expect((await (await page.request.get(siblingUrl)).json()).editor.draft.content).toEqual(before)
     await page.reload()
-    await openCustomization(page, mediaField)
     await expect(mediaField.locator('[data-media-selection-preview="true"]')).toHaveCount(1)
-    for (const theme of ['light', 'dark']) {
-        const toggle = page.getByRole('button', { name: `Switch to ${theme} theme`, exact: true })
-        if (await toggle.isVisible()) await toggle.click()
+    for (const theme of ['light', 'dark'] as const) {
+        if (!(await page.locator('html').getAttribute('class'))?.split(' ').includes(theme))
+            await switchTheme(page, theme)
         await expect(page.locator('html')).toHaveClass(new RegExp(`\\b${theme}\\b`))
         for (const width of [1280, 820, 390]) {
             await page.setViewportSize({ width, height: 900 })
-            await expect(
-                mediaField.getByRole('button', { name: 'Add media', exact: true })
-            ).toBeVisible()
+            await expect(page.getByRole('button', { name: 'Add media', exact: true })).toBeVisible()
             expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([])
             await mediaField.scrollIntoViewIfNeeded()
             await page.screenshot({
@@ -487,7 +495,7 @@ test('corrects destination attachments without changing shared media or another 
             })
         }
     }
-    await mediaField.getByRole('button', { name: 'Add media', exact: true }).focus()
+    await page.getByRole('button', { name: 'Add media', exact: true }).focus()
     await page.keyboard.press('Enter')
     await expect(library).toBeVisible()
     await page.getByRole('button', { name: 'Done', exact: true }).click()
@@ -496,7 +504,7 @@ test('corrects destination attachments without changing shared media or another 
             response.url().endsWith(`/publications/${publication.id}/draft/promote`) &&
             response.request().method() === 'POST'
     )
-    await page.getByRole('button', { name: /^Use this version(?:\s*(?:Ctrl|⌘)↵)?$/ }).click()
+    await saveButton(page).click()
     const appliedResponse = await applied
     expect(appliedResponse.ok()).toBe(true)
     const { editor: appliedEditor } = await appliedResponse.json()
@@ -546,8 +554,9 @@ test('previews the article destination headline through adaptation and locked in
     await expect(preview.getByRole('heading', { level: 2 })).toHaveText('Shared article headline')
     await expect(previewBody).toHaveText('Article body content.')
     await expect(previewMedia).toHaveCount(1)
-    const field = page.locator('[data-target-field="title"]')
-    await openCustomization(page, field)
+    // The channel's own title is the title field of its tab (SPEC-013).
+    const field = page.locator('[data-channel-title] [data-target-field="title"]')
+    await expect(field).toBeVisible()
     await field.getByRole('textbox').fill('Customized destination headline')
     await expect(preview.getByRole('heading', { level: 2 })).toHaveText(
         'Customized destination headline'
@@ -722,7 +731,7 @@ test('projects custom destination text and ordered media through active nested b
                 .fill('Explicit projection text')
         }
     }
-    await page.getByRole('button', { name: 'Common', exact: true }).click()
+    await page.getByRole('button', { name: 'All channels', exact: true }).click()
     let blockProfile = true
     await page.route(`**/channels/${channels[2]!.id}/profile`, route =>
         blockProfile
@@ -740,7 +749,7 @@ test('projects custom destination text and ordered media through active nested b
     const refusedProfile = page.waitForResponse(
         response => response.status() === 503 && response.url().endsWith('/profile')
     )
-    await page.getByRole('button', { name: 'Create draft', exact: true }).click()
+    await page.getByRole('button', { name: 'Save as draft', exact: true }).click()
     await refusedProfile
     await expect(page.locator('[data-new-publication-form]')).toHaveAttribute('aria-busy', 'false')
     expect(posts).toBe(0)
@@ -750,7 +759,7 @@ test('projects custom destination text and ordered media through active nested b
     const createdResponse = page.waitForResponse(
         response => response.url().endsWith('/posts') && response.request().method() === 'POST'
     )
-    await page.getByRole('button', { name: 'Create draft', exact: true }).click()
+    await page.getByRole('button', { name: 'Save as draft', exact: true }).click()
     const response = await createdResponse
     expect(response.status()).toBe(201)
     expect(posts).toBe(1)
@@ -838,7 +847,7 @@ test('shows custom headline and length feedback without blocking invalid drafts'
     await page.goto(`/dashboard/projects/${projectId}/publications/new`)
     const source = page.getByRole('textbox', { name: 'Content', exact: true })
     await expect(
-        page.getByText('Destination limits could not be checked.', { exact: true })
+        page.getByText('Channel limits could not be checked.', { exact: true })
     ).toBeVisible()
     const initialReads = reads
     expect(initialReads).toBeGreaterThan(0)
@@ -894,7 +903,7 @@ test('shows custom headline and length feedback without blocking invalid drafts'
     const created = page.waitForResponse(
         response => response.url().endsWith('/posts') && response.request().method() === 'POST'
     )
-    await page.getByRole('button', { name: 'Create draft', exact: true }).click()
+    await page.getByRole('button', { name: 'Save as draft', exact: true }).click()
     const response = await created
     expect(response.status()).toBe(201)
     const result = await response.json()
@@ -1084,22 +1093,12 @@ async function createProject(page: Page) {
     await page.getByRole('combobox', { name: 'Select project', exact: true }).click()
     await page.getByRole('button', { name: 'Create project', exact: true }).last().click()
     const dialog = page.getByRole('dialog')
-    await dialog
-        .getByRole('textbox', { name: 'New project', exact: true })
-        .fill('Editor pilot project')
-    await dialog.getByRole('button', { name: 'Add project', exact: true }).click()
+    await dialog.getByRole('textbox', { name: 'Name', exact: true }).fill('Editor pilot project')
+    await dialog.getByRole('button', { name: 'Create project', exact: true }).click()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/overview$/)
     const id = new URL(page.url()).pathname.split('/')[3]
     if (!id) throw new Error('Missing pilot project')
     return id
-}
-
-async function openCustomization(page: Page, field: ReturnType<Page['locator']>) {
-    await expect(field).toBeAttached()
-    const details = page.locator('[data-publication-customization="true"]')
-    if ((await details.getAttribute('open')) === null)
-        await details.locator(':scope > summary').click()
-    await expect(field).toBeVisible()
 }
 
 test('composer native presentation follows execution rather than profile identity', async ({
@@ -1149,7 +1148,7 @@ test('composer native presentation follows execution rather than profile identit
         await page
             .locator(`[data-channel-selected-button][data-channel-id="${channel.id}"]`)
             .click()
-        await expect(page.getByText('Loading destination limits…', { exact: true })).toHaveCount(0)
+        await expect(page.getByText('Loading channel limits…', { exact: true })).toHaveCount(0)
         const native = channel.kind !== 'manual'
         const article = native && channel.platform === 'devto'
         const discord = native && channel.platform === 'discord'
@@ -1224,8 +1223,9 @@ test('composer native presentation follows execution rather than profile identit
         expect(binding.path).toMatch(/^\/[^/]+$/)
         const property = binding.path.slice(1)
         await page.goto(`/dashboard/projects/${projectId}/publications/${publication.id}`)
-        const field = page.locator(`[data-target-field="${binding.id}"]`)
-        await openCustomization(page, field)
+        // The channel tab's editor is this channel's primary text, with its native controls.
+        const field = page.locator('[data-editor-scope]:not([hidden])')
+        await expect(composerText(page)).toBeVisible()
         const rich = channel.kind !== 'manual'
         await expect(field.getByRole('button', { name: 'Bold', exact: true })).toHaveCount(
             rich ? 1 : 0
@@ -1235,13 +1235,8 @@ test('composer native presentation follows execution rather than profile identit
         )
         const text =
             channel.kind === 'manual' ? 'Saved' : `Saved ${channel.kind}-${channel.platform}`
-        const saving = page.waitForResponse(
-            response =>
-                response.url().endsWith(`${publication.id}/draft`) &&
-                response.request().method() === 'PATCH' &&
-                response.ok()
-        )
-        await field.getByRole('textbox').fill(text)
+        const saving = compositionSaved(page)
+        await composerText(page).fill(text)
         await saving
         const saved = await read()
         expect(saved.draft.content[property]).toBe(text)
@@ -1313,34 +1308,35 @@ test('upgrades LinkedIn explicitly and composes multiple images without changing
 
     await page.goto(`/dashboard/projects/${projectId}/channels`)
     await page.getByRole('button', { name: 'Manage LinkedIn images', exact: true }).click()
-    await page.getByRole('menuitem', { name: 'Edit profile', exact: true }).click()
+    await page.getByRole('menuitem', { name: 'Content rules', exact: true }).click()
     const dialog = page.getByRole('dialog')
-    await dialog.getByRole('button', { name: 'Load latest LinkedIn template', exact: true }).click()
+    await dialog.getByRole('button', { name: 'Use the latest LinkedIn rules', exact: true }).click()
     // The loaded template is a local edit in the structured controls: the media
     // limit already shows the latest template value.
-    await expect(dialog.getByLabel('Maximum files (0 = none)', { exact: true })).toHaveValue('20')
-    // Loading the template is a local draft action, never an activation.
+    await expect(dialog.getByLabel('Up to', { exact: true })).toHaveValue('20')
+    // Loading the template is a local edit, never an activation.
     const profileUrl = `/api/projects/${projectId}/channels/${channelId}/profile`
     expect(
         (await (await page.request.get(profileUrl)).json()).active.profile.execution.revision
     ).toBe('member-post-v2')
-    await dialog.getByRole('button', { name: 'Save draft', exact: true }).click()
-    await dialog.getByRole('button', { name: 'Preview impact', exact: true }).click()
-    await expect(
-        dialog.getByRole('button', { name: 'Review activation', exact: true })
-    ).toBeEnabled()
-    await dialog.getByRole('button', { name: 'Review activation', exact: true }).click()
-    await dialog.getByRole('button', { name: 'Confirm activation', exact: true }).click()
-    await expect(
-        dialog.getByRole('heading', { name: 'LinkedIn images profile activated', exact: true })
-    ).toBeVisible()
+    await dialog.getByRole('button', { name: 'Save', exact: true }).click()
+    // One save applies the rules; it asks first only when a publication needs review.
+    const apply = dialog.getByRole('button', { name: 'Apply rules', exact: true })
+    const saved = page.getByText('Content rules saved for LinkedIn images', { exact: true })
+    await expect(apply.or(saved)).toBeVisible()
+    if (await apply.isVisible()) {
+        await apply.click()
+        await expect(
+            dialog.getByRole('heading', { name: 'New rules apply to LinkedIn images', exact: true })
+        ).toBeVisible()
+        await dialog.getByRole('button', { name: 'Close', exact: true }).click()
+    }
     expect(
         (await (await page.request.get(profileUrl)).json()).active.profile.execution.revision
     ).toBe('member-post-v4')
     expect(
         (await (await page.request.get(`${historicalUrl}/editor`)).json()).editor.selectedTarget
     ).toEqual(selected)
-    await dialog.getByRole('button', { name: 'Close', exact: true }).click()
     await page.goto(`/dashboard/projects/${projectId}/publications/new`)
     await page.getByRole('textbox', { name: 'Content', exact: true }).fill('Three images in order')
     await page.getByRole('button', { name: 'Add media', exact: true }).click()
@@ -1353,11 +1349,18 @@ test('upgrades LinkedIn explicitly and composes multiple images without changing
             .click()
     await page.getByRole('button', { name: 'Done', exact: true }).click()
     await expect(page.locator('[data-media-selection-preview="true"]')).toHaveCount(3)
-    await expect(page.locator('[data-preview-platform="linkedin"] img')).toHaveCount(4)
+    const preview = page.locator('[data-preview-platform="linkedin"]')
+    await expect(preview.locator('header')).toContainText('LinkedIn images')
+    const images = preview.locator('[data-publication-preview-media] img')
+    await expect(images).toHaveCount(assets.length)
+    for (const [index, filename] of filenames.entries()) {
+        await expect(images.nth(index)).toHaveAttribute('alt', `Alt text for ${filename}`)
+        await expect(images.nth(index)).toHaveAttribute('src', new RegExp(assets[index]!))
+    }
     const saving = page.waitForResponse(
         response => response.url().endsWith('/posts') && response.request().method() === 'POST'
     )
-    await page.getByRole('button', { name: 'Create draft', exact: true }).click()
+    await page.getByRole('button', { name: 'Save as draft', exact: true }).click()
     const result = await saving
     expect(result.status()).toBe(201)
     const post = await result.json()
@@ -1380,16 +1383,13 @@ test('upgrades LinkedIn explicitly and composes multiple images without changing
     expect(editor.profile.profile.execution.revision).toBe('member-post-v4')
 })
 
-for (const [platform, revision] of [
-    ['linkedin', 'member-post-v4'],
-    ['mastodon', 'status-v3'],
-    ['discord', 'message-v2'],
-    ['bluesky', 'post-v2'],
-] as const) {
+for (const platform of ['linkedin', 'mastodon', 'discord', 'bluesky'] as const) {
     test(`imports and plays a native ${platform} MP4 and preserves it in the destination draft`, async ({
         page,
     }, info) => {
         const projectId = await createProject(page)
+        const preset = (await serverPresets(page))[platform]!
+        expect(preset.execution).toMatchObject({ kind: 'built_in', contractId: platform })
         const channel = await page.request.post(`/api/projects/${projectId}/channels`, {
             data: { name: `${platform} video`, profile: platform },
         })
@@ -1437,15 +1437,16 @@ for (const [platform, revision] of [
         await card.locator('[data-media-selection-toggle]').click()
         await page.getByRole('button', { name: 'Done', exact: true }).click()
         if (platform === 'discord' || platform === 'bluesky') {
-            await page
-                .getByRole('textbox', { name: 'Accessibility text', exact: true })
-                .fill('A moving scene')
+            // The description is optional and sits behind the thumbnail's "ALT" badge.
+            await (await openMediaDescription(page, 'native-video.mp4')).fill('A moving scene')
+            await page.keyboard.press('Escape')
         }
         const video = page.locator(`[data-preview-platform="${platform}"] video`)
         await expect(video).toHaveAttribute('controls', '')
+        // Media timings are floats; a decoder may report 4.0x seconds.
         await expect
             .poll(() => video.evaluate((element: HTMLVideoElement) => element.duration))
-            .toBe(4)
+            .toBeCloseTo(4, 1)
         await video.evaluate(async (element: HTMLVideoElement) => {
             element.muted = true
             await element.play()
@@ -1453,13 +1454,18 @@ for (const [platform, revision] of [
         await expect
             .poll(() => video.evaluate((element: HTMLVideoElement) => element.currentTime))
             .toBeGreaterThan(0)
-        await video.evaluate((element: HTMLVideoElement) => {
-            element.pause()
-            element.currentTime = 2
-        })
+        // Wait for the seek itself to finish; it lands on the nearest frame.
+        await video.evaluate(
+            (element: HTMLVideoElement) =>
+                new Promise<void>(resolve => {
+                    element.pause()
+                    element.addEventListener('seeked', () => resolve(), { once: true })
+                    element.currentTime = 2
+                })
+        )
         await expect
             .poll(() => video.evaluate((element: HTMLVideoElement) => element.currentTime))
-            .toBe(2)
+            .toBeCloseTo(2, 1)
         for (const width of [1280, 390]) {
             await page.setViewportSize({ width, height: 900 })
             await expect(video).toBeVisible()
@@ -1471,7 +1477,7 @@ for (const [platform, revision] of [
         const saving = page.waitForResponse(
             response => response.url().endsWith('/posts') && response.request().method() === 'POST'
         )
-        await page.getByRole('button', { name: 'Create draft', exact: true }).click()
+        await page.getByRole('button', { name: 'Save as draft', exact: true }).click()
         const saved = await saving
         expect(saved.status()).toBe(201)
         const publication = (await saved.json()).publications[0]
@@ -1488,22 +1494,12 @@ for (const [platform, revision] of [
                 ...(platform !== 'linkedin' ? { accessibilityText: 'A moving scene' } : {}),
             },
         ])
-        expect(editor.profile.profile.execution.revision).toBe(revision)
+        expect(editor.profile.profile.execution).toEqual(preset.execution)
         if (platform === 'discord' || platform === 'bluesky') {
             await page.goto(`/dashboard/projects/${projectId}/publications/${publication.id}`)
-            const targetSection = page
-                .locator('details')
-                .filter({ has: page.getByText('Customize for this channel', { exact: true }) })
-            await page.getByText('Customize for this channel', { exact: true }).click()
-            const description = targetSection.getByRole('textbox', {
-                name: 'Accessibility text',
-                exact: true,
-            })
+            const description = await openMediaDescription(page, 'native-video.mp4')
             await expect(description).toHaveValue('A moving scene')
-            const savedDescription = page.waitForResponse(
-                response =>
-                    response.request().method() === 'PATCH' && response.url().includes('/draft')
-            )
+            const savedDescription = compositionSaved(page)
             await description.fill('Destination video description')
             await savedDescription
             const updated = await (
@@ -1539,7 +1535,7 @@ test('adds a destination draft to the existing post with explicit repeated-chann
     expect(createdResponse.status()).toBe(201)
     const created = await createdResponse.json()
     await page.goto(`/dashboard/projects/${projectId}/publications/${created.publications[0].id}`)
-    await page.getByRole('button', { name: 'Add destination', exact: true }).click()
+    await page.getByRole('button', { name: 'Add a channel', exact: true }).click()
     const dialog = page.getByRole('dialog')
     await dialog.getByRole('combobox', { name: 'Channel', exact: true }).click()
     await page.getByRole('option', { name: 'Reuse manual', exact: true }).click()
@@ -1601,7 +1597,7 @@ test('keeps partial tag-assignment feedback visible after reaching the created p
     await page
         .getByRole('textbox', { name: 'Content', exact: true })
         .fill('A created post with a tag warning')
-    await page.getByRole('button', { name: 'Select tags', exact: true }).click()
+    await page.getByRole('button', { name: 'Add tag', exact: true }).click()
     await page.getByRole('menuitemcheckbox', { name: 'Campaign', exact: true }).click()
     await page.keyboard.press('Escape')
     let creations = 0
@@ -1620,7 +1616,7 @@ test('keeps partial tag-assignment feedback visible after reaching the created p
     const creation = page.waitForResponse(
         response => response.url().endsWith('/posts') && response.request().method() === 'POST'
     )
-    await page.getByRole('button', { name: 'Create draft', exact: true }).click()
+    await page.getByRole('button', { name: 'Save as draft', exact: true }).click()
     const response = await creation
     expect(response.status()).toBe(201)
     const created = await response.json()
@@ -1630,7 +1626,7 @@ test('keeps partial tag-assignment feedback visible after reaching the created p
     )
     await expect(
         page
-            .getByRole('region', { name: 'Destinations', exact: true })
+            .getByRole('region', { name: 'Channels', exact: true })
             .locator('a[data-publication-edit-link]')
     ).toHaveCount(1)
     expect(creations).toBe(1)

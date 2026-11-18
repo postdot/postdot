@@ -179,6 +179,7 @@ export function toPublicationSummary(row: PublicationSummaryRow): PublicationSum
         lastEditedAt: Math.max(row.updatedAt, row.postUpdatedAt, row.draftUpdatedAt),
         channelName: row.channelName,
         draftRevision: row.draftRevision,
+        draftSourceRevision: row.draftSourceRevision,
         draftReviewState: row.draftReviewState,
         draftDiffersFromTarget:
             row.targetContentJson === null ||
@@ -188,7 +189,7 @@ export function toPublicationSummary(row: PublicationSummaryRow): PublicationSum
     }
 }
 
-function summarizeSourceExcerpt(sourceContent: ReturnType<typeof parseSourceContent>) {
+export function summarizeSourceExcerpt(sourceContent: ReturnType<typeof parseSourceContent>) {
     const candidate = sourceContent.body?.text.trim() || sourceContent.headline?.trim() || ''
     if (candidate === '') return null
 

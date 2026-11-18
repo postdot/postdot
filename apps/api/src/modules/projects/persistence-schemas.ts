@@ -16,12 +16,22 @@ const jsonValue = Type.Union([
     Type.Record(Type.String({ pattern: '^(.*)$' }), Type.Any()),
 ])
 
+const identityImageSourceSchema = Type.Union([
+    Type.Literal('upload'),
+    Type.Literal('url'),
+    Type.Literal('favicon'),
+    Type.Null(),
+])
+
 export const projectRowSchema = Type.Object({
     id: Type.String(),
     name: Type.String(),
     timeZone: Type.String(),
     workspaceId: Type.Union([Type.String(), Type.Null()]),
     primaryCategoryId: Type.Union([Type.String(), Type.Null()]),
+    websiteUrl: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+    imageUrl: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+    imageSource: Type.Optional(identityImageSourceSchema),
     createdAt: safeInteger,
     updatedAt: safeInteger,
 })
@@ -35,6 +45,9 @@ export const channelRowSchema = Type.Object({
     profileVersionId: Type.String(),
     state: Type.Enum(['active', 'archived']),
     archivedAt: Type.Union([safeInteger, Type.Null()]),
+    websiteUrl: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+    imageUrl: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+    imageSource: Type.Optional(identityImageSourceSchema),
     revision: safeInteger,
     createdAt: safeInteger,
     updatedAt: safeInteger,

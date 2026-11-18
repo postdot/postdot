@@ -222,6 +222,8 @@ export interface PostdotApiKeyRecord {
 }
 
 export interface PostdotApiKeyAuthApi {
+    /** Server-only: delete expired keys now (the plugin otherwise runs this as keys are used). */
+    deleteAllExpiredApiKeys(): Promise<unknown>
     createApiKey(input: {
         body: {
             configId?: string

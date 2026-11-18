@@ -6,11 +6,14 @@ import { useId, useState, type FormEvent } from 'react'
 
 import { AuthShell } from '@/components/auth-shell'
 import { ApiError, api, formatApiError } from '@/lib/api'
+import { useLanguage } from '@/lib/i18n'
 import * as m from '@/paraglide/messages.js'
 
 export const Route = createFileRoute('/forgot-password')({ component: ForgotPasswordPage })
 
 function ForgotPasswordPage() {
+    // Re-render when a lazily loaded locale catalog arrives.
+    useLanguage()
     const navigate = useNavigate()
     const emailId = useId()
     const [email, setEmail] = useState('')

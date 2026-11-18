@@ -3,8 +3,8 @@ import { randomUUID } from 'node:crypto'
 import AxeBuilder from '@axe-core/playwright'
 import { expect, test, type Page } from '@playwright/test'
 
-import en from '../apps/web/messages/en.json' with { type: 'json' }
 import fr from '../apps/web/messages/fr.json' with { type: 'json' }
+import { openLanguageMenu } from './locale'
 
 test('shows an API-prepared publication for human approval before it is scheduled', async ({
     page,
@@ -78,8 +78,8 @@ test('shows an API-prepared publication for human approval before it is schedule
                 .evaluate(element => element.scrollWidth <= element.clientWidth + 1)
         ).toBe(true)
     }
-    await page.locator('[data-slot="language-switcher-trigger"]').click()
-    await page.getByRole('menuitem', { name: en.language_french, exact: true }).click()
+    await openLanguageMenu(page)
+    await page.getByRole('menuitem', { name: 'Français', exact: true }).click()
     await expect(page.getByRole('menu')).toHaveCount(0)
     const translatedSection = page.getByRole('region', { name: fr.approval_requests_title })
     await expect(translatedSection).toBeVisible()
@@ -153,9 +153,9 @@ async function createAccountAndProject(page: Page, suffix: string) {
     await page.getByRole('button', { name: 'Create project', exact: true }).last().click()
     const projectDialog = page.getByRole('dialog')
     await projectDialog
-        .getByRole('textbox', { name: 'New project', exact: true })
+        .getByRole('textbox', { name: 'Name', exact: true })
         .fill(`E2E approval project ${suffix}`)
-    await projectDialog.getByRole('button', { name: 'Add project', exact: true }).click()
+    await projectDialog.getByRole('button', { name: 'Create project', exact: true }).click()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/overview$/)
 
     const match = new URL(page.url()).pathname.match(/^\/dashboard\/projects\/([^/]+)/)

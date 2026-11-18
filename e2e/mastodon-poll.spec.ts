@@ -2,7 +2,8 @@ import { randomUUID } from 'node:crypto'
 
 import { expect, test } from '@playwright/test'
 
-import { frenchTranslation } from './locale'
+import { frenchTranslation, openLanguageMenu } from './locale'
+import { openContentOptions } from './support/post-editor'
 
 test('authors a Mastodon poll, retains it through reload and selects an immutable target without publishing', async ({
     page,
@@ -38,8 +39,7 @@ test('authors a Mastodon poll, retains it through reload and selects an immutabl
     const id = (await made.json()).publications[0].id
     const path = `/api/projects/${project.id}/publications/${id}`
     await page.goto(`/dashboard/projects/${project.id}/publications/${id}`)
-    const details = page.locator('[data-publication-customization]')
-    await details.locator(':scope > summary').click()
+    const details = await openContentOptions(page)
     await details.getByRole('checkbox', { name: 'Add a poll', exact: true }).check()
     await details.getByRole('textbox', { name: 'Option 1', exact: true }).fill('Product updates')
     await details.getByRole('textbox', { name: 'Option 2', exact: true }).fill('Tutorials')
@@ -67,7 +67,7 @@ test('authors a Mastodon poll, retains it through reload and selects an immutabl
             hideTotals: true,
         })
     await page.reload()
-    await details.locator(':scope > summary').click()
+    await openContentOptions(page)
     await expect(details.getByRole('textbox', { name: 'Option 3', exact: true })).toHaveValue(
         'Community stories'
     )
@@ -91,8 +91,8 @@ test('authors a Mastodon poll, retains it through reload and selects an immutabl
         })
         .toBe(true)
     await page.setViewportSize({ width: 390, height: 844 })
-    await page.getByRole('button', { name: 'Language', exact: true }).click()
-    await page.getByRole('menuitem', { name: 'French', exact: true }).click()
+    await openLanguageMenu(page)
+    await page.getByRole('menuitem', { name: 'Français', exact: true }).click()
     await expect(
         details.getByRole('checkbox', { name: frenchTranslation('poll_multiple'), exact: true })
     ).toBeChecked()
@@ -105,7 +105,8 @@ test('authors a Mastodon poll, retains it through reload and selects an immutabl
         animations: 'disabled',
     })
     const selected = await (await page.request.get(path + '/editor')).json()
-    expect(selected.editor.profile.profile.execution.revision).toBe('status-v3')
+    // Thread authoring made status-v4 the current Mastodon execution revision.
+    expect(selected.editor.profile.profile.execution.revision).toBe('status-v4')
     const promoted = await page.request.post(path + '/draft/promote', {
         data: { expectedRevision: selected.editor.draft.revision, scheduledAt: null },
     })

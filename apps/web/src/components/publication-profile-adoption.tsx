@@ -243,13 +243,11 @@ export function PublicationProfileAdoption({
                         compact
                         profile={active.profile}
                         target={content}
-                        rawText={candidate}
                         validationIssues={assessment?.issues}
                         disabled={pending || blocked}
                         projectId={projectId}
                         mediaScopeId={`adoption-${editor.publication.id}`}
                         onTargetChange={next => update(JSON.stringify(next, null, 2))}
-                        onRawTextChange={update}
                     />
                     {assessment?.issues.length ? (
                         <ul role="alert" className="space-y-1 text-sm text-state-attention">
@@ -269,9 +267,7 @@ export function PublicationProfileAdoption({
                             readOnly
                             profile={baseEditor.profile.profile}
                             target={previous}
-                            rawText={JSON.stringify(previous, null, 2)}
                             onTargetChange={() => {}}
-                            onRawTextChange={() => {}}
                         />
                     </details>
                     <div className="flex flex-wrap gap-2">

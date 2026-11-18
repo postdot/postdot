@@ -21,6 +21,7 @@ export const publicationStates = [
 export const jobStates = ['pending', 'running', 'succeeded', 'failed', 'cancelled'] as const
 export const publisherCredentialStates = ['active', 'reconnect_required', 'revoked'] as const
 export const channelStates = ['active', 'archived'] as const
+export const identityImageSources = ['upload', 'url', 'favicon'] as const
 export const deliveryModes = ['manual', 'automatic'] as const
 export const publicationReviewStates = ['compatible', 'review_required'] as const
 export const publicationApprovalRequestStates = [
@@ -35,6 +36,7 @@ export type PublicationState = (typeof publicationStates)[number]
 export type JobState = (typeof jobStates)[number]
 export type PublisherCredentialState = (typeof publisherCredentialStates)[number]
 export type ChannelState = (typeof channelStates)[number]
+export type IdentityImageSource = (typeof identityImageSources)[number]
 export type DeliveryMode = (typeof deliveryModes)[number]
 export type PublicationReviewState = (typeof publicationReviewStates)[number]
 export type PublicationApprovalRequestState = (typeof publicationApprovalRequestStates)[number]
@@ -55,6 +57,9 @@ export interface Project extends Entity {
     readonly timeZone: ProjectTimeZone
     readonly workspaceId: string | null
     readonly primaryCategoryId: string | null
+    readonly websiteUrl?: string | null
+    readonly imageUrl?: string | null
+    readonly imageSource?: IdentityImageSource | null
 }
 
 export interface Actor extends ProjectEntity {
@@ -76,6 +81,9 @@ export interface Channel extends ProjectEntity {
     readonly state: ChannelState
     readonly archivedAt: Timestamp | null
     readonly revision: number
+    readonly websiteUrl?: string | null
+    readonly imageUrl?: string | null
+    readonly imageSource?: IdentityImageSource | null
 }
 
 export interface Publisher extends ProjectEntity {
@@ -186,6 +194,9 @@ export function createProject(
         timeZone: requireProjectTimeZone(input.timeZone),
         workspaceId: requireNonBlank(input.workspaceId, 'workspaceId'),
         primaryCategoryId: null,
+        websiteUrl: null,
+        imageUrl: null,
+        imageSource: null,
     }
 }
 
@@ -228,6 +239,9 @@ export function createChannel(
         state: 'active',
         archivedAt: null,
         revision: 1,
+        websiteUrl: null,
+        imageUrl: null,
+        imageSource: null,
     }
 }
 

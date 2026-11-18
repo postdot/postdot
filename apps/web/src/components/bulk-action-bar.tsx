@@ -1,5 +1,6 @@
 import { Button } from '@postdot/ui/components/button'
 import { ButtonGroup } from '@postdot/ui/components/button-group'
+import { Tooltip, TooltipTrigger, TooltipContent } from '@postdot/ui/components/tooltip'
 import { cn } from '@postdot/ui/lib/utils'
 import type { ReactNode } from 'react'
 
@@ -60,10 +61,11 @@ export function BulkActionBar({
             aria-label={ariaLabel}
             data-bulk-action-bar="true"
             className={cn(
-                'sticky top-3 z-10 flex flex-wrap items-center justify-between gap-2 max-sm:flex-col max-sm:items-stretch',
+                'flex flex-wrap items-center justify-between gap-2 max-sm:flex-col max-sm:items-stretch',
+                // The bar floats over the list (DESIGN.md "floating selection").
                 quiet
                     ? 'px-0 py-0'
-                    : 'rounded-md bg-surface-inset/95 px-3 py-2 shadow-surface backdrop-blur-sm',
+                    : 'rounded-lg border border-border bg-popover px-3 py-2 shadow-overlay',
                 className
             )}>
             <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
@@ -111,18 +113,25 @@ export function BulkActionBar({
                         </Button>
                     ) : null}
                     {actions?.map(action => (
-                        <Button
-                            key={action.id}
-                            type="button"
-                            variant={action.variant ?? 'secondary'}
-                            size="sm"
-                            disabled={selectedCount === 0 || action.disabled === true}
-                            title={action.disabled ? action.disabledReason : undefined}
-                            data-bulk-action={action.id}
-                            onClick={action.onSelect}>
-                            {action.icon}
-                            {action.label}
-                        </Button>
+                        <Tooltip key={action.id}>
+                            <TooltipTrigger
+                                render={
+                                    <Button
+                                        type="button"
+                                        variant={action.variant ?? 'secondary'}
+                                        size="sm"
+                                        disabled={selectedCount === 0 || action.disabled === true}
+                                        data-bulk-action={action.id}
+                                        onClick={action.onSelect}>
+                                        {action.icon}
+                                        {action.label}
+                                    </Button>
+                                }
+                            />
+                            <TooltipContent>
+                                {action.disabled ? action.disabledReason : undefined}
+                            </TooltipContent>
+                        </Tooltip>
                     ))}
                 </div>
             ) : null}

@@ -1,4 +1,3 @@
-import { Badge } from '@postdot/ui/components/badge'
 import type { Dispatch, SetStateAction } from 'react'
 
 import type { UserApiKeyCapability } from '@/lib/api'
@@ -32,15 +31,6 @@ export const editableCapabilities: readonly UserApiKeyCapability[] = [
     ...projectCapabilities,
     ...adminCapabilities,
 ]
-
-export const elevatedCapabilities = new Set<UserApiKeyCapability>([
-    'project:access_manage',
-    'project:permanently_delete',
-    'media:permanently_delete',
-    'workspace:manage',
-    'api_key:manage',
-    'instance:admin',
-])
 
 export function capabilityLabel(capability: UserApiKeyCapability) {
     switch (capability) {
@@ -131,11 +121,6 @@ export function ApiKeyActionAccessFieldset({
                         </span>
                     ) : null}
                 </span>
-                {elevatedCapabilities.has(capability) ? (
-                    <Badge className="shrink-0" variant="outline">
-                        {m.api_keys_elevated_badge()}
-                    </Badge>
-                ) : null}
             </label>
         )
     }

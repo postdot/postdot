@@ -13,6 +13,7 @@ import { AddIcon } from '@solar-icons/react/linear/add'
 import { CloseIcon } from '@solar-icons/react/linear/close'
 import { lazy, Suspense, useEffect, useState } from 'react'
 
+import { LanguageCombobox } from '@/components/language-combobox'
 import { PublicationTextCount } from '@/components/publication-text-count'
 import { PublicationTextEditor } from '@/components/publication-text-editor'
 import { countComposerText } from '@/lib/composer-text-constraints'
@@ -216,6 +217,15 @@ export function TargetFieldControl({
                                 />
                             ) : null}
                         </div>
+                    ) : field.semantic === 'language' ? (
+                        <LanguageCombobox
+                            id={fieldId}
+                            invalid={Boolean(error)}
+                            describedBy={errorId}
+                            value={typeof value === 'string' ? value : ''}
+                            onValueChange={tag => onChange(optionalTextValue(tag, field.required))}
+                            disabled={disabled}
+                        />
                     ) : (
                         <Input
                             id={fieldId}

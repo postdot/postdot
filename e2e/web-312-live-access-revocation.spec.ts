@@ -2,6 +2,8 @@ import { randomUUID } from 'node:crypto'
 
 import { expect, test, type Page } from '@playwright/test'
 
+import { composerText } from './support/post-editor'
+
 // WEB-312 is a diagnosis mission. This spec pins the behavior that exists today
 // when project access disappears in the middle of a session, so a later
 // correction can be proved against a known starting point. Nothing here asserts
@@ -50,9 +52,7 @@ test('an open session keeps the last known project state after access is removed
         // Both reading surfaces are populated before access is lost.
         await editorPage.goto(`/dashboard/projects/${owner.projectId}/overview`)
         await expect(editorPage.locator('[data-calendar="reui"]')).toBeVisible()
-        await expect(
-            editorPage.getByRole('link', { name: 'New publication', exact: true })
-        ).toBeVisible()
+        await expect(editorPage.getByRole('link', { name: 'New post', exact: true })).toBeVisible()
         await editorPage.goto(`/dashboard/projects/${owner.projectId}/queue`)
         await expect(editorPage.locator('[data-queue-publication-list="true"]')).toContainText(
             publication.title
@@ -62,7 +62,7 @@ test('an open session keeps the last known project state after access is removed
         await editorPage.goto(
             `/dashboard/projects/${owner.projectId}/publications/${publication.id}`
         )
-        const sourceBody = editorPage.getByRole('textbox', { name: 'Body', exact: true })
+        const sourceBody = composerText(editorPage)
         await expect(sourceBody).toBeVisible()
         await sourceBody.click()
         await editorPage.keyboard.type('Unsaved work that only exists in this browser')
@@ -122,7 +122,7 @@ test('an open session keeps the last known project state after access is removed
         await expect(
             editorPage.getByRole('link', { name: 'Select project', exact: true })
         ).toBeVisible()
-        await expect(editorPage.getByRole('textbox', { name: 'Body', exact: true })).toHaveCount(0)
+        await expect(composerText(editorPage)).toHaveCount(0)
 
         // 3. Local work is preserved, which is what the bounded correction
         //    keeps: the recovery buffer still holds the unsaved copy.
@@ -172,9 +172,7 @@ test('a role downgrade withdraws the create affordances without an announcement'
 
         await editorPage.goto(`/dashboard/projects/${owner.projectId}/overview`)
         await expect(editorPage.locator('[data-calendar="reui"]')).toBeVisible()
-        await expect(
-            editorPage.getByRole('link', { name: 'New publication', exact: true })
-        ).toBeVisible()
+        await expect(editorPage.getByRole('link', { name: 'New post', exact: true })).toBeVisible()
 
         const downgradeResponse = await page.request.patch(
             `/api/projects/${owner.projectId}/members/${memberId}`,
@@ -184,9 +182,7 @@ test('a role downgrade withdraws the create affordances without an announcement'
 
         // Reads keep working, so the role is re-read through the ordinary project
         // data refresh and the create affordances leave the interface on their own.
-        await expect(
-            editorPage.getByRole('link', { name: 'New publication', exact: true })
-        ).toHaveCount(0)
+        await expect(editorPage.getByRole('link', { name: 'New post', exact: true })).toHaveCount(0)
         await expect(editorPage.getByRole('button', { name: 'Select', exact: true })).toHaveCount(0)
 
         const membershipResponse = await editorPage.request.get(
@@ -204,9 +200,7 @@ test('a role downgrade withdraws the create affordances without an announcement'
         )
         expect(channelResponse.status()).toBe(403)
         await editorPage.goto(`/dashboard/projects/${owner.projectId}/queue`)
-        await expect(
-            editorPage.getByRole('link', { name: 'New publication', exact: true })
-        ).toHaveCount(0)
+        await expect(editorPage.getByRole('link', { name: 'New post', exact: true })).toHaveCount(0)
     } finally {
         await editorContext.close()
     }
@@ -216,7 +210,7 @@ async function countRecoveryBuffers(page: Page) {
     return page.evaluate(
         () =>
             Object.keys(window.localStorage).filter(key =>
-                key.startsWith('postdot:publication-editor:')
+                key.startsWith('postdot:post-composition:')
             ).length
     )
 }
@@ -329,11 +323,11 @@ async function createAccountAndProject(page: Page, suffix: string) {
 
     await page.getByRole('combobox', { name: 'Select project', exact: true }).click()
     await page.getByRole('button', { name: 'Create project', exact: true }).last().click()
-    await page.getByRole('textbox', { name: 'New project', exact: true }).fill(`E2E-312 ${suffix}`)
+    await page.getByRole('textbox', { name: 'Name', exact: true }).fill(`E2E-312 ${suffix}`)
     await page
         .locator('form')
-        .filter({ has: page.getByRole('textbox', { name: 'New project', exact: true }) })
-        .getByRole('button', { name: 'Add project', exact: true })
+        .filter({ has: page.getByRole('textbox', { name: 'Name', exact: true }) })
+        .getByRole('button', { name: 'Create project', exact: true })
         .click()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/overview$/)
 

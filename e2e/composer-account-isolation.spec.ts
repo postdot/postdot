@@ -1,12 +1,13 @@
 import { expect, test } from '@playwright/test'
 
 import { accounts, login } from './composer-account-fixture'
+import { signOut } from './locale'
 
 test('separates local recovery for two authors sharing a project and restores the original author', async ({
     page,
 }, info) => {
     test.setTimeout(90_000)
-    const data = await accounts(page)
+    const data = await accounts(page, 'default')
     try {
         await page.goto(data.url)
         const form = page.locator('[data-new-publication-form]')
@@ -30,15 +31,15 @@ test('separates local recovery for two authors sharing a project and restores th
             .fill('Private local text from the original author')
         expect((await refused).status()).toBe(503)
         await page.unroute(matcher)
-        await page.getByRole('button', { name: 'Sign out', exact: true }).click()
+        await signOut(page)
         await expect(page).toHaveURL(/\/login/)
         await login(page, data.memberEmail, data.password)
         await page.goto(data.url)
         await expect(form).toHaveAttribute('aria-busy', 'false')
         await page.screenshot({ path: info.outputPath('second-author-composer.png') })
-        await expect(page.locator('[data-new-publication-recovery]')).toHaveCount(0)
+        await expect(page.locator('[data-new-publication-restored]')).toHaveCount(0)
         await expect(page.locator('[data-composer-conflict]')).toHaveCount(0)
-        await expect(page.getByRole('textbox', { name: 'Content', exact: true })).toHaveValue('')
+        await expect(page.getByRole('textbox', { name: 'Content', exact: true })).toHaveText('')
         const saved = page.waitForResponse(
             response =>
                 response.url().endsWith(data.endpoint) &&
@@ -50,14 +51,13 @@ test('separates local recovery for two authors sharing a project and restores th
             .fill('Independent text from the second author')
         await saved
         expect((await (await data.admin.request.get(data.endpoint)).json()).draft).toBeNull()
-        await page.getByRole('button', { name: 'Sign out', exact: true }).click()
+        await signOut(page)
         await expect(page).toHaveURL(/\/login/)
         await login(page, data.ownerEmail, data.password)
         await page.goto(data.url)
-        const recovery = page.locator('[data-new-publication-recovery]')
-        await expect(recovery).toContainText('Private local text from the original author')
-        await recovery.getByRole('button', { name: 'Restore', exact: true }).click()
-        await expect(page.getByRole('textbox', { name: 'Content', exact: true })).toHaveValue(
+        // ADR-103 §6: the original author's draft is restored without a question.
+        await expect(page.locator('[data-new-publication-restored]')).toBeVisible()
+        await expect(page.getByRole('textbox', { name: 'Content', exact: true })).toHaveText(
             'Private local text from the original author'
         )
         expect(
@@ -74,7 +74,7 @@ for (const variant of ['saved', 'unsaved'] as const) {
     }) => {
         test.setTimeout(90_000)
 
-        const data = await accounts(page)
+        const data = await accounts(page, 'default')
         try {
             await page.goto(data.url)
             const form = page.locator('[data-new-publication-form]')
@@ -122,7 +122,7 @@ test('keeps local text and refuses server writes after project access is withdra
     page,
 }) => {
     test.setTimeout(90_000)
-    const data = await accounts(page)
+    const data = await accounts(page, 'default')
     try {
         const memberPage = await data.member.newPage()
         await memberPage.goto(data.url)
@@ -150,7 +150,7 @@ test('keeps local text and refuses server writes after project access is withdra
             content.fill('Local text retained after access was withdrawn'),
         ])
         await expect(
-            memberPage.getByText('Local recovery remains available', { exact: true })
+            memberPage.getByText('Not saved yet. Keep this tab open and retry.', { exact: true })
         ).toBeVisible()
         expect((await (await data.member.request.get(data.endpoint)).json()).draft).toBeNull()
         await memberPage.unroute(matcher)
@@ -200,7 +200,7 @@ test('a tab left on the previous account cannot create a publication for the sig
     page,
 }) => {
     test.setTimeout(90_000)
-    const data = await accounts(page)
+    const data = await accounts(page, 'default')
     try {
         await page.goto(data.url)
         await expect(page.locator('[data-new-publication-form]')).not.toHaveAttribute('inert', '')
@@ -226,10 +226,10 @@ test('a tab left on the previous account cannot create a publication for the sig
                 new URL(response.url()).pathname === `/api/projects/${data.project.id}/posts` &&
                 response.request().method() === 'POST'
         )
-        await page.getByRole('button', { name: 'Create draft', exact: true }).click()
+        await page.getByRole('button', { name: 'Save as draft', exact: true }).click()
         expect((await created).status()).toBe(409)
         await expect(page).toHaveURL(/\/publications\/new/)
-        await expect(page.getByRole('textbox', { name: 'Content', exact: true })).toHaveValue(
+        await expect(page.getByRole('textbox', { name: 'Content', exact: true })).toHaveText(
             'Text from the original author'
         )
         const listed = await other.request.get(`/api/projects/${data.project.id}/publications`)
@@ -245,7 +245,7 @@ test('a conflict comparison in a tab on the previous account never shows the sig
     page,
 }) => {
     test.setTimeout(90_000)
-    const data = await accounts(page)
+    const data = await accounts(page, 'default')
     try {
         await page.goto(data.url)
         await expect(page.locator('[data-new-publication-form]')).not.toHaveAttribute('inert', '')
@@ -307,7 +307,7 @@ test('keeps a pending local recovery when discard detects an account change', as
     page,
 }, info) => {
     test.setTimeout(90_000)
-    const data = await accounts(page)
+    const data = await accounts(page, 'default')
     try {
         await page.goto(data.url)
         const form = page.locator('[data-new-publication-form]')
@@ -340,9 +340,10 @@ test('keeps a pending local recovery when discard detects an account change', as
         expect((await refusedSave).status()).toBe(503)
         await page.unroute(matcher)
         await page.reload()
-        const recovery = page.locator('[data-new-publication-recovery]')
-        await expect(recovery).toContainText(local)
-        await expect(recovery.getByRole('button', { name: 'Discard', exact: true })).toBeEnabled()
+        const recovery = page.locator('[data-new-publication-restored]')
+        await expect(content).toHaveText(local)
+        const startOver = recovery.getByRole('button', { name: 'Start over', exact: true })
+        await expect(startOver).toBeEnabled()
         // Cookie changes are shared with this tab; the pending recovery still belongs to A.
         const other = await page.context().newPage()
         await other.request.post('/api/auth/sign-out')
@@ -353,7 +354,7 @@ test('keeps a pending local recovery when discard detects an account change', as
                 new URL(response.url()).pathname === data.endpoint &&
                 response.request().method() === 'DELETE'
         )
-        await recovery.getByRole('button', { name: 'Discard', exact: true }).click()
+        await startOver.click()
         expect((await refusedDiscard).status()).toBe(409)
         await expect(page.getByText('Your account changed in another tab')).toBeVisible()
         await expect(form).toHaveAttribute('inert', '')
@@ -377,9 +378,8 @@ test('keeps a pending local recovery when discard detects an account change', as
         await page.goto('/login')
         await login(page, data.ownerEmail, data.password)
         await page.goto(data.url)
-        await expect(recovery).toContainText(local)
-        await recovery.getByRole('button', { name: 'Restore', exact: true }).click()
-        await expect(content).toHaveValue(local)
+        await expect(recovery).toBeVisible()
+        await expect(content).toHaveText(local)
         await other.close()
     } finally {
         await data.close()

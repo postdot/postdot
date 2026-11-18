@@ -1,6 +1,6 @@
 import { createHash, randomBytes, randomUUID } from 'node:crypto'
 
-import { requireNonBlank } from '@postdot/core'
+import { identityImageSources, requireNonBlank, type IdentityImageSource } from '@postdot/core'
 
 import type { DatabaseHandle } from './client'
 import { defineTransaction } from './client'
@@ -50,6 +50,9 @@ export interface AccessWorkspace {
     readonly name: string
     readonly slug: string
     readonly isDefault: boolean
+    readonly websiteUrl: string | null
+    readonly imageUrl: string | null
+    readonly imageSource: IdentityImageSource | null
     readonly createdAt: number
     readonly updatedAt: number
 }
@@ -200,6 +203,9 @@ interface WorkspaceRow {
     readonly name: string
     readonly slug: string
     readonly isDefault: number
+    readonly websiteUrl: string | null
+    readonly imageUrl: string | null
+    readonly imageSource: string | null
     readonly createdAt: number
     readonly updatedAt: number
 }
@@ -293,6 +299,14 @@ function toInstanceState(row: InstanceStateRow): AccessInstanceStateRecord {
     }
 }
 
+function parseWorkspaceImageSource(value: string | null): IdentityImageSource | null {
+    if (value === null) return null
+    if ((identityImageSources as readonly string[]).includes(value)) {
+        return value as IdentityImageSource
+    }
+    throw new Error(`Invalid stored workspace image source: ${value}`)
+}
+
 function toWorkspace(row: WorkspaceRow): AccessWorkspace {
     return {
         id: row.id,
@@ -300,6 +314,9 @@ function toWorkspace(row: WorkspaceRow): AccessWorkspace {
         name: row.name,
         slug: row.slug,
         isDefault: row.isDefault === 1,
+        websiteUrl: row.websiteUrl,
+        imageUrl: row.imageUrl,
+        imageSource: parseWorkspaceImageSource(row.imageSource),
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,
     }
@@ -444,6 +461,9 @@ export function createAccessStore(database: DatabaseHandle, options: AccessStore
                workspaces.name,
                workspaces.slug,
                workspaces.is_default as isDefault,
+               workspaces.website_url as websiteUrl,
+               workspaces.image_url as imageUrl,
+               workspaces.image_source as imageSource,
                workspaces.created_at as createdAt,
                workspaces.updated_at as updatedAt
         from instance_state
@@ -456,6 +476,9 @@ export function createAccessStore(database: DatabaseHandle, options: AccessStore
                name,
                slug,
                is_default as isDefault,
+               website_url as websiteUrl,
+               image_url as imageUrl,
+               image_source as imageSource,
                created_at as createdAt,
                updated_at as updatedAt
         from workspaces
@@ -470,6 +493,9 @@ export function createAccessStore(database: DatabaseHandle, options: AccessStore
                name,
                slug,
                is_default as isDefault,
+               website_url as websiteUrl,
+               image_url as imageUrl,
+               image_source as imageSource,
                created_at as createdAt,
                updated_at as updatedAt
         from workspaces
@@ -484,6 +510,9 @@ export function createAccessStore(database: DatabaseHandle, options: AccessStore
                workspaces.name,
                workspaces.slug,
                workspaces.is_default as isDefault,
+               workspaces.website_url as websiteUrl,
+               workspaces.image_url as imageUrl,
+               workspaces.image_source as imageSource,
                workspaces.created_at as createdAt,
                workspaces.updated_at as updatedAt,
                members.role
@@ -725,7 +754,7 @@ export function createAccessStore(database: DatabaseHandle, options: AccessStore
     `)
     const loadProjectUserGrantMembershipStatement = sql.statement<
         ProjectMembershipRow,
-        [projectId: string, userId: string]
+        [projectId: string | null, userId: string]
     >(`
         select grants.id,
                projects.id as projectId,
@@ -744,7 +773,7 @@ export function createAccessStore(database: DatabaseHandle, options: AccessStore
         inner join instance_memberships
             on instance_memberships.user_id = grants.user_id
            and instance_memberships.state = 'enabled'
-        where projects.id = ?1
+        where (cast(?1 as text) is null or projects.id = ?1)
           and grants.user_id = ?2
           and (
               projects.workspace_id is null
@@ -794,7 +823,7 @@ export function createAccessStore(database: DatabaseHandle, options: AccessStore
     `)
     const loadProjectTeamGrantMembershipStatement = sql.statement<
         ProjectMembershipRow,
-        [projectId: string, userId: string]
+        [projectId: string | null, userId: string]
     >(`
         select 'project-team-grant:' || grants.id as id,
                projects.id as projectId,
@@ -820,7 +849,7 @@ export function createAccessStore(database: DatabaseHandle, options: AccessStore
         inner join instance_memberships
             on instance_memberships.user_id = team_members.user_id
            and instance_memberships.state = 'enabled'
-        where projects.id = ?1
+        where (cast(?1 as text) is null or projects.id = ?1)
           and team_members.user_id = ?2
     `)
     const listProjectTeamGrantMembershipsStatement = sql.statement<
@@ -1828,6 +1857,26 @@ export function createAccessStore(database: DatabaseHandle, options: AccessStore
                     ),
                 ])
                 return row === null ? null : toProjectMembership(row)
+            }, 'deferred')
+        },
+
+        /** Uses the same live direct and team grant policy as getProjectMembership. */
+        async listProjectMembershipsForUser(userId: string): Promise<AccessProjectMembership[]> {
+            return database.sql.transaction(async () => {
+                const id = requireNonBlank(userId, 'userId')
+                const rows = [
+                    ...(await loadProjectUserGrantMembershipStatement.all(null, id)),
+                    ...(await loadProjectTeamGrantMembershipStatement.all(null, id)),
+                ]
+                const memberships = new Map<string, ProjectMembershipRow>()
+                for (const row of rows) {
+                    const best = selectBestProjectMembership([
+                        memberships.get(row.projectId) ?? null,
+                        row,
+                    ])
+                    if (best !== null) memberships.set(row.projectId, best)
+                }
+                return [...memberships.values()].map(toProjectMembership)
             }, 'deferred')
         },
 

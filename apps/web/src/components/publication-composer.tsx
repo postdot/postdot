@@ -4,6 +4,11 @@ import type { ReactNode } from 'react'
 export interface PublicationComposerProps {
     readonly channelNavigation?: ReactNode
     readonly editor: ReactNode
+    /**
+     * Whether the frame draws the writing surface. Editors that compose their own
+     * cards (the publication page) pass false so surfaces never nest.
+     */
+    readonly editorSurface?: boolean
     readonly footer?: ReactNode
     readonly preview?: ReactNode
     readonly settings?: ReactNode
@@ -20,6 +25,7 @@ export function PublicationComposer({
     channelNavigation,
     className,
     editor,
+    editorSurface = true,
     footer,
     preview,
     settings,
@@ -35,7 +41,13 @@ export function PublicationComposer({
             {channelNavigation ? (
                 <div className="min-w-0 lg:col-span-full">{channelNavigation}</div>
             ) : null}
-            <div data-composer-editor="true" className="min-w-0">
+            {/* P4: the writing area is a defined surface with its toolbar attached. */}
+            <div
+                data-composer-editor="true"
+                className={cn(
+                    'min-w-0',
+                    editorSurface && 'rounded-lg border border-border bg-surface-raised'
+                )}>
                 {editor}
             </div>
             {settings ? (

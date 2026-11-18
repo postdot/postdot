@@ -256,7 +256,7 @@ export function PublicationEngagementHistory({
                                             <span data-history-value>
                                                 {measuredSnapshot(item)
                                                     ? formatNumber(item.value!, locale)
-                                                    : '—'}
+                                                    : '-'}
                                             </span>
                                             {measuredSnapshot(item) ? (
                                                 <span className="mt-1 block text-muted-foreground">

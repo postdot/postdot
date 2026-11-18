@@ -1,16 +1,6 @@
-import { Badge } from '@postdot/ui/components/badge'
-import { Button, buttonVariants } from '@postdot/ui/components/button'
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@postdot/ui/components/select'
+import { Button } from '@postdot/ui/components/button'
 import { Tabs, TabsList, TabsTrigger } from '@postdot/ui/components/tabs'
-import { cn } from '@postdot/ui/lib/utils'
 import { AddIcon } from '@solar-icons/react/linear/add'
-import { AltArrowLeftIcon } from '@solar-icons/react/linear/alt-arrow-left'
 import { CalendarAddIcon } from '@solar-icons/react/linear/calendar-add'
 import { TrashBinMinimalisticIcon } from '@solar-icons/react/linear/trash-bin-minimalistic'
 import { useInfiniteQuery } from '@tanstack/react-query'
@@ -19,14 +9,14 @@ import { useNavigate } from '@tanstack/react-router'
 import { useEffect, useMemo, useState } from 'react'
 
 import { BulkActionBar } from '@/components/bulk-action-bar'
-import { DashboardPageHeader } from '@/components/dashboard-page-header'
 import { PublicationList } from '@/components/dashboard-publication-parts'
 import type { EmptyStateIllustration } from '@/components/empty-state'
+import { ActiveFilters, type FilterGroup, FilterMenu, SortMenu } from '@/components/filter-controls'
+import { ProjectPage } from '@/components/project-page'
 import { PublicationApprovalRequests } from '@/components/publication-approval-requests'
 import { PublicationBulkCancellationDialog } from '@/components/publication-bulk-cancellation-dialog'
 import { PublicationBulkScheduleDialog } from '@/components/publication-bulk-schedule-dialog'
 import { PublicationDraftDeletionDialog } from '@/components/publication-draft-deletion-dialog'
-import { PublicationTagPicker } from '@/components/publication-tag-picker'
 import { QueryErrorState } from '@/components/query-error-state'
 import { api } from '@/lib/api'
 import { useProjectDashboard } from '@/lib/dashboard-context'
@@ -52,7 +42,7 @@ export function PublicationQueuePage({
     initialFilter = 'all',
     initialSort,
     initialTagIds = [],
-    initialView = 'queue',
+    initialView = 'posts',
 }: {
     readonly initialView?: 'queue' | 'posts'
     readonly initialFilter?: QueueFilter
@@ -76,6 +66,7 @@ export function PublicationQueuePage({
         onPublish,
         onRetryPublication,
         onReschedulePublications,
+        onUndoPublish,
         pending,
     } = useProjectPublicationActions()
     const canEditProject = projectRole === 'owner' || projectRole === 'editor'
@@ -104,7 +95,10 @@ export function PublicationQueuePage({
         setSelectedPublicationIds(new Set())
     }, [initialTagIdsKey])
     const duePublicationIds = useMemo(() => new Set(due.map(publication => publication.id)), [due])
-    const serverState = filter === 'draft' || filter === 'scheduled' ? filter : undefined
+    const hasActiveFilters = tagIds.length > 0 || filter === 'manual'
+    const queueHasWork = publicationSummary.total > 0 || hasActiveFilters || filter !== 'all'
+    const serverState =
+        filter === 'draft' || filter === 'scheduled' || filter === 'published' ? filter : undefined
     const useServerQueue = serverState !== undefined || tagIds.length > 0 || sort !== 'queue'
     const queueQuery = useInfiniteQuery({
         queryKey: [
@@ -144,6 +138,7 @@ export function PublicationQueuePage({
             .length,
         draft: draftCount,
         scheduled: queueSummary.scheduled,
+        published: queueSummary.published ?? 0,
         manual: queueSummary.manual,
     }
     const filteredPublications = filterQueuePublications(
@@ -231,6 +226,38 @@ export function PublicationQueuePage({
         })
     }
 
+    function changeTags(nextTagIds: string[]) {
+        setTagIds(nextTagIds)
+        clearPublicationSelection()
+        void navigate({
+            search: current => ({
+                ...current,
+                tagIds: nextTagIds.length > 0 ? nextTagIds : undefined,
+            }),
+        })
+    }
+    const queueFilterGroups: FilterGroup[] = [
+        {
+            anyValue: 'all',
+            id: 'delivery',
+            label: m.queue_delivery_filter(),
+            onChange: values => changeFilter(values[0] === 'manual' ? 'manual' : 'all'),
+            options: [
+                { label: m.queue_all_delivery_modes(), value: 'all' },
+                { label: m.queue_manual_delivery_mode(), value: 'manual' },
+            ],
+            selected: [filter === 'manual' ? 'manual' : 'all'],
+        },
+        {
+            id: 'tags',
+            label: m.taxonomy_tags(),
+            multiple: true,
+            onChange: changeTags,
+            options: projectTags.map(tag => ({ label: tag.name, value: tag.id })),
+            selected: tagIds,
+        },
+    ]
+
     function changeFilter(nextFilter: QueueFilter) {
         setFilter(nextFilter)
         clearPublicationSelection()
@@ -243,279 +270,228 @@ export function PublicationQueuePage({
     }
 
     return (
-        <main className="min-w-0 px-4 py-7 sm:px-6 lg:px-8 lg:py-8">
-            <DashboardPageHeader
-                action={
-                    canEditProject ? (
-                        needsFirstChannel ? (
-                            <Button
-                                nativeButton={false}
-                                render={
-                                    <Link
-                                        params={{ projectId: project.id }}
-                                        search={{ add: true }}
-                                        to="/dashboard/projects/$projectId/channels"
-                                    />
-                                }>
-                                <AddIcon aria-hidden="true" />
-                                {m.channel_add()}
-                            </Button>
-                        ) : (
-                            <Button
-                                className={channels.length > 0 ? 'md:hidden' : undefined}
-                                nativeButton={false}
-                                render={
-                                    <Link
-                                        params={{ projectId: project.id }}
-                                        search={{ date: undefined }}
-                                        to="/dashboard/projects/$projectId/publications/new"
-                                    />
-                                }>
-                                <AddIcon aria-hidden="true" />
-                                {m.overview_new_publication()}
-                            </Button>
-                        )
-                    ) : undefined
-                }
-                back={
-                    <Link
-                        aria-label={m.nav_back_to_overview()}
-                        className={buttonVariants({
-                            variant: 'ghost',
-                            size: 'icon',
-                            className:
-                                'justify-self-start text-muted-foreground hover:text-foreground lg:w-auto lg:gap-1.5 lg:px-2.5',
-                        })}
-                        params={{ projectId: project.id }}
-                        to="/dashboard/projects/$projectId/overview">
-                        <AltArrowLeftIcon aria-hidden="true" />
-                        <span className="hidden lg:inline">{m.nav_back_to_overview()}</span>
-                    </Link>
-                }
-                title={m.queue_title()}
-            />
-
+        <ProjectPage
+            width="full"
+            action={
+                canEditProject ? (
+                    needsFirstChannel ? (
+                        <Button
+                            nativeButton={false}
+                            render={
+                                <Link
+                                    params={{ projectId: project.id }}
+                                    search={{ add: true }}
+                                    to="/dashboard/projects/$projectId/channels"
+                                />
+                            }>
+                            <AddIcon aria-hidden="true" />
+                            {m.channel_add()}
+                        </Button>
+                    ) : (
+                        <Button
+                            className={channels.length > 0 ? 'md:hidden' : undefined}
+                            nativeButton={false}
+                            render={
+                                <Link
+                                    params={{ projectId: project.id }}
+                                    search={{ date: undefined }}
+                                    to="/dashboard/projects/$projectId/publications/new"
+                                />
+                            }>
+                            <AddIcon aria-hidden="true" />
+                            {m.overview_new_publication()}
+                        </Button>
+                    )
+                ) : undefined
+            }
+            title={m.queue_title()}>
             {canEditProject ? (
                 <PublicationApprovalRequests projectId={project.id} timeZone={project.timeZone} />
             ) : null}
 
-            <div className="mt-5 min-w-0" data-queue-controls="true">
-                <Tabs
-                    aria-label={m.queue_filters()}
-                    className="min-w-0 w-fit max-w-full"
-                    value={filter === 'manual' ? null : filter}
-                    onValueChange={value => {
-                        if (!isQueueFilter(value)) return
-                        if (value === 'manual') return
-                        changeFilter(value)
-                    }}>
-                    <TabsList
-                        className="!h-auto min-h-8 w-fit max-w-full flex-wrap justify-start gap-0.5 !overflow-visible bg-surface-inset/70 p-1 shadow-surface [&>[data-slot=tabs-trigger]]:flex-none [&>[data-slot=tabs-trigger]]:shrink-0"
-                        variant="default">
-                        <TabsTrigger
-                            aria-label={m.queue_filter_aria({
-                                label: m.queue_all(),
-                                count: filterCounts.all,
-                            })}
-                            value="all">
-                            {m.queue_all()}
-                            {filterCounts.all > 0 ? (
-                                <Badge
-                                    className="min-w-5 rounded-md px-1.5 py-0 text-[0.7rem]"
-                                    variant="secondary">
-                                    {formatNumber(filterCounts.all, locale)}
-                                </Badge>
-                            ) : null}
-                        </TabsTrigger>
-                        <TabsTrigger
-                            aria-label={m.queue_filter_aria({
-                                label: m.queue_attention(),
-                                count: filterCounts.attention,
-                            })}
-                            value="attention">
-                            {m.queue_attention()}
-                            {filterCounts.attention > 0 ? (
-                                <Badge
-                                    className="min-w-5 rounded-md px-1.5 py-0 text-[0.7rem]"
-                                    variant="secondary">
-                                    {formatNumber(filterCounts.attention, locale)}
-                                </Badge>
-                            ) : null}
-                        </TabsTrigger>
-                        <TabsTrigger
-                            aria-label={m.queue_filter_aria({
-                                label: m.queue_scheduled(),
-                                count: filterCounts.scheduled,
-                            })}
-                            value="scheduled">
-                            {m.queue_scheduled()}
-                            {filterCounts.scheduled > 0 ? (
-                                <Badge
-                                    className="min-w-5 rounded-md px-1.5 py-0 text-[0.7rem]"
-                                    variant="secondary">
-                                    {formatNumber(filterCounts.scheduled, locale)}
-                                </Badge>
-                            ) : null}
-                        </TabsTrigger>
-                        <TabsTrigger
-                            aria-label={m.queue_filter_aria({
-                                label: m.queue_drafts(),
-                                count: filterCounts.draft,
-                            })}
-                            value="draft">
-                            {m.queue_drafts()}
-                            {filterCounts.draft > 0 ? (
-                                <Badge
-                                    className="min-w-5 rounded-md px-1.5 py-0 text-[0.7rem]"
-                                    variant="secondary">
-                                    {formatNumber(filterCounts.draft, locale)}
-                                </Badge>
-                            ) : null}
-                        </TabsTrigger>
-                    </TabsList>
-                </Tabs>
-            </div>
-
-            <BulkActionBar
-                actions={[
-                    {
-                        disabled: !canRescheduleSelection,
-                        disabledReason: m.queue_reschedule_only_scheduled(),
-                        icon: <CalendarAddIcon aria-hidden="true" />,
-                        id: 'reschedule',
-                        label: m.queue_reschedule(),
-                        onSelect: () => setScheduleDialogOpen(true),
-                    },
-                    {
-                        disabled: !canCancelSelection,
-                        disabledReason: m.queue_cancel_only_scheduled(),
-                        icon: <TrashBinMinimalisticIcon aria-hidden="true" />,
-                        id: 'cancel',
-                        label: m.queue_cancel(),
-                        onSelect: () => setCancelDialogOpen(true),
-                        variant: 'destructive',
-                    },
-                ]}
-                ariaLabel={selectedCount > 0 ? m.queue_bulk_actions() : m.queue_delivery_filter()}
-                className={cn('mt-3 min-h-11', selectedCount > 0 && 'px-2 py-1.5 sm:px-3')}
-                clearLabel={m.queue_clear_selection()}
-                leadingContent={
-                    <div className="flex min-w-0 flex-wrap items-center gap-2">
-                        <Select
-                            value={view}
+            {/* Q5: no tabs or filters while there is nothing to filter. */}
+            {queueHasWork ? (
+                <>
+                    <div className="mt-5 min-w-0" data-queue-controls="true">
+                        <Tabs
+                            aria-label={m.queue_filters()}
+                            className="min-w-0 max-w-full"
+                            value={filter === 'manual' ? null : filter}
                             onValueChange={value => {
-                                if (value !== 'queue' && value !== 'posts') return
-                                setView(value)
-                                void navigate({
-                                    search: current => ({
-                                        ...current,
-                                        view: value === 'posts' ? 'posts' : undefined,
-                                    }),
-                                })
+                                if (!isQueueFilter(value)) return
+                                if (value === 'manual') return
+                                changeFilter(value)
                             }}>
-                            <SelectTrigger
-                                aria-label={m.queue_view_label()}
-                                className="w-fit"
-                                size="sm">
-                                <SelectValue>
-                                    {view === 'posts' ? m.queue_view_posts() : m.queue_view_queue()}
-                                </SelectValue>
-                            </SelectTrigger>
-                            <SelectContent align="start">
-                                <SelectItem value="queue">{m.queue_view_queue()}</SelectItem>
-                                <SelectItem value="posts">{m.queue_view_posts()}</SelectItem>
-                            </SelectContent>
-                        </Select>
-                        <Select
-                            value={filter === 'manual' ? 'manual' : 'all'}
-                            onValueChange={value => {
-                                if (value === 'manual') changeFilter('manual')
-                                else if (value === 'all') changeFilter('all')
-                            }}>
-                            <SelectTrigger
-                                aria-label={m.queue_delivery_filter()}
-                                className="w-fit min-w-32"
-                                data-queue-delivery-filter="true"
-                                size="sm">
-                                <SelectValue>
-                                    {filter === 'manual'
-                                        ? m.queue_manual_delivery_mode()
-                                        : m.queue_all_delivery_modes()}
-                                </SelectValue>
-                            </SelectTrigger>
-                            <SelectContent align="start">
-                                <SelectItem value="all">{m.queue_all_delivery_modes()}</SelectItem>
-                                <SelectItem value="manual">
-                                    {m.queue_manual_delivery_mode()}
-                                </SelectItem>
-                            </SelectContent>
-                        </Select>
-
-                        <Select
-                            value={sort}
-                            onValueChange={value => {
-                                if (value === null || !isPublicationQueueSort(value)) return
-                                setSort(value)
-                                clearPublicationSelection()
-                                void navigate({
-                                    search: current => ({
-                                        ...current,
-                                        sort: value === 'queue' ? undefined : value,
-                                    }),
-                                })
-                            }}>
-                            <SelectTrigger
-                                aria-label={m.queue_sort_label()}
-                                className="w-fit min-w-36"
-                                data-queue-sort="true"
-                                size="sm">
-                                <SelectValue>
-                                    {queueSortOptions(filter).find(option => option.value === sort)
-                                        ?.label ?? m.queue_sort_queue()}
-                                </SelectValue>
-                            </SelectTrigger>
-                            <SelectContent align="start">
-                                {queueSortOptions(filter).map(option => (
-                                    <SelectItem key={option.value} value={option.value}>
-                                        {option.label}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-
-                        {projectTags.length > 0 ? (
-                            <PublicationTagPicker
-                                ariaLabel={m.taxonomy_filter_tags()}
-                                emptyLabel={m.taxonomy_no_tags()}
-                                label={m.taxonomy_filter_tags()}
-                                onChange={nextTagIds => {
-                                    setTagIds(nextTagIds)
-                                    clearPublicationSelection()
-                                    void navigate({
-                                        search: current => ({
-                                            ...current,
-                                            tagIds: nextTagIds.length > 0 ? nextTagIds : undefined,
-                                        }),
-                                    })
-                                }}
-                                selectedTagIds={tagIds}
-                                selectedLabel={count => m.taxonomy_selected_tags({ count })}
-                                tags={projectTags}
-                            />
-                        ) : null}
+                            <TabsList variant="line">
+                                <TabsTrigger
+                                    aria-label={m.queue_filter_aria({
+                                        label: m.queue_all(),
+                                        count: filterCounts.all,
+                                    })}
+                                    value="all">
+                                    {m.queue_all()}
+                                    {filterCounts.all > 0 ? (
+                                        <span className="text-xs font-normal tabular-nums text-muted-foreground">
+                                            {formatNumber(filterCounts.all, locale)}
+                                        </span>
+                                    ) : null}
+                                </TabsTrigger>
+                                <TabsTrigger
+                                    aria-label={m.queue_filter_aria({
+                                        label: m.queue_attention(),
+                                        count: filterCounts.attention,
+                                    })}
+                                    value="attention">
+                                    {m.queue_attention()}
+                                    {filterCounts.attention > 0 ? (
+                                        <span className="text-xs font-normal tabular-nums text-muted-foreground">
+                                            {formatNumber(filterCounts.attention, locale)}
+                                        </span>
+                                    ) : null}
+                                </TabsTrigger>
+                                <TabsTrigger
+                                    aria-label={m.queue_filter_aria({
+                                        label: m.queue_scheduled(),
+                                        count: filterCounts.scheduled,
+                                    })}
+                                    value="scheduled">
+                                    {m.queue_scheduled()}
+                                    {filterCounts.scheduled > 0 ? (
+                                        <span className="text-xs font-normal tabular-nums text-muted-foreground">
+                                            {formatNumber(filterCounts.scheduled, locale)}
+                                        </span>
+                                    ) : null}
+                                </TabsTrigger>
+                                <TabsTrigger
+                                    aria-label={m.queue_filter_aria({
+                                        label: m.queue_drafts(),
+                                        count: filterCounts.draft,
+                                    })}
+                                    value="draft">
+                                    {m.queue_drafts()}
+                                    {filterCounts.draft > 0 ? (
+                                        <span className="text-xs font-normal tabular-nums text-muted-foreground">
+                                            {formatNumber(filterCounts.draft, locale)}
+                                        </span>
+                                    ) : null}
+                                </TabsTrigger>
+                                <TabsTrigger
+                                    aria-label={m.queue_filter_aria({
+                                        label: m.queue_published(),
+                                        count: filterCounts.published,
+                                    })}
+                                    value="published">
+                                    {m.queue_published()}
+                                    {filterCounts.published > 0 ? (
+                                        <span className="text-xs font-normal tabular-nums text-muted-foreground">
+                                            {formatNumber(filterCounts.published, locale)}
+                                        </span>
+                                    ) : null}
+                                </TabsTrigger>
+                            </TabsList>
+                        </Tabs>
                     </div>
-                }
-                onClear={clearPublicationSelection}
-                selectedCount={selectedCount}
-                selectionSummary={
-                    selectedCount > 0
-                        ? m.queue_selected_publications({ count: selectedCount })
-                        : null
-                }
-                quietWhenEmpty
-                showActions={selectedCount > 0}
-                showClearSelection={!allVisibleSelected}
-            />
+
+                    {visiblePublications.length > 0 || hasActiveFilters ? (
+                        <div
+                            aria-label={m.queue_delivery_filter()}
+                            className="mt-4 flex min-w-0 flex-wrap items-center gap-2"
+                            role="toolbar">
+                            {/* Q1: a visible two-state switch instead of an unlabelled menu. */}
+                            <div
+                                aria-label={m.queue_view_label()}
+                                className="flex items-center rounded-md bg-muted p-0.5"
+                                role="group">
+                                {(['posts', 'queue'] as const).map(option => (
+                                    <Button
+                                        aria-pressed={view === option}
+                                        className={
+                                            view === option
+                                                ? 'bg-surface-raised font-semibold text-foreground shadow-none hover:bg-surface-raised'
+                                                : 'text-muted-foreground'
+                                        }
+                                        key={option}
+                                        onClick={() => {
+                                            setView(option)
+                                            void navigate({
+                                                search: current => ({
+                                                    ...current,
+                                                    view:
+                                                        option === 'queue' ? 'channels' : undefined,
+                                                }),
+                                            })
+                                        }}
+                                        size="sm"
+                                        type="button"
+                                        variant="ghost">
+                                        {option === 'posts'
+                                            ? m.queue_view_posts()
+                                            : m.queue_view_queue()}
+                                    </Button>
+                                ))}
+                            </div>
+                            <div className="ml-auto flex items-center gap-1">
+                                <FilterMenu groups={queueFilterGroups} />
+                                <SortMenu
+                                    onChange={value => {
+                                        if (!isPublicationQueueSort(value)) return
+                                        setSort(value)
+                                        clearPublicationSelection()
+                                        void navigate({
+                                            search: current => ({
+                                                ...current,
+                                                sort: value === 'queue' ? undefined : value,
+                                            }),
+                                        })
+                                    }}
+                                    options={queueSortOptions(filter)}
+                                    value={sort}
+                                />
+                            </div>
+                        </div>
+                    ) : null}
+                    <div className="mt-3 empty:hidden">
+                        <ActiveFilters groups={queueFilterGroups} />
+                    </div>
+
+                    {/* The selection floats like the calendar's; the toolbar never changes shape. */}
+                    {selectedCount > 0 ? (
+                        <div
+                            className="fixed bottom-5 left-1/2 z-40 w-[min(48rem,calc(100vw-2rem))] -translate-x-1/2"
+                            data-queue-selection-bar="true">
+                            <BulkActionBar
+                                actions={[
+                                    {
+                                        disabled: !canRescheduleSelection,
+                                        disabledReason: m.queue_reschedule_only_scheduled(),
+                                        icon: <CalendarAddIcon aria-hidden="true" />,
+                                        id: 'reschedule',
+                                        label: m.queue_reschedule(),
+                                        onSelect: () => setScheduleDialogOpen(true),
+                                    },
+                                    {
+                                        disabled: !canCancelSelection,
+                                        disabledReason: m.queue_cancel_only_scheduled(),
+                                        icon: <TrashBinMinimalisticIcon aria-hidden="true" />,
+                                        id: 'cancel',
+                                        label: m.queue_cancel(),
+                                        onSelect: () => setCancelDialogOpen(true),
+                                        variant: 'destructive',
+                                    },
+                                ]}
+                                ariaLabel={m.queue_bulk_actions()}
+                                clearLabel={m.queue_clear_selection()}
+                                onClear={clearPublicationSelection}
+                                selectedCount={selectedCount}
+                                selectionSummary={m.queue_selected_publications({
+                                    count: selectedCount,
+                                })}
+                                showClearSelection={!allVisibleSelected}
+                            />
+                        </div>
+                    ) : null}
+                </>
+            ) : null}
 
             <section className="min-w-0" data-queue-publication-list="true">
                 {queueQuery.isError && useServerQueue ? (
@@ -523,7 +499,29 @@ export function PublicationQueuePage({
                 ) : (
                     <PublicationList
                         emptyAction={
-                            filter === 'all' ? null : (
+                            hasActiveFilters ? (
+                                <Button
+                                    onClick={() => {
+                                        const nextFilter = filter === 'manual' ? 'all' : filter
+                                        setTagIds([])
+                                        setFilter(nextFilter)
+                                        setSort(defaultPublicationQueueSort(nextFilter))
+                                        clearPublicationSelection()
+                                        void navigate({
+                                            search: current => ({
+                                                ...current,
+                                                filter:
+                                                    nextFilter === 'all' ? undefined : nextFilter,
+                                                sort: undefined,
+                                                tagIds: undefined,
+                                            }),
+                                        })
+                                    }}
+                                    size="sm"
+                                    variant="ghost">
+                                    {m.filter_clear_all()}
+                                </Button>
+                            ) : filter === 'all' ? null : (
                                 <Button
                                     onClick={() => {
                                         setFilter('all')
@@ -546,7 +544,7 @@ export function PublicationQueuePage({
                                 : queueEmptyDescription(filter)
                         }
                         emptyIllustration={queueEmptyIllustration(filter)}
-                        emptyLayout="compact"
+                        emptyLayout="default"
                         emptyTitle={
                             needsFirstChannel && filter === 'all'
                                 ? m.overview_setup_channels_title()
@@ -565,6 +563,7 @@ export function PublicationQueuePage({
                         }
                         onDuplicateDraft={canEditProject ? duplicateDraft : undefined}
                         onPublish={canEditProject ? onPublish : undefined}
+                        onUndoPublish={canEditProject ? onUndoPublish : undefined}
                         onRetry={canEditProject ? onRetryPublication : undefined}
                         pending={pending}
                         publications={visiblePublications}
@@ -627,7 +626,7 @@ export function PublicationQueuePage({
                 }}
                 pending={pending}
             />
-        </main>
+        </ProjectPage>
     )
 }
 
@@ -635,6 +634,7 @@ function queueEmptyDescription(filter: QueueFilter) {
     if (filter === 'attention') return m.queue_no_attention_description()
     if (filter === 'draft') return null
     if (filter === 'scheduled') return m.queue_no_scheduled_description()
+    if (filter === 'published') return m.queue_no_published_description()
     if (filter === 'manual') return m.queue_no_manual_description()
     return m.queue_no_publications_description()
 }
@@ -643,6 +643,7 @@ function queueEmptyTitle(filter: QueueFilter) {
     if (filter === 'attention') return m.queue_no_attention_title()
     if (filter === 'draft') return m.queue_no_drafts_title()
     if (filter === 'scheduled') return m.queue_no_scheduled_title()
+    if (filter === 'published') return m.queue_no_published_title()
     if (filter === 'manual') return m.queue_no_manual_title()
     return m.queue_no_publications()
 }
@@ -669,6 +670,12 @@ function queueSortOptions(filter: QueueFilter) {
             { value: 'scheduled_asc' as const, label: m.queue_sort_scheduled_asc() },
             { value: 'scheduled_desc' as const, label: m.queue_sort_scheduled_desc() },
             ...updated,
+        ]
+    }
+    if (filter === 'published') {
+        return [
+            { value: 'scheduled_desc' as const, label: m.queue_sort_scheduled_desc() },
+            { value: 'scheduled_asc' as const, label: m.queue_sort_scheduled_asc() },
         ]
     }
     if (filter === 'draft') return [...updated, ...created]

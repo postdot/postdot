@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test'
 
 import { accounts } from './composer-account-fixture'
+import { openLanguageMenu } from './locale'
 
 test('copies a canonical internal link from Queue and publication details', async ({ page }) => {
     const fixture = await accounts(page)
@@ -32,7 +33,11 @@ test('copies a canonical internal link from Queue and publication details', asyn
         const path = `/dashboard/projects/${fixture.project.id}/publications/${publications[0].id}`
         await page.goto(`/dashboard/projects/${fixture.project.id}/queue?filter=all`)
         const expected = new URL(path, page.url()).href
-        await page.getByRole('button', { name: 'Copy publication link', exact: true }).click()
+        await expect(
+            page.getByRole('button', { name: 'Copy publication link', exact: true })
+        ).toHaveCount(0)
+        await page.locator('[data-publication-row-actions="true"]').click()
+        await page.getByRole('menuitem', { name: 'Copy publication link', exact: true }).click()
         await expect
             .poll(() =>
                 page.evaluate(
@@ -46,7 +51,13 @@ test('copies a canonical internal link from Queue and publication details', asyn
         await expect(
             page.getByRole('heading', { name: 'A publication to share with the team', exact: true })
         ).toBeVisible()
-        await page.getByRole('button', { name: 'Copy publication link', exact: true }).click()
+        // In the post editor the link is copied from the channel's menu (SPEC-013).
+        await page
+            .locator(
+                `[data-publication-id="${publications[0].id}"] [data-publication-row-actions="true"]`
+            )
+            .click()
+        await page.getByRole('menuitem', { name: 'Copy publication link', exact: true }).click()
         await expect
             .poll(() =>
                 page.evaluate(
@@ -104,10 +115,15 @@ test('readers can copy manually when clipboard permission is denied, in French',
         const reader = await fixture.member.newPage()
         const path = `/dashboard/projects/${fixture.project.id}/publications/${publications[0].id}`
         await reader.goto(path)
-        await reader.getByRole('button', { name: 'Language', exact: true }).click()
-        await reader.getByRole('menuitem', { name: 'French', exact: true }).click()
+        await openLanguageMenu(reader)
+        await reader.getByRole('menuitem', { name: 'Français', exact: true }).click()
         await reader
-            .getByRole('button', { name: 'Copier le lien de la publication', exact: true })
+            .locator(
+                `[data-publication-id="${publications[0].id}"] [data-publication-row-actions="true"]`
+            )
+            .click()
+        await reader
+            .getByRole('menuitem', { name: 'Copier le lien de la publication', exact: true })
             .click()
         const dialog = reader.getByRole('dialog', {
             name: 'Copier le lien de la publication',

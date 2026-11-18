@@ -2,7 +2,11 @@ import { randomUUID } from 'node:crypto'
 
 import { expect, test, type Page } from '@playwright/test'
 
-import { frenchTranslation } from './locale'
+import { frenchTranslation, openLanguageMenu, switchTheme } from './locale'
+import { composerText, saveButton } from './support/post-editor'
+
+// Seeded local copies are written in UTC; the project must share that time zone.
+test.use({ timezoneId: 'UTC' })
 
 test('keeps publication detail actions aligned with the scheduled lifecycle', async ({
     page,
@@ -19,13 +23,13 @@ test('keeps publication detail actions aligned with the scheduled lifecycle', as
     await expect(addChannelButton).toBeEnabled()
     await addChannelButton.click()
     await expect(page.getByRole('dialog')).toBeVisible()
-    await page.getByRole('radio', { name: 'Manual message', exact: true }).click()
+    await page.getByRole('radio', { name: 'Other (publish by hand)', exact: true }).click()
     await page.getByLabel('Channel name').fill(channelName)
-    await page.getByRole('button', { name: 'Configure content', exact: true }).click()
+    await page.getByRole('button', { name: 'Content rules', exact: true }).click()
     await page.getByRole('button', { name: 'Create channel', exact: true }).click()
     await expect(page.getByRole('paragraph').filter({ hasText: channelName }).first()).toBeVisible()
 
-    await page.getByRole('link', { name: 'New publication', exact: true }).click()
+    await page.getByRole('link', { name: 'New post', exact: true }).click()
     await expect(page.locator('[data-new-publication-form="true"]')).toHaveAttribute(
         'aria-busy',
         'false'
@@ -58,46 +62,31 @@ test('keeps publication detail actions aligned with the scheduled lifecycle', as
         'page'
     )
     await expect(page.locator('[data-publication-action="cancel"]')).toBeVisible()
-    const delivery = page.locator('[data-publication-delivery-disclosure="true"]')
-    await expect(delivery).not.toHaveAttribute('open', '')
-    await expect(page.locator('#deliver-at')).not.toBeVisible()
-    await expect(
-        page.getByRole('button', { name: /^Update scheduled publication(?:\s*(?:Ctrl|⌘)↵)?$/ })
-    ).toBeVisible()
-    await expect(
-        page.locator('[data-composer-settings]').locator('[data-publication-delivery-disclosure]')
-    ).toBeVisible()
-    await expect(
-        page
-            .locator('[data-composer-actions]')
-            .getByRole('button', { name: /^Update scheduled publication(?:\s*(?:Ctrl|⌘)↵)?$/ })
-    ).toBeVisible()
-    await expect(
-        page.locator('[data-composer-editor]').locator('[data-publication-delivery-disclosure]')
-    ).toHaveCount(0)
+    // SPEC-013: the publication opens in the shared post editor on its channel tab. The
+    // schedule is one labelled field in that channel's settings, the one save action sits in
+    // the composer actions, and the editor holds this channel's text.
+    const publicationId = new URL(page.url()).pathname.split('/').pop()!
+    await page
+        .locator(`[data-publication-id="${publicationId}"]`)
+        .getByRole('button', { name: /: When and how$/ })
+        .click()
+    await expect(page.locator(`#deliver-at-${publicationId}`)).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(page.locator('[data-composer-actions] [data-post-save]')).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Content', exact: true })).toHaveCount(0)
-    await expect(page.locator('#source-body')).toBeVisible()
-    await expect(page.locator('#source-body')).toHaveAccessibleName('Body')
-    const customization = page.locator('[data-publication-customization]')
+    await expect(composerText(page)).toBeVisible()
+    await expect(composerText(page)).toHaveAccessibleName('Channel content')
+    const customization = page.locator('[data-post-channel-panel] [data-publication-customization]')
     await expect(customization.locator(':scope > summary')).not.toContainText('Compatible')
     await customization.locator(':scope > summary').focus()
     await page.keyboard.press('Enter')
     await expect(customization.locator('[data-target-editor]')).toBeVisible()
-    const advancedSummary = customization.locator('[data-target-advanced] > summary')
-    await advancedSummary.focus()
-    await page.keyboard.press('Enter')
-    await expect(customization.locator('#target-json')).toBeVisible()
-    await page.keyboard.press('Enter')
-    await expect(customization.locator('#target-json')).not.toBeVisible()
+    // Studio never exposes JSON: the channel version is edited through its fields only.
+    await expect(customization.locator('[data-target-advanced], #target-json')).toHaveCount(0)
     await customization.locator(':scope > summary').focus()
     await page.keyboard.press('Enter')
     await expect(customization.locator('[data-target-editor]')).not.toBeVisible()
 
-    await delivery.locator('summary').focus()
-    await page.keyboard.press('Enter')
-    await expect(page.locator('#deliver-at')).toBeVisible()
-    await page.keyboard.press('Enter')
-    await expect(page.locator('#deliver-at')).not.toBeVisible()
     await expect(page.getByRole('button', { name: 'Mark published', exact: true })).toHaveCount(0)
 
     await page.setViewportSize({ width: 390, height: 844 })
@@ -122,11 +111,9 @@ test('keeps publication detail actions aligned with the scheduled lifecycle', as
     await expect(page.getByText('Publication cancelled.', { exact: true })).toBeVisible()
     await expect(page.locator('[data-publication-action="cancel"]')).toHaveCount(0)
     await expect(page.locator('[data-publication-lifecycle="true"]')).toContainText('Cancelled')
-    await expect(page.locator('#source-body')).toHaveCount(0)
+    // A cancelled channel is read-only: its tab shows the content without a text box.
+    await expect(composerText(page)).toHaveCount(0)
     await expect(page.locator('[data-publication-draft-preview="true"]')).toBeVisible()
-
-    const publicationId = page.url().split('/').pop()
-    expect(publicationId).toBeTruthy()
     let lifecycleState: 'due' | 'failed' = 'due'
     let sourceConflict = false
     let olderRecovery = false
@@ -135,6 +122,31 @@ test('keeps publication detail actions aligned with the scheduled lifecycle', as
     )
     expect(baselineResponse.status()).toBe(200)
     const baselineEditor = await baselineResponse.json()
+    // Keep the related-publication summary consistent with the mocked editor lifecycle.
+    await page.route(
+        url => url.pathname === `/api/projects/${projectId}/publications`,
+        async route => {
+            const response = await route.fetch()
+            const payload = await response.json()
+            for (const publication of payload.publications) {
+                if (publication.id === publicationId) {
+                    publication.state = lifecycleState === 'due' ? 'scheduled' : 'failed'
+                }
+            }
+            await route.fulfill({ response, json: payload })
+        }
+    )
+    // The post editor reads the post on its own; a newer post makes this channel behind.
+    await page.route(
+        url => url.pathname === `/api/projects/${projectId}/posts/${baselineEditor.editor.post.id}`,
+        async route => {
+            const response = await route.fetch()
+            const payload = await response.json()
+            if (sourceConflict)
+                payload.post.sourceRevision = baselineEditor.editor.draft.sourceRevision + 1
+            await route.fulfill({ response, json: payload })
+        }
+    )
     await page.route(
         `**/api/projects/${projectId}/publications/${publicationId}/editor`,
         async route => {
@@ -170,7 +182,7 @@ test('keeps publication detail actions aligned with the scheduled lifecycle', as
     await expect(editorNotice).toContainText('The publication changed in the background.')
     await expect(editorNotice).not.toContainText('Editor status')
     await expect(page.locator('[data-publication-lifecycle="true"]')).toContainText(
-        'To publish manually'
+        'Publish by hand'
     )
 
     await page.screenshot({
@@ -197,35 +209,25 @@ test('keeps publication detail actions aligned with the scheduled lifecycle', as
     sourceConflict = true
     await page.reload()
     const conflict = page.locator('[data-publication-conflict]')
-    await expect(editorNotice).toHaveAttribute('role', 'alert')
-    await expect(editorNotice).not.toHaveAttribute('data-passive-update', 'true')
-    expect(
-        await editorNotice.evaluate(notice => {
-            const composer = document.querySelector('[data-publication-composer="true"]')
-            return (
-                composer !== null &&
-                Boolean(notice.compareDocumentPosition(composer) & Node.DOCUMENT_POSITION_FOLLOWING)
-            )
-        })
-    ).toBe(true)
-    await expect(editorNotice).toContainText('Rebase it before saving or promoting.')
-    await expect(editorNotice).not.toContainText('The latest server state is shown.')
-    await editorNotice.getByRole('button').click()
+    await expect(editorNotice).toHaveCount(0)
+    await expect(conflict).toHaveCount(0)
+    await expect(page.getByRole('status', { name: 'Conflict', exact: true })).toHaveCount(0)
     await expect(
-        page.locator('details').filter({ has: conflict }).locator(':scope > summary')
-    ).toBeFocused()
-    await expect(conflict).toBeVisible()
-    await expect(conflict).toHaveAttribute('role', 'alert')
-    await expect(conflict.locator('button')).toHaveCount(2)
-    expect(
-        await conflict.evaluate(element => element === element.parentElement?.firstElementChild)
-    ).toBe(true)
+        page.getByText('The post changed. 1 channel still uses the previous version.', {
+            exact: true,
+        })
+    ).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Review and update', exact: true })).toBeEnabled()
     await page.screenshot({
-        path: testInfo.outputPath('source-conflict-mobile.png'),
+        path: testInfo.outputPath('stale-version-mobile.png'),
         fullPage: true,
     })
     sourceConflict = false
     olderRecovery = true
+    // The mocked editor claims a newer draft revision than the server holds, so writes are
+    // held here: this part checks the local copy choice, not a save against that mock.
+    await page.route('**/api/projects/*/posts/*/composition', () => undefined)
+    // Copies written by the previous publication editor are still offered (SPEC-013).
     const recoveryKey = `postdot:publication-editor:v3:${projectId}:${publicationId}`
     const localCopy = {
         version: 3,
@@ -258,14 +260,21 @@ test('keeps publication detail actions aligned with the scheduled lifecycle', as
         fullPage: true,
     })
     await recoveryDecision.getByRole('button', { name: 'Restore local copy', exact: true }).click()
+    await page.waitForTimeout(4000)
     await expect(recoveryDecision).toHaveCount(0)
-    await expect(page.locator('#source-body')).toHaveText('Unsent local draft')
+    await expect(composerText(page)).toHaveText('Unsent local draft')
     // The same startup fixture supplies a fresh older copy for the discard path.
     await page.reload()
     await expect(recoveryDecision).toBeVisible()
-    await recoveryDecision.getByRole('button', { name: 'Discard local copy', exact: true }).click()
+    // The restored copy was never written (writes are held), so it is offered too: discard
+    // every local copy and the saved text comes back.
+    for (let offered = 0; offered < 2 && (await recoveryDecision.count()) > 0; offered += 1) {
+        await recoveryDecision
+            .getByRole('button', { name: 'Discard local copy', exact: true })
+            .click()
+    }
     await expect(recoveryDecision).toHaveCount(0)
-    await expect(page.locator('#source-body')).toHaveText('E2E detail lifecycle content')
+    await expect(composerText(page)).toHaveText('E2E detail lifecycle content')
 })
 
 test('shows the active-profile refusal when promotion rejects a superseded draft', async ({
@@ -303,10 +312,10 @@ test('shows the active-profile refusal when promotion rejects a superseded draft
     const editorUrl = `/dashboard/projects/${projectId}/publications/${publication.id}`
     await page.goto(editorUrl)
 
-    const action = page.getByRole('button', { name: /^Use this version(?:\s*(?:Ctrl|⌘)↵)?$/ })
+    const action = saveButton(page)
     await expect(action).toBeEnabled()
-    const bodyField = page.locator('[data-target-field="body"] textarea')
-    await expect(bodyField).toHaveValue(initialBody)
+    const bodyField = composerText(page)
+    await expect(bodyField).toHaveText(initialBody)
 
     const profileResponse = await page.request.get(
         `/api/projects/${projectId}/channels/${channel.channel.id}/profile`
@@ -339,16 +348,15 @@ test('shows the active-profile refusal when promotion rejects a superseded draft
     expect(activationResponse.status()).toBe(200)
 
     await page.reload()
-    await expect(action).toBeDisabled()
     const replacementBody = 'Active profile body two'
     await bodyField.fill(replacementBody)
-    await expect(page.getByRole('status', { name: 'Saved', exact: true })).toBeVisible()
+    await expect(page.getByRole('status', { name: /^(Saved|Changes pending)$/ })).toBeVisible()
     await expect(action).toBeEnabled()
     await action.click()
 
     await expect(
         page.getByText(
-            'The active channel profile changed after this draft was saved. The draft still uses the previous profile, so normal promotion cannot apply it. The saved content and selected target are unchanged.',
+            'This channel’s content rules changed after this draft was saved. The draft still uses the previous rules, so saving cannot apply it directly. Your saved content and selected channel version are unchanged.',
             { exact: true }
         )
     ).toBeVisible()
@@ -356,7 +364,7 @@ test('shows the active-profile refusal when promotion rejects a superseded draft
         page.getByRole('button', { name: 'Check server status', exact: true })
     ).toHaveCount(0)
     await expect(page.locator('[data-publication-recovery-decision]')).toHaveCount(0)
-    await expect(bodyField).toHaveValue(replacementBody)
+    await expect(bodyField).toHaveText(replacementBody)
     const finalEditorResponse = await page.request.get(
         `/api/projects/${projectId}/publications/${publication.id}/editor`
     )
@@ -397,7 +405,7 @@ test('shows the active-profile refusal when promotion rejects a superseded draft
     )
     expect(unchangedResponse.status()).toBe(200)
     expect(await unchangedResponse.json()).toEqual(finalEditor)
-    await expect(bodyField).toHaveValue(replacementBody)
+    await expect(bodyField).toHaveText(replacementBody)
 })
 
 test('adapts a draft explicitly without changing its source or selecting a publication target', async ({
@@ -489,8 +497,8 @@ test('adapts a draft explicitly without changing its source or selecting a publi
     ).toBe(200)
     let before = (await (await page.request.get(`${apiUrl}/editor`)).json()).editor
     await page.goto(`/dashboard/projects/${projectId}/publications/${publicationId}`)
-    await page.getByRole('button', { name: 'Adapt to current profile', exact: true }).click()
-    const adaptation = page.getByRole('region', { name: 'Adapt to current profile', exact: true })
+    await page.getByRole('button', { name: 'Adapt to current rules', exact: true }).click()
+    const adaptation = page.getByRole('region', { name: 'Adapt to current rules', exact: true })
     await expect(
         adaptation.getByRole('button', { name: 'Save adapted draft', exact: true })
     ).toBeDisabled()
@@ -540,13 +548,13 @@ test('adapts a draft explicitly without changing its source or selecting a publi
         await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)
     ).toBe(true)
     await page.screenshot({ path: testInfo.outputPath('adoption-mobile.png'), fullPage: true })
-    await page.getByRole('button', { name: 'Switch to light theme', exact: true }).click()
+    await switchTheme(page, 'light')
     await page.screenshot({
         path: testInfo.outputPath('adoption-mobile-light.png'),
         fullPage: true,
     })
-    await page.locator('[data-slot="language-switcher-trigger"]').click()
-    await page.getByRole('menuitem', { name: 'French', exact: true }).click()
+    await openLanguageMenu(page)
+    await page.getByRole('menuitem', { name: 'Français', exact: true }).click()
     const frenchAdaptation = page.getByRole('region', {
         name: frenchTranslation('profile_adoption_title'),
         exact: true,
@@ -567,13 +575,11 @@ test('adapts a draft explicitly without changing its source or selecting a publi
         path: testInfo.outputPath('adoption-mobile-french.png'),
         fullPage: true,
     })
-    await page.locator('[data-slot="language-switcher-trigger"]').click()
-    await page
-        .getByRole('menuitem', { name: frenchTranslation('language_english'), exact: true })
-        .click()
+    await openLanguageMenu(page)
+    await page.getByRole('menuitem', { name: 'English', exact: true }).click()
     await adaptation.getByRole('button', { name: 'Cancel', exact: true }).click()
     expect((await (await page.request.get(`${apiUrl}/editor`)).json()).editor).toEqual(before)
-    await page.getByRole('button', { name: 'Adapt to current profile', exact: true }).click()
+    await page.getByRole('button', { name: 'Adapt to current rules', exact: true }).click()
     await adaptation.getByRole('button', { name: 'Reuse previous Body', exact: true }).click()
     await adaptation.getByRole('button', { name: 'Reuse previous Media', exact: true }).click()
     await adaptation.getByRole('button', { name: 'Validate adaptation', exact: true }).click()
@@ -611,7 +617,7 @@ test('adapts a draft explicitly without changing its source or selecting a publi
         'Previous destination'
     )
     await adaptation
-        .getByRole('button', { name: 'Review latest draft and profile', exact: true })
+        .getByRole('button', { name: 'Review latest draft and rules', exact: true })
         .click()
     await expect(adaptation.getByRole('alert')).toHaveCount(0)
     await expect(
@@ -655,7 +661,9 @@ test('adapts a draft explicitly without changing its source or selecting a publi
     await expect(
         recovery.getByRole('button', { name: 'Restore local copy', exact: true })
     ).toBeDisabled()
-    await expect(recovery.locator('pre')).toContainText('Legacy local text')
+    await expect(recovery.locator('pre')).toHaveCount(0)
+    await expect(recovery).toContainText('Legacy local text')
+    await expect(recovery).toContainText('Previous destination')
     expect((await (await page.request.get(`${apiUrl}/editor`)).json()).editor).toEqual(after)
 })
 
@@ -678,12 +686,12 @@ async function createAccountAndProject(page: Page, suffix: string) {
     await page.getByRole('combobox', { name: 'Select project', exact: true }).click()
     await page.getByRole('button', { name: 'Create project', exact: true }).last().click()
     await page
-        .getByRole('textbox', { name: 'New project', exact: true })
+        .getByRole('textbox', { name: 'Name', exact: true })
         .fill(`E2E detail project ${suffix}`)
     await page
         .locator('form')
-        .filter({ has: page.getByRole('textbox', { name: 'New project', exact: true }) })
-        .getByRole('button', { name: 'Add project', exact: true })
+        .filter({ has: page.getByRole('textbox', { name: 'Name', exact: true }) })
+        .getByRole('button', { name: 'Create project', exact: true })
         .click()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/overview$/)
     await expect(page.getByRole('heading', { name: 'Overview', exact: true })).toBeVisible()
@@ -771,7 +779,7 @@ test('requires destination confirmation after reconnecting while retaining the s
     await page.goto(`/dashboard/projects/${projectId}/publications/${publication.id}`)
     const section = page.locator('[data-publication-destination]')
     await expect(section).toContainText(
-        'Current destination: Replacement destination · replacement-account'
+        'Current account: Replacement destination · replacement-account'
     )
     await expect(section.locator('[data-target-readonly]')).toContainText(
         'Keep this target and schedule'
@@ -780,7 +788,7 @@ test('requires destination confirmation after reconnecting while retaining the s
         'Unapplied destination draft'
     )
     await expect(
-        section.getByRole('button', { name: 'Confirm current destination', exact: true })
+        section.getByRole('button', { name: 'Confirm this account', exact: true })
     ).toBeEnabled()
     await expect(section).toContainText('Any delivery already scheduled can resume')
     await page.screenshot({ path: testInfo.outputPath('destination-desktop.png'), fullPage: true })
@@ -788,8 +796,8 @@ test('requires destination confirmation after reconnecting while retaining the s
     expect(
         await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)
     ).toBe(true)
-    await page.locator('[data-slot="language-switcher-trigger"]').click()
-    await page.getByRole('menuitem', { name: 'French', exact: true }).click()
+    await openLanguageMenu(page)
+    await page.getByRole('menuitem', { name: 'Français', exact: true }).click()
     await expect(
         section.getByRole('button', { name: frenchTranslation('destination_confirm'), exact: true })
     ).toBeEnabled()

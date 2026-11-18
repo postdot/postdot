@@ -1,10 +1,18 @@
+// cspell:ignore filechooser
 import { randomUUID } from 'node:crypto'
 
 import { expect, test, type Page, type Route } from '@playwright/test'
 import type { MediaReference } from '@postdot/client'
 
 import en from '../apps/web/messages/en.json' with { type: 'json' }
-import fr from '../apps/web/messages/fr.json' with { type: 'json' }
+import { openLanguageMenu, switchTheme } from './locale'
+import {
+    composerText,
+    compositionSaved,
+    openAllChannels,
+    openChannel,
+    saveButton,
+} from './support/post-editor'
 
 const e2eApiPort = process.env.POSTDOT_E2E_API_PORT
 if (e2eApiPort === undefined) {
@@ -120,23 +128,16 @@ test('keeps dashboard and composer media journeys reliable', async ({ page, requ
         'rgba(0, 0, 0, 0)'
     )
 
-    await expect(
-        page.getByRole('button', { name: 'Switch to light theme', exact: true })
-    ).toBeVisible()
-    await page.getByRole('button', { name: 'Switch to light theme', exact: true }).click()
+    await switchTheme(page, 'light')
     await expect(page.locator('html')).toHaveClass(/\blight\b/)
-    await expect(
-        page.getByRole('button', { name: 'Switch to dark theme', exact: true })
-    ).toBeVisible()
-    await page.getByRole('button', { name: 'Switch to dark theme', exact: true }).click()
-    await page.getByRole('button', { name: 'Language', exact: true }).click()
-    await page.getByRole('menuitem', { name: 'French', exact: true }).click()
+    await switchTheme(page, 'dark')
+    await expect(page.locator('html')).toHaveClass(/\bdark\b/)
+    await openLanguageMenu(page)
+    await page.getByRole('menuitem', { name: 'Français', exact: true }).click()
     await expect(page.locator('html')).toHaveAttribute('lang', 'fr')
-    const languageSwitcher = page.locator('[data-slot="language-switcher-trigger"]')
-    await expect(languageSwitcher).toBeVisible()
-    await languageSwitcher.click()
-    await expect(page.locator('[role="menuitem"][aria-current="true"]')).toHaveCount(1)
-    await page.getByRole('menuitem', { name: fr.language_english, exact: true }).click()
+    await openLanguageMenu(page)
+    await expect(page.locator('[role="menuitem"][aria-current="true"][lang]')).toHaveCount(1)
+    await page.getByRole('menuitem', { name: 'English', exact: true }).click()
     await expect(page.locator('html')).toHaveAttribute('lang', 'en')
 
     await page.getByRole('button', { name: 'Open account menu', exact: true }).click()
@@ -144,7 +145,7 @@ test('keeps dashboard and composer media journeys reliable', async ({ page, requ
     await page.keyboard.press('Escape')
 
     await page.setViewportSize({ width: 390, height: 844 })
-    await page.getByRole('button', { name: 'Toggle workspace navigation' }).click()
+    await page.getByRole('button', { name: 'Show menu' }).click()
     const workNavigationLayout = await page
         .getByRole('navigation', { name: 'Work navigation' })
         .evaluate(element => {
@@ -160,8 +161,9 @@ test('keeps dashboard and composer media journeys reliable', async ({ page, requ
             )
             return { linkCount: links.length, topOffsetCount: topOffsets.size }
         })
-    const projectNavigationLayout = await page
-        .getByRole('navigation', { name: 'Project navigation' })
+    await expect(page.getByRole('navigation', { name: 'Project navigation' })).toHaveCount(0)
+    const workspaceNavigationLayout = await page
+        .getByRole('navigation', { name: 'Workspace navigation' })
         .evaluate(element => {
             const links = Array.from(element.querySelectorAll('a, button'))
             const topOffsets = new Set(
@@ -175,12 +177,13 @@ test('keeps dashboard and composer media journeys reliable', async ({ page, requ
             )
             return { linkCount: links.length, topOffsetCount: topOffsets.size }
         })
-    expect(workNavigationLayout).toEqual({ linkCount: 3, topOffsetCount: 3 })
-    expect(projectNavigationLayout).toEqual({ linkCount: 2, topOffsetCount: 2 })
+    expect(workNavigationLayout).toEqual({ linkCount: 1, topOffsetCount: 1 })
+    // With no project selected, disabled project items are hidden and only Channels appears under Workspace (P10-02/P10-03).
+    expect(workspaceNavigationLayout).toEqual({ linkCount: 1, topOffsetCount: 1 })
     await page.getByRole('button', { name: 'Close', exact: true }).click()
     await page.setViewportSize({ width: 1280, height: 720 })
 
-    await page.getByRole('button', { name: 'Toggle workspace navigation' }).click()
+    await page.getByRole('button', { name: 'Hide menu' }).click()
     const sidebarContainer = page.locator('[data-slot="sidebar-container"]')
     await expect(sidebarContainer).toHaveCSS('width', '48px')
     const collapsedSidebarLayout = await sidebarContainer.evaluate(container => {
@@ -203,7 +206,7 @@ test('keeps dashboard and composer media journeys reliable', async ({ page, requ
     expect(
         collapsedSidebarLayout.buttons.every(({ left, width }) => left === 8 && width === 32)
     ).toBe(true)
-    await page.getByRole('button', { name: 'Toggle workspace navigation' }).click()
+    await page.getByRole('button', { name: 'Show menu' }).click()
     await expect(sidebarContainer).toHaveCSS('width', '240px')
 
     const shellLayout = await page.locator('[data-slot="sidebar-inset"]').evaluate(inset => {
@@ -237,9 +240,9 @@ test('keeps dashboard and composer media journeys reliable', async ({ page, requ
     await page.getByRole('combobox', { name: 'Select project', exact: true }).click()
     await page.getByRole('button', { name: 'Create project', exact: true }).last().click()
     const desktopProjectForm = page.getByRole('dialog')
-    await page.getByRole('textbox', { name: 'New project', exact: true }).fill(projectName)
-    await desktopProjectForm.getByRole('button', { name: 'Add project', exact: true }).click()
-    await expect(page.getByRole('combobox', { name: 'Select project' }).first()).toHaveText(
+    await page.getByRole('textbox', { name: 'Name', exact: true }).fill(projectName)
+    await desktopProjectForm.getByRole('button', { name: 'Create project', exact: true }).click()
+    await expect(page.getByRole('combobox', { name: 'Select project' }).first()).toContainText(
         projectName
     )
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/overview$/)
@@ -300,7 +303,8 @@ test('keeps dashboard and composer media journeys reliable', async ({ page, requ
     await expect(page.getByText(tokenName, { exact: true })).toBeVisible()
 
     const keyItem = page.getByRole('listitem').filter({ hasText: tokenName })
-    await keyItem.getByRole('button', { name: 'Revoke', exact: true }).click()
+    await keyItem.getByRole('button', { name: `Manage ${tokenName}`, exact: true }).click()
+    await page.getByRole('menuitem', { name: 'Revoke', exact: true }).click()
     await expect(page.getByRole('heading', { name: 'Revoke this API key?' })).toBeVisible()
     await page.getByRole('dialog').getByRole('button', { name: 'Revoke', exact: true }).click()
     await expect(page.getByText(tokenName, { exact: true })).toHaveCount(0)
@@ -313,8 +317,8 @@ test('keeps dashboard and composer media journeys reliable', async ({ page, requ
     )
     await page.goto('/dashboard/settings/provider-applications')
     await expect(page).toHaveURL(/\/dashboard\/settings\/provider-applications(?:\?.*)?$/)
-    await expect(page.getByRole('heading', { name: 'OAuth applications', level: 1 })).toBeVisible()
-    await expect(page.getByText('No provider applications', { exact: true })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Platform setup', level: 1 })).toBeVisible()
+    await expect(page.getByText('No platform set up yet', { exact: true })).toBeVisible()
     await page.unroute('**/api/settings/provider-applications')
 
     await page.goto('/dashboard')
@@ -335,19 +339,19 @@ test('keeps dashboard and composer media journeys reliable', async ({ page, requ
     const initialChannelNameField = page.getByLabel('Channel name')
     await initialAddChannelButton.click()
     await expect(initialChannelNameField).toBeVisible()
-    await expect(page.getByRole('radiogroup', { name: 'Profile', exact: true })).toBeVisible()
+    await expect(page.getByRole('radiogroup', { name: 'Platform', exact: true })).toBeVisible()
     await page.getByRole('button', { name: 'Cancel', exact: true }).click()
 
     await page.getByRole('link', { name: 'Channels', exact: true }).click()
     await page.getByRole('button', { name: 'Add channel', exact: true }).click()
-    await page.getByRole('radio', { name: 'Manual message', exact: true }).click()
+    await page.getByRole('radio', { name: 'Other (publish by hand)', exact: true }).click()
     await page.getByLabel('Channel name').fill(channelName)
-    await page.getByRole('button', { name: 'Configure content', exact: true }).click()
+    await page.getByRole('button', { name: 'Content rules', exact: true }).click()
     await page.getByRole('button', { name: 'Create channel', exact: true }).click()
     await expect(page.getByRole('paragraph').filter({ hasText: channelName }).first()).toBeVisible()
     await page.getByRole('button', { name: 'Add channel', exact: true }).click()
-    const channelProfile = page.getByRole('radiogroup', { name: 'Profile', exact: true })
-    await channelProfile.getByRole('radio', { name: 'LinkedIn post', exact: true }).click()
+    const channelProfile = page.getByRole('radiogroup', { name: 'Platform', exact: true })
+    await channelProfile.getByRole('radio', { name: 'LinkedIn', exact: true }).click()
     await page.getByLabel('Channel name').fill(secondChannelName)
     await page.getByRole('button', { name: 'Create channel', exact: true }).click()
     await expect(
@@ -363,13 +367,14 @@ test('keeps dashboard and composer media journeys reliable', async ({ page, requ
         '[data-slot="event-calendar-month-cell"][data-today="true"]'
     )
     await todayCell.hover()
-    await todayCell.getByRole('button', { name: 'Create publication', exact: true }).click()
+    await todayCell.getByRole('button', { name: 'New post', exact: true }).click()
     await expect(page).toHaveURL(
-        /\/dashboard\/projects\/[^/]+\/publications\/new\?date=\d{4}-\d{2}-\d{2}$/
+        /\/dashboard\/projects\/[^/]+\/publications\/new\?date=\d{4}-\d{2}-\d{2}&time=\d{2}%3A\d{2}$/
     )
+    // Today proposes nine o'clock, or the next full hour once nine has passed (ADR-103 §6).
     await expect(
         page.locator('[data-publication-schedule-disclosure="true"] > summary')
-    ).toContainText(/9:00 AM/)
+    ).toContainText(/\d{1,2}:00 (AM|PM)/)
     await page.goBack()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/overview$/)
     await page.getByRole('link', { name: 'Channels', exact: true }).click()
@@ -382,7 +387,7 @@ test('keeps dashboard and composer media journeys reliable', async ({ page, requ
     await expect(
         page.locator('[data-slot="sidebar-inner"]').getByText(channelName, { exact: true })
     ).toHaveCount(0)
-    await page.getByRole('link', { name: 'New publication', exact: true }).click()
+    await page.getByRole('link', { name: 'New post', exact: true }).click()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/publications\/new$/)
 
     const newPublicationEditor = page.locator('[data-new-publication-editor="true"]')
@@ -398,7 +403,7 @@ test('keeps dashboard and composer media journeys reliable', async ({ page, requ
     const draftResponse = page.waitForResponse(
         response => response.url().endsWith('/posts') && response.request().method() === 'POST'
     )
-    await page.getByRole('button', { name: 'Create draft', exact: true }).click()
+    await page.getByRole('button', { name: 'Save as draft', exact: true }).click()
     const draftResult = (await (await draftResponse).json()) as {
         publications: { id: string; postId: string; state: string }[]
     }
@@ -412,12 +417,12 @@ test('keeps dashboard and composer media journeys reliable', async ({ page, requ
         )
         .click()
     await expect(page.locator('[data-publication-lifecycle="true"]')).toBeVisible()
-    await expect(page.getByText('Draft', { exact: true })).toBeVisible()
     await expect(
-        page.getByRole('button', { name: /^Use this version(?:\s*(?:Ctrl|⌘)↵)?$/ })
+        page.locator('[data-publication-lifecycle="true"]').getByText('Draft', { exact: true })
     ).toBeVisible()
+    await expect(saveButton(page)).toBeVisible()
     await page.getByRole('link', { name: /Back to queue/ }).click()
-    await page.getByRole('link', { name: 'New publication', exact: true }).click()
+    await page.getByRole('link', { name: 'New post', exact: true }).click()
 
     await page.locator('input[type="file"]').setInputFiles({
         name: mediaFilename,
@@ -568,14 +573,75 @@ test('supports media library search, viewing, and bulk actions', async ({ page }
 
     await expect(page.locator('[data-media-selection-toggle="true"]')).toHaveCount(0)
     await expect(page.locator('[data-media-import-zone="true"]')).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Import', exact: true })).toBeVisible()
-    await expect(page.locator('[data-media-drop-hint="true"]')).toBeVisible()
+    await expect(page.locator('[data-media-drop-hint="true"]')).toHaveCount(0)
+    await expect(page.locator('[data-media-library-toolbar="true"]')).toHaveCount(0)
+    await expect(page.locator('[data-filter-menu="true"]')).toHaveCount(0)
+    await expect(page.locator('[data-media-selection-mode-toggle="true"]')).toHaveCount(0)
+    await expect(page.locator('[data-media-view-controls="true"]')).toHaveCount(0)
+    await expect(page.locator('[data-media-trash-open="true"]')).toHaveCount(0)
+
+    const headerImportButton = page
+        .locator('[data-page-header="true"]')
+        .getByRole('button', { name: 'Import', exact: true })
+    const importMenuTrigger = page.locator('[data-media-import-menu-trigger="true"]')
+    await expect(headerImportButton).toBeVisible()
+    await expect(importMenuTrigger).toBeVisible()
+    // One primary action per frame (SPEC-010 JRN-04): the empty state does not repeat Import.
     await expect(
-        page
-            .locator('[data-media-import-zone="true"]')
-            .getByRole('button', { name: 'Browse', exact: true })
-    ).toBeVisible()
+        page.locator('main').getByRole('button', { name: 'Import', exact: true })
+    ).toHaveCount(1)
+
+    const [headerChooser] = await Promise.all([
+        page.waitForEvent('filechooser'),
+        headerImportButton.click(),
+    ])
+    expect(headerChooser.isMultiple()).toBe(true)
+
+    await importMenuTrigger.click()
+    await expect(page.getByRole('menuitem', { name: 'From a URL…', exact: true })).toBeVisible()
+    await expect(page.getByRole('menuitem', { name: 'Take a photo…', exact: true })).toBeVisible()
+    await page.getByRole('menuitem', { name: 'From a URL…', exact: true }).click()
+    const urlDialog = page.locator('[data-media-url-import-dialog="true"]')
+    await expect(urlDialog).toBeVisible()
+    await urlDialog.getByRole('button', { name: 'Cancel', exact: true }).click()
+    await expect(urlDialog).toHaveCount(0)
+
+    await importMenuTrigger.click()
+    await page.getByRole('menuitem', { name: 'Take a photo…', exact: true }).click()
+    const webcamDialog = page.locator('[data-media-webcam-dialog="true"]')
+    await expect(webcamDialog).toBeVisible()
+    await webcamDialog.getByRole('button', { name: 'Cancel', exact: true }).click()
+    await expect(webcamDialog).toHaveCount(0)
+
+    await page.evaluate(() => {
+        const dataTransfer = new DataTransfer()
+        dataTransfer.items.add(
+            new File([new Uint8Array([1, 2, 3])], 'drag.png', { type: 'image/png' })
+        )
+        window.dispatchEvent(
+            new DragEvent('dragenter', { bubbles: true, cancelable: true, dataTransfer })
+        )
+    })
+    await expect(page.locator('[data-media-drop-overlay="true"]')).toBeVisible()
+    await expect(page.locator('[data-media-drop-overlay="true"]')).toHaveText(
+        'Drop files to upload'
+    )
+    await page.evaluate(() => {
+        const dataTransfer = new DataTransfer()
+        dataTransfer.items.add(
+            new File([new Uint8Array([1, 2, 3])], 'drag.png', { type: 'image/png' })
+        )
+        window.dispatchEvent(
+            new DragEvent('dragleave', { bubbles: true, cancelable: true, dataTransfer })
+        )
+    })
+    await expect(page.locator('[data-media-drop-overlay="true"]')).toHaveCount(0)
+
     await importMediaFiles(page, [mediaFilename, secondMediaFilename, droppedMediaFilename])
+    await expect(page.locator('[data-media-drop-hint="true"]')).toHaveCount(0)
+    await expect(page.locator('[data-media-library-toolbar="true"]')).toBeVisible()
+    await expect(page.locator('[data-media-selection-mode-toggle="true"]')).toHaveCount(0)
+    await expect(page.locator('[data-media-trash-open="true"]')).toBeVisible()
     await expect(
         page.getByRole('button', { name: `View ${droppedMediaFilename}`, exact: true })
     ).toBeVisible()
@@ -586,22 +652,17 @@ test('supports media library search, viewing, and bulk actions', async ({ page }
     await expect(previewImage).toHaveJSProperty('naturalWidth', 1)
     await page.setViewportSize({ width: 390, height: 844 })
     const mediaToolbar = page.locator('[data-media-library-toolbar="true"]')
-    const filterToggle = mediaToolbar.getByRole('button', { name: /^Filters/ })
-    await expect(filterToggle).toHaveAttribute('aria-expanded', 'false')
-    await expect(mediaToolbar.getByRole('combobox', { name: 'File type' })).toBeHidden()
-    await filterToggle.click()
-    await mediaToolbar.getByRole('combobox', { name: 'File type' }).click()
-    await page.getByRole('option', { name: 'Documents', exact: true }).click()
+    // One Filter menu at every width; the condition in force shows under the toolbar.
+    const filterMenu = mediaToolbar.locator('[data-filter-menu="true"]')
+    await filterMenu.click()
+    await page.getByRole('menuitemradio', { name: 'Documents', exact: true }).click()
     await expect(
         page.getByRole('button', { name: `View ${droppedMediaFilename}`, exact: true })
     ).toHaveCount(0)
-    await filterToggle.click()
-    await expect(mediaToolbar.locator('p').getByText('Documents', { exact: true })).toBeVisible()
-    await expect(filterToggle).toHaveAttribute('aria-expanded', 'false')
+    const activeFilters = mediaToolbar.locator('[data-active-filters="true"]')
+    await expect(activeFilters).toContainText('Documents')
     await page.setViewportSize({ width: 1280, height: 720 })
-    await expect(mediaToolbar.getByRole('combobox', { name: 'File type' })).toHaveText('Documents')
-    await mediaToolbar.getByRole('combobox', { name: 'File type' }).click()
-    await page.getByRole('option', { name: 'All types', exact: true }).click()
+    await activeFilters.getByRole('button', { name: /^Remove filter/ }).click()
     await expect(
         page.getByRole('button', { name: `View ${droppedMediaFilename}`, exact: true })
     ).toBeVisible()
@@ -763,14 +824,15 @@ test('supports media library search, viewing, and bulk actions', async ({ page }
     await mediaLibraryViewer.getByRole('button', { name: 'Close', exact: true }).click()
     await expect(mediaLibraryViewer).toHaveCount(0)
 
-    await page.getByRole('button', { name: 'Select', exact: true }).click()
-    await expect(mediaBulkActionBar).toBeVisible()
-    await expect(mediaBulkActionBar).toContainText('0 selected')
-    await droppedMediaCard.click({ position: { x: 2, y: 2 } })
+    await page.locator('[data-sort-menu="true"]').click()
+    await page.getByRole('menuitemradio', { name: 'Oldest', exact: true }).click()
+    await expect(mediaBulkActionBar).toHaveCount(0)
+    await droppedMediaCard.getByRole('checkbox').check()
     await expect(droppedMediaCard).toHaveAttribute('data-media-action-selected', 'true')
-    await droppedMediaCard.click({ position: { x: 2, y: 2 } })
+    await expect(page.locator('[data-media-selection-bar="true"]')).toHaveCSS('position', 'fixed')
+    await droppedMediaCard.getByRole('checkbox').uncheck()
     await expect(droppedMediaCard).not.toHaveAttribute('data-media-action-selected')
-    await page.getByRole('button', { name: `Select ${mediaFilename}`, exact: true }).click()
+    await page.getByRole('checkbox', { name: `Select ${mediaFilename}`, exact: true }).check()
     await expect(mediaBulkActionBar).toBeVisible()
     await expect(
         mediaBulkActionBar.getByRole('button', { name: 'Select all', exact: true })
@@ -779,14 +841,14 @@ test('supports media library search, viewing, and bulk actions', async ({ page }
         mediaBulkActionBar.getByRole('button', { name: 'Deselect', exact: true })
     ).toBeVisible()
     await expect(
-        mediaBulkActionBar.getByRole('button', { name: 'Delete (1)', exact: true })
+        mediaBulkActionBar.getByRole('button', { name: 'Delete', exact: true })
     ).toBeVisible()
     await expect(
-        mediaBulkActionBar.getByRole('button', { name: 'Open (1)', exact: true })
+        mediaBulkActionBar.getByRole('button', { name: 'Open', exact: true })
     ).toBeVisible()
-    await page.getByRole('button', { name: `Select ${secondMediaFilename}`, exact: true }).click()
+    await page.getByRole('checkbox', { name: `Select ${secondMediaFilename}`, exact: true }).check()
     await expect(mediaBulkActionBar).toContainText('2 selected')
-    await mediaBulkActionBar.getByRole('button', { name: 'Open (2)', exact: true }).click()
+    await mediaBulkActionBar.getByRole('button', { name: 'Open', exact: true }).click()
     await expect(mediaLibraryViewer).toBeVisible()
     await expect(mediaLibraryViewer.locator('[data-media-viewer-thumbnail="true"]')).toHaveCount(2)
     await expect(
@@ -796,7 +858,7 @@ test('supports media library search, viewing, and bulk actions', async ({ page }
     await expect(mediaLibraryViewer.getByText('2 of 2', { exact: true })).toHaveCount(1)
     await mediaLibraryViewer.getByRole('button', { name: 'Close', exact: true }).click()
     await expect(mediaLibraryViewer).toHaveCount(0)
-    await mediaBulkActionBar.getByRole('button', { name: 'Delete (2)', exact: true }).click()
+    await mediaBulkActionBar.getByRole('button', { name: 'Delete', exact: true }).click()
     const mediaBulkDeletionDialog = page.locator('[data-media-bulk-delete-dialog="true"]')
     await expect(mediaBulkDeletionDialog).toBeVisible()
     await expect(
@@ -817,7 +879,6 @@ test('supports media library search, viewing, and bulk actions', async ({ page }
     await expect(
         page.getByRole('button', { name: `View ${secondMediaFilename}`, exact: true })
     ).toHaveCount(0)
-    await page.getByRole('button', { name: 'Exit selection', exact: true }).click()
     await expect(mediaBulkActionBar).toHaveCount(0)
     const mediaSearch = page.getByRole('searchbox', { name: 'Search media', exact: true })
     await expect(mediaSearch).toBeVisible()
@@ -852,7 +913,7 @@ test('supports media library search, viewing, and bulk actions', async ({ page }
     await searchResponse
     await page.unroute('**/api/projects/*/media*')
     await mediaSearch.fill(`missing-${suffix}`)
-    await expect(page.getByText('No media matches this search.', { exact: true })).toBeVisible()
+    await expect(page.getByText('No media matches this search', { exact: true })).toBeVisible()
     await mediaSearch.fill('')
     await expect(
         page.getByRole('button', { name: `View ${droppedMediaFilename}`, exact: true })
@@ -894,6 +955,8 @@ test('supports media library search, viewing, and bulk actions', async ({ page }
     const mediaDownload = page.waitForEvent('download')
     await page.getByRole('menuitem', { name: 'Download', exact: true }).click()
     expect((await mediaDownload).suggestedFilename()).toBe(droppedMediaFilename)
+    await page.locator('[data-sort-menu="true"]').click()
+    await page.getByRole('menuitemradio', { name: 'Newest', exact: true }).click()
     await droppedMediaCard
         .getByRole('button', { name: `Actions for ${droppedMediaFilename}`, exact: true })
         .click()
@@ -920,6 +983,11 @@ test('supports media library search, viewing, and bulk actions', async ({ page }
     await expect(
         page.getByRole('button', { name: `View ${droppedMediaFilename}`, exact: true })
     ).toHaveCount(0)
+    await expect(page.locator('[data-media-library-toolbar="true"]')).toHaveCount(0)
+    await expect(page.locator('[data-filter-menu="true"]')).toHaveCount(0)
+    await expect(page.locator('[data-media-selection-mode-toggle="true"]')).toHaveCount(0)
+    await expect(page.locator('[data-media-view-controls="true"]')).toHaveCount(0)
+    await expect(page.locator('[data-media-trash-open="true"]')).toBeVisible()
     await page.getByRole('button', { name: /^Trash/ }).click()
     await expect(page.getByRole('heading', { name: 'Trash', exact: true })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Import', exact: true })).toHaveCount(0)
@@ -943,7 +1011,7 @@ test('supports media library search, viewing, and bulk actions', async ({ page }
     const permanentDeletionDialog = page.locator('[data-media-permanent-delete-dialog="true"]')
     await expect(permanentDeletionDialog).toBeVisible()
     await expect(permanentDeletionDialog).toContainText(secondMediaFilename)
-    await expect(permanentDeletionDialog).toContainText("can't be restored")
+    await expect(permanentDeletionDialog).toContainText('can’t be restored')
     await page.setViewportSize({ width: 390, height: 844 })
     const permanentDeletionDialogBounds = await permanentDeletionDialog.boundingBox()
     expect(permanentDeletionDialogBounds).not.toBeNull()
@@ -992,15 +1060,15 @@ test('persists mixed and media-only publications through the dashboard', async (
 
     const { projectId: firstProjectId } = await createAccountAndProject(page, suffix, projectName)
     await createChannel(page, channelName)
-    await createChannel(page, secondChannelName, 'LinkedIn post')
+    await createChannel(page, secondChannelName, 'LinkedIn')
     await page.goto(`/dashboard/projects/${firstProjectId}/media`)
     await importMediaFiles(page, [editedMediaFilename])
-    await page.getByRole('button', { name: 'List view', exact: true }).click()
+    await expect(page.locator('[data-media-library-toolbar="true"]')).toHaveCount(0)
 
     await expect(
-        page.locator('main').getByRole('button', { name: 'New publication', exact: true })
+        page.locator('main').getByRole('button', { name: 'New post', exact: true })
     ).toHaveCount(0)
-    await page.getByRole('link', { name: 'New publication', exact: true }).click()
+    await page.getByRole('link', { name: 'New post', exact: true }).click()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/publications\/new$/)
     await expect(page.locator('[data-new-publication-form]')).toHaveAttribute('aria-busy', 'false')
 
@@ -1039,7 +1107,7 @@ test('persists mixed and media-only publications through the dashboard', async (
     if ((await deliveryDetails.getAttribute('open')) === null) {
         await deliveryDetails.locator('summary').click()
     }
-    await page.getByRole('button', { name: 'Customize delivery', exact: true }).click()
+    await page.getByRole('button', { name: 'Different time for this channel', exact: true }).click()
     await expect(page.getByLabel('Channel schedule', { exact: true })).toContainText(
         defaultSchedule.trim()
     )
@@ -1049,7 +1117,7 @@ test('persists mixed and media-only publications through the dashboard', async (
         exact: true,
     })
     await secondPublicationDelivery.click()
-    await page.getByRole('option', { name: 'Automatic publication', exact: true }).click()
+    await page.getByRole('option', { name: 'Publish automatically', exact: true }).click()
     const channelSchedule = page.getByLabel('Channel schedule', { exact: true })
     await channelSchedule.click()
     const channelSchedulePicker = page.locator('[role="dialog"][aria-label="Date"]')
@@ -1079,7 +1147,7 @@ test('persists mixed and media-only publications through the dashboard', async (
     const mixedResponse = page.waitForResponse(
         response => response.url().endsWith('/posts') && response.request().method() === 'POST'
     )
-    await page.getByRole('button', { name: /^Schedule 2 publications(?:\s*(?:Ctrl|⌘)↵)?$/ }).click()
+    await page.getByRole('button', { name: /^Schedule on 2 channels(?:\s*(?:Ctrl|⌘)↵)?$/ }).click()
     const mixedResult = (await (await mixedResponse).json()) as { publications: { id: string }[] }
     const mixedPublicationId = mixedResult.publications[0]?.id
     if (mixedPublicationId === undefined) throw new Error('Expected a mixed publication')
@@ -1098,7 +1166,7 @@ test('persists mixed and media-only publications through the dashboard', async (
             .getByRole('button', { name: 'Edit', exact: true })
     ).toBeVisible()
 
-    await page.getByRole('link', { name: 'New publication', exact: true }).click()
+    await page.getByRole('link', { name: 'New post', exact: true }).click()
     await page.getByRole('button', { name: 'Add media', exact: true }).click()
     const attachmentLibrary = page.locator('[data-media-library="true"]')
     await expect(attachmentLibrary).toHaveAttribute('data-media-picker-mode', 'attach')
@@ -1364,7 +1432,7 @@ test('persists mixed and media-only publications through the dashboard', async (
     await expect(emptyCalendarDay).toBeVisible()
     await emptyCalendarDay.click()
     await expect(page).toHaveURL(
-        /\/dashboard\/projects\/[^/]+\/publications\/new\?date=\d{4}-\d{2}-\d{2}$/
+        /\/dashboard\/projects\/[^/]+\/publications\/new\?date=\d{4}-\d{2}-\d{2}&time=\d{2}%3A\d{2}$/
     )
     await expect(
         page.locator('[data-publication-schedule-disclosure="true"] > summary')
@@ -1419,12 +1487,10 @@ test('persists mixed and media-only publications through the dashboard', async (
     await expect(page.getByRole('link', { name: 'Back to calendar', exact: true })).toBeVisible()
 
     const editedCalendarSource = `${sourceText} edited from calendar`
-    const calendarDraftResponse = page.waitForResponse(
-        response =>
-            response.url().endsWith(`/publications/${mixedPublicationId}/draft`) &&
-            response.request().method() === 'PATCH'
-    )
-    await page.locator('#source-body').fill(editedCalendarSource)
+    // The post text is edited on "All channels"; the calendar preview reads the post text.
+    const postText = await openAllChannels(page)
+    const calendarDraftResponse = compositionSaved(page)
+    await postText.fill(editedCalendarSource)
     await expect((await calendarDraftResponse).status()).toBe(200)
     await page.getByRole('link', { name: 'Back to calendar', exact: true }).click()
     await expect(page).toHaveURL(
@@ -1438,7 +1504,8 @@ test('persists mixed and media-only publications through the dashboard', async (
             .getByText(editedCalendarSource, { exact: true })
     ).toBeVisible()
     await page.getByRole('button', { name: 'Close', exact: true }).click()
-    await page.getByRole('link', { name: 'Queue', exact: true }).click()
+    // This journey compares channel rows, so it reads the queue per channel.
+    await page.goto(page.url().replace(/\/overview(?:\?.*)?$/, '/queue?view=channels'))
     await expect(
         page.locator(
             `a[data-publication-edit-link="true"][href$="/publications/${mixedPublicationId}"]`
@@ -1446,24 +1513,15 @@ test('persists mixed and media-only publications through the dashboard', async (
     ).toBeVisible()
 
     await mixedPublications.filter({ hasText: channelName }).first().click()
-    await expect(page.getByRole('heading', { name: sourceText, level: 1 })).toBeVisible()
-    await expect(page.locator('#source-body')).toHaveText(sourceText)
-    await expect(page.locator('[data-target-field="body"] textarea')).toHaveValue(targetText)
-    const publicationChannelRail = page.locator('[data-publication-channel-selection="true"]')
-    await expect(publicationChannelRail).toBeVisible()
-    await expect(
-        publicationChannelRail.getByRole('button', { name: secondChannelName, exact: true })
-    ).toBeVisible()
-    await publicationChannelRail
-        .getByRole('button', { name: secondChannelName, exact: true })
-        .click()
-    await expect(page.locator('[data-target-field="commentary"] textarea')).toHaveValue(
-        secondTargetText
-    )
-    await publicationChannelRail.getByRole('button', { name: channelName, exact: true }).click()
-    await expect(page.locator('[data-target-field="body"] textarea')).toHaveValue(targetText)
+    // The edit made from the calendar changed the post text, kept as pending work (ADR-103
+    // §6); each channel keeps its own text in its tab (SPEC-013).
+    await expect(page.getByRole('heading', { name: editedCalendarSource, level: 1 })).toBeVisible()
+    await expect(composerText(page)).toHaveText(targetText)
+    await expect(await openAllChannels(page)).toHaveText(editedCalendarSource)
+    await expect(await openChannel(page, secondChannelName)).toHaveText(secondTargetText)
+    await expect(await openChannel(page, channelName)).toHaveText(targetText)
     const editorMediaPicker = page.locator(
-        '[data-publication-source="true"] [data-media-picker="true"]'
+        '[data-new-publication-editor="true"] [data-media-picker="true"]'
     )
     await expect(editorMediaPicker.locator('[data-media-selection-preview="true"]')).toHaveCount(1)
     await expect(editorMediaPicker.locator('input[id^="media-alt-"]')).toHaveCount(0)
@@ -1514,20 +1572,26 @@ test('persists mixed and media-only publications through the dashboard', async (
     await page.setViewportSize({ width: 1280, height: 720 })
 
     const promotedSchedule = localDateTimeInHours(4)
-    await page.locator('[data-publication-delivery-disclosure] > summary').click()
-    await setDateTimePicker(page, 'Deliver at', promotedSchedule)
-    await page
-        .getByRole('button', { name: /^Update scheduled publication(?:\s*(?:Ctrl|⌘)↵)?$/ })
-        .click()
-    await expect(page.getByLabel('Deliver at', { exact: true })).toContainText(
+    const channelSettings = page
+        .locator(`[data-publication-id="${mixedPublicationId}"]`)
+        .getByRole('button', { name: /: When and how$/ })
+    await channelSettings.click()
+    await setDateTimePicker(page, 'Publish on', promotedSchedule)
+    await page.keyboard.press('Escape')
+    await saveButton(page).click()
+    await channelSettings.click()
+    await expect(page.getByLabel('Publish on', { exact: true })).toContainText(
         formatDisplayTime(promotedSchedule)
     )
+    await page.keyboard.press('Escape')
     await page.reload()
-    await expect(page.getByLabel('Deliver at', { exact: true })).toContainText(
+    await channelSettings.click()
+    await expect(page.getByLabel('Publish on', { exact: true })).toContainText(
         formatDisplayTime(promotedSchedule)
     )
+    await page.keyboard.press('Escape')
 
-    const mixedTarget = parseTargetContent(await page.getByLabel('Target JSON').inputValue())
+    const mixedTarget = await savedTargetContent(page)
     expect(mixedTarget.body).toBe(targetText)
     expect(mixedTarget.media).toHaveLength(1)
     const assetId = mixedTarget.media[0]?.assetId
@@ -1536,38 +1600,36 @@ test('persists mixed and media-only publications through the dashboard', async (
     await page.getByRole('link', { name: /Back to queue/ }).click()
     await mixedPublications.filter({ hasText: secondChannelName }).first().click()
     await expect(page.getByRole('heading', { name: editedCalendarSource, level: 1 })).toBeVisible()
-    await expect(page.locator('[data-target-field="commentary"] textarea')).toHaveValue(
-        secondTargetText
-    )
-    const secondMixedTarget = parseTargetContent(await page.getByLabel('Target JSON').inputValue())
+    await expect(composerText(page)).toHaveText(secondTargetText)
+    const secondMixedTarget = await savedTargetContent(page)
     expect(secondMixedTarget.commentary).toBe(secondTargetText)
     expect(secondMixedTarget.media).toHaveLength(1)
     expect(secondMixedTarget.media[0]?.assetId).toBe(assetId)
 
     await page.getByRole('link', { name: /Back to queue/ }).click()
     await page.locator(mediaOnlySelector).first().click()
-    await expect(page.getByRole('heading', { name: 'Media · 1' })).toBeVisible()
-    const mediaToolbar = page.locator('[data-source-media-toolbar="true"]')
-    await expect(mediaToolbar.getByRole('button', { name: 'Add text', exact: true })).toBeVisible()
+    await expect(
+        page.getByRole('heading', { name: 'Media · 1', exact: true, level: 1 })
+    ).toBeVisible()
+    // A media-only post opens with an empty editor and its media; the editor toolbar sits above
+    // the attachments in every theme and width.
+    const mediaOnlyEditor = page.locator('[data-new-publication-editor="true"]')
+    // Hidden editor scopes keep their own toolbar; the visible one belongs to the active tab.
+    const mediaToolbar = mediaOnlyEditor.locator('[data-editor-toolbar="true"]:visible')
     await expect(mediaToolbar.getByRole('button', { name: 'Add media', exact: true })).toBeVisible()
     await expect(
-        page
-            .locator('[data-publication-source="true"]')
-            .getByRole('button', { name: 'Add media', exact: true })
+        mediaOnlyEditor.getByRole('button', { name: 'Add media', exact: true })
     ).toHaveCount(1)
+    await expect(composerText(page)).toHaveText('')
     for (const theme of ['light', 'dark']) {
         const dark = (await page.locator('html').getAttribute('class'))?.split(' ').includes('dark')
-        if (dark !== (theme === 'dark')) {
-            await page
-                .getByRole('button', { name: `Switch to ${theme} theme`, exact: true })
-                .click()
-        }
+        if (dark !== (theme === 'dark')) await switchTheme(page, theme as 'light' | 'dark')
         await expect(page.locator('html')).toHaveClass(new RegExp(`\\b${theme}\\b`))
         for (const width of [1280, 390]) {
             await page.setViewportSize({ width, height: 900 })
             const tools = await mediaToolbar.boundingBox()
-            const image = await page
-                .locator('[data-publication-source="true"] [data-media-selection-preview="true"]')
+            const image = await mediaOnlyEditor
+                .locator('[data-media-selection-preview="true"]')
                 .boundingBox()
             expect(tools).not.toBeNull()
             expect(image).not.toBeNull()
@@ -1584,25 +1646,10 @@ test('persists mixed and media-only publications through the dashboard', async (
     await mediaToolbar.getByRole('button', { name: 'Add media', exact: true }).press('Enter')
     await expect(page.locator('[data-media-library="true"]')).toBeVisible()
     await page.keyboard.press('Escape')
-    await mediaToolbar.getByRole('button', { name: 'Add text', exact: true }).click()
-    await expect(page.locator('#source-body')).toHaveText('')
-    await expect(page.locator('[data-source-media-toolbar="true"]')).toHaveCount(0)
-    await expect(
-        page
-            .locator('[data-editor-toolbar="true"]')
-            .getByRole('button', { name: 'Add media', exact: true })
-    ).toBeVisible()
-    await expect(
-        page
-            .locator('[data-publication-source="true"]')
-            .getByRole('button', { name: 'Add media', exact: true })
-    ).toHaveCount(1)
     await page.setViewportSize({ width: 1280, height: 900 })
-    await expect(
-        page.locator('[data-publication-source="true"] [data-media-selection-preview="true"]')
-    ).toHaveCount(1)
+    await expect(mediaOnlyEditor.locator('[data-media-selection-preview="true"]')).toHaveCount(1)
 
-    const mediaOnlyTarget = parseTargetContent(await page.getByLabel('Target JSON').inputValue())
+    const mediaOnlyTarget = await savedTargetContent(page)
     expect(mediaOnlyTarget.body).toBeUndefined()
     expect(mediaOnlyTarget.media).toHaveLength(1)
     expect(mediaOnlyTarget.media[0]?.assetId).toBe(assetId)
@@ -1627,12 +1674,17 @@ test('persists mixed and media-only publications through the dashboard', async (
         })
     })
     await page.reload()
-    await expect(page.locator('#source-body')).toHaveCount(0)
+    await expect(composerText(page)).toHaveCount(0)
     await expect(page.locator('[data-publication-preview-media="true"] > div')).toHaveCount(1)
     await page.unrouteAll({ behavior: 'wait' })
 
     await page.getByRole('link', { name: 'Media', exact: true }).click()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/media$/)
+    await expect(page.locator('[data-media-library-view]')).toHaveAttribute(
+        'data-media-library-view',
+        'grid'
+    )
+    await page.getByRole('button', { name: 'List view', exact: true }).click()
     await expect(page.locator('[data-media-library-view]')).toHaveAttribute(
         'data-media-library-view',
         'list'
@@ -1652,10 +1704,9 @@ test('persists mixed and media-only publications through the dashboard', async (
         .filter({ hasText: editedMediaFilename })
         .first()
     await expect(editedMediaCard).toBeVisible()
-    await page.getByRole('button', { name: 'Select', exact: true }).click()
-    await editedMediaCard.click({ position: { x: 2, y: 2 } })
+    await editedMediaCard.getByRole('checkbox').check()
     const usedMediaBulkActionBar = page.locator('[data-bulk-action-bar="true"]')
-    await usedMediaBulkActionBar.getByRole('button', { name: 'Delete (1)', exact: true }).click()
+    await usedMediaBulkActionBar.getByRole('button', { name: 'Delete', exact: true }).click()
     const usedMediaBulkDeletionDialog = page.locator('[data-media-bulk-delete-dialog="true"]')
     await expect(
         usedMediaBulkDeletionDialog.locator('[data-media-bulk-delete-usage="blocked"]')
@@ -1672,13 +1723,13 @@ test('persists mixed and media-only publications through the dashboard', async (
     const secondProjectName = `E2E-51 Second project ${suffix}`
     await page.getByRole('combobox', { name: 'Select project', exact: true }).click()
     await page.getByRole('button', { name: 'Create project', exact: true }).last().click()
-    await page.getByRole('textbox', { name: 'New project', exact: true }).fill(secondProjectName)
+    await page.getByRole('textbox', { name: 'Name', exact: true }).fill(secondProjectName)
     await page
         .locator('form')
-        .filter({ has: page.getByRole('textbox', { name: 'New project', exact: true }) })
-        .getByRole('button', { name: 'Add project', exact: true })
+        .filter({ has: page.getByRole('textbox', { name: 'Name', exact: true }) })
+        .getByRole('button', { name: 'Create project', exact: true })
         .click()
-    await expect(page.getByRole('combobox', { name: 'Select project' }).first()).toHaveText(
+    await expect(page.getByRole('combobox', { name: 'Select project' }).first()).toContainText(
         secondProjectName
     )
     const secondProjectId = projectIdFromUrl(page.url())
@@ -1694,7 +1745,7 @@ test('persists mixed and media-only publications through the dashboard', async (
     await expect(
         page.locator('#publisher-connections').getByText(secondChannelName, { exact: true })
     ).toBeVisible()
-    await expect(page.getByRole('combobox', { name: 'Select project' }).first()).toHaveText(
+    await expect(page.getByRole('combobox', { name: 'Select project' }).first()).toContainText(
         projectName
     )
 
@@ -1703,7 +1754,7 @@ test('persists mixed and media-only publications through the dashboard', async (
         page.getByRole('status').getByText(en.channels_empty_title, { exact: true })
     ).toBeVisible()
     await expect(page.getByText(channelName, { exact: true })).toHaveCount(0)
-    await expect(page.getByRole('combobox', { name: 'Select project' }).first()).toHaveText(
+    await expect(page.getByRole('combobox', { name: 'Select project' }).first()).toContainText(
         secondProjectName
     )
 })
@@ -1729,11 +1780,11 @@ async function createAccountAndProject(page: Page, suffix: string, projectName?:
 
     await page.getByRole('combobox', { name: 'Select project', exact: true }).click()
     await page.getByRole('button', { name: 'Create project', exact: true }).last().click()
-    await page.getByRole('textbox', { name: 'New project', exact: true }).fill(resolvedProjectName)
+    await page.getByRole('textbox', { name: 'Name', exact: true }).fill(resolvedProjectName)
     await page
         .locator('form')
-        .filter({ has: page.getByRole('textbox', { name: 'New project', exact: true }) })
-        .getByRole('button', { name: 'Add project', exact: true })
+        .filter({ has: page.getByRole('textbox', { name: 'Name', exact: true }) })
+        .getByRole('button', { name: 'Create project', exact: true })
         .click()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/overview$/)
 
@@ -1745,15 +1796,15 @@ async function createChannel(page: Page, channelName: string, profileName?: stri
     await page.goto(`/dashboard/projects/${projectId}/channels`)
     await page.getByRole('button', { name: 'Add channel', exact: true }).click()
     if (profileName === undefined) {
-        await page.getByRole('radio', { name: 'Manual message', exact: true }).click()
+        await page.getByRole('radio', { name: 'Other (publish by hand)', exact: true }).click()
     }
     if (profileName !== undefined) {
-        const channelProfile = page.getByRole('radiogroup', { name: 'Profile', exact: true })
+        const channelProfile = page.getByRole('radiogroup', { name: 'Platform', exact: true })
         await channelProfile.getByRole('radio', { name: profileName, exact: true }).click()
     }
     await page.getByLabel('Channel name').fill(channelName)
     if (profileName === undefined)
-        await page.getByRole('button', { name: 'Configure content', exact: true }).click()
+        await page.getByRole('button', { name: 'Content rules', exact: true }).click()
     await page.getByRole('button', { name: 'Create channel', exact: true }).click()
     await expect(page.getByRole('paragraph').filter({ hasText: channelName }).first()).toBeVisible()
 }
@@ -1830,4 +1881,17 @@ function formatDisplayTime(value: string) {
     const hour = Number(hourValue)
     const displayHour = hour % 12 || 12
     return `${displayHour}:${minute} ${hour >= 12 ? 'PM' : 'AM'}`
+}
+
+/** The saved channel version, read through the API: Studio itself shows no JSON. */
+async function savedTargetContent(page: Page) {
+    const [, projectId, publicationId] =
+        /\/dashboard\/projects\/([^/]+)\/publications\/([^/?]+)/.exec(
+            new URL(page.url()).pathname
+        ) ?? []
+    const response = await page.request.get(
+        `/api/projects/${projectId}/publications/${publicationId}/editor`
+    )
+    const { editor } = (await response.json()) as { editor: { draft: { content: unknown } } }
+    return parseTargetContent(JSON.stringify(editor.draft.content))
 }

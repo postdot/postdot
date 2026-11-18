@@ -1,6 +1,12 @@
 import AxeBuilder from '@axe-core/playwright'
 import { expect, test } from '@playwright/test'
 
+// The editor lab is a development page; a production build redirects it to the start page.
+test.skip(
+    process.env.POSTDOT_E2E_PRODUCTION_WEB === 'true',
+    'The editor lab exists only in development builds'
+)
+
 test('keeps the original text unchanged and restores isolated editing scopes', async ({ page }) => {
     await page.goto('/editor-lab')
     const output = page.getByRole('textbox', { name: /^Serialized output/ })
@@ -8,15 +14,15 @@ test('keeps the original text unchanged and restores isolated editing scopes', a
     expect(original).toBe('Hello 👋\n\n**This stays literal.**\nhttps://example.com\n')
     await page.getByRole('button', { name: 'Save', exact: true }).click()
     await page.reload()
-    await page.getByRole('button', { name: 'Restore test snapshot' }).click()
+    await page.getByRole('button', { name: 'Restore saved test' }).click()
     await expect(output).toHaveValue(original)
 
     const content = page.getByRole('textbox', { name: 'Test content', exact: true })
     await content.fill('Shared copy')
     await page.getByRole('button', { name: 'Discord', exact: true }).click()
-    await page.getByRole('button', { name: 'Source', exact: true }).click()
-    await page.getByRole('textbox', { name: 'Source text', exact: true }).fill('Destination copy')
-    await page.getByRole('button', { name: 'Source', exact: true }).click()
+    await page.getByRole('button', { name: 'Markup', exact: true }).click()
+    await page.getByRole('textbox', { name: 'Markup text', exact: true }).fill('Destination copy')
+    await page.getByRole('button', { name: 'Markup', exact: true }).click()
     await content.press('Control+a')
     await page.getByRole('button', { name: 'Underline', exact: true }).click()
     await expect(output).toHaveValue('__Destination copy__')
@@ -27,7 +33,7 @@ test('keeps the original text unchanged and restores isolated editing scopes', a
     await expect(output).toHaveValue('Destination copy')
     await page.getByRole('button', { name: 'Save', exact: true }).click()
     await page.reload()
-    await page.getByRole('button', { name: 'Restore test snapshot' }).click()
+    await page.getByRole('button', { name: 'Restore saved test' }).click()
     await expect(output).toHaveValue('Shared copy')
     await page.getByRole('button', { name: 'Discord', exact: true }).click()
     await expect(output).toHaveValue('Destination copy')
@@ -54,12 +60,12 @@ test('restricts paste and keyboard formatting and protects unsupported source sy
     await expect(output).toHaveValue('Heading\nBold')
 
     await page.getByRole('button', { name: 'DEV.to', exact: true }).click()
-    await page.getByRole('button', { name: 'Source', exact: true }).click()
-    const raw = page.getByRole('textbox', { name: 'Source text', exact: true })
+    await page.getByRole('button', { name: 'Markup', exact: true }).click()
+    const raw = page.getByRole('textbox', { name: 'Markup text', exact: true })
     const unsupported =
         '![Original image](https://example.com/image.png)\n\n<table><tr><td>Keep me</td></tr></table>'
     await raw.fill(unsupported)
-    await expect(page.getByRole('button', { name: 'Source', exact: true })).toBeDisabled()
+    await expect(page.getByRole('button', { name: 'Markup', exact: true })).toBeDisabled()
     await expect(output).toHaveValue(unsupported)
     await raw.press('Control+End')
     await page.getByRole('button', { name: 'Insert emoji', exact: true }).click()
@@ -68,34 +74,34 @@ test('restricts paste and keyboard formatting and protects unsupported source sy
     await expect(raw).toHaveValue(`${unsupported}😀`)
     await page.getByRole('button', { name: 'Save', exact: true }).click()
     await page.reload()
-    await page.getByRole('button', { name: 'Restore test snapshot' }).click()
+    await page.getByRole('button', { name: 'Restore saved test' }).click()
     await page.getByRole('button', { name: 'DEV.to', exact: true }).click()
     await expect(raw).toHaveValue(`${unsupported}😀`)
 
     await page.getByRole('button', { name: 'Discord', exact: true }).click()
-    await page.getByRole('button', { name: 'Source', exact: true }).click()
+    await page.getByRole('button', { name: 'Markup', exact: true }).click()
     const native = '>>> Quote\nnext <@123456789012345678> <:wave:123456789012345678>'
     await raw.fill(native)
-    await expect(page.getByRole('button', { name: 'Source', exact: true })).toBeDisabled()
+    await expect(page.getByRole('button', { name: 'Markup', exact: true })).toBeDisabled()
     await expect(output).toHaveValue(native)
     await raw.press('Control+End')
     await raw.pressSequentially('!')
     await expect(output).toHaveValue(`${native}!`)
     await page.getByRole('button', { name: 'Save', exact: true }).click()
     await page.reload()
-    await page.getByRole('button', { name: 'Restore test snapshot' }).click()
+    await page.getByRole('button', { name: 'Restore saved test' }).click()
     await page.getByRole('button', { name: 'Discord', exact: true }).click()
     await expect(raw).toHaveValue(`${native}!`)
     await page.setViewportSize({ width: 390, height: 844 })
-    await expect(page.getByRole('button', { name: 'Source', exact: true })).toBeDisabled()
+    await expect(page.getByRole('button', { name: 'Markup', exact: true })).toBeDisabled()
     await raw.press('Control+End')
     await raw.pressSequentially('?')
     await expect(output).toHaveValue(`${native}!?`)
 
     // Removing unsupported syntax re-enables rich editing, rather than locking the scope.
     await raw.fill('**bold** __underline__')
-    await expect(page.getByRole('button', { name: 'Source', exact: true })).toBeEnabled()
-    await page.getByRole('button', { name: 'Source', exact: true }).click()
+    await expect(page.getByRole('button', { name: 'Markup', exact: true })).toBeEnabled()
+    await page.getByRole('button', { name: 'Markup', exact: true }).click()
     await expect(content.locator('strong')).toHaveText('bold')
     await expect(content.locator('u')).toHaveText('underline')
 })
@@ -103,13 +109,15 @@ test('restricts paste and keyboard formatting and protects unsupported source sy
 test('supports rich editing and emoji undo at desktop and mobile widths', async ({
     page,
 }, info) => {
+    // Theme colors transition; measure contrast on settled colors, not mid-transition.
+    await page.emulateMedia({ reducedMotion: 'reduce' })
     await page.goto('/editor-lab')
     await page.getByRole('button', { name: 'DEV.to', exact: true }).click()
     const content = page.getByRole('textbox', { name: 'Test content', exact: true })
     const output = page.getByRole('textbox', { name: /^Serialized output/ })
-    await page.getByRole('button', { name: 'Source', exact: true }).click()
-    await page.getByRole('textbox', { name: 'Source text', exact: true }).fill('Article')
-    await page.getByRole('button', { name: 'Source', exact: true }).click()
+    await page.getByRole('button', { name: 'Markup', exact: true }).click()
+    await page.getByRole('textbox', { name: 'Markup text', exact: true }).fill('Article')
+    await page.getByRole('button', { name: 'Markup', exact: true }).click()
     await content.press('Control+a')
     await page.getByRole('button', { name: 'Heading', exact: true }).click()
     await expect(output).toHaveValue('## Article')
@@ -241,7 +249,7 @@ test('inserts, edits, undoes and restores external article images', async ({ pag
     await expect(content.locator('img')).toHaveAttribute('src', first)
     await page.getByRole('button', { name: 'Save', exact: true }).click()
     await page.reload()
-    await page.getByRole('button', { name: 'Restore test snapshot' }).click()
+    await page.getByRole('button', { name: 'Restore saved test' }).click()
     await page.getByRole('button', { name: 'DEV.to', exact: true }).click()
     await expect(content.locator('img')).toHaveAttribute('src', first)
     expect(

@@ -8,6 +8,48 @@ import * as m from '@/paraglide/messages.js'
 
 type Source = PublicationEditorState['post']['sourceContent']
 
+function stableJson(value: unknown): string {
+    if (Array.isArray(value)) return `[${value.map(stableJson).join(',')}]`
+    if (value !== null && typeof value === 'object') {
+        return `{${Object.keys(value)
+            .sort()
+            .map(
+                key =>
+                    `${JSON.stringify(key)}:${stableJson((value as Record<string, unknown>)[key])}`
+            )
+            .join(',')}}`
+    }
+    return JSON.stringify(value) ?? 'undefined'
+}
+
+export interface RecoveryComparisonInput {
+    readonly editor: PublicationEditorState
+    readonly localSource: Source
+    readonly localTarget: Record<string, unknown> | null
+    readonly localSchedule: string
+    readonly savedSchedule: string
+}
+
+/** What a local copy changes compared to the saved version, ignoring key order. */
+export function recoveryComparisonChanges({
+    editor,
+    localSource,
+    localTarget,
+    localSchedule,
+    savedSchedule,
+}: RecoveryComparisonInput) {
+    return {
+        source: stableJson(localSource) !== stableJson(editor.post.sourceContent),
+        target: stableJson(localTarget) !== stableJson(editor.draft.content),
+        schedule: localSchedule !== savedSchedule,
+    }
+}
+
+/**
+ * Saved version and local copy side by side. `parts` limits the comparison to the post text
+ * (`source`) or to one channel's version and schedule (`channel`), so a post with several
+ * channels shows its text once.
+ */
 export function PublicationRecoveryComparison({
     editor,
     localSource,
@@ -16,19 +58,23 @@ export function PublicationRecoveryComparison({
     savedSchedule,
     projectId,
     media,
-}: {
-    readonly editor: PublicationEditorState
-    readonly localSource: Source
-    readonly localTarget: Record<string, unknown> | null
-    readonly localSchedule: string
-    readonly savedSchedule: string
+    parts = 'all',
+}: RecoveryComparisonInput & {
     readonly projectId: string
     readonly media: readonly MediaReference[]
+    readonly parts?: 'all' | 'source' | 'channel'
 }) {
     const { locale } = useLanguage()
-    const sourceChanged = JSON.stringify(localSource) !== JSON.stringify(editor.post.sourceContent)
-    const targetChanged = JSON.stringify(localTarget) !== JSON.stringify(editor.draft.content)
-    const scheduleChanged = localSchedule !== savedSchedule
+    const changes = recoveryComparisonChanges({
+        editor,
+        localSource,
+        localTarget,
+        localSchedule,
+        savedSchedule,
+    })
+    const sourceChanged = parts !== 'channel' && changes.source
+    const targetChanged = parts !== 'source' && changes.target
+    const scheduleChanged = parts !== 'source' && changes.schedule
     if (!sourceChanged && !targetChanged && !scheduleChanged) return null
     return (
         <div className="grid min-w-0 gap-4 sm:grid-cols-2" data-recovery-comparison>
@@ -48,7 +94,7 @@ export function PublicationRecoveryComparison({
             ].map((version, index) => (
                 <section
                     key={index}
-                    className="min-w-0 rounded-md bg-surface-inset/50 p-3 shadow-field"
+                    className="min-w-0 rounded-lg border border-border bg-surface-raised p-3"
                     data-recovery-version={index === 0 ? 'saved' : 'local'}>
                     <h3 className="font-medium">{version.label}</h3>
                     {sourceChanged ? (
@@ -109,15 +155,17 @@ export function PublicationRecoveryComparison({
                                                     <p className="text-xs text-muted-foreground">
                                                         {field.label}
                                                     </p>
-                                                    {typeof value === 'object' ? (
-                                                        <details>
-                                                            <summary className="cursor-pointer">
-                                                                {m.editor_comparison_expand()}
-                                                            </summary>
-                                                            <pre className="whitespace-pre-wrap break-words text-xs">
-                                                                {JSON.stringify(value, null, 2)}
-                                                            </pre>
-                                                        </details>
+                                                    {/* Structured values are summarized, never shown as JSON. */}
+                                                    {Array.isArray(value) ? (
+                                                        <p className="text-sm">
+                                                            {m.editor_comparison_items({
+                                                                count: value.length,
+                                                            })}
+                                                        </p>
+                                                    ) : typeof value === 'object' ? (
+                                                        <p className="text-sm">
+                                                            {m.editor_comparison_structured()}
+                                                        </p>
                                                     ) : (
                                                         <p className="break-words">
                                                             {String(value)}
@@ -126,6 +174,21 @@ export function PublicationRecoveryComparison({
                                                 </div>
                                             )
                                         })}
+                                    {/* Text kept under fields the current rules no longer know. */}
+                                    {unmappedTargetText(
+                                        version.target,
+                                        getTargetEditorFields(editor.profile.profile, locale)
+                                    ).map((text, index) => (
+                                        <SourceComparisonContent
+                                            content={{
+                                                body: { format: 'plain_text', text },
+                                                media: [],
+                                            }}
+                                            key={`unmapped-${index}`}
+                                            media={media}
+                                            projectId={projectId}
+                                        />
+                                    ))}
                                     <SourceComparisonContent
                                         content={{
                                             media: getTargetMediaSelections(
@@ -160,4 +223,15 @@ export function PublicationRecoveryComparison({
             ))}
         </div>
     )
+}
+
+/** Top-level text values that no field of the current rules reads. */
+function unmappedTargetText(
+    target: Readonly<Record<string, unknown>>,
+    fields: readonly { readonly path: string }[]
+): string[] {
+    const known = new Set(fields.map(field => field.path.split('/')[1]).filter(Boolean))
+    return Object.entries(target)
+        .filter(([key, value]) => !known.has(key) && typeof value === 'string' && value !== '')
+        .map(([, value]) => value as string)
 }

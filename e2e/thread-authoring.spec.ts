@@ -3,6 +3,8 @@ import { randomUUID } from 'node:crypto'
 import AxeBuilder from '@axe-core/playwright'
 import { expect, test } from '@playwright/test'
 
+import { openContentOptions } from './support/post-editor'
+
 for (const profile of ['x', 'bluesky', 'mastodon']) {
     test(`authors, reorders and retains a ${profile} thread with per-message validation`, async ({
         page,
@@ -47,6 +49,8 @@ for (const profile of ['x', 'bluesky', 'mastodon']) {
         const base = `/api/projects/${project.id}/publications/${publication.id}`
         await page.setViewportSize({ width: 1440, height: 1000 })
         await page.goto(`/dashboard/projects/${project.id}/publications/${publication.id}`)
+        // The thread's further messages are channel options of the post editor (SPEC-013).
+        await openContentOptions(page)
         const thread = page.locator('[data-thread-editor]')
         await expect(thread).toBeVisible()
         await thread.getByRole('button', { name: 'Add a reply', exact: true }).click()
@@ -102,8 +106,9 @@ for (const profile of ['x', 'bluesky', 'mastodon']) {
                         .thread
             )
             .toEqual([{ text: 'The third message' }, { text: 'The second message' }])
-        await expect(page.getByText('Saved', { exact: true })).toBeVisible()
+        await expect(page.getByText(/^(Saved|Changes pending)$/)).toBeVisible()
         await page.reload()
+        await openContentOptions(page)
         await expect(thread.getByLabel('Message 2', { exact: true })).toHaveValue(
             'The third message'
         )

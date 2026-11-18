@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 
 import { expect, test } from '@playwright/test'
 
-import { frenchTranslation } from './locale'
+import { frenchTranslation, openLanguageMenu } from './locale'
 
 for (const provider of ['bluesky', 'mastodon'] as const) {
     const platform = provider === 'mastodon' ? 'Mastodon' : 'Bluesky'
@@ -186,7 +186,7 @@ for (const provider of ['bluesky', 'mastodon'] as const) {
         await field.fill('A second reply')
         await panel.getByRole('button', { name: 'Send reply', exact: true }).click()
         await expect(
-            panel.getByRole('status').filter({ hasText: /^Outcome uncertain$/ })
+            panel.getByRole('status').filter({ hasText: /^Could not confirm$/ })
         ).toBeVisible()
         await expect(
             panel.getByText('The reply may have been sent.', { exact: false })
@@ -194,8 +194,8 @@ for (const provider of ['bluesky', 'mastodon'] as const) {
         expect(requests).toHaveLength(3)
         await expect(panel.locator('script')).toHaveCount(0)
         await page.setViewportSize({ width: 390, height: 844 })
-        await page.getByRole('button', { name: 'Language', exact: true }).click()
-        await page.getByRole('menuitem', { name: 'French', exact: true }).click()
+        await openLanguageMenu(page)
+        await page.getByRole('menuitem', { name: 'Français', exact: true }).click()
         const frenchPanel = page.locator('details').filter({
             has: page
                 .locator('summary')

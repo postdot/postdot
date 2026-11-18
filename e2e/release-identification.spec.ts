@@ -59,19 +59,15 @@ for (const [locale, messages] of [
             page.getByRole('heading', { name: messages.nav_instance, exact: true })
         ).toBeVisible()
         const section = page.getByRole('region', { name: messages.release_title })
-        const versionCells = section
-            .getByRole('row', { name: new RegExp(`^${messages.release_version} `) })
-            .getByRole('cell')
-        const revisionCells = section
-            .getByRole('row', { name: new RegExp(`^${messages.release_revision} `) })
-            .getByRole('cell')
+        // Studio shows each build as "version · short commit", or "Unversioned build".
+        const identity = (version: string | null, revision: string | null) =>
+            version || revision
+                ? [version, revision ? revision.slice(0, 7) : null].filter(Boolean).join(' · ')
+                : messages.release_unversioned
+        const studioCell = section.locator('[data-release-studio]')
+        const apiCell = section.locator('[data-release-api]')
         const assertStudio = async () => {
-            await expect(versionCells.nth(0)).toHaveText(
-                studio.version ?? messages.release_unversioned
-            )
-            await expect(revisionCells.nth(0)).toHaveText(
-                studio.revision ?? messages.release_unknown_revision
-            )
+            await expect(studioCell).toHaveText(identity(studio.version, studio.revision))
         }
         const capture = async (state: string) => {
             for (const width of [1440, 820, 390]) {
@@ -89,8 +85,7 @@ for (const [locale, messages] of [
         await capture('loading')
         waiting = false
         gate.resolve()
-        await expect(versionCells.nth(1)).toHaveText(initial.version!)
-        await expect(revisionCells.nth(1)).toHaveText(initial.revision!)
+        await expect(apiCell).toHaveText(identity(initial.version!, initial.revision!))
         await expect(section.getByRole('status')).toHaveText(
             studio.version && studio.revision ? messages.release_match : messages.release_unknown
         )
@@ -109,7 +104,7 @@ for (const [locale, messages] of [
                 .getByRole('button', { name: messages.release_check_api, exact: true })
                 .click()
             await expect(section.getByRole('alert')).toContainText(messages.release_mismatch_title)
-            await expect(versionCells.nth(1)).toHaveText(api.version!)
+            await expect(apiCell).toHaveText(identity(api.version!, api.revision!))
             await assertStudio()
             await capture('version-mismatch')
         }
@@ -122,7 +117,7 @@ for (const [locale, messages] of [
                 .getByRole('button', { name: messages.release_check_api, exact: true })
                 .click()
             await expect(section.getByRole('alert')).toContainText(messages.release_mismatch_title)
-            await expect(revisionCells.nth(1)).toHaveText(api.revision!)
+            await expect(apiCell).toHaveText(identity(api.version!, api.revision!))
             await assertStudio()
             await capture('revision-mismatch')
             expect(
@@ -152,8 +147,7 @@ for (const [locale, messages] of [
         unavailable = false
         api = { version: null, revision: null }
         await section.getByRole('button', { name: messages.common_retry, exact: true }).click()
-        await expect(versionCells.nth(1)).toHaveText(messages.release_unversioned)
-        await expect(revisionCells.nth(1)).toHaveText(messages.release_unknown_revision)
+        await expect(apiCell).toHaveText(messages.release_unversioned)
         await expect(section.getByRole('status')).toHaveText(messages.release_unknown)
         await expect(section.getByRole('alert')).toHaveCount(0)
         await assertStudio()

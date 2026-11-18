@@ -2,6 +2,9 @@ import { randomUUID } from 'node:crypto'
 
 import { expect, test, type Locator, type Page } from '@playwright/test'
 
+import { switchTheme } from './locale'
+import { composerText } from './support/post-editor'
+
 test('offers provider profiles as custom channel starters with read-only provider rules', async ({
     page,
 }) => {
@@ -20,25 +23,26 @@ test('offers provider profiles as custom channel starters with read-only provide
     await expect(page.getByRole('dialog')).toBeVisible()
     await page.getByLabel('Channel name').fill(channelName)
 
-    await page.getByRole('radio', { name: 'Custom runtime profile', exact: true }).click()
-    await page.getByRole('button', { name: 'Configure content', exact: true }).click()
+    await page.getByRole('radio', { name: 'Custom', exact: true }).click()
+    await page.getByRole('button', { name: 'Content rules', exact: true }).click()
 
     const starter = page.getByRole('combobox', { name: 'Starter template', exact: true })
     await starter.click()
-    await expect(page.getByRole('option', { name: 'Bluesky post', exact: true })).toBeVisible()
-    await page.getByRole('option', { name: 'Bluesky post', exact: true }).click()
+    await expect(page.getByRole('option', { name: 'Bluesky', exact: true })).toBeVisible()
+    await page.getByRole('option', { name: 'Bluesky', exact: true }).click()
 
     await expect(
-        page.getByText('A copy of the provider profile. Edit it to fit this custom channel.', {
-            exact: true,
-        })
+        page.getByText(
+            'A copy of the platform’s content rules. Edit them to fit this custom channel.',
+            {
+                exact: true,
+            }
+        )
     ).toBeVisible()
     // A provider copy keeps the provider's own limits: the starter is not editable.
     const body = bodyGroup(page)
     await expect(bodyMaximum(page)).toBeDisabled()
-    await expect(body).toContainText(
-        'These limits belong to the publishing integration and cannot be changed here.'
-    )
+    await expect(body).toContainText('The platform sets these limits.')
 
     const created = page.waitForResponse(
         response =>
@@ -46,7 +50,8 @@ test('offers provider profiles as custom channel starters with read-only provide
             response.url().endsWith(`/api/projects/${projectId}/channels`)
     )
     await page.getByRole('button', { name: 'Create channel', exact: true }).click()
-    expect((await created).status()).toBe(201)
+    const createdResponse = await created
+    expect(createdResponse.status(), await createdResponse.text()).toBe(201)
     await expect(page.getByRole('paragraph').filter({ hasText: channelName }).first()).toBeVisible()
 
     const state = await channelProfileState(page, projectId, channelName)
@@ -58,13 +63,13 @@ test('offers provider profiles as custom channel starters with read-only provide
     expect(profile.profileHash).toMatch(/^sha256:[a-f0-9]{64}$/)
 })
 
-test('makes profile impact inspectable without activating or rewriting publications', async ({
+test('shows affected publications before stricter rules apply, without rewriting them', async ({
     page,
 }, info) => {
     test.setTimeout(60_000)
     const suffix = randomUUID().slice(0, 8)
     await createAccountAndProject(page, suffix)
-    await page.getByRole('button', { name: 'Switch to light theme', exact: true }).click()
+    await switchTheme(page, 'light')
     const projectId = new URL(page.url()).pathname.split('/')[3]!
     const channelName = `Impact channel ${suffix}`
     const channelResponse = await page.request.post(`/api/projects/${projectId}/channels`, {
@@ -74,22 +79,6 @@ test('makes profile impact inspectable without activating or rewriting publicati
     const { channel } = await channelResponse.json()
     const profileUrl = `/api/projects/${projectId}/channels/${channel.id}/profile`
     const originalProfile = (await (await page.request.get(profileUrl)).json()).active
-    await page.goto(`/dashboard/projects/${projectId}/channels`)
-    await page.getByRole('button', { name: `Manage ${channelName}`, exact: true }).click()
-    await page.getByRole('menuitem', { name: 'Edit profile', exact: true }).click()
-    const dialog = page.getByRole('dialog')
-    await expect(bodyMaximum(dialog)).toHaveValue('1000000')
-    await dialog.getByRole('button', { name: 'Save draft', exact: true }).click()
-    await expect(dialog.getByRole('button', { name: 'Preview impact', exact: true })).toBeEnabled()
-    await dialog.getByRole('button', { name: 'Preview impact', exact: true }).click()
-    const impact = dialog.locator('[data-profile-impact]')
-    await expect(impact).toContainText(
-        'No editable drafts or pending publications use this channel.'
-    )
-    await expect(
-        dialog.getByRole('button', { name: 'Review activation', exact: true })
-    ).toBeEnabled()
-    await dialog.getByRole('button', { name: 'Close', exact: true }).click()
 
     const publications = []
     for (const [title, body] of [
@@ -134,50 +123,43 @@ test('makes profile impact inspectable without activating or rewriting publicati
             })
         } else await route.continue()
     })
-    await page.reload()
+    await page.goto(`/dashboard/projects/${projectId}/channels`)
     await page.getByRole('button', { name: `Manage ${channelName}`, exact: true }).click()
-    await page.getByRole('menuitem', { name: 'Edit profile', exact: true }).click()
-    await expect(bodyMaximum(dialog)).toHaveValue('1000000')
-    await dialog.getByRole('button', { name: 'Preview impact', exact: true }).click()
+    await page.getByRole('menuitem', { name: 'Content rules', exact: true }).click()
+    const dialog = page.locator('[data-slot="dialog-content"]')
+    // Limits read as numbers people write, with their unit.
+    await expect(bodyMaximum(dialog)).toHaveValue('1,000,000')
+    await expect(bodyGroup(dialog)).toContainText('characters')
+    // Nothing changed yet: there is nothing to save.
+    await expect(dialog.getByRole('button', { name: 'Save', exact: true })).toBeDisabled()
+
+    await bodyMaximum(dialog).fill('12')
+    await dialog.getByRole('button', { name: 'Save', exact: true }).click()
+    const impact = dialog.locator('[data-profile-impact]')
+    await expect(
+        dialog.getByRole('heading', { name: `Apply the new rules to ${channelName}?` })
+    ).toBeVisible()
     await expect(impact).toContainText('Publication names could not be loaded.')
     await expect(impact.locator('[data-profile-impact-publication]')).toHaveCount(2)
-    await expect(
-        impact.getByRole('link', { name: 'Inspect publication', exact: true })
-    ).toHaveCount(2)
+    await expect(impact.getByRole('link', { name: 'Open', exact: true })).toHaveCount(2)
     await page.unroute(namesRoute)
     await impact.getByRole('button', { name: 'Retry', exact: true }).click()
     await expect(impact.getByText('Short publication', { exact: true })).toBeVisible()
-    await expect(impact.locator('[data-profile-impact-publication]')).toHaveCount(2)
-    await expect(impact).not.toContainText('Needs review')
-    await expect(
-        dialog.getByRole('button', { name: 'Review activation', exact: true })
-    ).toBeEnabled()
-
-    await bodyMaximum(dialog).fill('12')
-    await expect(impact).toHaveCount(0)
-    await expect(dialog.getByRole('button', { name: 'Preview impact', exact: true })).toBeDisabled()
-    await expect(
-        dialog.getByRole('button', { name: 'Review activation', exact: true })
-    ).toBeDisabled()
-    await dialog.getByRole('button', { name: 'Save draft', exact: true }).click()
-    await expect(dialog.getByRole('button', { name: 'Preview impact', exact: true })).toBeEnabled()
-    await dialog.getByRole('button', { name: 'Preview impact', exact: true }).click()
     const longRow = impact.locator(`[data-profile-impact-publication="${publications[1].id}"]`)
     await expect(longRow).toContainText('Long publication')
-    await expect(longRow).toContainText('Working draft')
-    await expect(longRow).toContainText('Selected target awaiting delivery')
+    await expect(longRow).toContainText('Draft in progress')
+    await expect(longRow).toContainText('Saved version waiting to be published')
     await expect(longRow.getByText('Needs review', { exact: true })).toHaveCount(2)
-    await expect(longRow).toContainText('/body')
     await expect(impact.locator('[data-profile-impact-publication]').first()).toHaveAttribute(
         'data-profile-impact-publication',
         publications[1].id
     )
-    await expect(
-        dialog.getByRole('button', { name: 'Review activation', exact: true })
-    ).toBeEnabled()
-    await expect(
-        longRow.getByRole('link', { name: 'Inspect publication', exact: true })
-    ).toHaveAttribute('href', `/dashboard/projects/${projectId}/publications/${publications[1].id}`)
+    // Studio shows people and consequences, never field paths or versions.
+    await expect(impact).not.toContainText('/body')
+    await expect(longRow.getByRole('link', { name: 'Open', exact: true })).toHaveAttribute(
+        'href',
+        `/dashboard/projects/${projectId}/publications/${publications[1].id}`
+    )
 
     for (const width of [1280, 820, 390]) {
         await page.setViewportSize({ width, height: 900 })
@@ -190,12 +172,16 @@ test('makes profile impact inspectable without activating or rewriting publicati
         await page.screenshot({ path: info.outputPath(`profile-impact-${width}.png`) })
     }
     await page.setViewportSize({ width: 1280, height: 900 })
-    await dialog.getByRole('button', { name: 'Close', exact: true }).click()
-    await page.getByRole('button', { name: 'Switch to dark theme', exact: true }).click()
-    await page.getByRole('button', { name: `Manage ${channelName}`, exact: true }).click()
-    await page.getByRole('menuitem', { name: 'Edit profile', exact: true }).click()
+
+    // Going back keeps the edited rules; nothing has been applied.
+    await dialog.getByRole('button', { name: 'Back to the rules', exact: true }).click()
     await expect(bodyMaximum(dialog)).toHaveValue('12')
-    await dialog.getByRole('button', { name: 'Preview impact', exact: true }).click()
+    await dialog.getByRole('button', { name: 'Close', exact: true }).click()
+    await switchTheme(page, 'dark')
+    await page.getByRole('button', { name: `Manage ${channelName}`, exact: true }).click()
+    await page.getByRole('menuitem', { name: 'Content rules', exact: true }).click()
+    await expect(bodyMaximum(dialog)).toHaveValue('12')
+    await dialog.getByRole('button', { name: 'Save', exact: true }).click()
     await expect(longRow).toContainText('Long publication')
     await page.screenshot({ path: info.outputPath('profile-impact-dark.png') })
     expect((await (await page.request.get(profileUrl)).json()).active).toEqual(originalProfile)
@@ -210,13 +196,37 @@ test('makes profile impact inspectable without activating or rewriting publicati
             ).editor
         ).toEqual(baseline[index])
     }
-    await longRow.getByRole('link', { name: 'Inspect publication', exact: true }).click()
+    await longRow.getByRole('link', { name: 'Open', exact: true }).click()
     await expect(page).toHaveURL(new RegExp(`/publications/${publications[1].id}$`))
     await expect(page.getByRole('dialog')).toHaveCount(0)
-    await expect(page.locator('#source-body')).toContainText('This publication has a longer body.')
+    await expect(composerText(page)).toContainText('This publication has a longer body.')
 })
 
-test('confirms profile activation, preserves affected work, and exposes explicit adaptation', async ({
+test('applies compatible rules in one save', async ({ page }) => {
+    const suffix = randomUUID().slice(0, 8)
+    await createAccountAndProject(page, suffix)
+    const projectId = new URL(page.url()).pathname.split('/')[3]!
+    const channelName = `One save ${suffix}`
+    const response = await page.request.post(`/api/projects/${projectId}/channels`, {
+        data: { name: channelName },
+    })
+    const { channel } = await response.json()
+    const profileUrl = `/api/projects/${projectId}/channels/${channel.id}/profile`
+    const original = (await (await page.request.get(profileUrl)).json()).active
+    await page.goto(`/dashboard/projects/${projectId}/channels`)
+    await page.getByRole('button', { name: `Manage ${channelName}`, exact: true }).click()
+    await page.getByRole('menuitem', { name: 'Content rules', exact: true }).click()
+    const dialog = page.locator('[data-slot="dialog-content"]')
+    await bodyMaximum(dialog).fill('2,000')
+    await dialog.getByRole('button', { name: 'Save', exact: true }).click()
+    await expect(page.getByText(`Content rules saved for ${channelName}`)).toBeVisible()
+    await expect(page.locator('[data-channel-dialog-body]')).toHaveCount(0)
+    const active = (await (await page.request.get(profileUrl)).json()).active
+    expect(active.version).toBe(original.version + 1)
+    expect(active.profile.contentSchema.properties.body.maxLength).toBe(2000)
+})
+
+test('confirms stricter rules, preserves affected work, and exposes explicit adaptation', async ({
     page,
 }, info) => {
     test.setTimeout(60_000)
@@ -272,32 +282,27 @@ test('confirms profile activation, preserves affected work, and exposes explicit
     const before = await readEditor(long.id)
     await page.goto(`/dashboard/projects/${projectId}/channels`)
     await page.getByRole('button', { name: `Manage ${channelName}`, exact: true }).click()
-    await page.getByRole('menuitem', { name: 'Edit profile', exact: true }).click()
-    const dialog = page.getByRole('dialog')
-    await expect(bodyMaximum(dialog)).toHaveValue('1000000')
+    await page.getByRole('menuitem', { name: 'Content rules', exact: true }).click()
+    const dialog = page.locator('[data-slot="dialog-content"]')
+    await expect(bodyMaximum(dialog)).toHaveValue('1,000,000')
     await bodyMaximum(dialog).fill('12')
-    await dialog.getByRole('button', { name: 'Save draft', exact: true }).click()
-    await expect(dialog.getByRole('button', { name: 'Preview impact', exact: true })).toBeEnabled()
-    await dialog.getByRole('button', { name: 'Preview impact', exact: true }).click()
+    await dialog.getByRole('button', { name: 'Save', exact: true }).click()
+    await expect(
+        dialog.getByRole('heading', { name: `Apply the new rules to ${channelName}?`, exact: true })
+    ).toBeFocused()
     await expect(dialog.locator(`[data-profile-impact-publication="${long.id}"]`)).toContainText(
         'Needs review'
     )
-    await dialog.getByRole('button', { name: 'Review activation', exact: true }).click()
-    await expect(
-        dialog.getByRole('heading', { name: `Activate ${channelName} profile?`, exact: true })
-    ).toBeFocused()
-    await expect(dialog).toContainText('nothing is adapted automatically')
-    await expect(dialog.getByRole('button', { name: 'Save draft', exact: true })).toHaveCount(0)
-    await dialog.getByRole('button', { name: 'Back to profile', exact: true }).click()
+    await expect(dialog).toContainText('won’t be published until you adjust them')
+    await expect(dialog.getByRole('button', { name: 'Save', exact: true })).toHaveCount(0)
+    await dialog.getByRole('button', { name: 'Back to the rules', exact: true }).click()
     expect((await (await page.request.get(`${channelUrl}/profile`)).json()).active).toEqual(
         original
     )
     expect(await readEditor(long.id)).toEqual(before)
 
-    await dialog.getByRole('button', { name: 'Review activation', exact: true }).click()
-    await expect(
-        dialog.getByRole('button', { name: 'Confirm activation', exact: true })
-    ).toBeEnabled()
+    await dialog.getByRole('button', { name: 'Save', exact: true }).click()
+    await expect(dialog.getByRole('button', { name: 'Apply rules', exact: true })).toBeEnabled()
     const saved = (await (await page.request.get(`${channelUrl}/profile`)).json()).draft
     const replacement = structuredClone(saved.profile)
     replacement.profileHash = `sha256:replacement-profile-${suffix}`
@@ -313,27 +318,20 @@ test('confirms profile activation, preserves affected work, and exposes explicit
     const refused = page.waitForResponse(
         response => response.url().endsWith('/activate') && response.request().method() === 'POST'
     )
-    await dialog.getByRole('button', { name: 'Confirm activation', exact: true }).click()
+    await dialog.getByRole('button', { name: 'Apply rules', exact: true }).click()
     expect((await refused).ok()).toBe(false)
     await expect(dialog.getByRole('alert')).toBeVisible()
-    await expect(
-        dialog.getByRole('button', { name: 'Review activation', exact: true })
-    ).toBeDisabled()
-    await expect(dialog.getByRole('button', { name: 'Preview impact', exact: true })).toBeDisabled()
+    await expect(dialog.getByRole('button', { name: 'Save', exact: true })).toBeDisabled()
     expect((await (await page.request.get(`${channelUrl}/profile`)).json()).active).toEqual(
         original
     )
-    await dialog.getByRole('button', { name: 'Reload saved profile', exact: true }).click()
+    await dialog.getByRole('button', { name: 'Reload the saved rules', exact: true }).click()
     await expect(bodyMaximum(dialog)).toHaveValue('10')
-    await dialog.getByRole('button', { name: 'Preview impact', exact: true }).click()
-    await expect(
-        dialog.getByRole('button', { name: 'Review activation', exact: true })
-    ).toBeEnabled()
     const late = await createPublication(
-        'Created after preview',
+        'Created after the edit',
         'Also needs review under the smaller limit.'
     )
-    await dialog.getByRole('button', { name: 'Review activation', exact: true }).click()
+    await dialog.getByRole('button', { name: 'Save', exact: true }).click()
     await expect(dialog.locator(`[data-profile-impact-publication="${late.id}"]`)).toBeVisible()
     await page.setViewportSize({ width: 390, height: 900 })
     await page.screenshot({ path: info.outputPath('activation-confirm-mobile.png') })
@@ -345,22 +343,17 @@ test('confirms profile activation, preserves affected work, and exposes explicit
     const activated = page.waitForResponse(
         response => response.url().endsWith('/activate') && response.request().method() === 'POST'
     )
-    await dialog.getByRole('button', { name: 'Confirm activation', exact: true }).click()
+    await dialog.getByRole('button', { name: 'Apply rules', exact: true }).click()
     const activationResponse = await activated
     expect(activationResponse.status()).toBe(200)
     const result = await activationResponse.json()
     await expect(
-        dialog.getByRole('heading', { name: `${channelName} profile activated`, exact: true })
+        dialog.getByRole('heading', { name: `New rules apply to ${channelName}`, exact: true })
     ).toBeFocused()
     await expect(
         dialog.locator(`[data-profile-impact-publication="${finalLate.id}"]`)
     ).toContainText('Needs review')
-    await expect(
-        dialog.getByRole('button', { name: 'Confirm activation', exact: true })
-    ).toHaveCount(0)
-    await expect(
-        dialog.getByRole('button', { name: 'Review activation', exact: true })
-    ).toHaveCount(0)
+    await expect(dialog.getByRole('button', { name: 'Apply rules', exact: true })).toHaveCount(0)
     const after = await readEditor(long.id)
     expect(after.post).toEqual(before.post)
     expect(after.selectedTarget).toEqual(before.selectedTarget)
@@ -387,11 +380,11 @@ test('confirms profile activation, preserves affected work, and exposes explicit
     await page.screenshot({ path: info.outputPath('activation-result-desktop.png') })
     await dialog
         .locator(`[data-profile-impact-publication="${long.id}"]`)
-        .getByRole('link', { name: 'Inspect publication', exact: true })
+        .getByRole('link', { name: 'Open', exact: true })
         .click()
     await expect(page).toHaveURL(new RegExp(`/publications/${long.id}$`))
-    await page.getByRole('button', { name: 'Adapt to current profile', exact: true }).click()
-    const adaptation = page.getByRole('region', { name: 'Adapt to current profile', exact: true })
+    await page.getByRole('button', { name: 'Adapt to current rules', exact: true }).click()
+    const adaptation = page.getByRole('region', { name: 'Adapt to current rules', exact: true })
     await adaptation.getByRole('button', { name: 'Reuse previous Body', exact: true }).click()
     await adaptation.getByRole('button', { name: 'Reuse previous Media', exact: true }).click()
     await adaptation.locator('[data-target-field="body"] textarea').fill('Fixed')
@@ -414,7 +407,7 @@ test('confirms profile activation, preserves affected work, and exposes explicit
     ).not.toContain(long.id)
 })
 
-test('edits profile constraints repeatedly while Postdot owns technical metadata', async ({
+test('saves rules repeatedly while Postdot owns technical metadata out of sight', async ({
     page,
 }, info) => {
     const suffix = randomUUID().slice(0, 8)
@@ -428,58 +421,42 @@ test('edits profile constraints repeatedly while Postdot owns technical metadata
     const url = `/api/projects/${projectId}/channels/${channel.id}`
     const original = (await (await page.request.get(`${url}/profile`)).json()).active
     await page.goto(`/dashboard/projects/${projectId}/channels`)
-    await page.getByRole('button', { name: `Manage Fingerprints ${suffix}`, exact: true }).click()
-    await page.getByRole('menuitem', { name: 'Edit profile', exact: true }).click()
-    const dialog = page.getByRole('dialog')
-    const metadata = dialog.locator('[data-profile-metadata]')
-    await metadata.getByText('Profile metadata', { exact: true }).click()
-    await expect(metadata).toContainText(original.profile.id)
-    await expect(metadata).toContainText(original.profile.origin)
-    await expect(metadata.getByText('version', { exact: true })).toBeVisible()
-    // Identity and fingerprints are shown, never authored by the operator.
-    await expect(metadata.getByRole('textbox')).toHaveCount(0)
-    await expect(bodyMaximum(dialog)).toHaveValue('1000000')
+    const dialog = page.locator('[data-slot="dialog-content"]')
     let saved = original
     for (const maxLength of [900, 800]) {
+        await page
+            .getByRole('button', { name: `Manage Fingerprints ${suffix}`, exact: true })
+            .click()
+        await page.getByRole('menuitem', { name: 'Content rules', exact: true }).click()
+        // Identity, versions and fingerprints stay out of Studio (ADR-103 §1).
+        await expect(dialog).not.toContainText('sha256')
+        await expect(dialog.locator('[data-profile-metadata]')).toHaveCount(0)
         await bodyMaximum(dialog).fill(String(maxLength))
         const done = page.waitForResponse(
-            r => r.url().endsWith('/profile-drafts') && r.request().method() === 'POST'
+            r => r.url().endsWith('/activate') && r.request().method() === 'POST'
         )
-        await dialog.getByRole('button', { name: 'Save draft', exact: true }).click()
-        const result = await done
-        expect(result.status()).toBe(200)
-        const next = (await result.json()).profile
-        expect(next.version).toBe(original.version + 1)
+        await dialog.getByRole('button', { name: 'Save', exact: true }).click()
+        expect((await done).status()).toBe(200)
+        await expect(page.locator('[data-channel-dialog-body]')).toHaveCount(0)
+        const next = (await (await page.request.get(`${url}/profile`)).json()).active
+        expect(next.version).toBe(saved.version + 1)
         expect(next.profile.schemaHash).toMatch(/^sha256:[a-f0-9]{64}$/)
         expect(next.profile.schemaHash).not.toBe(saved.profile.schemaHash)
         expect(next.profile.profileHash).not.toBe(saved.profile.profileHash)
         saved = next
-        await expect(dialog.getByRole('button', { name: 'Save draft', exact: true })).toBeEnabled()
     }
-    await expect(metadata).toContainText(saved.profile.schemaHash)
-    await expect(metadata).toContainText(saved.profile.profileHash)
     const identity = await page.request.post(`${url}/profile-drafts`, {
-        data: {
-            profile: { ...saved.profile, id: 'unwanted-identity' },
-            expectedRevision: saved.revision,
-        },
+        data: { profile: { ...saved.profile, id: 'unwanted-identity' } },
     })
     expect(identity.status()).toBe(400)
     expect((await identity.json()).error.code).toBe('invalid_input')
-    expect((await (await page.request.get(`${url}/profile`)).json()).draft).toEqual(saved)
-    const done = page.waitForResponse(
-        r => r.url().endsWith('/profile-drafts') && r.request().method() === 'POST'
-    )
-    await dialog.getByRole('button', { name: 'Save draft', exact: true }).click()
-    const result = await done
-    expect(result.status()).toBe(200)
-    const unchanged = (await result.json()).profile
-    expect(unchanged.profile).toEqual(saved.profile)
-    expect(unchanged.revision).toBe(saved.revision + 1)
-    expect((await (await page.request.get(`${url}/profile`)).json()).active).toEqual(original)
+    expect((await (await page.request.get(`${url}/profile`)).json()).active).toEqual(saved)
+    await page.getByRole('button', { name: `Manage Fingerprints ${suffix}`, exact: true }).click()
+    await page.getByRole('menuitem', { name: 'Content rules', exact: true }).click()
+    await expect(bodyMaximum(dialog)).toHaveValue('800')
     await page.setViewportSize({ width: 390, height: 900 })
     expect(await dialog.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true)
-    await page.screenshot({ path: info.outputPath('profile-metadata-mobile.png') })
+    await page.screenshot({ path: info.outputPath('content-rules-mobile.png') })
 })
 
 /** The structured form exposes the body rules as a named group. */
@@ -488,7 +465,7 @@ function bodyGroup(scope: Page | Locator): Locator {
 }
 
 function bodyMaximum(scope: Page | Locator): Locator {
-    return bodyGroup(scope).getByLabel('Maximum characters', { exact: true })
+    return bodyGroup(scope).getByLabel('Maximum length', { exact: true })
 }
 
 async function channelProfileState(page: Page, projectId: string, channelName: string) {
@@ -522,13 +499,11 @@ async function createAccountAndProject(page: Page, suffix: string): Promise<void
 
     await page.getByRole('combobox', { name: 'Select project', exact: true }).click()
     await page.getByRole('button', { name: 'Create project', exact: true }).last().click()
-    await page
-        .getByRole('textbox', { name: 'New project', exact: true })
-        .fill(`E2E-142 project ${suffix}`)
+    await page.getByRole('textbox', { name: 'Name', exact: true }).fill(`E2E-142 project ${suffix}`)
     await page
         .locator('form')
-        .filter({ has: page.getByRole('textbox', { name: 'New project', exact: true }) })
-        .getByRole('button', { name: 'Add project', exact: true })
+        .filter({ has: page.getByRole('textbox', { name: 'Name', exact: true }) })
+        .getByRole('button', { name: 'Create project', exact: true })
         .click()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/overview$/)
     await expect(page.getByRole('heading', { name: 'Overview', exact: true })).toBeVisible()

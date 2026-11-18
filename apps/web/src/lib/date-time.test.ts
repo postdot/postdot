@@ -1,7 +1,11 @@
-import { describe, expect, it } from 'bun:test'
+import { describe, expect, it, test } from 'bun:test'
 
 import {
     detectDefaultProjectTimeZone,
+    formatClockTime,
+    parseClockTime,
+    usesTwelveHourClock,
+    moveProjectSchedule,
     formatCivilSchedule,
     formatProjectDateTime,
     listSupportedProjectTimeZones,
@@ -26,8 +30,19 @@ describe('local date-time helpers', () => {
 
         expect(toDateTimeLocal(timestamp, 'America/New_York')).toBe('2026-01-02T00:34')
         expect(parseDateTimeLocal('2026-01-02T00:34', 'America/New_York')).toBe(timestamp)
-        expect(formatProjectDateTime(timestamp, 'America/New_York')).toContain('Jan 2, 2026')
+        const thisYear = new Date().getUTCFullYear() === 2026
+        expect(formatProjectDateTime(timestamp, 'America/New_York')).toContain(
+            thisYear ? 'Jan 2' : 'Jan 2, 2026'
+        )
         expect(formatProjectDateTime(timestamp, 'America/New_York')).toContain('12:34 AM')
+    })
+
+    it('omits the current year and keeps other years', () => {
+        const now = new Date()
+        const current = Date.UTC(now.getUTCFullYear(), 5, 15, 12)
+        const previous = Date.UTC(now.getUTCFullYear() - 1, 5, 15, 12)
+        expect(formatProjectDateTime(current, 'UTC')).not.toContain(String(now.getUTCFullYear()))
+        expect(formatProjectDateTime(previous, 'UTC')).toContain(String(now.getUTCFullYear() - 1))
     })
 
     it('uses the project timezone when a timestamp crosses UTC midnight', () => {
@@ -62,12 +77,58 @@ describe('local date-time helpers', () => {
 
 describe('civil schedule display', () => {
     it('keeps project wall time without interpreting it in the browser timezone', () => {
-        expect(formatCivilSchedule('2026-03-08T02:30', 'en')).toContain('02:30')
+        expect(formatCivilSchedule('2026-03-08T02:30', 'en')).toMatch(/(^|\D)2:30\s?AM/)
         expect(formatCivilSchedule('2026-03-08T02:30', 'fr')).toContain('02:30')
     })
     it('rejects malformed and impossible saved values without throwing', () => {
         for (const value of ['', 'broken', '2026-02-30T12:00', '2026-10-04T12:00Z']) {
             expect(formatCivilSchedule(value, 'en')).toBe('')
         }
+    })
+})
+
+describe('moving project schedules', () => {
+    it('keeps 09:00 across spring and autumn DST changes for days and weeks', () => {
+        for (const [from, to, hours] of [
+            ['2027-03-27T09:00', '2027-03-28T09:00', 23],
+            ['2027-10-30T09:00', '2027-10-31T09:00', 25],
+        ] as const) {
+            const start = parseDateTimeLocal(from, 'Europe/Paris') as number
+            const end = parseDateTimeLocal(to, 'Europe/Paris') as number
+            expect(moveProjectSchedule(start, 1, '24', 'Europe/Paris')).toBe(end)
+            expect(end - start).toBe(hours * 3_600_000)
+            expect(moveProjectSchedule(end, -1, '24', 'Europe/Paris')).toBe(start)
+            expect(moveProjectSchedule(start, 24, '1', 'Europe/Paris')).toBe(start + 86_400_000)
+            const week = moveProjectSchedule(start, 1, '168', 'Europe/Paris') as number
+            expect(toDateTimeLocal(week, 'Europe/Paris').slice(-5)).toBe('09:00')
+        }
+    })
+    it('rejects nonexistent and ambiguous destination times', () => {
+        const spring = parseDateTimeLocal('2027-03-27T02:30', 'Europe/Paris') as number
+        const autumn = parseDateTimeLocal('2027-10-30T02:30', 'Europe/Paris') as number
+        expect(moveProjectSchedule(spring, 1, '24', 'Europe/Paris')).toBe('nonexistent')
+        expect(moveProjectSchedule(autumn, 1, '24', 'Europe/Paris')).toBe('ambiguous')
+    })
+})
+
+describe('clock time in the reader’s format', () => {
+    test('formats for twelve- and twenty-four-hour locales', () => {
+        expect(usesTwelveHourClock('en')).toBe(true)
+        expect(usesTwelveHourClock('fr')).toBe(false)
+        expect(formatClockTime('13:41', 'en')).toMatch(/^1:41\s?PM$/)
+        expect(formatClockTime('00:05', 'en')).toMatch(/^12:05\s?AM$/)
+        expect(formatClockTime('13:41', 'fr')).toBe('13:41')
+    })
+
+    test('reads what people type', () => {
+        expect(parseClockTime('1:41 pm')).toBe('13:41')
+        expect(parseClockTime('1 PM')).toBe('13:00')
+        expect(parseClockTime('12am')).toBe('00:00')
+        expect(parseClockTime('12:30 p.m.')).toBe('12:30')
+        expect(parseClockTime('13:41')).toBe('13:41')
+        expect(parseClockTime('0905')).toBe('09:05')
+        expect(parseClockTime('9:5')).toBeNull()
+        expect(parseClockTime('13 pm')).toBeNull()
+        expect(parseClockTime('24:00')).toBeNull()
     })
 })

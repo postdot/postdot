@@ -1,3 +1,5 @@
+import { shortExcerpt } from '@postdot/core'
+
 import type { PublicationSummary } from '@/lib/api'
 import * as m from '@/paraglide/messages.js'
 
@@ -7,9 +9,11 @@ export function publicationIdentityLabel(
     const title = publication.postTitle?.trim()
     if (title) return title
     const excerpt = publication.sourceExcerpt?.trim()
-    if (excerpt) return excerpt
+    if (excerpt) return shortExcerpt(excerpt, 90)
     if (publication.mediaCount > 0) {
         return m.publication_media_count({ count: publication.mediaCount })
     }
     return m.publication_untitled()
 }
+
+export { shortExcerpt } from '@postdot/core'

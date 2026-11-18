@@ -32,6 +32,7 @@
         "measure:footprint": "bun run build && bun run scripts/measure-footprint.ts",
         "benchmark:analytics": "bun run scripts/benchmark-analytics.ts",
         "i18n:coverage": "bun run --cwd apps/web i18n:coverage",
+        "i18n:vocabulary": "bun run --cwd apps/web i18n:vocabulary",
         "clean": "turbo clean && rimraf node_modules",
         "check:quick": "bun run format && bun run lint && bun run typecheck",
         "check": "bun run format && bun run lint && bun run typecheck && bun run test && bun run build",

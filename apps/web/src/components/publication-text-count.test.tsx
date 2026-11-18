@@ -26,14 +26,16 @@ function renderCount(maxLength: number | null) {
     )
 }
 
-test('unknown text limits render the actual count without a denominator', () => {
-    const html = renderCount(null)
-    expect(html).toContain('5 characters')
-    expect(html).not.toContain(' / ')
-    expect(html).not.toContain('Infinity')
+test('an unknown or unreachable limit shows no counter', () => {
+    expect(renderCount(null)).toBe('')
+    expect(renderCount(1_000_000)).toBe('')
 })
 
-test('known text limits retain their denominator and overflow styling', () => {
+test('a short limit is always shown with its denominator', () => {
+    expect(renderCount(280)).toContain('5 / 280 characters')
+})
+
+test('an exceeded limit keeps its denominator and overflow styling', () => {
     const html = renderCount(4)
     expect(html).toContain('5 / 4')
     expect(html).toContain('text-destructive')

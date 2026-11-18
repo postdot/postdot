@@ -94,7 +94,7 @@ for (const scenario of [
             )
         observations.push({ id: 'journey-2-sidebar-before', sidebarLabels })
         for (const label of [
-            scenario.copy.workspace_channels_title,
+            scenario.copy.nav_channels,
             scenario.copy.nav_workspace_administration,
         ]) {
             await page.goto(`/dashboard/projects/${projectId}/overview`)
@@ -163,13 +163,23 @@ for (const scenario of [
                 }
             }
 
-            await page.goto(
-                `/dashboard/workspace/channels?workspaceId=${workspaceId}&projectId=${projectId}`
-            )
-            await page.locator(`[data-workspace-channel="${channel.id}"] > summary`).click()
+            await page.goto(`/dashboard/projects/${projectId}/channels?scope=workspace`)
+            await page
+                .locator(`[data-channel-row="${channel.id}"]`)
+                .getByRole('button', {
+                    name: scenario.copy.channel_manage.replace('{channel}', 'Shared bulletin'),
+                })
+                .click()
+            await page
+                .getByRole('menuitem', { name: scenario.copy.nav_projects, exact: true })
+                .click()
             await settle(page)
             observations.push(await observe(page, 'shared-channel-inspection'))
             await shoot(page, 'shared-channel-inspection', outputDirectory)
+            await page
+                .getByRole('dialog')
+                .getByRole('button', { name: scenario.copy.channel_share_done, exact: true })
+                .click()
             await page.getByRole('button', { name: scenario.copy.channel_add, exact: true }).click()
             observations.push(await observe(page, 'shared-channel-creation-choice'))
             await shoot(page, 'shared-channel-creation-choice', outputDirectory)
@@ -239,7 +249,7 @@ for (const scenario of [
                 await shoot(page, `${route.id}-${viewport.name}`, outputDirectory)
                 if (viewport.name === 'mobile' && route.id === 'personal-general') {
                     await page
-                        .getByRole('button', { name: scenario.copy.nav_toggle, exact: true })
+                        .getByRole('button', { name: scenario.copy.nav_show_menu, exact: true })
                         .click()
                     await settle(page)
                     observations.push(await observe(page, 'personal-navigation@mobile'))

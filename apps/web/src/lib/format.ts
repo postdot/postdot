@@ -18,7 +18,7 @@ export function formatBytes(bytes: number, locale: string) {
         return new Intl.NumberFormat(locale, {
             style: 'unit',
             unit: 'byte',
-            unitDisplay: 'short',
+            unitDisplay: 'narrow',
         }).format(bytes)
     }
     if (bytes < 1_024 * 1_024) {

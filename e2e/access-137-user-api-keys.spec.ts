@@ -4,6 +4,7 @@ import AxeBuilder from '@axe-core/playwright'
 import { expect, test, type Locator, type Page } from '@playwright/test'
 
 import en from '../apps/web/messages/en.json' with { type: 'json' }
+import { switchTheme } from './locale'
 
 test('creates and edits user-owned API keys with bounded project and action access', async ({
     page,
@@ -14,7 +15,13 @@ test('creates and edits user-owned API keys with bounded project and action acce
     const projectName = `E2E-137 project ${suffix}`
     const projectId = await createAccountAndProject(page, suffix, projectName)
 
-    await page.getByRole('button', { name: 'Open account menu', exact: true }).click()
+    // The dashboard settles its project data right after creation; open the menu once it holds.
+    await expect(async () => {
+        await page.getByRole('button', { name: 'Open account menu', exact: true }).click()
+        await expect(page.getByRole('menuitem', { name: 'Settings', exact: true })).toBeVisible({
+            timeout: 1_000,
+        })
+    }).toPass()
     await page.getByRole('menuitem', { name: 'Settings', exact: true }).click()
     await expect(page).toHaveURL(/\/dashboard\/preferences(?:\?.*)?$/)
     await page
@@ -28,6 +35,11 @@ test('creates and edits user-owned API keys with bounded project and action acce
 
     await page.getByRole('button', { name: 'Create an API key', exact: true }).click()
     const allProjectsDialog = page.getByRole('dialog')
+    await expect(allProjectsDialog.getByText('Projects', { exact: true })).toBeVisible()
+    await expect(allProjectsDialog.getByText('Projects :', { exact: true })).toHaveCount(0)
+    await expect(
+        allProjectsDialog.getByText(en.api_keys_anti_escalation_notice, { exact: true })
+    ).toBeVisible()
     await expect(allProjectsDialog.getByRole('radio', { name: 'All projects' })).toBeChecked()
     await allProjectsDialog.getByLabel('Name (optional)', { exact: true }).fill('Retry key')
     const keyEndpoint = '**/api/api-keys'
@@ -64,6 +76,8 @@ test('creates and edits user-owned API keys with bounded project and action acce
     await page.getByRole('button', { name: 'Done', exact: true }).click()
     if (generatedName === undefined) throw new Error('The generated API key name was not rendered')
     await expect(page.getByText(generatedName, { exact: true })).toBeVisible()
+    await expect(page.getByText('Sensitive', { exact: true })).toHaveCount(0)
+    await expect(page.getByText('Elevated', { exact: true })).toHaveCount(0)
 
     await page.getByRole('button', { name: 'Create an API key', exact: true }).click()
     const selectedProjectsDialog = page.getByRole('dialog')
@@ -86,6 +100,8 @@ test('creates and edits user-owned API keys with bounded project and action acce
         name: 'Only selected actions',
     })
     await selectedActionsRadio.check()
+    await expect(selectedProjectsDialog.getByText('Sensitive', { exact: true })).toHaveCount(0)
+    await expect(selectedProjectsDialog.getByText('Elevated', { exact: true })).toHaveCount(0)
     await selectedProjectsDialog.getByRole('checkbox', { name: 'Read project data' }).check()
     await selectedProjectsDialog
         .getByRole('checkbox', { name: 'Manage channels and profiles' })
@@ -100,14 +116,14 @@ test('creates and edits user-owned API keys with bounded project and action acce
     await page.getByRole('button', { name: 'Done', exact: true }).click()
     if (limitedKeyName === undefined) throw new Error('The limited API key name was not rendered')
     await expect(page.getByText(/1 project\(s\): .*E2E-137 project/)).toBeVisible()
-    await expect(
-        page.getByText('Limited to: Read project data, Manage channels and profiles', {
-            exact: true,
-        })
-    ).toBeVisible()
+    await expect(page.locator('li').filter({ hasText: limitedKeyName })).toContainText(
+        'Limited to: Read project data, Manage channels and profiles'
+    )
 
     const limitedKey = page.locator('li').filter({ hasText: limitedKeyName })
-    await limitedKey.getByRole('button', { name: 'Edit actions', exact: true }).click()
+    // Rare key actions live in the row menu.
+    await limitedKey.getByRole('button', { name: `Manage ${limitedKeyName}`, exact: true }).click()
+    await page.getByRole('menuitem', { name: 'Edit actions', exact: true }).click()
     const editActionsDialog = page.getByRole('dialog')
     await expect(
         editActionsDialog.getByRole('checkbox', { name: 'Read project data' })
@@ -117,21 +133,13 @@ test('creates and edits user-owned API keys with bounded project and action acce
         .getByRole('checkbox', { name: 'Prepare and manage publications' })
         .check()
     await editActionsDialog.getByRole('button', { name: 'Save actions' }).click()
-    await expect(
-        limitedKey.getByText(
-            'Limited to: Prepare and manage publications, Manage channels and profiles',
-            { exact: true }
-        )
-    ).toBeVisible()
+    await expect(limitedKey).toContainText(
+        'Limited to: Prepare and manage publications, Manage channels and profiles'
+    )
 
     for (const theme of ['light', 'dark'] as const) {
         if (!(await page.locator('html').getAttribute('class'))?.split(' ').includes(theme)) {
-            await page
-                .getByRole('button', {
-                    name: en.theme_switch_to.replace('{theme}', en[`theme_${theme}`]),
-                    exact: true,
-                })
-                .click()
+            await switchTheme(page, theme)
         }
         for (const width of [1280, 820, 390]) {
             await page.setViewportSize({ width, height: 844 })
@@ -194,8 +202,8 @@ async function createAccountAndProject(
     await page.getByRole('combobox', { name: 'Select project', exact: true }).click()
     await page.getByRole('button', { name: 'Create project', exact: true }).last().click()
     const projectDialog = page.getByRole('dialog')
-    await projectDialog.getByRole('textbox', { name: 'New project', exact: true }).fill(projectName)
-    await projectDialog.getByRole('button', { name: 'Add project', exact: true }).click()
+    await projectDialog.getByRole('textbox', { name: 'Name', exact: true }).fill(projectName)
+    await projectDialog.getByRole('button', { name: 'Create project', exact: true }).click()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/overview$/)
 
     const match = new URL(page.url()).pathname.match(/^\/dashboard\/projects\/([^/]+)/)

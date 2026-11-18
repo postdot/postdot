@@ -23,6 +23,7 @@ export const resourceImpactSchema = Type.Object({
     state: stateSchema,
     revision: Type.Number(),
     isDefault: Type.Boolean(),
+    imageUrl: Type.Union([Type.String(), Type.Null()]),
     fingerprint: Type.String(),
     cleanupPending: Type.Number(),
     changedAt: Type.Number(),

@@ -7,7 +7,7 @@ test('a session refusal during an upload keeps the file and text and resumes aft
     page,
 }) => {
     test.setTimeout(120_000)
-    const data = await accounts(page)
+    const data = await accounts(page, 'default')
     try {
         await page.goto(data.url)
         const form = page.locator('[data-new-publication-form]')
@@ -36,10 +36,9 @@ test('a session refusal during an upload keeps the file and text and resumes aft
         await login(page, data.ownerEmail, data.password)
         await expect(page).toHaveURL(data.url)
 
-        const recovery = page.locator('[data-new-publication-recovery]')
-        await expect(recovery).toContainText(text)
-        await recovery.getByRole('button', { name: 'Restore', exact: true }).click()
-        await expect(page.getByRole('textbox', { name: 'Content', exact: true })).toHaveValue(text)
+        // ADR-103 §6: the draft is restored without a question.
+        await expect(page.locator('[data-new-publication-restored]')).toBeVisible()
+        await expect(page.getByRole('textbox', { name: 'Content', exact: true })).toHaveText(text)
         const files = page.locator('[data-media-upload-recovery]')
         await expect(files).toBeVisible()
         await files.getByRole('button', { name: /^Resume/ }).click()
@@ -51,7 +50,7 @@ test('a session refusal during an upload keeps the file and text and resumes aft
                 new URL(response.url()).pathname === `/api/projects/${data.project.id}/posts` &&
                 response.request().method() === 'POST'
         )
-        await page.getByRole('button', { name: 'Create draft', exact: true }).click()
+        await page.getByRole('button', { name: 'Save as draft', exact: true }).click()
         const response = await created
         expect(response.status()).toBe(201)
         expect(response.request().postDataJSON().sourceContent.media).toHaveLength(1)
@@ -66,7 +65,7 @@ test('a session that ends mid-upload offers sign-in without losing the held crea
     page,
 }) => {
     test.setTimeout(120_000)
-    const data = await accounts(page)
+    const data = await accounts(page, 'default')
     let release: () => void = () => {}
     try {
         await page.goto(data.url)
@@ -83,7 +82,9 @@ test('a session that ends mid-upload offers sign-in without losing the held crea
             await route.continue()
         })
         await page.locator('input[type=file]').setInputFiles(file)
-        await expect(page.getByRole('button', { name: 'Create draft', exact: true })).toBeDisabled()
+        await expect(
+            page.getByRole('button', { name: 'Save as draft', exact: true })
+        ).toBeDisabled()
 
         expect((await page.request.post('/api/auth/sign-out')).status()).toBe(200)
         release()
@@ -103,8 +104,8 @@ test('a session that ends mid-upload offers sign-in without losing the held crea
         await login(page, data.ownerEmail, data.password)
         await recoveredDraft
         await expect(page).toHaveURL(data.url)
-        const recovery = page.locator('[data-new-publication-recovery]')
-        await expect(recovery).toContainText(text)
+        await expect(page.locator('[data-new-publication-restored]')).toBeVisible()
+        await expect(page.getByRole('textbox', { name: 'Content', exact: true })).toHaveText(text)
     } finally {
         release()
         await data.close()
@@ -115,7 +116,7 @@ test('an upload refused by an ended session alone offers sign-in without another
     page,
 }) => {
     test.setTimeout(120_000)
-    const data = await accounts(page)
+    const data = await accounts(page, 'default')
     let release: () => void = () => {}
     try {
         await page.goto(data.url)
@@ -152,7 +153,7 @@ test('a library read refused by an ended session offers sign-in from the compose
     page,
 }) => {
     test.setTimeout(120_000)
-    const data = await accounts(page)
+    const data = await accounts(page, 'default')
     try {
         await page.goto(data.url)
         const form = page.locator('[data-new-publication-form]')

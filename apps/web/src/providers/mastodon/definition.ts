@@ -47,7 +47,7 @@ export const mastodonProvider = {
                           ...(poll.multiple ? [m.poll_multiple()] : []),
                           ...(poll.hideTotals ? [m.poll_hide_totals()] : []),
                       ].join('\n')
-                    : '—'
+                    : '-'
             },
         },
     ],
@@ -99,9 +99,7 @@ export const mastodonProvider = {
     preview: {
         layout: 'social',
         accountDriven: true,
-        sampleIdentity: true,
         mosaic: 'tight',
-        handle: '@alex@example.social',
         Poll: MastodonPollPreview,
     },
     comments: {

@@ -108,7 +108,12 @@ export function createPublicationSchedulingStore(
                 return {
                     activeJob,
                     current: publication,
-                    next: reschedulePublication(publication, input.scheduledAt, actor, timestamp),
+                    next: reschedulePublication(
+                        publication,
+                        input.scheduledTimes?.[publication.id] ?? input.scheduledAt,
+                        actor,
+                        timestamp
+                    ),
                 }
             })
 
@@ -189,6 +194,21 @@ export function createPublicationSchedulingStore(
                     'invalid_input',
                     'publicationIds must not contain duplicates'
                 )
+            }
+
+            if (input.scheduledTimes !== undefined) {
+                const keys = Object.keys(input.scheduledTimes)
+                if (
+                    keys.length !== publicationIds.length ||
+                    keys.some(id => !publicationIds.includes(id))
+                ) {
+                    throw new DomainInvariantError(
+                        'invalid_input',
+                        'scheduledTimes must include every selected publication exactly once'
+                    )
+                }
+                for (const at of Object.values(input.scheduledTimes))
+                    requireTimestamp(at, 'scheduledAt')
             }
 
             return reschedulePublicationsTransaction.immediate({

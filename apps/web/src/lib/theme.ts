@@ -2,11 +2,11 @@ import { createThemes } from '@wrksz/themes/client'
 
 export const { ThemeProvider, useTheme } = createThemes({
     themes: ['light', 'dark'] as const,
-    defaultTheme: 'dark',
+    defaultTheme: 'system',
     attribute: 'class',
     storage: 'localStorage',
     storageKey: 'postdot-theme',
-    enableSystem: false,
+    enableSystem: true,
     enableColorScheme: true,
     themeColor: {
         light: '#f4f4f4',

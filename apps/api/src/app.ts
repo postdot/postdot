@@ -12,12 +12,14 @@ import {
     createManualStore,
     createAnalyticsStore,
     createEventJournalStore,
+    createIdentityImageStore,
     createNotificationStore,
     createProviderAnalyticsStore,
     createPublicationCommentStore,
     createAccessStore,
     createTaxonomyStore,
     type DatabaseHandle,
+    type IdentityImageStore,
     type ManualStoreOptions,
     type MediaAssetStore,
     type NotificationStore,
@@ -56,6 +58,10 @@ import {
 import { createAccountRoutes } from './modules/account/routes'
 import type { EmailSettingsService } from './modules/email/settings'
 import { createHealthRoutes, type HealthRoutesOptions } from './modules/health/routes'
+import {
+    createIdentityImageResolver,
+    type IdentityImageResolver,
+} from './modules/identity-images/resolver'
 import { createMcpRoutes } from './modules/mcp/routes'
 import type { MediaPublicDelivery } from './modules/media/public-delivery'
 import { createPublicMediaRoutes } from './modules/media/public-routes'
@@ -87,6 +93,8 @@ export interface PostdotAppOptions {
     readonly database: DatabaseHandle
     readonly publisher: PublisherRuntime
     readonly avatars?: UserAvatarStore
+    readonly identityImages?: IdentityImageStore
+    readonly identityImageResolver?: IdentityImageResolver
     readonly accountOrigins?: readonly string[]
     /** The agent endpoint (ADR-096); enabled unless a deployment turns it off. */
     readonly mcp?: { readonly enabled: boolean }
@@ -139,6 +147,8 @@ function createDomainApp({
     publisher,
     media,
     avatars,
+    identityImages,
+    identityImageResolver,
     accountOrigins,
     mediaUrlImporter,
     mediaPublicDelivery,
@@ -185,6 +195,9 @@ function createDomainApp({
         },
     })
     const accessStore = access ?? createAccessStore(database)
+    const identityImageStore =
+        identityImages ?? createIdentityImageStore(database, { now: manualStoreOptions?.now })
+    const resolvedIdentityImageResolver = identityImageResolver ?? createIdentityImageResolver()
     const manualStore = createManualStore(database, {
         validateThreadReceipt,
         ...manualStoreOptions,
@@ -345,6 +358,8 @@ function createDomainApp({
                 recovery,
                 manualStore,
                 publisher,
+                identityImages: identityImageStore,
+                identityImageResolver: resolvedIdentityImageResolver,
                 media,
                 mediaUrlImporter,
                 logger,
@@ -393,6 +408,8 @@ export function createApp({
     publisher,
     media,
     avatars,
+    identityImages,
+    identityImageResolver,
     accountOrigins,
     mcp,
     mediaUrlImporter,
@@ -433,6 +450,8 @@ export function createApp({
         publisher,
         media,
         avatars,
+        identityImages,
+        identityImageResolver,
         accountOrigins,
         mediaUrlImporter,
         mediaPublicDelivery,

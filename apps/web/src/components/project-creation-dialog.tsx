@@ -44,7 +44,7 @@ export function ProjectCreationDialog({
             pending={pending}
             placeholder={m.nav_project_name()}
             submitLabel={m.nav_add_project()}
-            title={m.nav_create_project()}
+            title={m.nav_new_project_title()}
             value={name}>
             <Field className="gap-1.5">
                 <FieldLabel htmlFor={timeZoneId}>{m.project_timezone_label()}</FieldLabel>

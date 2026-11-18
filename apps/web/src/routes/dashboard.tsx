@@ -1,6 +1,7 @@
 import { Button } from '@postdot/ui/components/button'
 import { AddIcon } from '@solar-icons/react/linear/add'
 import { AltArrowRightIcon } from '@solar-icons/react/linear/alt-arrow-right'
+import { useQuery } from '@tanstack/react-query'
 import {
     createFileRoute,
     Link,
@@ -9,16 +10,18 @@ import {
     useMatches,
     useNavigate,
 } from '@tanstack/react-router'
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
 
 import { AppToaster } from '@/components/app-toaster'
 import { DashboardPageHeader } from '@/components/dashboard-page-header'
 import { DashboardShell } from '@/components/dashboard-shell'
 import { EmptyState } from '@/components/empty-state'
-import { ResourceAvatar } from '@/components/identity-visuals'
+import { ChannelAvatar, ResourceAvatar } from '@/components/identity-visuals'
 import { PageColumn } from '@/components/page-column'
 import { ProjectCreationDialog } from '@/components/project-creation-dialog'
-import { api, formatApiError, type Project } from '@/lib/api'
+import { api, formatApiError, type Project, type ProjectListItem } from '@/lib/api'
+import type { ChannelIdentityPeer } from '@/lib/channel-identity'
+import { ChannelIdentityProvider } from '@/lib/channel-identity-context'
 import {
     DashboardGlobalProvider,
     useDashboardGlobal,
@@ -116,6 +119,7 @@ export const Route = createFileRoute('/dashboard')({
         const isGlobalContextPath =
             isSettingsPath(location.pathname) ||
             isPreferencesPath(location.pathname) ||
+            location.pathname === '/dashboard/channels' ||
             location.pathname === '/dashboard/workspace/channels'
         if (
             isGlobalContextPath &&
@@ -174,7 +178,7 @@ function DashboardSession() {
     useLanguage()
     const initialData = Route.useLoaderData()
     const routeSearch = Route.useSearch()
-    const [projects, setProjects] = useState<Project[]>(initialData.projects)
+    const [projects, setProjects] = useState<ProjectListItem[]>(initialData.projects)
     const [workspaces, setWorkspaces] = useState(initialData.workspaces)
     const categories = initialData.categories
     const [projectName, setProjectName] = useState('')
@@ -218,7 +222,7 @@ function DashboardSession() {
                 projectTimeZone,
                 selectedWorkspaceId ?? undefined
             )
-            setProjects(current => [...current, response.project])
+            setProjects(current => [...current, { ...response.project, upcomingScheduledCount: 0 }])
             setProjectName('')
             setProjectTimeZone(detectDefaultProjectTimeZone())
             await navigate({
@@ -264,11 +268,14 @@ function DashboardSession() {
 
     async function handleWorkspaceChange(workspaceId: string) {
         setError(null)
-        if (
-            isSettingsPath(pathname) ||
-            isPreferencesPath(pathname) ||
-            pathname === '/dashboard/workspace/channels'
-        ) {
+        if (pathname.endsWith('/channels')) {
+            await navigate({
+                to: '/dashboard/channels',
+                search: { workspaceId, projectId: 'none', scope: 'workspace' },
+            })
+            return
+        }
+        if (isSettingsPath(pathname) || isPreferencesPath(pathname)) {
             await navigate({
                 to: '.',
                 search: previous => ({ ...previous, workspaceId, projectId: 'none' }),
@@ -292,7 +299,14 @@ function DashboardSession() {
         await runAction(async () => {
             const project = await api.setProjectPrimaryCategory(projectId, categoryId)
             setProjects(current =>
-                current.map(candidate => (candidate.id === project.id ? project : candidate))
+                current.map(candidate =>
+                    candidate.id === project.id
+                        ? {
+                              ...project,
+                              upcomingScheduledCount: candidate.upcomingScheduledCount,
+                          }
+                        : candidate
+                )
             )
         })
     }
@@ -343,7 +357,7 @@ function DashboardSession() {
 
     const isPreferences = isPreferencesPath(pathname)
     const isGlobalContextPath =
-        isSettingsPath(pathname) || isPreferences || pathname === '/dashboard/workspace/channels'
+        isSettingsPath(pathname) || isPreferences || pathname === '/dashboard/channels'
     const settingsProjectId = isGlobalContextPath ? readProjectContextId(routeSearch) : undefined
     const selectedSettingsProject = isGlobalContextPath
         ? (projects.find(
@@ -355,7 +369,7 @@ function DashboardSession() {
     return (
         <DashboardGlobalProvider value={value}>
             <AppToaster />
-            {isSettingsPath(pathname) || pathname === '/dashboard/workspace/channels' ? (
+            {isSettingsPath(pathname) || pathname === '/dashboard/channels' ? (
                 <GlobalSettingsShell global={value} selectedProject={selectedSettingsProject} />
             ) : isPreferences ? (
                 <GlobalSettingsShell global={value} selectedProject={selectedSettingsProject} />
@@ -400,7 +414,13 @@ function createLoginContinuation(pathname: string, search: unknown) {
     if (pathname !== '/dashboard' && !pathname.startsWith('/dashboard/')) return undefined
 
     const params = new URLSearchParams()
-    for (const key of ['invitation', 'organizationInvitation', 'projectId', 'workspaceId']) {
+    for (const key of [
+        'invitation',
+        'organizationInvitation',
+        'projectId',
+        'workspaceId',
+        'scope',
+    ]) {
         const value = readSearchString(search, key)
         if (value !== undefined) params.set(key, value)
     }
@@ -466,24 +486,24 @@ function EmptyProjectShell({ global }: { readonly global: DashboardGlobalContext
                 session={global.session}>
                 <main className="min-w-0 px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
                     <div className="w-full">
-                        <h1 className="font-heading text-3xl font-semibold leading-[1.02] sm:text-4xl">
-                            {m.nav_projects()}
-                        </h1>
-                        <p className="mt-3 max-w-xl text-sm leading-6 text-muted-foreground">
-                            {m.overview_create_first_project_description()}
-                        </p>
-                        <EmptyState
+                        <DashboardPageHeader
+                            column="management"
                             action={
                                 <Button onClick={() => setCreateProjectOpen(true)} type="button">
                                     <AddIcon aria-hidden="true" />
                                     {m.nav_create_project()}
                                 </Button>
                             }
-                            className="mt-8 w-full"
-                            illustration="data"
-                            layout="compact"
-                            title={m.overview_no_projects()}
+                            description={m.dashboard_select_project_description()}
+                            title={m.nav_projects()}
                         />
+                        <PageColumn variant="management">
+                            <EmptyState
+                                description={m.overview_create_first_project_description()}
+                                illustration="data"
+                                title={m.overview_no_projects()}
+                            />
+                        </PageColumn>
                         <ProjectCreationDialog
                             id="empty-state-new-project"
                             name={global.projectName}
@@ -508,6 +528,142 @@ function EmptyProjectShell({ global }: { readonly global: DashboardGlobalContext
     )
 }
 
+function ProjectDirectoryList({
+    projects,
+}: {
+    projects: ReadonlyArray<{
+        id: string
+        name: string
+        workspaceId: string | null
+        upcomingScheduledCount: number
+        imageUrl?: string | null
+    }>
+}) {
+    const workspaceIds = useMemo(
+        () =>
+            [
+                ...new Set(
+                    projects
+                        .map(project => project.workspaceId)
+                        .filter((id): id is string => id !== null)
+                ),
+            ].sort(),
+        [projects]
+    )
+    const { data: channelsByProjectId } = useQuery({
+        queryKey: ['project-directory-channels', ...workspaceIds],
+        enabled: workspaceIds.length > 0,
+        queryFn: async () => {
+            const responses = await Promise.all(
+                workspaceIds.map(workspaceId =>
+                    api
+                        .listWorkspaceChannels(workspaceId, false)
+                        .catch(() => ({ channels: [], projects: [] }))
+                )
+            )
+            const byProject = new Map<string, ChannelIdentityPeer[]>()
+            for (const response of responses) {
+                for (const channel of response.channels) {
+                    if (channel.state !== 'active') continue
+                    for (const usage of channel.usages) {
+                        if (usage.state !== 'active') continue
+                        const list = byProject.get(usage.projectId) ?? []
+                        list.push({
+                            id: channel.id,
+                            name: channel.name,
+                            profileId: channel.profileId,
+                            createdAt: channel.createdAt,
+                        })
+                        byProject.set(usage.projectId, list)
+                    }
+                }
+            }
+            return byProject
+        },
+    })
+
+    if (projects.length === 0) {
+        return (
+            <PageColumn variant="management">
+                <EmptyState
+                    className="w-full"
+                    description={m.overview_create_first_project_description()}
+                    illustration="data"
+                    layout="default"
+                    title={m.overview_no_projects()}
+                />
+            </PageColumn>
+        )
+    }
+
+    return (
+        <PageColumn className="grid gap-2 sm:grid-cols-2" variant="management">
+            {projects.map(project => {
+                const projectChannels = channelsByProjectId?.get(project.id) ?? []
+                const visibleChannels = projectChannels.slice(0, 5)
+                const hiddenChannelCount = projectChannels.length - visibleChannels.length
+                const scheduledText =
+                    project.upcomingScheduledCount > 0
+                        ? m.common_scheduled_count({ count: project.upcomingScheduledCount })
+                        : m.queue_no_scheduled_title()
+                return (
+                    <Link
+                        className="group flex items-center justify-between gap-4 rounded-lg border border-border bg-surface-raised px-4 py-3 transition-colors hover:bg-surface-hover"
+                        key={project.id}
+                        params={{ projectId: project.id }}
+                        to="/dashboard/projects/$projectId/overview">
+                        <span className="flex min-w-0 items-center gap-3">
+                            <ResourceAvatar
+                                imageUrl={project.imageUrl}
+                                kind="project"
+                                name={project.name}
+                                seed={project.id}
+                                size="lg"
+                            />
+                            <span className="min-w-0">
+                                <span className="block truncate text-sm font-medium">
+                                    {project.name}
+                                </span>
+                                <span className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                                    {visibleChannels.length > 0 ? (
+                                        <ChannelIdentityProvider channels={projectChannels}>
+                                            <span
+                                                className="flex items-center gap-1"
+                                                data-project-channels="">
+                                                {visibleChannels.map(channel => (
+                                                    <ChannelAvatar
+                                                        channel={channel}
+                                                        key={channel.id}
+                                                        size="sm"
+                                                    />
+                                                ))}
+                                                {hiddenChannelCount > 0 ? (
+                                                    <span className="pl-1 text-xs font-medium text-muted-foreground tabular-nums">
+                                                        +{hiddenChannelCount}
+                                                    </span>
+                                                ) : null}
+                                            </span>
+                                        </ChannelIdentityProvider>
+                                    ) : channelsByProjectId !== undefined ? (
+                                        <span>{m.nav_no_channels()}</span>
+                                    ) : null}
+                                    {visibleChannels.length > 0 ? (
+                                        <span className="tabular-nums">{scheduledText}</span>
+                                    ) : null}
+                                </span>
+                            </span>
+                        </span>
+                        <AltArrowRightIcon
+                            aria-hidden="true"
+                            className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-foreground"
+                        />
+                    </Link>
+                )
+            })}
+        </PageColumn>
+    )
+}
+
 function ProjectSelectionShell() {
     const global = useDashboardGlobal()
     const [createProjectOpen, setCreateProjectOpen] = useState(false)
@@ -515,7 +671,6 @@ function ProjectSelectionShell() {
         global.selectedWorkspaceId === null
             ? global.projects
             : global.projects.filter(project => project.workspaceId === global.selectedWorkspaceId)
-    const hasProjects = projects.length > 0
 
     return (
         <ProjectRealtimeProvider projectId={null}>
@@ -536,6 +691,7 @@ function ProjectSelectionShell() {
                 <main className="min-w-0 px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
                     <div className="w-full">
                         <DashboardPageHeader
+                            column="management"
                             action={
                                 <Button onClick={() => setCreateProjectOpen(true)} type="button">
                                     <AddIcon aria-hidden="true" />
@@ -545,46 +701,7 @@ function ProjectSelectionShell() {
                             description={m.dashboard_select_project_description()}
                             title={m.nav_projects()}
                         />
-                        {hasProjects ? (
-                            <PageColumn className="grid gap-2 sm:grid-cols-2" variant="management">
-                                {projects.map(project => (
-                                    <Link
-                                        className="group flex items-center justify-between gap-4 rounded-md bg-muted px-4 py-3 shadow-surface transition-[background-color,transform] hover:-translate-y-px hover:bg-muted/75"
-                                        key={project.id}
-                                        params={{ projectId: project.id }}
-                                        to="/dashboard/projects/$projectId/overview">
-                                        <span className="flex min-w-0 items-center gap-3">
-                                            <ResourceAvatar
-                                                kind="project"
-                                                name={project.name}
-                                                seed={project.id}
-                                                size="lg"
-                                            />
-                                            <span className="min-w-0">
-                                                <span className="block truncate text-sm font-medium">
-                                                    {project.name}
-                                                </span>
-                                                <span className="mt-1 block text-xs text-muted-foreground">
-                                                    {project.timeZone}
-                                                </span>
-                                            </span>
-                                        </span>
-                                        <AltArrowRightIcon
-                                            aria-hidden="true"
-                                            className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-foreground"
-                                        />
-                                    </Link>
-                                ))}
-                            </PageColumn>
-                        ) : (
-                            <EmptyState
-                                className="mt-4 w-full"
-                                description={m.overview_create_first_project_description()}
-                                illustration="data"
-                                layout="compact"
-                                title={m.overview_no_projects()}
-                            />
-                        )}
+                        <ProjectDirectoryList projects={projects} />
                         <ProjectCreationDialog
                             id="project-selection-new-project"
                             name={global.projectName}

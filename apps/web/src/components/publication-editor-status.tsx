@@ -1,4 +1,5 @@
 import { Button } from '@postdot/ui/components/button'
+import { Tooltip, TooltipTrigger, TooltipContent } from '@postdot/ui/components/tooltip'
 import { cn } from '@postdot/ui/lib/utils'
 import { DangerTriangleIcon } from '@solar-icons/react/linear/danger-triangle'
 import { InfoCircleIcon } from '@solar-icons/react/linear/info-circle'
@@ -46,10 +47,8 @@ export function PublicationEditorStatus({
                     data-publication-editor-message="true"
                     role={needsAttention ? 'alert' : 'status'}
                     className={cn(
-                        'mt-4 flex min-w-0 flex-wrap items-start gap-2.5 rounded-md px-3 py-2.5 text-sm',
-                        needsAttention
-                            ? 'bg-state-failed/10 text-state-failed shadow-surface'
-                            : 'bg-surface-inset/35 text-muted-foreground'
+                        'mt-4 flex min-w-0 flex-wrap items-start gap-2.5 rounded-lg border border-border bg-surface-raised px-3 py-2.5 text-sm',
+                        needsAttention ? 'text-state-failed' : 'text-muted-foreground'
                     )}>
                     {needsAttention ? (
                         <DangerTriangleIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
@@ -69,7 +68,7 @@ export function PublicationEditorStatus({
                     ) : null}
                     {saveState === 'conflict' ? (
                         <Button size="sm" variant="secondary" onClick={onReviewConflict}>
-                            {m.editor_sidebar_reconcile_title()}
+                            {m.editor_review_conflict()}
                         </Button>
                     ) : null}
                 </div>
@@ -80,19 +79,20 @@ export function PublicationEditorStatus({
 
 export function PublicationEditorSaveIndicator({
     state,
-    revision,
-    showRevision = true,
+    pendingApply = false,
     compactOnMobile = false,
 }: {
     readonly state: PublicationEditorSaveState
-    readonly revision: number
-    readonly showRevision?: boolean
+    /** The edits are kept but not yet applied to what will be published (audit D2). */
+    readonly pendingApply?: boolean
     readonly compactOnMobile?: boolean
 }) {
     useLanguage()
     const label =
         state === 'saved'
-            ? m.editor_saved()
+            ? pendingApply
+                ? m.editor_draft_kept()
+                : m.editor_saved()
             : state === 'saving'
               ? m.editor_saving()
               : state === 'rebasing'
@@ -104,15 +104,23 @@ export function PublicationEditorSaveIndicator({
                     : m.editor_save_failed()
 
     return (
-        <div
-            aria-label={label}
-            className="flex items-center gap-2 text-xs font-medium text-muted-foreground"
-            role="status"
-            title={label}>
-            <span className={compactOnMobile ? 'max-w-28 truncate sm:max-w-none' : undefined}>
-                {label}
-                {showRevision ? ` · ${m.editor_draft_revision({ revision })}` : null}
-            </span>
-        </div>
+        <Tooltip>
+            <TooltipTrigger
+                render={
+                    <div
+                        aria-label={label}
+                        className="flex items-center gap-2 text-xs font-medium text-muted-foreground"
+                        role="status">
+                        <span
+                            className={
+                                compactOnMobile ? 'max-w-28 truncate sm:max-w-none' : undefined
+                            }>
+                            {label}
+                        </span>
+                    </div>
+                }
+            />
+            <TooltipContent>{label}</TooltipContent>
+        </Tooltip>
     )
 }

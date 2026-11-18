@@ -182,6 +182,21 @@ export interface SavePostSourceInput {
     readonly sourceContent: SourceContent
 }
 
+export interface SavePostCompositionInput {
+    readonly projectId: string
+    readonly postId: string
+    readonly subjectId: string
+    readonly expectedSourceRevision: number
+    readonly sourceContent?: SourceContent
+    readonly publications: readonly {
+        readonly publicationId: string
+        readonly expectedRevision: number
+        readonly targetContent?: TargetContent
+        readonly deliveryMode?: DeliveryMode
+        readonly scheduledAt?: Timestamp | null
+    }[]
+}
+
 export interface SavePublicationDraftInput {
     readonly projectId: string
     readonly publicationId: string
@@ -228,6 +243,7 @@ export interface PromotePublicationDraftInput {
 }
 
 export interface ReschedulePublicationsInput {
+    readonly scheduledTimes?: Readonly<Record<string, Timestamp>>
     readonly cadenceConfirmation?: string
     readonly projectId: string
     readonly publicationIds: readonly string[]
@@ -247,6 +263,16 @@ export interface PublishManualPublicationInput {
     readonly subjectId: string
     readonly externalId?: string
     readonly externalUrl?: string
+}
+
+/**
+ * Undoes a person's "mark published" on a manual publication. Nothing was sent by Postdot,
+ * so the record alone is withdrawn and the publication is again one to publish by hand.
+ */
+export interface UndoManualPublicationInput {
+    readonly projectId: string
+    readonly publicationId: string
+    readonly subjectId: string
 }
 
 export interface ReconcileAmbiguousPublicationInput {
@@ -332,6 +358,7 @@ export interface PublicationSummary extends Publication {
     readonly lastEditedAt: number
     readonly channelName: string
     readonly draftRevision: number
+    readonly draftSourceRevision: number
     readonly draftReviewState: PublicationReviewState
     readonly draftDiffersFromTarget: boolean
     readonly tagIds: readonly string[]
@@ -399,6 +426,9 @@ export function createManualStore(database: DatabaseHandle, options: ManualStore
                channels.state,
                channels.archived_at as archivedAt,
                channels.revision,
+               channels.website_url as websiteUrl,
+               channels.image_url as imageUrl,
+               channels.image_source as imageSource,
                channels.created_at as createdAt,
                channels.updated_at as updatedAt,
                publishers.id as publisherId,
@@ -802,6 +832,10 @@ export function createManualStore(database: DatabaseHandle, options: ManualStore
     })
 
     const publicationAuthoringStore = createPublicationAuthoringStore(database, {
+        savePostSource: input => publicationCreationStore.savePostSource(input),
+        getPost: (projectId, postId, subjectId) =>
+            publicationCreationStore.getPost(projectId, postId, subjectId),
+        reschedulePublications: input => publicationSchedulingStore.reschedulePublications(input),
         now,
         createId,
         profileCompiler,

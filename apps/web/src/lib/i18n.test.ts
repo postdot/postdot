@@ -16,9 +16,9 @@ describe('web localization foundation', () => {
         const spanishMenuLabel = String(m.language_menu_label({}, { locale: 'es' }))
         const germanMenuLabel = String(m.language_menu_label({}, { locale: 'de' }))
 
-        const frenchLanguage = String(m.language_french({}, { locale: 'fr' }))
-        const spanishLanguage = String(m.language_spanish({}, { locale: 'es' }))
-        const germanLanguage = String(m.language_german({}, { locale: 'de' }))
+        const frenchLanguage = 'Français'
+        const spanishLanguage = 'Español'
+        const germanLanguage = 'Deutsch'
 
         const frenchSwitchLabel = String(
             m.language_switch_to({ language: frenchLanguage }, { locale: 'fr' })

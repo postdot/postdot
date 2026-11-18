@@ -170,35 +170,26 @@ for (const [locale, copy, theme] of [
         await capture(page, 'recovery-read-unavailable')
         await page.unroute(matcher)
         await recovery.getByRole('button', { name: copy.common_retry }).click()
-        const restore = recovery.getByRole('button', {
-            name: copy.publication_new_recovery_restore,
-            exact: true,
-        })
-        await expect(restore).toBeEnabled()
+        // ADR-103 §6: once readable, the draft comes back without a question.
+        const restoredNotice = page.locator('[data-new-publication-restored]')
+        await expect(restoredNotice).toBeVisible()
+        await expect(editor).toContainText(before.content.postContent)
         await page.route(matcher, route =>
             route.request().method() === 'DELETE' ? route.fulfill(unavailable) : route.continue()
         )
-        await recovery
-            .getByRole('button', { name: copy.publication_new_recovery_discard, exact: true })
+        await restoredNotice
+            .getByRole('button', { name: copy.publication_new_recovery_start_over, exact: true })
             .click()
-        await expect(recovery.getByRole('alert')).toBeVisible()
+        await expect(restoredNotice.getByRole('alert')).toBeVisible()
         expect((await (await page.request.get(endpoint)).json()).draft).toEqual(before)
         await capture(page, 'discard-refused')
         await page.unroute(matcher)
-        const restored = nextSave(page)
-        await restore.click()
-        await restored
 
         const other = await context.newPage()
         await other.goto(path)
-        const otherRestored = nextSave(other)
-        await other
-            .locator('[data-new-publication-recovery]')
-            .getByRole('button', { name: copy.publication_new_recovery_restore, exact: true })
-            .click()
-        await otherRestored
+        await expect(other.locator('[data-new-publication-restored]')).toBeVisible()
         async function selectTag(tab: Page, name: string) {
-            await tab.getByRole('button', { name: copy.taxonomy_select_tags, exact: true }).click()
+            await tab.getByRole('button', { name: copy.taxonomy_add_tag, exact: true }).click()
             await tab.getByRole('menuitemcheckbox', { name, exact: true }).click()
             await tab.keyboard.press('Escape')
         }

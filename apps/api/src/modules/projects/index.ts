@@ -6,6 +6,7 @@ import type {
     AnalyticsStore,
     AccessStore,
     EventJournalStore,
+    IdentityImageStore,
     MediaAssetStore,
     NotificationStore,
     ProviderAnalyticsStore,
@@ -29,6 +30,8 @@ import { createUserApiKeyAuthenticator } from '../access/user-api-key-authentica
 import { registerWorkspaceRoutes } from '../access/workspace-routes'
 import type { EmailSettingsService } from '../email/settings'
 import { registerEmailSettingsRoutes } from '../email/settings-routes'
+import type { IdentityImageResolver } from '../identity-images/resolver'
+import { registerIdentityImageRoutes } from '../identity-images/routes'
 import { registerMediaRoutes } from '../media/routes'
 import type { MediaUrlImporter } from '../media/url-import'
 import { registerProviderApplicationRoutes } from '../publishers/application-config-routes'
@@ -75,6 +78,8 @@ export interface ProjectModuleOptions {
     readonly auth: PostdotAuth
     readonly manualStore: ManualStore
     readonly publisher: PublisherRuntime
+    readonly identityImages: IdentityImageStore
+    readonly identityImageResolver: IdentityImageResolver
     readonly media?: MediaAssetStore
     readonly mediaUrlImporter?: MediaUrlImporter
     readonly logger?: Logger
@@ -243,6 +248,7 @@ export function createProjectModule(options: ProjectModuleOptions) {
     })
     const postRoutes = registerPostRoutes(publisherRoutes, options.manualStore, options.access, {
         onWorkScheduled: options.onWorkScheduled,
+        projectChanges: options.projectChanges,
     })
     const publicationRoutes = registerPublicationRoutes(
         postRoutes,
@@ -256,8 +262,14 @@ export function createProjectModule(options: ProjectModuleOptions) {
     const mediaRoutes = registerMediaRoutes(publicationRoutes, options.media, options.access, {
         urlImporter: options.mediaUrlImporter,
     })
+    const identityImageRoutes = registerIdentityImageRoutes(mediaRoutes, {
+        identityImages: options.identityImages,
+        resolver: options.identityImageResolver,
+        manualStore: options.manualStore,
+        access: options.access,
+    })
     const notificationRoutes = registerNotificationRoutes(
-        mediaRoutes,
+        identityImageRoutes,
         options.notifications,
         options.emailAlerts
     )

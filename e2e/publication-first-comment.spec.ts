@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 
 import { expect, test } from '@playwright/test'
 
-import { frenchTranslation } from './locale'
+import { frenchTranslation, openLanguageMenu } from './locale'
 
 for (const provider of ['bluesky', 'mastodon'] as const) {
     test(`${provider}: explicitly enables one first comment, retains local edits across a concurrent change and cancels without publishing`, async ({
@@ -98,8 +98,8 @@ for (const provider of ['bluesky', 'mastodon'] as const) {
             animations: 'disabled',
         })
         await page.setViewportSize({ width: 390, height: 844 })
-        await page.getByRole('button', { name: 'Language', exact: true }).click()
-        await page.getByRole('menuitem', { name: 'French', exact: true }).click()
+        await openLanguageMenu(page)
+        await page.getByRole('menuitem', { name: 'Français', exact: true }).click()
         await expect(
             section.getByRole('textbox', {
                 name: frenchTranslation('first_comment_text_label'),

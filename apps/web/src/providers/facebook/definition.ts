@@ -22,5 +22,5 @@ export const facebookProvider = {
                 connection.externalAccountName ??
                 connection.externalAccountId,
         }),
-    preview: { layout: 'social', accountDriven: true, sampleIdentity: false, Footer },
+    preview: { layout: 'social', accountDriven: true, Footer },
 } as const satisfies ProviderDefinition

@@ -78,10 +78,31 @@ counts; creating unscheduled drafts does not.
     credentials if a transcript is shared.
 </Callout>
 
+## Project, workspace and channel images
+
+For each scope, use `set_project_website`, `upload_project_image`,
+`import_project_image_url`, `use_project_website_icon`, or `remove_project_image`.
+Replace `project` with `workspace` or `project_channel` for the other scopes.
+Pass `projectId`, `workspaceId`, or both `projectId` and `channelId` respectively.
+
+`set_*_website` accepts `websiteUrl` (or `null` to clear it). `import_*_image_url`
+accepts `url`. Upload tools accept `base64`: the image's bytes encoded as base64,
+without a data URL prefix. The decoded file limit is 2 MB. PNG, JPEG, WebP, GIF
+and ICO inputs become a stored square WebP at most 256 pixels wide. The server
+copies remote images and checks its outbound network policy at every redirect.
+
+Channel tools accept `expectedRevision` and require live channel management.
+Project, workspace and channel mutations map to `project:manage`,
+`workspace:manage` and `channel:manage`. Workspace image tools require
+`confirm: true`; project-scoped keys cannot use them. A saved upload or imported
+image takes precedence over an automatically resolved website icon. Removing an
+image keeps the website and restores the monogram.
+
 ## What is not offered
 
-- Files cannot be sent through MCP. Import media from a public URL, or upload it
-  in Studio or with the [CLI](/docs/cli-reference/).
+- Publication media files cannot be sent through MCP. Import media from a public
+  URL, or upload it in Studio or with the [CLI](/docs/cli-reference/). Identity
+  images support bounded base64 uploads as described below.
 - Interactive third-party OAuth browser connections (such as LinkedIn, Bluesky, X,
   Facebook, Instagram, or Mastodon) stay in Studio. MCP can configure runtime
   OAuth application credentials (`create_provider_application_configuration`) and

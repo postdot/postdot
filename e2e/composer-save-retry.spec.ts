@@ -157,9 +157,9 @@ for (const [locale, copy, theme] of [
             expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([])
             await page.screenshot({ path: info.outputPath(`creation-error-${width}.png`) })
         }
-        // Reopening must offer recovery of the composition whose retry succeeded.
+        // Reopening restores the composition whose retry succeeded (ADR-103 §6).
         await page.reload()
-        await expect(page.locator('[data-new-publication-recovery]')).toBeVisible()
+        await expect(page.locator('[data-new-publication-restored]')).toBeVisible()
         expect(writes).toBe(3)
         expect(creations).toBe(1)
     })

@@ -7,11 +7,9 @@ test('an owner can invite, update, and remove project members', async ({ page })
 
     const suffix = randomUUID().slice(0, 8)
     const owner = await createAccountAndProject(page, suffix)
-    await page.goto(`/dashboard/projects/${owner.projectId}/invitations`)
+    await page.goto(`/dashboard/projects/${owner.projectId}/access`)
 
-    await expect(
-        page.getByRole('heading', { name: 'Project invitations', exact: true }).first()
-    ).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'People', exact: true, level: 1 })).toBeVisible()
     await expect(
         page.getByRole('heading', { name: 'Pending invitations', exact: true })
     ).toHaveCount(0)
@@ -27,6 +25,7 @@ test('an owner can invite, update, and remove project members', async ({ page })
     const memberEmail = `e2e-134-member-${suffix}@postdot.local`
 
     try {
+        await page.getByRole('button', { name: 'Invite', exact: true }).click()
         await page.getByLabel('Email', { exact: true }).fill(memberEmail)
         await page.getByRole('button', { name: 'Invite', exact: true }).click()
         await expect(page.getByText(`Invitation for ${memberEmail}`, { exact: true })).toBeVisible()
@@ -43,7 +42,8 @@ test('an owner can invite, update, and remove project members', async ({ page })
         if (initialInvitationLink === null)
             throw new Error('The project invitation link was not rendered')
 
-        await page.getByRole('button', { name: `Resend ${memberEmail}`, exact: true }).click()
+        await page.getByRole('button', { name: `Actions for ${memberEmail}`, exact: true }).click()
+        await page.getByRole('menuitem', { name: 'Resend', exact: true }).click()
         await expect(page.getByText('Invitation resent.', { exact: true })).toBeVisible()
         const invitationLink = await page
             .locator('code')
@@ -90,13 +90,14 @@ test('an owner can invite, update, and remove project members', async ({ page })
         await page.goto(`/dashboard/projects/${owner.projectId}/access`)
         await page.reload()
         await expect(page.getByText(memberEmail, { exact: true }).first()).toBeVisible()
-        const memberRole = page.getByRole('combobox', { name: `Role for ${memberEmail}` })
-        await expect(memberRole).toHaveText('Editor')
-        await memberRole.click()
-        await page.getByRole('option', { name: 'Viewer', exact: true }).click()
-        await expect(memberRole).toHaveText('Viewer')
-
-        await page.getByRole('button', { name: /^Remove E2E-134 member/ }).click()
+        await expect(page.getByText(memberEmail, { exact: true })).toHaveCount(1)
+        const row = page.getByRole('listitem').filter({ hasText: memberEmail })
+        await expect(row.getByText('Editor', { exact: true })).toBeVisible()
+        await row.getByRole('button', { name: /^Actions for/ }).click()
+        await page.getByRole('menuitem', { name: 'Change role to Viewer', exact: true }).click()
+        await expect(row.getByText('Viewer', { exact: true })).toBeVisible()
+        await row.getByRole('button', { name: /^Actions for/ }).click()
+        await page.getByRole('menuitem', { name: 'Remove access', exact: true }).click()
         await expect(
             page.getByRole('heading', { name: 'Remove this member?', exact: true })
         ).toBeVisible()
@@ -126,13 +127,11 @@ async function createAccountAndProject(page: Page, suffix: string) {
 
     await page.getByRole('combobox', { name: 'Select project', exact: true }).click()
     await page.getByRole('button', { name: 'Create project', exact: true }).last().click()
-    await page
-        .getByRole('textbox', { name: 'New project', exact: true })
-        .fill(`E2E-134 project ${suffix}`)
+    await page.getByRole('textbox', { name: 'Name', exact: true }).fill(`E2E-134 project ${suffix}`)
     await page
         .locator('form')
-        .filter({ has: page.getByRole('textbox', { name: 'New project', exact: true }) })
-        .getByRole('button', { name: 'Add project', exact: true })
+        .filter({ has: page.getByRole('textbox', { name: 'Name', exact: true }) })
+        .getByRole('button', { name: 'Create project', exact: true })
         .click()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/overview$/)
 

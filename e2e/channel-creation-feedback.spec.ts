@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto'
 import { expect, test, type Page } from '@playwright/test'
 
 import en from '../apps/web/messages/en.json' with { type: 'json' }
-import { frenchTranslation } from './locale'
+import { frenchTranslation, openLanguageMenu } from './locale'
 
 test('refuses malformed custom channel definitions and derives fingerprints on the server', async ({
     page,
@@ -119,13 +119,13 @@ test('projects custom channel definition errors in the creation dialog', async (
     await dialog.getByRole('textbox', { name: en.channel_name, exact: true }).fill('UX332 probe')
     await dialog.getByRole('button', { name: en.builder_configure_channel, exact: true }).click()
     const body = dialog.getByRole('group', { name: 'Body', exact: true })
-    const maximum = body.getByLabel('Maximum characters', { exact: true })
-    await expect(maximum).toHaveValue('1000000')
+    const maximum = body.getByLabel('Maximum length', { exact: true })
+    await expect(maximum).toHaveValue('1,000,000')
 
     await dialog.getByRole('button', { name: en.channel_create_button, exact: true }).click()
     const alert = dialog.getByRole('alert')
     await expect(alert).toContainText(en.profile_definition_invalid)
-    await expect(alert).toContainText('/capabilities/textFields/0/bindingId')
+    await expect(alert).not.toContainText('/capabilities/textFields/0/bindingId')
     await expect(alert).toContainText(en.profile_issue_binding)
     await expect(alert).not.toContainText('FAKE_SENTINEL')
     // Definition errors stay inside the dialog: no second, generic page banner.
@@ -150,7 +150,7 @@ test('projects custom channel definition errors in the creation dialog', async (
 
     // The same refusal is cleared by editing the definition.
     await dialog.getByRole('button', { name: en.builder_configure_channel, exact: true }).click()
-    await expect(maximum).toHaveValue('1000000')
+    await expect(maximum).toHaveValue('1,000,000')
     await dialog.getByRole('button', { name: en.channel_create_button, exact: true }).click()
     await expect(alert).toContainText(en.profile_definition_invalid)
     await maximum.fill('900')
@@ -160,8 +160,8 @@ test('projects custom channel definition errors in the creation dialog', async (
     await page.setViewportSize({ width: 390, height: 844 })
     await dialog.getByRole('button', { name: en.common_cancel, exact: true }).click()
     await expect(dialog).toHaveCount(0)
-    await page.locator('[data-slot="language-switcher-trigger"]').click()
-    await page.getByRole('menuitem', { name: 'French', exact: true }).click()
+    await openLanguageMenu(page)
+    await page.getByRole('menuitem', { name: 'Français', exact: true }).click()
     await page.getByRole('button', { name: frenchTranslation('channel_add'), exact: true }).click()
     const frenchDialog = page.getByRole('dialog')
     await frenchDialog
@@ -178,7 +178,7 @@ test('projects custom channel definition errors in the creation dialog', async (
         .click()
     const frenchAlert = frenchDialog.getByRole('alert')
     await expect(frenchAlert).toContainText(frenchTranslation('profile_definition_invalid'))
-    await expect(frenchAlert).toContainText('/capabilities/textFields/0/bindingId')
+    await expect(frenchAlert).not.toContainText('/capabilities/textFields/0/bindingId')
     await expect(frenchAlert).toContainText(frenchTranslation('profile_issue_binding'))
     await expect(frenchAlert).not.toContainText('FAKE_SENTINEL')
     expect(await count()).toBe(before)
@@ -243,13 +243,11 @@ async function createAccountAndProject(page: Page, suffix: string): Promise<stri
 
     await page.getByRole('combobox', { name: 'Select project', exact: true }).click()
     await page.getByRole('button', { name: 'Create project', exact: true }).last().click()
-    await page
-        .getByRole('textbox', { name: 'New project', exact: true })
-        .fill(`E2E-332 project ${suffix}`)
+    await page.getByRole('textbox', { name: 'Name', exact: true }).fill(`E2E-332 project ${suffix}`)
     await page
         .locator('form')
-        .filter({ has: page.getByRole('textbox', { name: 'New project', exact: true }) })
-        .getByRole('button', { name: 'Add project', exact: true })
+        .filter({ has: page.getByRole('textbox', { name: 'Name', exact: true }) })
+        .getByRole('button', { name: 'Create project', exact: true })
         .click()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/overview$/)
     return new URL(page.url()).pathname.split('/')[3]!

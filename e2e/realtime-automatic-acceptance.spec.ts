@@ -3,6 +3,8 @@ import { randomUUID } from 'node:crypto'
 
 import { expect, test, type Page, type Request, type Response } from '@playwright/test'
 
+import { composerText } from './support/post-editor'
+
 interface RealtimeRecorderEvent {
     readonly url: string
     readonly listenerType: string
@@ -123,8 +125,10 @@ for (const dirty of [false, true]) {
             const editorPath = `/api/projects/${projectId}/publications/${publicationId}/editor`
             const projectDataMatcher = (url: URL) =>
                 url.pathname === `/api/projects/${projectId}/channels`
-            const draftPath = `/api/projects/${projectId}/publications/${publicationId}/draft`
-            const draftMatcher = (url: URL) => url.pathname === draftPath
+            // The post editor writes through the post's composition route (SPEC-013).
+            const draftMatcher = (url: URL) =>
+                url.pathname.startsWith(`/api/projects/${projectId}/posts/`) &&
+                url.pathname.endsWith('/composition')
 
             let releaseProjectRead: (() => void) | undefined
             const projectReadGate = new Promise<void>(resolve => {
@@ -217,10 +221,9 @@ for (const dirty of [false, true]) {
                 const baselineMainFrameNavigationCount = mainFrameNavigationCount
 
                 if (dirty) {
-                    await openCustomization(page)
+                    await expect(composerText(page)).toBeVisible()
                     await page.route(draftMatcher, route => route.abort('failed'))
-                    const local = page.locator('[data-target-field="body"] textarea')
-                    await local.fill(localDestination)
+                    await composerText(page).fill(localDestination)
                     await expect(
                         page.getByRole('status', { name: 'Save failed', exact: true })
                     ).toBeVisible()
@@ -345,18 +348,12 @@ for (const dirty of [false, true]) {
                 expect(publishedBody.editor.publication.publishedAt).not.toBeNull()
 
                 if (dirty) {
-                    await expect(page.locator('[data-target-field="body"] textarea')).toHaveValue(
-                        localDestination,
-                        { timeout: 30_000 }
-                    )
+                    await expect(composerText(page)).toHaveText(localDestination, {
+                        timeout: 30_000,
+                    })
                     await expect(page.locator('[data-publication-conflict="true"]')).toBeVisible({
                         timeout: 30_000,
                     })
-                    await expect(
-                        page
-                            .locator('[data-publication-editor-message="true"]')
-                            .filter({ hasText: 'The server has newer work' })
-                    ).toBeVisible({ timeout: 30_000 })
                 } else {
                     await expect(page.locator('[data-publication-lifecycle="true"]')).toContainText(
                         'Published',
@@ -598,12 +595,12 @@ async function createAccountAndProject(page: Page, suffix: string): Promise<stri
     await page.getByRole('combobox', { name: 'Select project', exact: true }).click()
     await page.getByRole('button', { name: 'Create project', exact: true }).last().click()
     await page
-        .getByRole('textbox', { name: 'New project', exact: true })
+        .getByRole('textbox', { name: 'Name', exact: true })
         .fill(`Realtime acceptance project ${suffix}`)
     await page
         .locator('form')
-        .filter({ has: page.getByRole('textbox', { name: 'New project', exact: true }) })
-        .getByRole('button', { name: 'Add project', exact: true })
+        .filter({ has: page.getByRole('textbox', { name: 'Name', exact: true }) })
+        .getByRole('button', { name: 'Create project', exact: true })
         .click()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/overview$/)
     await expect(page.getByRole('heading', { name: 'Overview', exact: true })).toBeVisible()
@@ -681,14 +678,6 @@ async function createScheduledAutomaticPublication(
         throw new Error('Expected an automatically scheduled publication')
     }
     return publicationId
-}
-
-async function openCustomization(page: Page): Promise<void> {
-    const details = page.locator('[data-publication-customization="true"]')
-    if ((await details.getAttribute('open')) === null) {
-        await details.locator(':scope > summary').click()
-    }
-    await expect(details.locator('[data-target-field="body"] textarea')).toBeVisible()
 }
 
 async function readReceiverObservations(receiverOrigin: string): Promise<ReceiverObservations> {

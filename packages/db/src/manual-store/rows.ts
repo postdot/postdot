@@ -3,6 +3,7 @@ import type {
     ChannelProfileDefinition,
     ChannelProfileVersionState,
     DeliveryMode,
+    IdentityImageSource,
     Publication,
     PublicationReviewState,
     MediaRepresentation,
@@ -15,6 +16,9 @@ export interface ProjectRow {
     readonly timeZone: string
     readonly workspaceId: string | null
     readonly primaryCategoryId: string | null
+    readonly websiteUrl?: string | null
+    readonly imageUrl?: string | null
+    readonly imageSource?: IdentityImageSource | null
     readonly createdAt: number
     readonly updatedAt: number
 }
@@ -38,6 +42,9 @@ export interface ChannelRow {
     readonly state: 'active' | 'archived'
     readonly archivedAt: number | null
     readonly revision: number
+    readonly websiteUrl?: string | null
+    readonly imageUrl?: string | null
+    readonly imageSource?: IdentityImageSource | null
     readonly createdAt: number
     readonly updatedAt: number
 }

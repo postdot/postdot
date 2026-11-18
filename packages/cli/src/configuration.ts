@@ -276,7 +276,7 @@ function edit<T>(
 export function addProfile(options: ConfigurationOptions, profile: Profile) {
     if (!/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$/.test(profile.name))
         throw new CliError(
-            'Use a profile name of 1–64 letters, digits, underscores or hyphens.',
+            'Use a profile name of 1 to 64 letters, digits, underscores or hyphens.',
             'invalid_input',
             2
         )

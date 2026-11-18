@@ -4,12 +4,40 @@ Status: accepted
 Scope: product-wide visual direction for the authenticated app and future
 public/documentation surfaces
 Owner: project owner
-Last accepted: 2026-10-13
+Last accepted: 2026-11-14 (experience principles); 2026-10-13 (visual foundations)
 
 This contract records the direction accepted after the H-06, H-08, H-09, and
 H-10 disposable calibration studies. It is a product direction, not a promise
 that every surface uses the same composition. Unresolved product decisions and
 future landing-page decisions remain explicit below.
+
+## Experience principles (2026-11-14)
+
+[ADR-103](.autonomos/decisions/ADR-103-studio-experience-principles.md) outranks
+every composition, vocabulary and interaction rule below. It followed a rendered
+audit (`.autonomos/reviews/2026-11-14-studio-experience-audit.md`) that the owner
+accepted in full. Read it before changing any surface. In short:
+
+- Speak the user's language: Post, Channel, Channel version, Content rules,
+  Draft / Scheduled / Published / Failed / Needs attention. Never show target,
+  payload, contract, profile, promotion, revision or schema, and never show or
+  accept JSON anywhere: Studio is no-code, forms express the complexity.
+- One page anatomy: left-aligned title with its action on the same row; no
+  return control on a sidebar destination; title equals navigation label; one
+  empty state, one dialog, one status component, one button scale; dialogs dim
+  and never blur.
+- Channel identity (mark, then name) wherever a publication appears; a post is
+  shown once with its channels.
+- One sidebar; settings reachable from visible entries; destructive actions in
+  a danger zone on the object's settings page.
+- Weight follows frequency; destructive is never the most prominent control.
+- Forgiving actions: undo after one-click changes, silent restore, safe defaults.
+- One time format per locale; linear time axes.
+- Previews show the channel's identity and never invent people or engagement.
+
+The visual foundations below (palette, type, geometry, surface roles) stand.
+Where a later paragraph of this file disagrees with ADR-103, ADR-103 wins and
+the paragraph is to be corrected, not followed.
 
 ## Current visual foundations (2026-10-13)
 
@@ -102,10 +130,9 @@ below. It changes styling of existing surfaces, not page layouts or workflows.
   review. Operational sections default to one clear title with compact
   metadata or an action; an overline, icon, and explanatory paragraph are
   optional content, not a heading formula.
-  When a project page has a return control, place it at the left and center
-  the page title independently of the optional action at the right. At narrow
-  widths, keep the return and action controls on one row and give the centered
-  title its own row so controls cannot compress it.
+  The page title is left-aligned with its action at the right of the same
+  row. Sidebar destinations have no return control; an object page (post,
+  publication) has one above its title that names the parent (ADR-103 §2).
 - Configuration composition: use the compact centered content column established
   by General and Account for personal and installation settings. Keep the shared
   page heading independent of that body width. A wider body needs a concrete
@@ -134,25 +161,24 @@ below. It changes styling of existing surfaces, not page layouts or workflows.
   keep their publication scope; one group link opens the complete shared post.
   The view is URL-addressable and changing it preserves the current selection.
   The explicit Queue link to `/dashboard/projects/:projectId/posts/:postId`
-  inspects the current shared source and all its destination publications. Post
-  inspection retains Queue as its navigation context; individual publication
-  links keep their editing and execution-inspection jobs. Source review is an
-  explicit per-destination draft action, separate from publication or scheduling.
-  The post page also owns explicit shared-source saving, independently of any
-  destination lifecycle. Editing preserves historical targets and leaves destination
-  adaptations unchanged; unsaved source work is not used for review or addition.
+  opens the post editor (SPEC-013) on its "All channels" tab; a publication link
+  opens the same editor on that channel's tab. Both keep Queue as their navigation
+  context. Source review is an explicit per-channel action, separate from
+  publication or scheduling. Editing preserves historical targets and leaves
+  channels with their own text unchanged.
 - Calendar planning contract (provisional): show one Monday-first month at a
   time on desktop and tablet, with previous/next/today controls. Scheduled
-  publications are grouped by their local date and link to the existing
-  project publication editor; unscheduled work remains explicit outside the
+  publications are grouped by their local date and link to the post
+  editor on that channel's tab; unscheduled work remains explicit outside the
   date grid. On narrow screens, replace the compressed seven-column grid with
   an agenda grouped by day. Manual and automatic destinations share the same
   calendar, while delivery state and due-human work remain visible as state.
-  In the experimental interaction model, an event opens an in-context
-  publication preview, the day add control is the create entry point, and a
-  day background or overflow affordance expands the selected cell and its week
-  row to reveal the complete date context in the calendar itself rather than
-  silently creating, opening a drawer, or nesting another inspection step.
+  An event opens an anchored preview (channel, time, state, excerpt and the
+  next actions), the day add control is the create entry point, and overflow
+  opens a popover anchored to the day listing every publication. The grid
+  itself never changes size: rows keep a stable height that fills the viewport
+  (ADR-103 §2, §7). Events carry their channel mark and time; a post going to
+  several channels at once is drawn once with its channel marks (ADR-103 §3).
   Month and agenda are distinct reading
   modes: month scans distribution, while agenda reads ordered work. The exact
   responsive transition remains provisional until it is reviewed with dense
@@ -166,8 +192,11 @@ below. It changes styling of existing surfaces, not page layouts or workflows.
   current manual work or an upcoming scheduled publication; the entire summary
   stays hidden when neither exists. Its calendar remains the primary surface.
   Compose creates and reviews one source fan-out; Queue prioritizes lifecycle
-  and human-action work; Channels manages destination identity and connection
-  readiness; Media manages reusable verified assets. These surfaces must not
+  and human-action work; Channels manages channel identity and connection
+  readiness on one list surface, where each row states its platform or
+  account, one status word (`StatusText`) and its single next action (connect,
+  reconnect, or set up the platform for an administrator); Media manages
+  reusable verified assets. These surfaces must not
   converge into interchangeable publication-empty dashboards.
 - Composer interaction contract: `Publish to` controls only destination
   inclusion; a separate editor scope chooses shared or channel-specific copy.
@@ -185,10 +214,10 @@ below. It changes styling of existing surfaces, not page layouts or workflows.
   and scheduled creation open the shared post page, with every created destination
   reachable through its own publication link. Refused creation stays in Compose
   with the working content preserved.
-  When an interrupted composition blocks new editing pending a recovery choice,
-  present a modal decision with a draft excerpt and explicit restore/discard
-  actions. The background stays inert; dismissal must not silently choose an
-  outcome. Recovery errors remain visible inside that decision surface.
+  An interrupted composition is restored silently when the composer reopens,
+  with a visible `Start over` action; a blocking question is reserved for a
+  genuine conflict between two versions (ADR-103 §6). Recovery errors remain
+  visible beside the editor.
 - Publication detail candidate (UX-250, pending owner review): editing and
   inspection should have different first frames. An editable publication keeps
   source controls beside the destination preview; a locked publication leads
@@ -341,9 +370,10 @@ building it; the current app contract must not silently decide those choices.
 
 ## Content and state contract
 
-- Vocabulary and voice: direct English operational language. Prefer `Post`,
-  `Publication`, `Channel`, `Source`, `Destination`, `Queued`, `Draft`,
-  `Published`, and `Needs attention` over invented marketing labels.
+- Vocabulary and voice: direct operational language in the ADR-103 glossary:
+  `Post`, `Publication`, `Channel`, `Channel version`, `Content rules`,
+  `Draft`, `Scheduled`, `Published`, `Needs attention`. Not `Source`,
+  `Destination`, `Queued` or invented marketing labels.
 - Required content: show the source post, destination channel, publication
   state, schedule, and the next meaningful action wherever the surface's job
   requires them.
@@ -356,6 +386,74 @@ building it; the current app contract must not silently decide those choices.
 - User feedback and destructive actions: show save, recovery, conflict,
   publish, and failure states with explicit status and reversible paths where
   the domain allows them.
+- Surfaces (owner review, 2026-11-15): content that people read or act on
+  (lists, panels, stat groups, settings blocks) sits on `surface-raised` with a
+  1 px `border`, never on an inset fill close to the page colour. A row under
+  the pointer uses `surface-hover`. Fields are white with an `input` border in
+  the light theme.
+- Tabs: underline page tabs (`TabsList variant="line"`) switch what a page
+  shows (queue states, channel scope, Engagement/Publishing, members/groups);
+  a segmented control only switches how the same content is displayed (by
+  post/by channel, month/week). Counts in tabs are plain muted numbers.
+- Attention is a warm orange (`--state-attention`), not gold. Reading sizes
+  are a half step above Tailwind (`text-sm` 14.5 px, `text-xs` 12.5 px);
+  sidebar rows are 36 px with 18 px icons.
+- A selection never reshapes a toolbar: selection actions float at the bottom
+  of the viewport, as on the calendar.
+- Settings pages (owner review, 2026-11-15, after Twenty CRM): build them only
+  from `components/settings-layout.tsx`. A page is a stack of sections; a
+  section is a short heading, at most one sentence of consequence, then a card
+  of rows. A row is an icon, a title, a short description and its control on
+  the right, or a chevron (internal) / arrow (external) when it opens
+  something. Long forms open inside the card below their switch or in a
+  dialog. Reference pages: General, System, Help and community.
+- Patterns to hunt (owner review, 2026-11-15). Each is a defect wherever it
+  appears; fix it with the rule above rather than locally:
+  1. Content on a fill indistinguishable from the page, or a hover nobody can see.
+  2. Two tab styles on one page, or segmented controls used to switch content.
+  3. A compact one-line empty state where the whole page or tab is empty.
+  4. A wall of zeros, disclaimers or technical identity where nothing exists yet.
+  5. A toolbar that changes shape when something is selected (a selection toggle keeps
+     its label and shows only its pressed state; actions float in the selection bar).
+  6. Badges, prefixes, icon boxes or "Active" labels that state nothing new.
+  7. Rows of outline selects as the only filters, or controls shown with nothing to act on.
+  8. Menus whose items mix icons and no icons; a lone icon button among text buttons
+     (a date stepper joins its arrows and `Today` in one bordered control).
+  9. Pages of one area with different widths or header positions.
+  10. Places where people cannot tell where they are (shell, scope, settings).
+- Empty states (audit S12, 2026-11-15): one `EmptyState` component, two
+  contexts. A page whose content is missing uses the default layout: centred,
+  no surface, an illustration when one fits, and an action only when the page
+  header does not already offer it (SPEC-010 JRN-04). A section inside a page
+  uses the compact row with an icon; it never carries an illustration. Callers
+  pick the context; they do not restyle it.
+- Time (audit S13): twelve-hour locales show and accept `1:41 PM`; twenty-four
+  hour locales `13:41`; the current year is implied. Use the helpers in
+  `apps/web/src/lib/date-time.ts`, never a local `Intl` formatter.
+- Filters (owner review, 2026-11-15): a list offers one `Filter` menu and one
+  `Sort` menu, quiet text buttons at the end of its toolbar
+  (`components/filter-controls.tsx`). A facet with fewer than two choices is not
+  offered; a menu with no facet is not shown. Conditions in force appear on
+  their own line under the toolbar, each removable, with `Clear filters` when
+  there are several. A period is not a filter: it keeps its own control. Rows
+  of outline selects are not used to filter.
+- Actions sit with what they act on (owner review, 2026-11-16): on a
+  publication, actions on the publication itself (move, cancel) live in its
+  state line; actions about the post's channels (update channel versions, add
+  a channel) end the channel row as quiet text, as `New channel…` does in the
+  composer; tags close the content column. No free-floating row of mixed
+  outline buttons.
+- Identity images (owner feedback, 2026-11-16): a staged image change always
+  offers `Undo` until it is saved, the row says what saving will do, and the
+  way back to the generated image is named for its result (`Use the default
+  image`), offered only when there is an image to replace.
+- Configuration saves once (audit H4, 2026-11-15): a settings dialog has one
+  `Save`. A preview or impact step appears only when the change affects
+  existing work (for content rules, a publication that would need review), and
+  then as a confirmation of that consequence, never as a mandatory stage.
+  Limits read as sentences with units (`At most _ posts per day`), numbers use
+  the locale's grouping, and every invalid field shows its own message beside
+  it, all at once.
 
 ## Anti-default tests
 
@@ -406,7 +504,9 @@ building it; the current app contract must not silently decide those choices.
   duplicate dismissal affordances, and a second status marker. For the
   project calendar, day inspection must remain in the calendar flow: the
   selected cell grows with its week row and reveals all scheduled publications,
-  while the add control remains the singular create entry point. Mobile
+  while the add control remains the singular create entry point. _Superseded
+  2026-11-14 by ADR-103: the growing cell moved the grid; overflow now opens a
+  popover anchored to the day and the rows keep their height._ Mobile
   density and the final month/agenda transition remain open for the WEB-156
   checkpoint.
 - Owner review note: 2026-09-28 — the owner rejected an action-first Overview
@@ -510,3 +610,22 @@ reuse the New publication writing surface, including its attachment-before-emoji
 toolbar and borderless body. Sharing a field renderer alone does not establish
 visual parity. Any deliberately disabled actions must remain recognizable and
 explain their disabled state.
+
+## State reconciliation
+
+A tool that reconciles state appears only when there is something to reconcile.
+It names what it acts on in the user's words, such as channel versions that still
+use the post's previous content.
+
+## Post text and channel versions (owner review, 2026-11-16; SPEC-013, 2026-11-18)
+
+A post is created and edited in one composer. "All channels" holds the post text; each channel
+tab shows that channel's version, with a quiet line saying whether it shares the post text or
+has its own, and a reset to the post text when it has its own. Typing on "All channels" carries
+every following channel along in the same save; a channel with its own text is left alone.
+Channel-only fields sit in "Content options" under the editor; the channel's state and actions
+sit above it, its outcome, comments and activity below. Changes autosave as pending; one "Save"
+applies them, the editor stays visible but read-only while it applies, and "Discard changes"
+comes with an undo toast. A change made elsewhere is told once, as one conflict card about the
+post, with the local copy kept. A locked channel shows its content once, as the channel shows
+it. Content languages are picked by name; the BCP 47 tag stays out of sight.

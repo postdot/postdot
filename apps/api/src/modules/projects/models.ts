@@ -38,6 +38,12 @@ import {
 } from './persistence-schemas'
 
 export const projectSchema = projectRowSchema
+export const projectListItemSchema = Type.Intersect([
+    projectSchema,
+    Type.Object({
+        upcomingScheduledCount: Type.Integer({ minimum: 0 }),
+    }),
+])
 const taxonomyStateSchema = Type.Union([Type.Literal('active'), Type.Literal('archived')])
 export const projectCategorySchema = Type.Object({
     id: Type.String({ minLength: 1 }),
@@ -576,6 +582,7 @@ export const publicationSummarySchema = Type.Unsafe<PublicationSummary>(
             lastEditedAt: Type.Integer({ minimum: 0 }),
             channelName: Type.String(),
             draftRevision: Type.Integer({ minimum: 1 }),
+            draftSourceRevision: Type.Integer({ minimum: 1 }),
             draftReviewState: Type.Union([
                 Type.Literal('compatible'),
                 Type.Literal('review_required'),
@@ -595,6 +602,7 @@ export const publicationSummaryPageSchema = Type.Object({
         automatic: Type.Integer({ minimum: 0 }),
         scheduled: Type.Integer({ minimum: 0 }),
         draft: Type.Integer({ minimum: 0 }),
+        published: Type.Integer({ minimum: 0 }),
     }),
 })
 
@@ -651,6 +659,7 @@ export const publicationComposerDraftResponseSchema = Type.Object({
 })
 
 export type ProjectResponse = Static<typeof projectSchema>
+export type ProjectListItemResponse = Static<typeof projectListItemSchema>
 export type ChannelListItemResponse = Static<typeof channelListItemSchema>
 export type ChannelResponse = Static<typeof channelSchema>
 export type ChannelProfileVersionResponse = Static<typeof channelProfileVersionSchema>
@@ -716,7 +725,9 @@ export const publicationListQuery = Type.Object({
     ),
     cursor: Type.Optional(Type.String({ minLength: 1, maxLength: 1_024 })),
     limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100 })),
-    state: Type.Optional(Type.Union([Type.Literal('draft'), Type.Literal('scheduled')])),
+    state: Type.Optional(
+        Type.Union([Type.Literal('draft'), Type.Literal('scheduled'), Type.Literal('published')])
+    ),
     sort: Type.Optional(
         Type.Union([
             Type.Literal('queue'),
@@ -902,6 +913,7 @@ export const rejectPublicationRequestBody = Type.Object({
 })
 
 export const reschedulePublicationsBody = Type.Object({
+    scheduledTimes: Type.Optional(Type.Record(Type.String(), Type.Integer({ minimum: 0 }))),
     cadenceConfirmation: Type.Optional(Type.String({ minLength: 64, maxLength: 64 })),
     publicationIds: Type.Array(Type.String({ minLength: 1 }), {
         minItems: 1,

@@ -1,5 +1,6 @@
 import {
     customHttpLimits,
+    type BinaryRequestInit,
     type CustomHttpFetcher,
     type NetworkControlledBinaryFetcher,
     type CustomHttpRequestBody,
@@ -62,7 +63,7 @@ function createControlledRequest(options: NetworkControlledFetcherOptions) {
         'maximum response bytes'
     )
 
-    return async (input: string | URL | Request, init?: RequestInit) => {
+    return async (input: string | URL | Request, init?: BinaryRequestInit) => {
         const request =
             typeof input === 'string' || input instanceof URL
                 ? new Request(input.toString(), init)
@@ -80,7 +81,11 @@ function createControlledRequest(options: NetworkControlledFetcherOptions) {
                 address: endpoint.selectedAddress,
                 headers: Object.fromEntries(request.headers.entries()),
                 body,
-                maxResponseBytes,
+                maxResponseBytes: Math.min(
+                    maxResponseBytes,
+                    init?.maxResponseBytes ?? maxResponseBytes
+                ),
+                responsePrefixLength: init?.responsePrefixLength,
             },
             request.signal
         )

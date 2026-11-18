@@ -98,9 +98,7 @@ export const blueskyProvider = {
         layout: 'social',
         Media: BlueskyLinkMediaPreview,
         accountDriven: true,
-        sampleIdentity: true,
         mosaic: 'spaced',
-        handle: '@alex.example.com',
     },
     comments: {
         countUnit: 'graphemes',

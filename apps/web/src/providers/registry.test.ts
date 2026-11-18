@@ -10,7 +10,7 @@ const synthetic: ProviderDefinition = {
     editor: 'plain',
     loadConnection: async () => ({ default: () => null }),
     accountLabel: connection => connection.externalAccountId,
-    preview: { layout: 'message', accountDriven: false, sampleIdentity: false },
+    preview: { layout: 'message', accountDriven: false },
     fields: [
         {
             kind: 'provider:synthetic:choice',

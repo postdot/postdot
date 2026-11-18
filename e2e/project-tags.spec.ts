@@ -2,7 +2,8 @@ import { randomUUID } from 'node:crypto'
 
 import { expect, test, type Page } from '@playwright/test'
 
-import { frenchTranslation } from './locale'
+import { frenchTranslation, openLanguageMenu } from './locale'
+import { composerText } from './support/post-editor'
 
 async function createProject(page: Page) {
     const suffix = randomUUID().slice(0, 8)
@@ -35,7 +36,7 @@ test('creates tags without losing composition and synchronizes archived assignme
     await page.getByRole('textbox', { name: 'Optional title', exact: true }).fill('Release notes')
     const content = page.getByRole('textbox', { name: 'Content', exact: true })
     await content.fill('Composition must survive tag creation.')
-    await page.getByRole('button', { name: 'Select tags', exact: true }).click()
+    await page.getByRole('button', { name: 'Add tag', exact: true }).click()
     await page.getByRole('menuitem', { name: 'Create tag', exact: true }).click()
     await page.getByRole('textbox', { name: 'Tag name', exact: true }).fill('Launch')
     await page.getByRole('button', { name: 'Create and select', exact: true }).click()
@@ -44,16 +45,16 @@ test('creates tags without losing composition and synchronizes archived assignme
     await expect(page.getByRole('textbox', { name: 'Optional title', exact: true })).toHaveValue(
         'Release notes'
     )
-    const picker = page.getByRole('button', { name: '1 tags selected', exact: true })
-    await expect(picker).toContainText('Internal tags')
+    // P8: chosen tags show as chips; one "Add tag" menu lists, creates and manages tags.
+    const picker = page.getByRole('button', { name: 'Add tag', exact: true })
     const tagRow = page.locator('[data-publication-tag-picker="true"]')
     await expect(tagRow.getByText('Launch', { exact: true })).toBeVisible()
-    await expect(tagRow.getByRole('link', { name: 'Manage tags', exact: true })).toHaveAttribute(
+    await picker.click()
+    await expect(page.getByRole('menuitem', { name: 'Manage tags', exact: true })).toHaveAttribute(
         'href',
         new RegExp(`/dashboard/projects/${projectId}/tags`)
     )
-    // Create and remove a second tag directly from inline controls without opening the dropdown.
-    await tagRow.getByRole('button', { name: 'Create tag', exact: true }).click()
+    await page.getByRole('menuitem', { name: 'Create tag', exact: true }).click()
     await page.getByRole('textbox', { name: 'Tag name', exact: true }).fill('Notes')
     await page.getByRole('button', { name: 'Create and select', exact: true }).click()
     await expect(page.getByRole('dialog')).toHaveCount(0)
@@ -65,7 +66,7 @@ test('creates tags without losing composition and synchronizes archived assignme
     await picker.click()
     await expect(page.getByRole('menuitemcheckbox', { name: 'Launch', exact: true })).toBeChecked()
     await page.keyboard.press('Escape')
-    await page.getByRole('button', { name: 'Create draft', exact: true }).click()
+    await page.getByRole('button', { name: 'Save as draft', exact: true }).click()
     await expect(page).toHaveURL(new RegExp(`/dashboard/projects/${projectId}/posts/`))
     const publications = await page.request.get(`/api/projects/${projectId}/publications`)
     const { publications: entries } = (await publications.json()) as {
@@ -76,12 +77,13 @@ test('creates tags without losing composition and synchronizes archived assignme
     await expect(
         page.locator('[data-publication-tag-picker="true"]').getByText('Launch', { exact: true })
     ).toBeVisible()
-    await expect(
-        page
-            .locator('[data-publication-tag-picker="true"]')
-            .getByRole('link', { name: 'Manage tags', exact: true })
-    ).toHaveAttribute('href', new RegExp(`/dashboard/projects/${projectId}/tags`))
-    const source = page.getByRole('textbox', { name: 'Body', exact: true })
+    await page.getByRole('button', { name: 'Add tag', exact: true }).click()
+    await expect(page.getByRole('menuitem', { name: 'Manage tags', exact: true })).toHaveAttribute(
+        'href',
+        new RegExp(`/dashboard/projects/${projectId}/tags`)
+    )
+    await page.keyboard.press('Escape')
+    const source = composerText(page)
     await source.fill('Unsaved editor changes stay intact.')
 
     const manager = await page.context().newPage()
@@ -103,9 +105,7 @@ test('creates tags without losing composition and synchronizes archived assignme
         await manager.bringToFront()
         await manager.getByRole('button', { name: 'Manage Release', exact: true }).click()
         await manager.getByRole('menuitem', { name: 'Archive', exact: true }).click()
-        await expect(
-            manager.getByRole('heading', { name: 'Archived tags', exact: true })
-        ).toBeVisible()
+        await expect(manager.getByRole('heading', { name: 'Archived', exact: true })).toBeVisible()
         await page.bringToFront()
         await picker.click()
         const archived = page.getByRole('menuitemcheckbox', {
@@ -115,7 +115,7 @@ test('creates tags without losing composition and synchronizes archived assignme
         await expect(archived).toBeChecked()
         await archived.click()
         await page.keyboard.press('Escape')
-        await page.getByRole('button', { name: 'Select tags', exact: true }).click()
+        await page.getByRole('button', { name: 'Add tag', exact: true }).click()
         await expect(archived).toHaveCount(0)
         await page.getByRole('menu').press('Escape')
         await expect(page.getByRole('menu')).toHaveCount(0)
@@ -130,10 +130,8 @@ test('creates tags without losing composition and synchronizes archived assignme
             ),
             manager.getByRole('menuitem', { name: 'Restore', exact: true }).click(),
         ])
-        await expect(
-            manager.getByRole('heading', { name: 'Archived tags', exact: true })
-        ).toHaveCount(0)
-        await page.getByRole('button', { name: 'Select tags', exact: true }).click()
+        await expect(manager.getByRole('heading', { name: 'Archived', exact: true })).toHaveCount(0)
+        await page.getByRole('button', { name: 'Add tag', exact: true }).click()
         await expect(
             page.getByRole('menuitemcheckbox', { name: 'Release', exact: true })
         ).toBeEnabled()
@@ -165,8 +163,8 @@ test('keeps duplicate input and provides a narrow localized tag manager', async 
     await page.keyboard.press('Escape')
     await expect(page.getByRole('dialog')).toHaveCount(0)
     await page.setViewportSize({ width: 390, height: 844 })
-    await page.getByRole('button', { name: 'Language', exact: true }).click()
-    await page.getByRole('menuitem', { name: 'French', exact: true }).click()
+    await openLanguageMenu(page)
+    await page.getByRole('menuitem', { name: 'Français', exact: true }).click()
     await expect(
         page.getByRole('heading', { name: frenchTranslation('project_tags_title'), exact: true })
     ).toBeVisible()

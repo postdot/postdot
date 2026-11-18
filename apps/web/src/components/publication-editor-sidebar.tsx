@@ -4,8 +4,8 @@ import { useState } from 'react'
 
 import { MediaPreview, readyRepresentation } from '@/components/media-asset-card'
 import type { MediaReference, PublicationEditorState } from '@/lib/api'
-import { formatProjectDateTime } from '@/lib/date-time'
-import { useLanguage } from '@/lib/i18n'
+import { sourceContentDifferences } from '@/lib/post-source-review'
+import { diffWords } from '@/lib/word-diff'
 import * as m from '@/paraglide/messages.js'
 
 export type PublicationEditorSaveState =
@@ -16,22 +16,10 @@ export type PublicationEditorSaveState =
     | 'conflict'
     | 'error'
 
-export interface CapabilitySummary {
-    readonly textFields: readonly {
-        readonly bindingId: string
-        readonly maxLength: number | null
-        readonly maxWeightedLength: number | null
-        readonly acceptedSourceFormats: readonly string[]
-    }[]
-    readonly mediaFieldCount: number
-}
-
 interface PublicationEditorSidebarProps {
     readonly projectId: string
     readonly media: readonly MediaReference[]
     readonly editor: PublicationEditorState
-    readonly capabilitySummary: CapabilitySummary
-    readonly timeZone: string
     readonly sourceConflict: boolean
     readonly saveState: PublicationEditorSaveState
     readonly isRebasing: boolean
@@ -40,14 +28,14 @@ interface PublicationEditorSidebarProps {
     readonly onRebase: () => void
     readonly onReload: () => void
     readonly onRestore: () => void
+    /** The post editor: the conflict is about the whole post, not one channel version. */
+    readonly postLevel?: boolean
 }
 
 export function PublicationEditorSidebar({
     editor,
     projectId,
     media,
-    capabilitySummary,
-    timeZone,
     sourceConflict,
     saveState,
     isRebasing,
@@ -56,8 +44,8 @@ export function PublicationEditorSidebar({
     onRebase,
     onReload,
     onRestore,
+    postLevel = false,
 }: PublicationEditorSidebarProps) {
-    const { locale } = useLanguage()
     return (
         <aside
             aria-label={m.editor_technical_details()}
@@ -65,19 +53,21 @@ export function PublicationEditorSidebar({
             {sourceConflict || saveState === 'conflict' ? (
                 <Alert
                     data-publication-conflict="true"
-                    className="rounded-md border-0 bg-state-attention/10 px-4 py-4 text-foreground shadow-surface lg:col-span-2">
-                    <AlertTitle>
+                    className="rounded-lg border border-border bg-surface-raised px-4 py-4 text-foreground lg:col-span-2">
+                    {/* The conflict keeps its state colour on the title, not on the surface. */}
+                    <AlertTitle className="text-state-attention">
                         {sourceConflict
                             ? m.editor_sidebar_source_review_title()
-                            : m.editor_sidebar_reconcile_title()}
+                            : postLevel
+                              ? m.editor_post_conflict_title()
+                              : m.editor_sidebar_reconcile_title()}
                     </AlertTitle>
                     <AlertDescription className="text-foreground group-data-[variant=destructive]/alert:text-foreground">
                         {sourceConflict
-                            ? m.editor_sidebar_source_conflict_detail({
-                                  draftRevision: editor.draft.sourceRevision,
-                                  currentRevision: editor.post.sourceRevision,
-                              })
-                            : m.editor_sidebar_revision_conflict_detail()}
+                            ? m.editor_sidebar_source_conflict_detail()
+                            : postLevel
+                              ? m.editor_post_conflict_detail()
+                              : m.editor_sidebar_revision_conflict_detail()}
                     </AlertDescription>
                     <div className="mt-4 flex flex-wrap gap-2">
                         {sourceConflict ? (
@@ -104,11 +94,9 @@ export function PublicationEditorSidebar({
                     </div>
                     {sourceConflict ? (
                         <div className="mt-4 grid min-w-0 gap-3 text-xs sm:grid-cols-2">
-                            <div className="min-w-0 rounded-md bg-background/60 p-3 shadow-field">
+                            <div className="min-w-0 rounded-lg border border-border bg-surface-raised p-3">
                                 <p className="font-medium text-foreground">
-                                    {m.editor_sidebar_draft_source_revision({
-                                        revision: editor.draft.sourceRevision,
-                                    })}
+                                    {m.editor_sidebar_draft_source_revision()}
                                 </p>
                                 <SourceComparisonContent
                                     content={editor.draft.baseSourceContent}
@@ -116,11 +104,9 @@ export function PublicationEditorSidebar({
                                     media={media}
                                 />
                             </div>
-                            <div className="min-w-0 rounded-md bg-background/60 p-3 shadow-field">
+                            <div className="min-w-0 rounded-lg border border-border bg-surface-raised p-3">
                                 <p className="font-medium text-foreground">
-                                    {m.editor_sidebar_current_source_revision({
-                                        revision: editor.post.sourceRevision,
-                                    })}
+                                    {m.editor_sidebar_current_source_revision()}
                                 </p>
                                 <SourceComparisonContent
                                     content={editor.post.sourceContent}
@@ -132,119 +118,49 @@ export function PublicationEditorSidebar({
                     ) : null}
                 </Alert>
             ) : null}
-            <section className="min-w-0 rounded-xl bg-surface-inset/65 p-4 shadow-surface sm:p-5">
-                <p className="text-xs font-medium text-muted-foreground">
-                    {m.editor_sidebar_selected_target()}
-                </p>
-                <h2 className="mt-2 font-heading text-xl font-[580] leading-[1.03]">
-                    {m.editor_sidebar_delivery_snapshot()}
-                </h2>
-                {editor.selectedTarget === null ? (
-                    <p className="mt-4 text-sm leading-6 text-muted-foreground">
-                        {m.editor_sidebar_no_promoted_target()}
-                    </p>
-                ) : (
-                    <div className="mt-4 space-y-3 text-sm">
-                        <dl className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-2">
-                            <dt className="text-muted-foreground">{m.editor_sidebar_revision()}</dt>
-                            <dd className="font-medium">{editor.selectedTarget.sequence}</dd>
-                            <dt className="text-muted-foreground">{m.editor_sidebar_profile()}</dt>
-                            <dd className="truncate font-medium">
-                                {editor.selectedTarget.profileVersionId}
-                            </dd>
-                            <dt className="text-muted-foreground">
-                                {m.editor_sidebar_scheduled()}
-                            </dt>
-                            <dd className="font-medium">
-                                {formatProjectDateTime(
-                                    editor.publication.scheduledAt,
-                                    timeZone,
-                                    locale,
-                                    m.publication_unscheduled()
-                                )}
-                            </dd>
-                        </dl>
-                        <pre
-                            tabIndex={0}
-                            role="region"
-                            aria-label={m.editor_sidebar_delivery_snapshot()}
-                            className="max-h-72 max-w-full overflow-auto rounded-md bg-surface-field p-3 font-mono text-xs leading-5 shadow-field">
-                            {formatJson(editor.selectedTarget.content)}
-                        </pre>
-                    </div>
-                )}
-            </section>
-
-            <section className="min-w-0 rounded-xl bg-surface-raised p-4 shadow-surface sm:p-5">
-                <p className="text-xs font-medium text-muted-foreground">
-                    {m.editor_sidebar_contract()}
-                </p>
-                <h2 className="mt-2 font-heading text-xl font-[580] leading-[1.03]">
-                    {m.editor_sidebar_capability_feedback()}
-                </h2>
-                <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                    {m.editor_sidebar_profile_meta({
-                        profile: editor.profile.profileId,
-                        version: editor.profile.version,
-                        schema:
-                            editor.profile.profile.schemaHash ?? m.editor_sidebar_schema_unhashed(),
-                    })}
-                </p>
-                <div className="mt-5 space-y-3 text-sm">
-                    {capabilitySummary.textFields.map(field => (
-                        <div
-                            key={field.bindingId}
-                            className="rounded-md bg-muted px-3 py-2 shadow-field">
-                            <p className="font-medium">{field.bindingId}</p>
-                            <p className="mt-1 text-xs text-muted-foreground">
-                                {field.maxWeightedLength !== null
-                                    ? m.editor_sidebar_max_weighted_chars({
-                                          count: field.maxWeightedLength,
-                                      })
-                                    : field.maxLength === null
-                                      ? m.editor_sidebar_no_length_limit()
-                                      : m.editor_sidebar_max_chars({ count: field.maxLength })}{' '}
-                                ·{' '}
-                                {field.acceptedSourceFormats.join(', ') ||
-                                    m.editor_sidebar_no_source_format()}
-                            </p>
-                        </div>
-                    ))}
-                    <p className="text-xs text-muted-foreground">
-                        {m.editor_sidebar_media_fields({
-                            count: capabilitySummary.mediaFieldCount,
-                        })}
-                    </p>
-                </div>
-            </section>
+            {/* ADR-103 §1: snapshots, profile versions and schema hashes belong to the API and
+                CLI, not to Studio. */}
         </aside>
     )
 }
 
-function formatJson(value: unknown) {
-    return JSON.stringify(value, null, 2)
-}
-
 export function SourceComparisonContent({
     content,
+    compareWith,
+    comparisonSide = 'current',
     projectId,
     media,
 }: {
     readonly content: PublicationEditorState['post']['sourceContent']
+    readonly compareWith?: PublicationEditorState['post']['sourceContent']
+    readonly comparisonSide?: 'current' | 'post'
     readonly projectId: string
     readonly media: readonly MediaReference[]
 }) {
     const [expanded, setExpanded] = useState(false)
+    const differences = compareWith ? sourceContentDifferences(content, compareWith) : undefined
+    const changedClass = 'rounded-sm bg-accent/60 px-1 text-foreground'
     const body = content.body?.text
     const shortened = body !== undefined && body.length > 500
     return (
         <div className="mt-3 min-w-0 space-y-3 text-sm leading-6">
-            {content.headline ? (
-                <p className="break-words font-medium">{content.headline}</p>
+            {content.headline || differences?.title ? (
+                <p className="break-words font-medium">
+                    <ComparisonText
+                        text={content.headline ?? ''}
+                        compareWith={compareWith?.headline ?? (compareWith ? '' : undefined)}
+                        side={comparisonSide}
+                    />
+                </p>
             ) : null}
-            {content.body ? (
+            {content.body || differences?.text ? (
                 <p className="whitespace-pre-wrap break-words">
-                    {shortened && !expanded ? `${body?.slice(0, 500)}…` : body}
+                    <ComparisonText
+                        text={body ?? ''}
+                        compareWith={compareWith?.body?.text ?? (compareWith ? '' : undefined)}
+                        side={comparisonSide}
+                        limit={shortened && !expanded ? 500 : undefined}
+                    />
                 </p>
             ) : null}
             {shortened ? (
@@ -259,8 +175,20 @@ export function SourceComparisonContent({
             {content.language ? (
                 <p className="text-xs text-muted-foreground">{content.language}</p>
             ) : null}
+            {compareWith && (content.media.length > 0 || compareWith.media.length > 0) ? (
+                <p className="text-xs text-muted-foreground">
+                    <span className={differences?.media ? changedClass : undefined}>
+                        {m.source_review_media({ count: content.media.length })}
+                    </span>
+                </p>
+            ) : null}
             {content.media.length > 0 ? (
-                <ol className="flex flex-wrap gap-2">
+                <ol
+                    className={
+                        differences?.media
+                            ? 'flex flex-wrap gap-2 rounded-sm bg-accent/60 p-1'
+                            : 'flex flex-wrap gap-2'
+                    }>
                     {content.media.map((selection, index) => {
                         const asset = media.find(item => item.asset.id === selection.assetId)
                         return (
@@ -277,10 +205,10 @@ export function SourceComparisonContent({
                                                 ? ''
                                                 : asset.asset.originalFilename
                                         }
-                                        className="size-16 rounded-md object-cover shadow-field"
+                                        className="size-16 rounded-lg border border-border object-cover"
                                     />
                                 ) : (
-                                    <span className="flex min-h-16 max-w-40 items-center rounded-md bg-surface-inset px-3 text-xs text-muted-foreground">
+                                    <span className="flex min-h-16 max-w-40 items-center rounded-lg border border-border bg-surface-raised px-3 text-xs text-muted-foreground">
                                         {m.editor_comparison_media_unavailable()}
                                     </span>
                                 )}
@@ -295,5 +223,54 @@ export function SourceComparisonContent({
                 </ol>
             ) : null}
         </div>
+    )
+}
+
+function ComparisonText({
+    text,
+    compareWith,
+    side,
+    limit = text.length,
+}: {
+    text: string
+    compareWith?: string
+    side: 'current' | 'post'
+    limit?: number
+}) {
+    if (text === '') return compareWith === undefined ? null : m.source_review_empty()
+    if (compareWith === undefined)
+        return (
+            <>
+                {text.slice(0, limit)}
+                {text.length > limit ? '…' : null}
+            </>
+        )
+    const diff = side === 'current' ? diffWords(text, compareWith) : diffWords(compareWith, text)
+    let remaining = limit
+    return (
+        <>
+            {diff[side].map((part, index) => {
+                const visible = part.text.slice(0, remaining)
+                remaining = Math.max(0, remaining - part.text.length)
+                if (visible === '') return null
+                if (!part.changed) return visible
+                return side === 'current' ? (
+                    <del
+                        key={index}
+                        className="rounded-sm bg-state-failed/10 decoration-state-failed">
+                        <span className="sr-only">{m.source_review_removed()}</span>
+                        {visible}
+                    </del>
+                ) : (
+                    <ins
+                        key={index}
+                        className="rounded-sm bg-state-published/10 decoration-state-published">
+                        <span className="sr-only">{m.source_review_added()}</span>
+                        {visible}
+                    </ins>
+                )
+            })}
+            {text.length > limit ? '…' : null}
+        </>
     )
 }

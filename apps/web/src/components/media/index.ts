@@ -9,7 +9,6 @@ export {
     type MediaLibraryToolbarProps,
 } from './media-library-toolbar'
 export {
-    MediaDropHint,
     MediaLibraryManagementSurface,
     type MediaLibraryManagementSurfaceProps,
 } from './media-library-management-surface'

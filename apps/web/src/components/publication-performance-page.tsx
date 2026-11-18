@@ -1,22 +1,27 @@
-import { Button, buttonVariants } from '@postdot/ui/components/button'
-import { AltArrowLeftIcon } from '@solar-icons/react/linear/alt-arrow-left'
-import { ChartSquareIcon } from '@solar-icons/react/linear/chart-square'
+import { Button } from '@postdot/ui/components/button'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@postdot/ui/components/tabs'
 import { RefreshIcon } from '@solar-icons/react/linear/refresh'
-import { useInfiniteQuery, useMutation, useQueries, useQueryClient } from '@tanstack/react-query'
+import {
+    useInfiniteQuery,
+    useMutation,
+    useQueries,
+    useQuery,
+    useQueryClient,
+} from '@tanstack/react-query'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 
 import { DashboardPageHeader } from '@/components/dashboard-page-header'
 import { DeliveryAnalyticsDashboard } from '@/components/delivery-analytics-dashboard'
 import { EmptyState } from '@/components/empty-state'
-import { PerformanceTagFilter } from '@/components/performance-tag-filter'
+import { ActiveFilters, type FilterGroup, FilterMenu } from '@/components/filter-controls'
 import { QueryErrorState } from '@/components/query-error-state'
 import { api, type ProviderAnalyticsItem, type PublicationSummary } from '@/lib/api'
 import { useProjectDashboard } from '@/lib/dashboard-context'
 import { formatNumber } from '@/lib/format'
 import { useLanguage } from '@/lib/i18n'
 import { projectQueryKeys } from '@/lib/project-realtime'
-import { useProjectTagCatalog } from '@/lib/project-tags'
+import { sortProjectTags, useProjectTagCatalog } from '@/lib/project-tags'
 import { publicationIdentityLabel } from '@/lib/publication-identity'
 import {
     createPerformanceProviderBatches,
@@ -25,6 +30,7 @@ import {
     groupLatestObservations,
     normalizePerformanceTagSelection,
     performanceTagSelectionKey,
+    performanceTagSelectionLimit,
 } from '@/lib/publication-performance'
 import { readPerformanceCsv } from '@/lib/publication-performance-export'
 import type { DeliveryAnalyticsPeriod } from '@/lib/publication-performance-search'
@@ -95,6 +101,7 @@ export function PublicationPerformancePage({
     readonly deliveryDays?: DeliveryAnalyticsPeriod
     readonly deliveryChannel?: string
 }) {
+    const [view, setView] = useState('engagement')
     const { locale } = useLanguage()
     const { channels, project, projectRole } = useProjectDashboard()
     const queryClient = useQueryClient()
@@ -140,7 +147,8 @@ export function PublicationPerformancePage({
             }),
         initialPageParam: undefined as string | undefined,
         getNextPageParam: page => page.nextCursor ?? undefined,
-        staleTime: Number.POSITIVE_INFINITY,
+        staleTime: 30_000,
+        refetchInterval: 30_000,
         retry: 1,
     })
     const channelsById = new Map(channels.map(channel => [channel.id, channel]))
@@ -151,7 +159,22 @@ export function PublicationPerformancePage({
             publication.state === 'published' &&
             analyticsProvider(channelsById.get(publication.channelId)) !== null
     )
-    const hasNoTagMatch = selectedTagIds.length > 0 && matchedPublications.length === 0
+    const hasPublishedInLoaded = matchedPublications.some(
+        publication => publication.state === 'published'
+    )
+    const publishedHistoryQuery = useQuery({
+        queryKey: [...projectQueryKeys.publicationQueues(project.id), 'performance-history'],
+        queryFn: () => api.listPublications(project.id, { state: 'published', limit: 1 }),
+        enabled: publicationsQuery.isSuccess && !hasPublishedInLoaded,
+        staleTime: 30_000,
+        refetchInterval: 30_000,
+    })
+    const neverPublished =
+        !hasPublishedInLoaded &&
+        publishedHistoryQuery.isSuccess &&
+        publishedHistoryQuery.data.publications.length === 0
+    const hasActiveTagFilter =
+        selectedTagIds.length > 0 && !neverPublished && !publicationsQuery.hasNextPage
     const groups = groupPerformancePublications(publications)
     const batches = createPerformanceProviderBatches(
         publications.map(publication => ({
@@ -168,7 +191,8 @@ export function PublicationPerformancePage({
             ],
             queryFn: () =>
                 listLatestProviderAnalytics(batch.provider, project.id, batch.publicationIds),
-            staleTime: Number.POSITIVE_INFINITY,
+            staleTime: 30_000,
+            refetchInterval: 30_000,
             retry: 1,
         })),
     })
@@ -268,6 +292,34 @@ export function PublicationPerformancePage({
         })
     }
 
+    const sortedCatalogTags = sortProjectTags(catalogTags)
+    const catalogTagIds = new Set(sortedCatalogTags.map(tag => tag.id))
+    const tagGroup: FilterGroup = {
+        id: 'tags',
+        label: m.taxonomy_tags(),
+        limit: performanceTagSelectionLimit,
+        limitNote: m.performance_tag_filter_limit_reached({
+            count: performanceTagSelectionLimit,
+        }),
+        multiple: true,
+        onChange: handleTagChange,
+        options: [
+            ...sortedCatalogTags
+                .filter(tag => tag.state === 'active')
+                .map(tag => ({ label: tag.name, value: tag.id })),
+            ...sortedCatalogTags
+                .filter(tag => tag.state === 'archived')
+                .map(tag => ({ hint: m.common_archived(), label: tag.name, value: tag.id })),
+            ...selectedTagIds
+                .filter(tagId => !catalogTagIds.has(tagId))
+                .map(tagId => ({
+                    label: m.performance_tag_filter_unavailable_tag(),
+                    value: tagId,
+                })),
+        ],
+        selected: selectedTagIds,
+    }
+
     function renderPublication(publication: PublicationSummary) {
         const channel = channelsById.get(publication.channelId)
         const provider = analyticsProvider(channel)
@@ -292,7 +344,7 @@ export function PublicationPerformancePage({
         return (
             <article
                 key={publication.id}
-                className="grid min-w-0 gap-3 rounded-md bg-surface-inset/35 px-3 py-3 sm:px-4 lg:grid-cols-[minmax(12rem,0.8fr)_minmax(0,1.4fr)_auto] lg:items-center"
+                className="grid min-w-0 gap-3 rounded-lg border border-border bg-surface-raised px-3 py-3 hover:bg-surface-hover sm:px-4 lg:grid-cols-[minmax(12rem,0.8fr)_minmax(0,1.4fr)_auto] lg:items-center"
                 data-performance-publication={publication.id}>
                 <div className="min-w-0">
                     <Link
@@ -318,7 +370,7 @@ export function PublicationPerformancePage({
                         const value =
                             observation?.availability === 'measured' && observation.value !== null
                                 ? formatNumber(observation.value, locale)
-                                : '—'
+                                : '-'
                         return (
                             <div key={metric.key} className="min-w-12">
                                 <p className="text-[0.65rem] text-muted-foreground">
@@ -409,184 +461,199 @@ export function PublicationPerformancePage({
     return (
         <main className="min-w-0 px-4 py-7 sm:px-6 lg:px-8 lg:py-8">
             <DashboardPageHeader
-                back={
-                    <Link
-                        aria-label={m.nav_back_to_overview()}
-                        className={buttonVariants({
-                            variant: 'ghost',
-                            size: 'icon',
-                            className:
-                                'justify-self-start text-muted-foreground hover:text-foreground lg:w-auto lg:gap-1.5 lg:px-2.5',
-                        })}
-                        params={{ projectId: project.id }}
-                        to="/dashboard/projects/$projectId/overview">
-                        <AltArrowLeftIcon aria-hidden="true" />
-                        <span className="hidden lg:inline">{m.nav_back_to_overview()}</span>
-                    </Link>
-                }
                 title={m.performance_title()}
+                action={
+                    <>
+                        {view !== 'engagement' ||
+                        (publicationsQuery.isSuccess &&
+                            publications.length === 0 &&
+                            !publicationsQuery.hasNextPage) ? undefined : (
+                            <div className="flex items-center gap-2">
+                                {exportState === 'pending' ? (
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => {
+                                            exportAbort.current?.abort()
+                                            setExportState('idle')
+                                        }}>
+                                        {m.performance_export_cancel()}
+                                    </Button>
+                                ) : null}
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    aria-busy={exportState === 'pending'}
+                                    disabled={
+                                        exportState === 'pending' ||
+                                        publicationsQuery.isPending ||
+                                        publicationsQuery.isError
+                                    }
+                                    onClick={() => void exportCsv()}>
+                                    {exportState === 'pending'
+                                        ? m.performance_export_pending()
+                                        : m.performance_export_csv()}
+                                </Button>
+                            </div>
+                        )}
+                    </>
+                }
             />
-            <DeliveryAnalyticsDashboard days={deliveryDays} channelId={deliveryChannel} />
-            <div className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-6">
-                <h2 className="text-lg font-semibold">{m.delivery_engagement_title()}</h2>
-                {publicationsQuery.isSuccess &&
-                publications.length === 0 &&
-                !publicationsQuery.hasNextPage ? undefined : (
-                    <div className="flex items-center gap-2">
-                        {exportState === 'pending' ? (
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                    exportAbort.current?.abort()
-                                    setExportState('idle')
-                                }}>
-                                {m.performance_export_cancel()}
-                            </Button>
-                        ) : null}
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            aria-busy={exportState === 'pending'}
-                            disabled={
-                                exportState === 'pending' ||
-                                publicationsQuery.isPending ||
-                                publicationsQuery.isError
-                            }
-                            onClick={() => void exportCsv()}>
-                            {exportState === 'pending'
-                                ? m.performance_export_pending()
-                                : m.performance_export_csv()}
-                        </Button>
-                    </div>
-                )}
-            </div>
-            <p className="mt-2 text-xs text-muted-foreground">{m.delivery_engagement_scope()}</p>
-            {exportState === 'failed' ? (
-                <p role="alert" className="mt-2 text-sm text-state-failed">
-                    {m.performance_export_failed()}
-                </p>
-            ) : null}
-            <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2">
-                {tagCatalogQuery.isError ? (
-                    <div className="flex flex-wrap items-center gap-2">
-                        <p role="alert" className="text-xs text-state-failed">
-                            {m.performance_tag_filter_catalog_failed()}
-                        </p>
-                        <Button
-                            onClick={() => void tagCatalogQuery.refetch()}
-                            size="sm"
-                            variant="ghost">
-                            {m.common_retry()}
-                        </Button>
-                    </div>
-                ) : null}
-                {catalogTags.length > 0 || selectedTagIds.length > 0 ? (
-                    <PerformanceTagFilter
-                        disabled={tagCatalogQuery.isPending}
-                        onChange={handleTagChange}
-                        selectedTagIds={selectedTagIds}
-                        tags={catalogTags}
+            <Tabs value={view} onValueChange={value => setView(String(value))}>
+                <TabsList variant="line" aria-label={m.performance_title()}>
+                    <TabsTrigger value="engagement">{m.delivery_engagement_title()}</TabsTrigger>
+                    <TabsTrigger value="publishing">{m.delivery_title()}</TabsTrigger>
+                </TabsList>
+                <TabsContent value="publishing">
+                    <DeliveryAnalyticsDashboard
+                        days={deliveryDays}
+                        channelId={deliveryChannel}
+                        neverPublished={neverPublished}
                     />
-                ) : null}
-            </div>
-            {selectedTagIds.length > 0 ? (
-                <p className="mt-2 text-xs text-muted-foreground">
-                    {m.performance_tag_filter_scope()}
-                </p>
-            ) : null}
-            {publicationsQuery.isError ? (
-                <QueryErrorState
-                    className="mt-4"
-                    onRetry={() => void publicationsQuery.refetch()}
-                />
-            ) : publicationsQuery.isPending ? (
-                <p className="py-8 text-sm text-muted-foreground" role="status">
-                    {m.common_loading()}
-                </p>
-            ) : publications.length === 0 ? (
-                <EmptyState
-                    className="mt-4"
-                    description={
-                        hasNoTagMatch
-                            ? m.performance_tag_filter_no_matches_description()
-                            : m.performance_empty_description()
-                    }
-                    icon={<ChartSquareIcon aria-hidden="true" className="size-5" />}
-                    layout="compact"
-                    title={
-                        hasNoTagMatch
-                            ? m.performance_tag_filter_no_matches_title()
-                            : m.performance_empty_title()
-                    }
-                    action={
-                        hasNoTagMatch ? (
-                            <Button onClick={() => handleTagChange([])} size="sm" variant="ghost">
-                                {m.taxonomy_clear_tags()}
-                            </Button>
-                        ) : publicationsQuery.hasNextPage ? (
-                            <Button
-                                disabled={publicationsQuery.isFetchingNextPage}
-                                onClick={() => void publicationsQuery.fetchNextPage()}
-                                size="sm"
-                                variant="ghost">
-                                {publicationsQuery.isFetchingNextPage
-                                    ? m.common_loading()
-                                    : m.performance_load_more()}
-                            </Button>
-                        ) : undefined
-                    }
-                />
-            ) : (
-                <>
-                    {analyticsQueries.some(query => query.isError) ? (
-                        <QueryErrorState
-                            className="mb-3"
-                            onRetry={() => {
-                                for (const query of analyticsQueries) {
-                                    if (query.isError) void query.refetch()
-                                }
-                            }}
-                        />
-                    ) : null}
-                    <section aria-label={m.performance_title()} className="mt-4 space-y-1">
-                        <p className="mb-4 text-sm text-muted-foreground">
-                            {m.performance_grouped_description()}
+                </TabsContent>
+                <TabsContent value="engagement">
+                    {exportState === 'failed' ? (
+                        <p role="alert" className="mt-2 text-sm text-state-failed">
+                            {m.performance_export_failed()}
                         </p>
-                        {groups.map(group => (
-                            <section
-                                key={group.postId}
-                                className="space-y-2 pb-6"
-                                aria-labelledby={`performance-post-${group.postId}`}
-                                data-performance-post={group.postId}>
-                                <h2
-                                    id={`performance-post-${group.postId}`}
-                                    className="break-words text-base font-semibold">
-                                    <Link
-                                        to="/dashboard/projects/$projectId/posts/$postId"
-                                        params={{ projectId: project.id, postId: group.postId }}
-                                        className="hover:text-primary">
-                                        {publicationIdentityLabel(group.publications[0]!)}
-                                    </Link>
-                                </h2>
-                                {group.publications.map(renderPublication)}
-                            </section>
-                        ))}
-                    </section>
-                    {publicationsQuery.hasNextPage ? (
-                        <div className="flex justify-center py-6">
-                            <Button
-                                disabled={publicationsQuery.isFetchingNextPage}
-                                onClick={() => void publicationsQuery.fetchNextPage()}
-                                variant="ghost">
-                                {publicationsQuery.isFetchingNextPage
-                                    ? m.common_loading()
-                                    : m.performance_load_more()}
-                            </Button>
-                        </div>
                     ) : null}
-                </>
-            )}
+                    {!neverPublished &&
+                    (hasPublishedInLoaded || !publishedHistoryQuery.isPending) ? (
+                        <>
+                            {tagCatalogQuery.isError ||
+                            (!tagCatalogQuery.isPending &&
+                                (catalogTags.length > 0 || selectedTagIds.length > 0)) ? (
+                                <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2 empty:hidden">
+                                    {tagCatalogQuery.isError ? (
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            <p role="alert" className="text-xs text-state-failed">
+                                                {m.performance_tag_filter_catalog_failed()}
+                                            </p>
+                                            <Button
+                                                onClick={() => void tagCatalogQuery.refetch()}
+                                                size="sm"
+                                                variant="ghost">
+                                                {m.common_retry()}
+                                            </Button>
+                                        </div>
+                                    ) : null}
+                                    {!tagCatalogQuery.isPending &&
+                                    (catalogTags.length > 0 || selectedTagIds.length > 0) ? (
+                                        <FilterMenu groups={[tagGroup]} />
+                                    ) : null}
+                                </div>
+                            ) : null}
+                            {!tagCatalogQuery.isPending ? (
+                                <div className="mt-3 empty:hidden">
+                                    <ActiveFilters groups={[tagGroup]} />
+                                </div>
+                            ) : null}
+
+                            <h2 className="mt-6 text-lg font-semibold">
+                                {m.performance_grouped_description()}
+                            </h2>
+                            <p className="mt-2 text-xs text-muted-foreground">
+                                {m.performance_empty_description()}
+                            </p>
+                        </>
+                    ) : null}
+                    {publicationsQuery.isError ? (
+                        <QueryErrorState
+                            className="mt-4"
+                            onRetry={() => void publicationsQuery.refetch()}
+                        />
+                    ) : publicationsQuery.isPending ||
+                      (!hasPublishedInLoaded && publishedHistoryQuery.isPending) ? (
+                        <p className="py-8 text-sm text-muted-foreground" role="status">
+                            {m.common_loading()}
+                        </p>
+                    ) : publications.length === 0 ? (
+                        <EmptyState
+                            className="mt-4"
+                            description={
+                                hasActiveTagFilter
+                                    ? m.performance_tag_filter_no_matches_description()
+                                    : m.performance_never_published_description()
+                            }
+                            illustration="data"
+                            title={
+                                hasActiveTagFilter
+                                    ? m.performance_tag_filter_no_matches_title()
+                                    : m.performance_empty_title()
+                            }
+                            action={
+                                hasActiveTagFilter ? (
+                                    <Button
+                                        onClick={() => handleTagChange([])}
+                                        size="sm"
+                                        variant="ghost">
+                                        {m.taxonomy_clear_tags()}
+                                    </Button>
+                                ) : publicationsQuery.hasNextPage ? (
+                                    <Button
+                                        disabled={publicationsQuery.isFetchingNextPage}
+                                        onClick={() => void publicationsQuery.fetchNextPage()}
+                                        size="sm"
+                                        variant="ghost">
+                                        {publicationsQuery.isFetchingNextPage
+                                            ? m.common_loading()
+                                            : m.performance_load_more()}
+                                    </Button>
+                                ) : undefined
+                            }
+                        />
+                    ) : (
+                        <>
+                            {analyticsQueries.some(query => query.isError) ? (
+                                <QueryErrorState
+                                    className="mb-3"
+                                    onRetry={() => {
+                                        for (const query of analyticsQueries) {
+                                            if (query.isError) void query.refetch()
+                                        }
+                                    }}
+                                />
+                            ) : null}
+                            <section aria-label={m.performance_title()} className="mt-4 space-y-1">
+                                {groups.map(group => (
+                                    <section
+                                        key={group.postId}
+                                        className="space-y-2 pb-6"
+                                        aria-labelledby={`performance-post-${group.postId}`}
+                                        data-performance-post={group.postId}>
+                                        <h3
+                                            id={`performance-post-${group.postId}`}
+                                            className="break-words text-sm font-medium">
+                                            <Link
+                                                to="/dashboard/projects/$projectId/posts/$postId"
+                                                params={{
+                                                    projectId: project.id,
+                                                    postId: group.postId,
+                                                }}
+                                                className="hover:text-primary">
+                                                {publicationIdentityLabel(group.publications[0]!)}
+                                            </Link>
+                                        </h3>
+                                        {group.publications.map(renderPublication)}
+                                    </section>
+                                ))}
+                            </section>
+                            {publicationsQuery.hasNextPage ? (
+                                <div className="flex justify-center py-6">
+                                    <Button
+                                        disabled={publicationsQuery.isFetchingNextPage}
+                                        onClick={() => void publicationsQuery.fetchNextPage()}
+                                        variant="ghost">
+                                        {publicationsQuery.isFetchingNextPage
+                                            ? m.common_loading()
+                                            : m.performance_load_more()}
+                                    </Button>
+                                </div>
+                            ) : null}
+                        </>
+                    )}
+                </TabsContent>
+            </Tabs>
         </main>
     )
 }

@@ -141,14 +141,13 @@ export function MediaInformationDialog({
                                 {m.media_info_details()}
                             </h2>
                             <dl className="mt-4 grid gap-2.5">
-                                <InfoRow label={m.media_info_type()} value={contentType ?? '—'} />
-                                <InfoRow label={m.media_info_format()} value={format ?? '—'} />
+                                <InfoRow label={m.media_info_format()} value={format ?? '-'} />
                                 <InfoRow
                                     label={m.media_info_size()}
                                     value={
                                         representation?.byteSize === null ||
                                         representation?.byteSize === undefined
-                                            ? '—'
+                                            ? '-'
                                             : formatBytes(representation.byteSize, locale)
                                     }
                                 />
@@ -172,7 +171,7 @@ export function MediaInformationDialog({
                                 {hasAccessibilityText ? (
                                     <InfoRow
                                         label={m.media_accessibility_text()}
-                                        value={asset.asset.defaultAccessibilityText ?? '—'}
+                                        value={asset.asset.defaultAccessibilityText ?? '-'}
                                     />
                                 ) : null}
                             </dl>
@@ -306,7 +305,7 @@ function UsageGroup({
     return (
         <div className="grid gap-2">
             <h3 className="text-xs font-medium text-muted-foreground">{title}</h3>
-            <ul className="grid gap-2">
+            <ul className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-surface-raised">
                 {references.map(reference => (
                     <UsageReference
                         key={`${reference.kind}:${reference.id}`}
@@ -357,7 +356,7 @@ function UsageReference({
     )
 
     return (
-        <li className="min-w-0 rounded-md bg-surface-field px-3 py-2.5 shadow-field">
+        <li className="min-w-0 px-3 py-2.5">
             {reference.publicationId !== null ? (
                 <Link
                     to="/dashboard/projects/$projectId/publications/$publicationId"

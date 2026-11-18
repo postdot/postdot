@@ -17,5 +17,5 @@ export const discordProvider = {
                 connection.destination?.id ??
                 connection.externalAccountId,
         }),
-    preview: { layout: 'message', accountDriven: true, sampleIdentity: true },
+    preview: { layout: 'message', accountDriven: true },
 } as const satisfies ProviderDefinition

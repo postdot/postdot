@@ -7,7 +7,6 @@ import { RefreshIcon } from '@solar-icons/react/linear/refresh'
 import { SettingsIcon } from '@solar-icons/react/linear/settings'
 import { useEffect, useState, type FormEvent } from 'react'
 
-import { AccessPageHeader } from '@/components/access-page-header'
 import { EmptyState } from '@/components/empty-state'
 import {
     ProviderApplicationForm,
@@ -16,6 +15,7 @@ import {
 } from '@/components/provider-application-form'
 import type { ProviderApplicationFormState } from '@/components/provider-application-form'
 import { ProviderApplicationRow } from '@/components/provider-application-row'
+import { SettingsPage, SettingsSection, SettingsCard } from '@/components/settings-layout'
 import { api, formatApiError, type ProviderApplication } from '@/lib/api'
 import { useLanguage } from '@/lib/i18n'
 import * as m from '@/paraglide/messages.js'
@@ -172,92 +172,70 @@ export function ProviderApplicationSettingsPage() {
             onOpenChange={open => {
                 if (!open && !pending) cancelEdit()
             }}>
-            <main className="min-w-0 px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
-                <div className="mx-auto w-full max-w-6xl">
-                    <AccessPageHeader
-                        title={m.provider_apps_title()}
-                        action={
-                            applications?.length ? (
-                                <DialogTrigger
-                                    onClick={beginCreate}
-                                    render={<Button disabled={pending} />}>
-                                    <AddIcon aria-hidden="true" />
-                                    {m.provider_apps_new()}
-                                </DialogTrigger>
-                            ) : null
-                        }
-                    />
-
-                    <div className="mx-auto w-full max-w-xl">
-                        {error && !formOpen ? (
-                            <Alert className="mt-6" variant="destructive">
-                                <AlertTitle>{m.provider_apps_action_failed()}</AlertTitle>
-                                <AlertDescription className="flex flex-wrap items-center gap-2">
-                                    <span>{error}</span>
-                                    {applications === null ? (
-                                        <Button
-                                            size="sm"
-                                            variant="ghost"
-                                            onClick={() =>
-                                                setReloadVersion(current => current + 1)
-                                            }>
-                                            <RefreshIcon aria-hidden="true" />
-                                            {m.common_retry()}
-                                        </Button>
-                                    ) : null}
-                                </AlertDescription>
-                            </Alert>
-                        ) : null}
-                        {notice ? (
-                            <div
-                                className="mt-6 flex items-center gap-2 text-sm text-state-success"
-                                role="status">
-                                <CheckIcon aria-hidden="true" className="size-4" />
-                                <span>{notice}</span>
-                            </div>
-                        ) : null}
-
-                        <div className="mt-2 grid gap-5">
-                            <section aria-label={m.provider_apps_title()} className="min-w-0">
-                                {applications === null && !error ? (
-                                    <p className="mt-4 text-sm text-muted-foreground" role="status">
-                                        {m.provider_apps_loading()}
-                                    </p>
-                                ) : applications === null ? null : applications.length === 0 ? (
-                                    <EmptyState
-                                        action={
-                                            <DialogTrigger
-                                                onClick={beginCreate}
-                                                render={<Button disabled={pending} />}>
-                                                <AddIcon aria-hidden="true" />
-                                                {m.provider_apps_new()}
-                                            </DialogTrigger>
-                                        }
-                                        className="mt-4"
-                                        description={m.provider_apps_empty_description()}
-                                        icon={<SettingsIcon aria-hidden="true" />}
-                                        layout="compact"
-                                        title={m.provider_apps_empty()}
-                                    />
-                                ) : (
-                                    <div className="divide-y divide-border/40">
-                                        {applications.map(application => (
-                                            <ProviderApplicationRow
-                                                key={application.id}
-                                                application={application}
-                                                disabled={pending}
-                                                onEdit={beginEdit}
-                                                onMakeDefault={makeDefault}
-                                                onToggleState={toggleState}
-                                            />
-                                        ))}
-                                    </div>
-                                )}
-                            </section>
-                        </div>
+            <SettingsPage
+                title={m.provider_apps_title()}
+                action={
+                    <DialogTrigger onClick={beginCreate} render={<Button disabled={pending} />}>
+                        <AddIcon aria-hidden="true" />
+                        {m.provider_apps_new()}
+                    </DialogTrigger>
+                }>
+                {error && !formOpen ? (
+                    <Alert className="mt-6" variant="destructive">
+                        <AlertTitle>{m.provider_apps_action_failed()}</AlertTitle>
+                        <AlertDescription className="flex flex-wrap items-center gap-2">
+                            <span>{error}</span>
+                            {applications === null ? (
+                                <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => setReloadVersion(current => current + 1)}>
+                                    <RefreshIcon aria-hidden="true" />
+                                    {m.common_retry()}
+                                </Button>
+                            ) : null}
+                        </AlertDescription>
+                    </Alert>
+                ) : null}
+                {notice ? (
+                    <div
+                        className="mt-6 flex items-center gap-2 text-sm text-state-success"
+                        role="status">
+                        <CheckIcon aria-hidden="true" className="size-4" />
+                        <span>{notice}</span>
                     </div>
+                ) : null}
+
+                <div className="mt-2 grid gap-5">
+                    <SettingsSection id="platforms" title={m.provider_apps_provider()}>
+                        {applications === null && !error ? (
+                            <p className="mt-4 text-sm text-muted-foreground" role="status">
+                                {m.provider_apps_loading()}
+                            </p>
+                        ) : applications === null ? null : applications.length === 0 ? (
+                            <EmptyState
+                                className="mt-4"
+                                description={m.provider_apps_empty_description()}
+                                icon={<SettingsIcon aria-hidden="true" />}
+                                title={m.provider_apps_empty()}
+                            />
+                        ) : (
+                            <SettingsCard>
+                                {applications.map(application => (
+                                    <ProviderApplicationRow
+                                        key={application.id}
+                                        application={application}
+                                        disabled={pending}
+                                        onEdit={beginEdit}
+                                        onMakeDefault={makeDefault}
+                                        onToggleState={toggleState}
+                                    />
+                                ))}
+                            </SettingsCard>
+                        )}
+                    </SettingsSection>
                 </div>
-            </main>
+            </SettingsPage>
             <DialogContent
                 className="flex max-h-[calc(100dvh-2rem)] flex-col overflow-hidden bg-surface-raised sm:max-w-xl"
                 showCloseButton={!pending}>

@@ -27,12 +27,10 @@ for (const route of ['overview', 'queue', 'media', 'channels', 'access']) {
             await tab.goto(`/dashboard/projects/${owner.projectId}/${route}`)
             if (route === 'access')
                 await expect(
-                    tab.getByRole('heading', { name: 'Project access', exact: true })
+                    tab.getByRole('heading', { name: 'People', exact: true, level: 1 })
                 ).toBeVisible()
             else
-                await expect(
-                    tab.getByRole('link', { name: 'New publication', exact: true })
-                ).toBeVisible()
+                await expect(tab.getByRole('link', { name: 'New post', exact: true })).toBeVisible()
             if (route === 'queue')
                 await expect(tab.locator('[data-queue-publication-list="true"]')).toContainText(
                     publication.title
@@ -44,9 +42,7 @@ for (const route of ['overview', 'queue', 'media', 'channels', 'access']) {
             await expect(tab.getByText('Project access removed', { exact: true })).toBeVisible({
                 timeout: 25_000,
             })
-            await expect(
-                tab.getByRole('link', { name: 'New publication', exact: true })
-            ).toHaveCount(0)
+            await expect(tab.getByRole('link', { name: 'New post', exact: true })).toHaveCount(0)
             await expect(tab.getByText(publication.title, { exact: true })).toHaveCount(0)
             await expect(
                 tab.getByRole('combobox', { name: 'Select project', exact: true })
@@ -82,7 +78,7 @@ for (const route of ['queue', 'media', 'channels']) {
             )
             const memberId = await waitForProjectMember(page, owner.projectId, email)
             await tab.goto(`/dashboard/projects/${owner.projectId}/${route}`)
-            const create = tab.getByRole('link', { name: 'New publication', exact: true })
+            const create = tab.getByRole('link', { name: 'New post', exact: true })
             await expect(create).toBeVisible()
             const url = tab.url()
             expect(
@@ -230,10 +226,10 @@ test('composer content survives a real downgrade and restoration', async ({ page
                 })
             ).status()
         ).toBe(200)
-        await expect(tab.getByRole('link', { name: 'New publication', exact: true })).toBeVisible({
+        await expect(tab.getByRole('link', { name: 'New post', exact: true })).toBeVisible({
             timeout: 25_000,
         })
-        await tab.getByRole('link', { name: 'New publication', exact: true }).click()
+        await tab.getByRole('link', { name: 'New post', exact: true }).click()
         await expect(content).toHaveText('Keep this local composition across role changes')
     } finally {
         await context.close()
@@ -294,7 +290,7 @@ test('a late creation acknowledgement cannot clear recovery after access removal
             await route.fulfill({ response })
             delivered()
         })
-        await tab.getByRole('button', { name: 'Create draft', exact: true }).click()
+        await tab.getByRole('button', { name: 'Save as draft', exact: true }).click()
         await acceptedGate
         expect(
             (
@@ -440,11 +436,11 @@ async function createAccountAndProject(page: Page, suffix: string) {
 
     await page.getByRole('combobox', { name: 'Select project', exact: true }).click()
     await page.getByRole('button', { name: 'Create project', exact: true }).last().click()
-    await page.getByRole('textbox', { name: 'New project', exact: true }).fill(`E2E-312 ${suffix}`)
+    await page.getByRole('textbox', { name: 'Name', exact: true }).fill(`E2E-312 ${suffix}`)
     await page
         .locator('form')
-        .filter({ has: page.getByRole('textbox', { name: 'New project', exact: true }) })
-        .getByRole('button', { name: 'Add project', exact: true })
+        .filter({ has: page.getByRole('textbox', { name: 'Name', exact: true }) })
+        .getByRole('button', { name: 'Create project', exact: true })
         .click()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/overview$/)
 

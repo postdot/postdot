@@ -12,15 +12,17 @@ import {
     SidebarMenuItem,
 } from '@postdot/ui/components/sidebar'
 import { AddIcon } from '@solar-icons/react/linear/add'
+import { AltArrowLeftIcon } from '@solar-icons/react/linear/alt-arrow-left'
 import { ArchiveIcon } from '@solar-icons/react/linear/archive'
+import { BookIcon } from '@solar-icons/react/linear/book'
 import { ChartSquareIcon } from '@solar-icons/react/linear/chart-square'
 import { GalleryIcon } from '@solar-icons/react/linear/gallery'
 import { KeyMinimalisticIcon } from '@solar-icons/react/linear/key-minimalistic'
 import { LinkIcon } from '@solar-icons/react/linear/link'
 import { ListIcon } from '@solar-icons/react/linear/list'
-import { Logout2Icon } from '@solar-icons/react/linear/logout-2'
 import { ServerIcon } from '@solar-icons/react/linear/server'
 import { SettingsIcon } from '@solar-icons/react/linear/settings'
+import { SettingsMinimalisticIcon } from '@solar-icons/react/linear/settings-minimalistic'
 import { TagIcon } from '@solar-icons/react/linear/tag'
 import { UserCircleIcon } from '@solar-icons/react/linear/user-circle'
 import { UserPlusRoundedIcon } from '@solar-icons/react/linear/user-plus-rounded'
@@ -51,11 +53,13 @@ export type DashboardSection =
     | 'access'
     | 'invitations'
     | 'tags'
+    | 'project-settings'
     | 'settings-archives'
+    | 'settings-help'
     | 'settings-access'
     | 'settings-provider-applications'
-    | 'workspace-channels'
     | 'settings-workspace'
+    | 'settings-workspace-settings'
     | 'settings'
     | 'preferences'
     | 'preferences-api-keys'
@@ -67,12 +71,10 @@ interface DashboardSidebarProps {
     readonly channels: readonly Channel[]
     readonly isInstanceAdmin: boolean
     readonly isInstanceSettings: boolean
-    readonly isProjectSettings: boolean
     readonly isWorkspaceSettings: boolean
     readonly isUserPreferences: boolean
     readonly isPublicationRoute: boolean
     readonly onProjectCategoryChange: (projectId: string, categoryId: string | null) => void
-    readonly onSignOut: () => void
     readonly pending: boolean
     readonly projects: readonly Project[]
     readonly publisherConnections: readonly PublisherConnection[]
@@ -85,15 +87,12 @@ interface DashboardSidebarProps {
 export function DashboardSidebar({
     activeSection,
     categories,
-    channels,
     isInstanceAdmin,
     isInstanceSettings,
-    isProjectSettings,
     isWorkspaceSettings,
     isUserPreferences,
     isPublicationRoute,
     onProjectCategoryChange,
-    onSignOut,
     pending,
     projects,
     projectRole,
@@ -103,8 +102,10 @@ export function DashboardSidebar({
 }: DashboardSidebarProps) {
     useLanguage()
     const canEditProject = projectRole === 'owner' || projectRole === 'editor'
-    const isSettingsShell =
-        isInstanceSettings || isProjectSettings || isWorkspaceSettings || isUserPreferences
+    // Project administration (tags, access, invitations) belongs to the product navigation; only
+    // personal, workspace and installation settings use the settings list (ADR-103 §4).
+    const isSettingsShell = isInstanceSettings || isWorkspaceSettings || isUserPreferences
+    const selectedProject = projects.find(project => project.id === selectedProjectId) ?? null
     const selectedWorkspace = workspaces.find(workspace => workspace.id === selectedWorkspaceId)
     const canManageWorkspace =
         selectedWorkspace?.role === 'owner' || selectedWorkspace?.role === 'admin'
@@ -119,33 +120,28 @@ export function DashboardSidebar({
             variant="inset">
             <SidebarHeader className="gap-4 p-3 group-data-[collapsible=icon]:h-14 group-data-[collapsible=icon]:gap-0 group-data-[collapsible=icon]:p-0">
                 <div className="flex items-center gap-2 group-data-[collapsible=icon]:h-14 group-data-[collapsible=icon]:w-full group-data-[collapsible=icon]:justify-center">
-                    {isProjectSettings && selectedProjectId !== null ? (
-                        <Link
-                            to="/dashboard/projects/$projectId/overview"
-                            params={{ projectId: selectedProjectId }}
-                            aria-label={m.nav_aria_label()}
-                            className="flex size-8 shrink-0 items-center justify-center rounded-md text-foreground hover:text-foreground/75 group-data-[collapsible=icon]:size-full! group-data-[collapsible=icon]:rounded-none">
-                            <PostdotLogo className="size-7" />
-                        </Link>
-                    ) : isSettingsShell || selectedProjectId === null ? (
+                    {isSettingsShell || selectedProjectId === null ? (
                         <Link
                             to="/dashboard"
                             aria-label={m.nav_aria_label()}
-                            className="flex size-8 shrink-0 items-center justify-center rounded-md text-foreground hover:text-foreground/75 group-data-[collapsible=icon]:size-full! group-data-[collapsible=icon]:rounded-none">
-                            <PostdotLogo className="size-7" />
+                            className="-ml-0.5 flex h-8 min-w-0 items-center gap-2 rounded-md pr-2 pl-0.5 text-foreground hover:text-foreground/75 group-data-[collapsible=icon]:size-full! group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:ml-0 group-data-[collapsible=icon]:rounded-none group-data-[collapsible=icon]:p-0">
+                            <PostdotLogo className="size-7 shrink-0" />
+                            <span className="truncate text-sm font-semibold group-data-[collapsible=icon]:hidden">
+                                Postdot
+                            </span>
                         </Link>
                     ) : (
                         <Link
                             to="/dashboard/projects/$projectId/overview"
                             params={{ projectId: selectedProjectId }}
                             aria-label={m.nav_aria_label()}
-                            className="flex size-8 shrink-0 items-center justify-center rounded-md text-foreground hover:text-foreground/75 group-data-[collapsible=icon]:size-full! group-data-[collapsible=icon]:rounded-none">
-                            <PostdotLogo className="size-7" />
+                            className="-ml-0.5 flex h-8 min-w-0 items-center gap-2 rounded-md pr-2 pl-0.5 text-foreground hover:text-foreground/75 group-data-[collapsible=icon]:size-full! group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:ml-0 group-data-[collapsible=icon]:rounded-none group-data-[collapsible=icon]:p-0">
+                            <PostdotLogo className="size-7 shrink-0" />
+                            <span className="truncate text-sm font-semibold group-data-[collapsible=icon]:hidden">
+                                Postdot
+                            </span>
                         </Link>
                     )}
-                    <div className="min-w-0 group-data-[collapsible=icon]:hidden">
-                        <p className="truncate text-sm font-semibold">Postdot</p>
-                    </div>
                 </div>
 
                 {!isSettingsShell ? (
@@ -162,10 +158,7 @@ export function DashboardSidebar({
                 ) : null}
             </SidebarHeader>
 
-            {!isSettingsShell &&
-            selectedProjectId !== null &&
-            (channels.length > 0 || activeSection === 'new-publication') &&
-            canEditProject ? (
+            {!isSettingsShell && selectedProjectId !== null && canEditProject ? (
                 <div className="px-3 pb-1 group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-2">
                     <SidebarMenu>
                         <SidebarMenuItem>
@@ -193,44 +186,49 @@ export function DashboardSidebar({
             ) : null}
 
             <SidebarContent>
-                {isProjectSettings ? (
-                    <SidebarGroup className="px-3 py-1 group-data-[collapsible=icon]:px-2">
-                        <SidebarGroupLabel className="px-2">
-                            {m.nav_project_configuration()}
-                        </SidebarGroupLabel>
-                        <SidebarGroupContent>
-                            <nav aria-label={m.nav_project_configuration()}>
-                                <SidebarMenu>
-                                    <WorkspaceMenuItem
-                                        active={activeSection === 'access'}
-                                        destination="access"
-                                        icon={<KeyMinimalisticIcon aria-hidden="true" />}
-                                        label={m.nav_access()}
-                                        projectId={selectedProjectId}
-                                        workspaceId={selectedWorkspaceId}
-                                    />
-                                    <WorkspaceMenuItem
-                                        active={activeSection === 'invitations'}
-                                        destination="invitations"
-                                        icon={<UserPlusRoundedIcon aria-hidden="true" />}
-                                        label={m.nav_project_invitations()}
-                                        projectId={selectedProjectId}
-                                        workspaceId={selectedWorkspaceId}
-                                    />
-                                    <WorkspaceMenuItem
-                                        active={activeSection === 'tags'}
-                                        destination="tags"
-                                        icon={<TagIcon aria-hidden="true" />}
-                                        label={m.taxonomy_tags()}
-                                        projectId={selectedProjectId}
-                                        workspaceId={selectedWorkspaceId}
-                                    />
-                                </SidebarMenu>
-                            </nav>
-                        </SidebarGroupContent>
-                    </SidebarGroup>
-                ) : isUserPreferences || isInstanceSettings || isWorkspaceSettings ? (
+                {isSettingsShell ? (
                     <>
+                        <SidebarGroup className="px-3 pb-2 group-data-[collapsible=icon]:px-2">
+                            <SidebarGroupContent>
+                                <SidebarMenu>
+                                    <SidebarMenuItem>
+                                        <SidebarMenuButton
+                                            data-settings-return="true"
+                                            render={
+                                                selectedProjectId !== null ? (
+                                                    <Link
+                                                        params={{ projectId: selectedProjectId }}
+                                                        to="/dashboard/projects/$projectId/overview"
+                                                    />
+                                                ) : (
+                                                    <Link
+                                                        search={{
+                                                            workspaceId:
+                                                                selectedWorkspaceId ?? undefined,
+                                                            projectId: 'none',
+                                                        }}
+                                                        to="/dashboard"
+                                                    />
+                                                )
+                                            }
+                                            tooltip={
+                                                selectedProject?.name ?? m.nav_back_to_projects()
+                                            }>
+                                            <AltArrowLeftIcon aria-hidden="true" />
+                                            <span className="truncate font-medium group-data-[collapsible=icon]:hidden">
+                                                {selectedProject?.name ?? m.nav_back_to_projects()}
+                                            </span>
+                                        </SidebarMenuButton>
+                                    </SidebarMenuItem>
+                                </SidebarMenu>
+                            </SidebarGroupContent>
+                        </SidebarGroup>
+                        {/* The settings state names itself, so nobody infers it from the items. */}
+                        <h2
+                            className="px-5 pt-2 pb-1 font-heading text-lg font-semibold group-data-[collapsible=icon]:hidden"
+                            data-settings-title="true">
+                            {m.nav_settings()}
+                        </h2>
                         <SidebarGroup className="px-3 py-1 group-data-[collapsible=icon]:px-2">
                             <SidebarGroupLabel className="px-2">
                                 {m.nav_personal_settings()}
@@ -278,6 +276,14 @@ export function DashboardSidebar({
                                             destination="settings-archives"
                                             icon={<ArchiveIcon aria-hidden="true" />}
                                             label={m.lifecycle_archives()}
+                                            projectId={selectedProjectId}
+                                            workspaceId={selectedWorkspaceId}
+                                        />
+                                        <WorkspaceMenuItem
+                                            active={activeSection === 'settings-help'}
+                                            destination="settings-help"
+                                            icon={<BookIcon aria-hidden="true" />}
+                                            label={m.help_title()}
                                             projectId={selectedProjectId}
                                             workspaceId={selectedWorkspaceId}
                                         />
@@ -334,20 +340,24 @@ export function DashboardSidebar({
                                     <nav aria-label={m.nav_workspace_navigation()}>
                                         <SidebarMenu>
                                             <WorkspaceMenuItem
-                                                active={activeSection === 'workspace-channels'}
-                                                destination="workspace-channels"
-                                                icon={<LinkIcon aria-hidden="true" />}
-                                                label={m.workspace_channels_title()}
-                                                projectId={selectedProjectId}
-                                                workspaceId={selectedWorkspaceId}
-                                            />
-                                            <WorkspaceMenuItem
                                                 active={activeSection === 'settings-workspace'}
                                                 destination="settings-workspace"
                                                 icon={
                                                     <UsersGroupTwoRoundedIcon aria-hidden="true" />
                                                 }
                                                 label={m.nav_workspace_administration()}
+                                                projectId={selectedProjectId}
+                                                workspaceId={selectedWorkspaceId}
+                                            />
+                                            <WorkspaceMenuItem
+                                                active={
+                                                    activeSection === 'settings-workspace-settings'
+                                                }
+                                                destination="settings-workspace-settings"
+                                                icon={
+                                                    <SettingsMinimalisticIcon aria-hidden="true" />
+                                                }
+                                                label={m.nav_workspace_settings()}
                                                 projectId={selectedProjectId}
                                                 workspaceId={selectedWorkspaceId}
                                             />
@@ -377,14 +387,6 @@ export function DashboardSidebar({
                                             workspaceId={selectedWorkspaceId}
                                         />
                                         <WorkspaceMenuItem
-                                            active={activeSection === 'performance'}
-                                            destination="performance"
-                                            icon={<ChartSquareIcon aria-hidden="true" />}
-                                            label={m.nav_performance()}
-                                            projectId={selectedProjectId}
-                                            workspaceId={selectedWorkspaceId}
-                                        />
-                                        <WorkspaceMenuItem
                                             active={activeSection === 'queue' || isPublicationRoute}
                                             destination="queue"
                                             icon={<ListIcon aria-hidden="true" />}
@@ -392,88 +394,116 @@ export function DashboardSidebar({
                                             projectId={selectedProjectId}
                                             workspaceId={selectedWorkspaceId}
                                         />
+                                        <WorkspaceMenuItem
+                                            active={activeSection === 'performance'}
+                                            destination="performance"
+                                            icon={<ChartSquareIcon aria-hidden="true" />}
+                                            label={m.nav_performance()}
+                                            projectId={selectedProjectId}
+                                            workspaceId={selectedWorkspaceId}
+                                        />
                                     </SidebarMenu>
                                 </nav>
                             </SidebarGroupContent>
                         </SidebarGroup>
 
-                        <SidebarGroup className="px-3 py-1 group-data-[collapsible=icon]:px-2">
-                            <SidebarGroupLabel className="px-2">
-                                {m.nav_project()}
-                            </SidebarGroupLabel>
-                            <SidebarGroupContent>
-                                <nav aria-label={m.nav_project_management_navigation()}>
-                                    <SidebarMenu>
-                                        <WorkspaceMenuItem
-                                            destination="channels"
-                                            icon={<LinkIcon aria-hidden="true" />}
-                                            label={m.nav_channels()}
-                                            projectId={selectedProjectId}
-                                            workspaceId={selectedWorkspaceId}
-                                            active={activeSection === 'channels'}
-                                        />
-                                        <WorkspaceMenuItem
-                                            destination="media"
-                                            icon={<GalleryIcon aria-hidden="true" />}
-                                            label={m.nav_media()}
-                                            projectId={selectedProjectId}
-                                            workspaceId={selectedWorkspaceId}
-                                            active={activeSection === 'media'}
-                                        />
-                                    </SidebarMenu>
-                                </nav>
-                            </SidebarGroupContent>
-                        </SidebarGroup>
+                        {selectedProjectId !== null || selectedWorkspaceId !== null ? (
+                            <SidebarGroup className="px-3 py-1 group-data-[collapsible=icon]:px-2">
+                                <SidebarGroupLabel className="px-2">
+                                    {selectedProjectId === null
+                                        ? m.nav_workspace()
+                                        : m.nav_project()}
+                                </SidebarGroupLabel>
+                                <SidebarGroupContent>
+                                    <nav
+                                        aria-label={
+                                            selectedProjectId === null
+                                                ? m.nav_workspace_navigation()
+                                                : m.nav_project_management_navigation()
+                                        }>
+                                        <SidebarMenu>
+                                            <WorkspaceMenuItem
+                                                destination="channels"
+                                                icon={<LinkIcon aria-hidden="true" />}
+                                                label={m.nav_channels()}
+                                                projectId={selectedProjectId}
+                                                workspaceId={selectedWorkspaceId}
+                                                active={activeSection === 'channels'}
+                                            />
+                                            <WorkspaceMenuItem
+                                                destination="media"
+                                                icon={<GalleryIcon aria-hidden="true" />}
+                                                label={m.nav_media()}
+                                                projectId={selectedProjectId}
+                                                workspaceId={selectedWorkspaceId}
+                                                active={activeSection === 'media'}
+                                            />
+                                            <WorkspaceMenuItem
+                                                active={activeSection === 'tags'}
+                                                destination="tags"
+                                                icon={<TagIcon aria-hidden="true" />}
+                                                label={m.taxonomy_tags()}
+                                                projectId={selectedProjectId}
+                                                workspaceId={selectedWorkspaceId}
+                                            />
+                                            <WorkspaceMenuItem
+                                                active={
+                                                    activeSection === 'access' ||
+                                                    activeSection === 'invitations'
+                                                }
+                                                destination="access"
+                                                icon={
+                                                    <UsersGroupTwoRoundedIcon aria-hidden="true" />
+                                                }
+                                                label={m.nav_access()}
+                                                projectId={selectedProjectId}
+                                                workspaceId={selectedWorkspaceId}
+                                            />
+                                            <WorkspaceMenuItem
+                                                active={activeSection === 'project-settings'}
+                                                destination="project-settings"
+                                                icon={
+                                                    <SettingsMinimalisticIcon aria-hidden="true" />
+                                                }
+                                                label={m.nav_project_configuration()}
+                                                projectId={selectedProjectId}
+                                                workspaceId={selectedWorkspaceId}
+                                            />
+                                        </SidebarMenu>
+                                    </nav>
+                                </SidebarGroupContent>
+                            </SidebarGroup>
+                        ) : null}
                     </>
                 )}
-                {selectedWorkspaceId && (!isSettingsShell || !canManageWorkspace) ? (
-                    <SidebarGroup className="px-3 py-1 group-data-[collapsible=icon]:px-2">
-                        <SidebarGroupLabel className="px-2">{m.nav_workspace()}</SidebarGroupLabel>
-                        <SidebarGroupContent>
-                            <nav aria-label={m.workspace_channels_navigation()}>
-                                <SidebarMenu>
-                                    <WorkspaceMenuItem
-                                        active={activeSection === 'workspace-channels'}
-                                        destination="workspace-channels"
-                                        icon={<LinkIcon aria-hidden="true" />}
-                                        label={m.workspace_channels_title()}
-                                        projectId={selectedProjectId}
-                                        workspaceId={selectedWorkspaceId}
-                                    />
-                                </SidebarMenu>
-                            </nav>
-                        </SidebarGroupContent>
-                    </SidebarGroup>
-                ) : null}
             </SidebarContent>
 
-            <SidebarFooter className="gap-3 p-3 group-data-[collapsible=icon]:p-2">
-                <SidebarMenu>
-                    <SidebarMenuItem>
-                        <SidebarMenuButton
-                            disabled={pending}
-                            aria-label={m.nav_sign_out()}
-                            onClick={onSignOut}
-                            tooltip={m.nav_sign_out()}>
-                            <Logout2Icon aria-hidden="true" />
-                            <span className="group-data-[collapsible=icon]:hidden">
-                                {m.nav_sign_out()}
-                            </span>
-                        </SidebarMenuButton>
-                    </SidebarMenuItem>
-                </SidebarMenu>
-            </SidebarFooter>
+            {isSettingsShell ? null : (
+                <SidebarFooter className="gap-3 p-3 group-data-[collapsible=icon]:p-2">
+                    <SidebarMenu>
+                        <WorkspaceMenuItem
+                            destination="preferences"
+                            icon={<SettingsIcon aria-hidden="true" />}
+                            label={m.nav_preferences()}
+                            projectId={selectedProjectId}
+                            workspaceId={selectedWorkspaceId}
+                        />
+                    </SidebarMenu>
+                </SidebarFooter>
+            )}
         </Sidebar>
     )
 }
 
 export function workspaceSection(pathname: string): DashboardSection {
-    if (pathname === '/dashboard/workspace/channels') return 'workspace-channels'
     if (pathname === '/dashboard/preferences/account') return 'preferences-account'
     if (pathname === '/dashboard/preferences/api-keys') return 'preferences-api-keys'
     if (pathname === '/dashboard/preferences') return 'preferences'
     if (pathname === '/dashboard/settings/archives') return 'settings-archives'
+    if (pathname === '/dashboard/settings/help') return 'settings-help'
+    if (pathname.includes('/projects/') && pathname.endsWith('/settings')) return 'project-settings'
     if (pathname.includes('/settings/access')) return 'settings-access'
+    if (pathname.includes('/settings/workspace/settings')) return 'settings-workspace-settings'
     if (pathname.includes('/settings/workspace')) return 'settings-workspace'
     if (pathname.includes('/settings/provider-applications')) {
         return 'settings-provider-applications'
@@ -495,15 +525,16 @@ export function workspaceSectionLabel(section: DashboardSection) {
     if (section === 'new-publication') return m.nav_new_publication()
     if (section === 'performance') return m.nav_performance()
     if (section === 'queue') return m.nav_queue()
-    if (section === 'workspace-channels') return m.workspace_channels_title()
     if (section === 'channels') return m.nav_channels()
     if (section === 'media') return m.nav_media()
-    if (section === 'access') return m.nav_access()
-    if (section === 'invitations') return m.nav_project_invitations()
+    if (section === 'access' || section === 'invitations') return m.nav_access()
     if (section === 'tags') return m.taxonomy_tags()
+    if (section === 'project-settings') return m.nav_project_configuration()
     if (section === 'settings-archives') return m.lifecycle_archives()
+    if (section === 'settings-help') return m.help_title()
     if (section === 'settings-access') return m.nav_instance_access()
     if (section === 'settings-provider-applications') return m.nav_instance_provider_apps()
+    if (section === 'settings-workspace-settings') return m.nav_workspace_settings()
     if (section === 'settings-workspace') return m.nav_workspace_administration()
     if (section === 'settings') return m.nav_instance_configuration()
     if (section === 'preferences') return m.nav_preferences_general()
@@ -532,50 +563,36 @@ function WorkspaceMenuItem({
         (destination === 'new-publication' ||
             destination === 'performance' ||
             destination === 'queue' ||
-            destination === 'channels' ||
+            (destination === 'channels' && workspaceId === null) ||
             destination === 'media' ||
             destination === 'access' ||
             destination === 'invitations' ||
+            destination === 'project-settings' ||
             destination === 'tags')
+
+    if (requiresProject) return null
 
     return (
         <SidebarMenuItem>
             <SidebarMenuButton
                 data-navigation-destination={
-                    requiresProject
-                        ? undefined
-                        : destination === 'overview' && projectId === null
-                          ? 'projects'
-                          : destination
+                    destination === 'overview' && projectId === null ? 'projects' : destination
                 }
                 data-navigation-scope={
-                    requiresProject
-                        ? undefined
-                        : destination.startsWith('preferences')
-                          ? 'personal'
-                          : destination === 'workspace-channels' ||
-                              destination === 'settings-workspace' ||
-                              (destination === 'overview' && projectId === null)
-                            ? 'workspace'
-                            : destination.startsWith('settings')
-                              ? 'installation'
-                              : 'project'
+                    destination.startsWith('preferences')
+                        ? 'personal'
+                        : destination === 'settings-workspace' ||
+                            destination === 'settings-workspace-settings' ||
+                            (destination === 'channels' && projectId === null) ||
+                            (destination === 'overview' && projectId === null)
+                          ? 'workspace'
+                          : destination.startsWith('settings')
+                            ? 'installation'
+                            : 'project'
                 }
-                aria-disabled={requiresProject}
-                disabled={requiresProject}
-                render={
-                    requiresProject
-                        ? undefined
-                        : workspaceLink(destination, projectId, workspaceId, label, active)
-                }
+                render={workspaceLink(destination, projectId, workspaceId, label, active)}
                 isActive={active}
-                tabIndex={requiresProject ? -1 : undefined}
-                className={
-                    requiresProject
-                        ? 'cursor-not-allowed text-muted-foreground/45 opacity-100 hover:bg-transparent hover:text-muted-foreground/45'
-                        : undefined
-                }
-                tooltip={requiresProject ? m.nav_project_required() : label}>
+                tooltip={label}>
                 {icon}
                 <span className="group-data-[collapsible=icon]:hidden">{label}</span>
             </SidebarMenuButton>
@@ -594,6 +611,18 @@ function workspaceLink(
         return (
             <Link
                 to="/dashboard/settings"
+                search={{ workspaceId: workspaceId ?? undefined, projectId: projectId ?? 'none' }}
+                activeOptions={{ exact: true }}
+                aria-label={ariaLabel}
+                aria-current={active ? 'page' : undefined}
+            />
+        )
+    }
+
+    if (destination === 'settings-help') {
+        return (
+            <Link
+                to="/dashboard/settings/help"
                 search={{ workspaceId: workspaceId ?? undefined, projectId: projectId ?? 'none' }}
                 activeOptions={{ exact: true }}
                 aria-label={ariaLabel}
@@ -643,20 +672,14 @@ function workspaceLink(
         )
     }
 
-    if (destination === 'workspace-channels')
+    if (destination === 'settings-workspace' || destination === 'settings-workspace-settings') {
         return (
             <Link
-                to="/dashboard/workspace/channels"
-                search={{ workspaceId: workspaceId ?? undefined, projectId: projectId ?? 'none' }}
-                activeOptions={{ exact: true }}
-                aria-label={ariaLabel}
-                aria-current={active ? 'page' : undefined}
-            />
-        )
-    if (destination === 'settings-workspace') {
-        return (
-            <Link
-                to="/dashboard/settings/workspace"
+                to={
+                    destination === 'settings-workspace'
+                        ? '/dashboard/settings/workspace/people'
+                        : '/dashboard/settings/workspace/settings'
+                }
                 search={{ workspaceId: workspaceId ?? undefined, projectId: projectId ?? 'none' }}
                 activeOptions={{ exact: true }}
                 aria-label={ariaLabel}
@@ -701,6 +724,20 @@ function workspaceLink(
         )
     }
 
+    if (destination === 'channels' && projectId === null)
+        return (
+            <Link
+                to="/dashboard/channels"
+                search={{
+                    workspaceId: workspaceId ?? undefined,
+                    projectId: 'none',
+                    scope: 'workspace',
+                }}
+                aria-label={ariaLabel}
+                aria-current={active ? 'page' : undefined}
+            />
+        )
+
     if (projectId === null) {
         return (
             <Link
@@ -731,6 +768,17 @@ function workspaceLink(
                 to="/dashboard/projects/$projectId/publications/new"
                 params={{ projectId }}
                 activeOptions={{ exact: true }}
+                aria-label={ariaLabel}
+                aria-current={active ? 'page' : undefined}
+            />
+        )
+    }
+
+    if (destination === 'project-settings') {
+        return (
+            <Link
+                to="/dashboard/projects/$projectId/settings"
+                params={{ projectId }}
                 aria-label={ariaLabel}
                 aria-current={active ? 'page' : undefined}
             />

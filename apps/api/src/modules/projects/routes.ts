@@ -6,6 +6,7 @@ import { Type } from 'typebox'
 import {
     createProjectBody,
     errorResponse,
+    projectListItemSchema,
     projectParams,
     projectSchema,
     updateProjectBody,
@@ -26,7 +27,7 @@ export function registerProjectRoutes<const Routes extends Record<string, unknow
                 auth: true,
                 query: Type.Object({ includeArchived: Type.Optional(Type.Boolean()) }),
                 response: {
-                    200: Type.Object({ projects: Type.Array(projectSchema) }),
+                    200: Type.Object({ projects: Type.Array(projectListItemSchema) }),
                     401: errorResponse,
                     403: errorResponse,
                 },
@@ -57,8 +58,9 @@ export function registerProjectRoutes<const Routes extends Record<string, unknow
                     }
                 }
 
-                return {
-                    projects: await filterSequential([...projectsById.values()], async project => {
+                const visibleProjects = await filterSequential(
+                    [...projectsById.values()],
+                    async project => {
                         if (
                             !query.includeArchived &&
                             (await lifecycle.projectState(project.id)) !== 'active'
@@ -71,7 +73,18 @@ export function registerProjectRoutes<const Routes extends Record<string, unknow
                                 (workspaceId !== null &&
                                     (await access.canManageWorkspace(workspaceId, user.id))))
                         )
-                    }),
+                    }
+                )
+                const upcomingScheduledCounts =
+                    await manualStore.countUpcomingScheduledPublications(
+                        visibleProjects.map(project => project.id)
+                    )
+
+                return {
+                    projects: visibleProjects.map(project => ({
+                        ...project,
+                        upcomingScheduledCount: upcomingScheduledCounts.get(project.id) ?? 0,
+                    })),
                 }
             }
         )

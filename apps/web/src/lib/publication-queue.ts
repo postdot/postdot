@@ -1,6 +1,6 @@
 import type { PublicationSummary } from '@/lib/api'
 
-export type QueueFilter = 'all' | 'attention' | 'draft' | 'scheduled' | 'manual'
+export type QueueFilter = 'all' | 'attention' | 'draft' | 'scheduled' | 'published' | 'manual'
 export type PublicationQueueSort =
     | 'queue'
     | 'updated_desc'
@@ -11,7 +11,10 @@ export type PublicationQueueSort =
     | 'scheduled_asc'
 
 export function defaultPublicationQueueSort(filter: QueueFilter): PublicationQueueSort {
-    return filter === 'draft' ? 'updated_desc' : 'queue'
+    if (filter === 'draft') return 'updated_desc'
+    // History reads newest first.
+    if (filter === 'published') return 'scheduled_desc'
+    return 'queue'
 }
 
 export function filterQueuePublications(
@@ -34,6 +37,9 @@ export function filterQueuePublications(
     }
     if (filter === 'scheduled') {
         return publications.filter(publication => publication.state === 'scheduled')
+    }
+    if (filter === 'published') {
+        return publications.filter(publication => publication.state === 'published')
     }
     return publications.filter(publication => publication.deliveryMode === 'manual')
 }
@@ -71,6 +77,7 @@ export function isQueueFilter(value: string): value is QueueFilter {
         value === 'attention' ||
         value === 'draft' ||
         value === 'scheduled' ||
+        value === 'published' ||
         value === 'manual'
     )
 }

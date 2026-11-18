@@ -166,20 +166,20 @@ for (const [provider, metrics] of [
         await publication.getByRole('button', { name: 'History', exact: true }).focus()
         await page.keyboard.press('Enter')
         const history = publication.locator('[data-engagement-history]')
-        await expect(history.locator('[data-history-value]')).toHaveText(['12', '—', '0'])
+        await expect(history.locator('[data-history-value]')).toHaveText(['12', '-', '0'])
         await expect(history.locator('[data-history-point]')).toHaveCount(2)
         await expect(history.locator('[data-history-segment]')).toHaveCount(2)
         await expect(history.locator('[data-history-difference]')).toHaveCount(0)
-        await history.getByRole('button', { name: 'Older snapshots', exact: true }).click()
+        await history.getByRole('button', { name: 'Older readings', exact: true }).click()
         await expect(history.locator('[data-history-value]')).toHaveText(['0'])
         await expect(
             history.getByText(
-                'One snapshot is saved. Another comparable snapshot is needed to show a change.',
+                'One reading is saved. Another comparable reading is needed to show a change.',
                 { exact: true }
             )
         ).toBeVisible()
-        await history.getByRole('button', { name: 'Newer snapshots', exact: true }).click()
-        await expect(history.locator('[data-history-value]')).toHaveText(['12', '—', '0'])
+        await history.getByRole('button', { name: 'Newer readings', exact: true }).click()
+        await expect(history.locator('[data-history-value]')).toHaveText(['12', '-', '0'])
         await history.getByRole('combobox', { name: 'Engagement metric', exact: true }).click()
         await page.getByRole('option').nth(1).click()
         await expect(history.locator('[data-history-difference]')).toContainText('-4')
@@ -203,13 +203,13 @@ for (const [provider, metrics] of [
         await page.getByRole('option').nth(2).click()
         await expect(
             history.getByText(
-                'The content revision or measurement format changed. Compare the snapshots in the table; a continuous trend would be misleading.',
+                'The post or the way it is measured changed in this period, so the trend may jump.',
                 { exact: true }
             )
         ).toBeVisible()
         await expect(history.locator('[data-history-chart]')).toHaveCount(0)
         failHistory = true
-        await history.getByRole('button', { name: 'Reload saved data', exact: true }).click()
+        await history.getByRole('button', { name: 'Refresh', exact: true }).click()
         await expect(history.getByRole('button', { name: 'Retry', exact: true })).toBeVisible()
         await expect(history.locator('[data-history-value]')).toHaveText(['10', '4'])
         failHistory = false

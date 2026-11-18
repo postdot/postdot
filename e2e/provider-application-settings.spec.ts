@@ -5,6 +5,7 @@ import { expect, test } from '@playwright/test'
 
 import en from '../apps/web/messages/en.json' with { type: 'json' }
 import fr from '../apps/web/messages/fr.json' with { type: 'json' }
+import { openLanguageMenu, switchTheme } from './locale'
 
 test('configures an Instagram application with distinct credentials and retains its encrypted secret', async ({
     page,
@@ -147,12 +148,7 @@ test('keeps publisher application configuration in a focused and recoverable for
     expect(JSON.stringify(body)).not.toContain('synthetic-secret')
     for (const theme of ['light', 'dark'] as const) {
         if (!(await page.locator('html').getAttribute('class'))?.split(' ').includes(theme)) {
-            await page
-                .getByRole('button', {
-                    name: en.theme_switch_to.replace('{theme}', en[`theme_${theme}`]),
-                    exact: true,
-                })
-                .click()
+            await switchTheme(page, theme)
         }
         for (const width of [1280, 820, 390]) {
             await page.setViewportSize({ width, height: 844 })
@@ -184,8 +180,8 @@ test('keeps publisher application configuration in a focused and recoverable for
     await expect(
         page.getByRole('heading', { name: 'Renamed application', exact: true })
     ).toBeVisible()
-    await page.locator('[data-dashboard-header] [data-slot="language-switcher-trigger"]').click()
-    await page.getByRole('menuitem', { name: en.language_french, exact: true }).click()
+    await openLanguageMenu(page)
+    await page.getByRole('menuitem', { name: 'Français', exact: true }).click()
     await page.getByRole('button', { name: fr.provider_apps_new, exact: true }).click()
     await expect(dialog.getByLabel(fr.provider_apps_client_secret, { exact: true })).toBeVisible()
     expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([])

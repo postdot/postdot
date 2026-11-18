@@ -86,6 +86,8 @@ export interface CustomHttpRequest {
     readonly headers: Readonly<Record<string, string>>
     readonly body: CustomHttpRequestBody | null
     readonly maxResponseBytes: number
+    /** Return the retained prefix length when the response is complete enough. */
+    readonly responsePrefixLength?: (bytes: Uint8Array) => number | null
 }
 
 export interface CustomHttpRequester {
@@ -104,9 +106,14 @@ export interface NetworkControlledBinaryResponse {
     readonly bodyTruncated: boolean
 }
 
+export interface BinaryRequestInit extends RequestInit {
+    readonly maxResponseBytes?: number
+    readonly responsePrefixLength?: (bytes: Uint8Array) => number | null
+}
+
 export type NetworkControlledBinaryFetcher = (
     input: string | URL | Request,
-    init?: RequestInit
+    init?: BinaryRequestInit
 ) => Promise<NetworkControlledBinaryResponse>
 
 export interface ResolvedNetworkAddress {

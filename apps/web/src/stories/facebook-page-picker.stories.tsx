@@ -1,4 +1,5 @@
 import { Button } from '@postdot/ui/components/button'
+import { Tooltip, TooltipTrigger, TooltipContent } from '@postdot/ui/components/tooltip'
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { useState } from 'react'
 
@@ -15,7 +16,7 @@ export default meta
 
 type Story = StoryObj
 const pages = [
-    { id: '101', name: 'Postdot — Product updates', hasPublishTask: true },
+    { id: '101', name: 'Postdot: Product updates', hasPublishTask: true },
     { id: '102', name: 'Community', hasPublishTask: false },
     { id: '103', name: 'Studio announcements', hasPublishTask: true },
 ]
@@ -76,13 +77,19 @@ export const ManyPages: Story = { render: () => <Example state="many" /> }
 export const NarrowViewport: Story = {
     render: () => (
         <div className="flex min-h-screen justify-center bg-background p-3">
-            <iframe
-                title="Facebook Page picker at 390 pixels"
-                width="390"
-                height="568"
-                className="max-w-full border border-border"
-                src="/iframe.html?id=channels-facebook-pages--many-pages&viewMode=story"
-            />
+            <Tooltip>
+                <TooltipTrigger
+                    render={
+                        <iframe
+                            width="390"
+                            height="568"
+                            className="max-w-full border border-border"
+                            src="/iframe.html?id=channels-facebook-pages--many-pages&viewMode=story"
+                        />
+                    }
+                />
+                <TooltipContent>{'Facebook Page picker at 390 pixels'}</TooltipContent>
+            </Tooltip>
         </div>
     ),
 }

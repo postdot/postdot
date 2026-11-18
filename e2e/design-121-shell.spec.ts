@@ -2,6 +2,8 @@ import { randomUUID } from 'node:crypto'
 
 import { expect, test, type Page } from '@playwright/test'
 
+import { openLanguageMenu } from './locale'
+
 test('keeps the workspace navigation reachable when reduced and on mobile', async ({ page }) => {
     test.setTimeout(30_000)
 
@@ -24,7 +26,7 @@ test('keeps the workspace navigation reachable when reduced and on mobile', asyn
         })
     expect(expandedShell.scrollLeft).toBe(expandedShell.containerRight)
 
-    const toggle = page.getByRole('button', { name: 'Toggle workspace navigation', exact: true })
+    const toggle = page.getByRole('button', { name: 'Hide menu', exact: true })
     await toggle.click()
     await expect(page.getByRole('link', { name: 'Overview', exact: true })).toBeVisible()
 
@@ -148,8 +150,8 @@ test('keeps the workspace navigation reachable when reduced and on mobile', asyn
     await expect(page.locator('[data-slot="sidebar"]')).toHaveAttribute('data-variant', 'inset')
     await expect(page.locator('[data-slot="sidebar-inset"]')).toBeVisible()
 
-    await page.getByRole('button', { name: 'Language', exact: true }).click()
-    await page.getByRole('menuitem', { name: 'French', exact: true }).click()
+    await openLanguageMenu(page)
+    await page.getByRole('menuitem', { name: 'Français', exact: true }).click()
     await expect(page.getByRole('heading', { name: 'Vue d’ensemble', exact: true })).toBeVisible()
 
     await page.setViewportSize({ width: 390, height: 844 })
@@ -178,6 +180,16 @@ test('keeps the explicit no-project context on the project picker', async ({ pag
 
     const suffix = randomUUID().slice(0, 8)
     await createAccountAndProject(page, suffix)
+    const projectId = new URL(page.url()).pathname.split('/')[3]
+    for (let index = 0; index < 6; index += 1) {
+        const response = await page.request.post(`/api/projects/${projectId}/channels`, {
+            data: {
+                name: `Card channel ${index + 1}`,
+                profile: 'manual-message',
+            },
+        })
+        expect(response.status()).toBe(201)
+    }
 
     await page.getByRole('combobox', { name: 'Select project', exact: true }).click()
     await page.getByRole('option', { name: 'No project selected', exact: true }).click()
@@ -187,6 +199,13 @@ test('keeps the explicit no-project context on the project picker', async ({ pag
     await expect(page.getByRole('combobox', { name: 'Select project', exact: true })).toHaveText(
         'No project selected'
     )
+    const projectCard = page
+        .locator('main a[href$="/overview"]')
+        .filter({ hasText: `E2E-121 project ${suffix}` })
+    await expect(projectCard.locator('[data-project-channels] [data-channel-avatar]')).toHaveCount(
+        5
+    )
+    await expect(projectCard.locator('[data-project-channels]')).toContainText('+1')
 })
 
 test('keeps a fixed page edge, readable menus and transient action feedback', async ({
@@ -221,13 +240,27 @@ test('keeps a fixed page edge, readable menus and transient action feedback', as
     await expect(edge).not.toHaveCSS('box-shadow', 'none')
     await page.screenshot({ path: info.outputPath('fixed-edge-scrolled.png') })
 
+    const { channels } = (await (
+        await page.request.get(`/api/projects/${projectId}/channels`)
+    ).json()) as { channels: { id: string }[] }
+    const seededPost = await page.request.post(`/api/projects/${projectId}/posts`, {
+        data: {
+            sourceContent: {
+                body: { format: 'plain_text', text: 'Shell filter sizing post' },
+                media: [],
+            },
+            publications: [{ channelId: channels[0]!.id, deliveryMode: 'manual' }],
+        },
+    })
+    expect(seededPost.status()).toBe(201)
+
     await page.goto(`/dashboard/projects/${projectId}/queue`)
-    await page.getByRole('combobox', { name: 'Delivery', exact: true }).click()
-    await page.getByRole('option', { name: 'Manual delivery', exact: true }).click()
-    await page.getByRole('combobox', { name: 'Delivery', exact: true }).click()
-    const options = page.locator('[data-slot="select-content"]')
+    await page.locator('[data-filter-menu="true"]').click()
+    await page.getByRole('menuitemradio', { name: 'By hand only', exact: true }).click()
+    await page.locator('[data-filter-menu="true"]').click()
+    const options = page.getByRole('menu')
     await expect(options).toBeVisible()
-    for (const option of await page.getByRole('option').all()) {
+    for (const option of await page.getByRole('menuitemradio').all()) {
         const fit = await option.evaluate(element => ({
             visible: element.clientWidth,
             content: element.scrollWidth,
@@ -243,7 +276,7 @@ test('keeps a fixed page edge, readable menus and transient action feedback', as
     await trigger.click()
     const menu = page.getByRole('menu')
     await expect(menu).toBeVisible()
-    const item = page.getByRole('menuitem', { name: 'Edit profile', exact: true })
+    const item = page.getByRole('menuitem', { name: 'Content rules', exact: true })
     await expect(item).toBeVisible()
     const geometry = await item.evaluate(element => ({
         height: element.clientHeight,
@@ -309,13 +342,11 @@ async function createAccountAndProject(page: Page, suffix: string): Promise<void
 
     await page.getByRole('combobox', { name: 'Select project', exact: true }).click()
     await page.getByRole('button', { name: 'Create project', exact: true }).last().click()
-    await page
-        .getByRole('textbox', { name: 'New project', exact: true })
-        .fill(`E2E-121 project ${suffix}`)
+    await page.getByRole('textbox', { name: 'Name', exact: true }).fill(`E2E-121 project ${suffix}`)
     await page
         .locator('form')
-        .filter({ has: page.getByRole('textbox', { name: 'New project', exact: true }) })
-        .getByRole('button', { name: 'Add project', exact: true })
+        .filter({ has: page.getByRole('textbox', { name: 'Name', exact: true }) })
+        .getByRole('button', { name: 'Create project', exact: true })
         .click()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/overview$/)
     await expect(page.getByRole('heading', { name: 'Overview', exact: true })).toBeVisible()

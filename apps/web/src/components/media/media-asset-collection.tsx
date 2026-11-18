@@ -77,6 +77,7 @@ export function MediaAssetCollection({
                     showActions={showActions}
                     actionSelectionEnabled={actionSelectionEnabled}
                     actionSelected={actionSelectedAssetIds?.has(asset.asset.id)}
+                    actionSelectionVisible={(actionSelectedAssetIds?.size ?? 0) > 0}
                     onAccessibilityTextChange={onAccessibilityTextChange}
                     onActionSelectionToggle={onActionSelectionToggle}
                     onDownload={onDownload}

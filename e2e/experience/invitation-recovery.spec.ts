@@ -33,9 +33,9 @@ for (const [locale, copy, theme] of [
         })
         expect(projectResponse.status()).toBe(201)
         const { project } = (await projectResponse.json()) as { project: { id: string } }
-        await page.goto(`/dashboard/projects/${project.id}/invitations`)
+        await page.goto(`/dashboard/projects/${project.id}/access`)
         await expect(
-            page.getByRole('heading', { name: copy.access_project_invitations_title, exact: true })
+            page.getByRole('heading', { name: copy.access_title, exact: true, level: 1 })
         ).toBeVisible()
         for (const width of [1440, 390]) {
             await page.setViewportSize({ width, height: 900 })
@@ -44,7 +44,7 @@ for (const [locale, copy, theme] of [
             ).toBe(false)
             await expect(
                 page.getByRole('button', { name: copy.nav_back_to_project, exact: true })
-            ).toHaveCount(1)
+            ).toHaveCount(0)
             expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([])
             await page.screenshot({ path: info.outputPath(`project-invitations-${width}.png`) })
         }

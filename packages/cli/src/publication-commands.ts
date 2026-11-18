@@ -13,9 +13,10 @@ import { commaSeparatedIds, nonnegativeInteger, readJsonObject } from './input'
 type PublicationOptions = Options & { publication: string }
 
 export function registerPublicationCommands(program: Command) {
-    program
+    const posts = program
         .command('posts')
-        .description('Create source posts and destination drafts.')
+        .description('Create and edit source posts and channel drafts.')
+    posts
         .command('create')
         .description('Create a source post and its destination publications from JSON.')
         .option('--project <id>', 'Project identifier (or profile default)')
@@ -37,6 +38,30 @@ export function registerPublicationCommands(program: Command) {
             )
         })
 
+    posts
+        .command('compose')
+        .description('Save post text and channel drafts atomically without promotion.')
+        .option('--project <id>', 'Project identifier (or profile default)')
+        .requiredOption('--post <id>', 'Post identifier')
+        .requiredOption(
+            '--input <file|->',
+            'JSON composition with expected source and draft revisions'
+        )
+        .action(async (_options, command: Command) => {
+            const options = command.optsWithGlobals<Options & { post: string; input: string }>()
+            const { client, projectId } = projectConnection(options)
+            const route = client.api
+                .projects({ projectId })
+                .posts({ postId: options.post }).composition
+            const input = await readJsonObject<Parameters<typeof route.put>[0]>(options.input)
+            const body = await result(route.put(input))
+            output(
+                body,
+                `Post ${body.post.id} saved at source revision ${body.post.sourceRevision}.`,
+                options
+            )
+        })
+
     const publications = program
         .command('publications')
         .description('Inspect, prepare and control destination publications.')
@@ -50,13 +75,22 @@ export function registerPublicationCommands(program: Command) {
 
     scoped('list', 'List one publication page with its continuation cursor.')
         .option('--cursor <cursor>', 'Next-page cursor')
+        .addOption(
+            new Option('--state <state>', 'Only drafts, scheduled or published work').choices([
+                'draft',
+                'scheduled',
+                'published',
+            ])
+        )
         .action(async (_options, command: Command) => {
-            const options = command.optsWithGlobals<Options & { cursor?: string }>()
+            const options = command.optsWithGlobals<
+                Options & { cursor?: string; state?: 'draft' | 'scheduled' | 'published' }
+            >()
             const { client, projectId } = projectConnection(options)
             const body = await result(
-                client.api
-                    .projects({ projectId })
-                    .publications.get({ query: { limit: 100, cursor: options.cursor } })
+                client.api.projects({ projectId }).publications.get({
+                    query: { limit: 100, cursor: options.cursor, state: options.state },
+                })
             )
             output(body, JSON.stringify(body, null, 2), options)
         })
@@ -215,6 +249,20 @@ export function registerPublicationCommands(program: Command) {
             )
             output(body, 'Manual publication marked as published.', options)
         })
+    single(
+        'undo-publish',
+        'Undo a mistaken "published" record on a manual publication; it becomes due by hand again.'
+    ).action(async (_options, command: Command) => {
+        const options = command.optsWithGlobals<PublicationOptions>()
+        const { client, projectId } = projectConnection(options)
+        const body = await result(
+            client.api
+                .projects({ projectId })
+                .publications({ publicationId: options.publication })
+                .publish.undo.post()
+        )
+        output(body, 'Manual publication is due again.', options)
+    })
     single(
         'move',
         'Move future work using the current revisions and destination from publications show.'

@@ -318,3 +318,180 @@ test('admin commands operate access, api-keys, workspaces, and settings with Bea
         rmSync(dir, { recursive: true, force: true })
     }
 })
+
+test('projects, channels, and workspaces website and identity image commands call the expected endpoints', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'postdot-cli-identity-'))
+    const configDir = join(dir, 'config')
+    const imageFile = join(dir, 'avatar.png')
+    writeFileSync(
+        imageFile,
+        Buffer.from(
+            'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aX1sAAAAASUVORK5CYII=',
+            'base64'
+        )
+    )
+    const previousKey = process.env.POSTDOT_API_KEY
+    process.env.POSTDOT_API_KEY = 'postdot_pat_test_token'
+    const calls: string[] = []
+
+    try {
+        await withMockServer(
+            async (request, url) => {
+                calls.push(`${request.method} ${url.pathname}${url.search}`)
+                if (url.pathname.startsWith('/api/projects/proj-1/channels/chan-1')) {
+                    return jsonResponse({
+                        channel: {
+                            id: 'chan-1',
+                            websiteUrl: 'https://example.com',
+                            imageUrl: `/api/identity-images/${'a'.repeat(64)}`,
+                        },
+                    })
+                }
+                if (url.pathname.startsWith('/api/projects/proj-1')) {
+                    return jsonResponse({
+                        project: {
+                            id: 'proj-1',
+                            websiteUrl: 'https://example.com',
+                            imageUrl: `/api/identity-images/${'b'.repeat(64)}`,
+                        },
+                    })
+                }
+                if (url.pathname.startsWith('/api/workspaces/ws-1')) {
+                    return jsonResponse({
+                        workspace: {
+                            id: 'ws-1',
+                            websiteUrl: 'https://example.com',
+                            imageUrl: `/api/identity-images/${'c'.repeat(64)}`,
+                        },
+                    })
+                }
+                return jsonResponse({ error: { code: 'not_found', message: 'Not found' } }, 404)
+            },
+            async origin => {
+                const run = (args: string[]) =>
+                    createProgram({ jsonErrors: true, writeOut: () => {} }).parseAsync(
+                        ['--config-dir', configDir, '--base-url', origin, '--json', ...args],
+                        { from: 'user' }
+                    )
+                await run([
+                    'projects',
+                    'set-website',
+                    '--project',
+                    'proj-1',
+                    '--url',
+                    'https://example.com',
+                ])
+                await run(['projects', 'upload-image', '--project', 'proj-1', '--file', imageFile])
+                await run([
+                    'projects',
+                    'import-image-url',
+                    '--project',
+                    'proj-1',
+                    '--url',
+                    'https://example.com/logo.png',
+                ])
+                await run(['projects', 'use-website-icon', '--project', 'proj-1'])
+                await run(['projects', 'remove-image', '--project', 'proj-1'])
+
+                await run(['workspaces', 'set-website', '--workspace', 'ws-1', '--clear'])
+                await run([
+                    'workspaces',
+                    'upload-image',
+                    '--workspace',
+                    'ws-1',
+                    '--file',
+                    imageFile,
+                ])
+                await run([
+                    'workspaces',
+                    'import-image-url',
+                    '--workspace',
+                    'ws-1',
+                    '--url',
+                    'https://example.com/logo.png',
+                ])
+                await run(['workspaces', 'use-website-icon', '--workspace', 'ws-1'])
+                await run(['workspaces', 'remove-image', '--workspace', 'ws-1'])
+
+                await run([
+                    'channels',
+                    'set-website',
+                    '--project',
+                    'proj-1',
+                    '--channel',
+                    'chan-1',
+                    '--url',
+                    'https://example.com',
+                    '--expected-revision',
+                    '2',
+                ])
+                await run([
+                    'channels',
+                    'upload-image',
+                    '--project',
+                    'proj-1',
+                    '--channel',
+                    'chan-1',
+                    '--file',
+                    imageFile,
+                    '--expected-revision',
+                    '3',
+                ])
+                await run([
+                    'channels',
+                    'import-image-url',
+                    '--project',
+                    'proj-1',
+                    '--channel',
+                    'chan-1',
+                    '--url',
+                    'https://example.com/logo.png',
+                    '--expected-revision',
+                    '4',
+                ])
+                await run([
+                    'channels',
+                    'use-website-icon',
+                    '--project',
+                    'proj-1',
+                    '--channel',
+                    'chan-1',
+                    '--expected-revision',
+                    '5',
+                ])
+                await run([
+                    'channels',
+                    'remove-image',
+                    '--project',
+                    'proj-1',
+                    '--channel',
+                    'chan-1',
+                    '--expected-revision',
+                    '6',
+                ])
+
+                expect(calls).toEqual([
+                    'PUT /api/projects/proj-1/website',
+                    'POST /api/projects/proj-1/image',
+                    'POST /api/projects/proj-1/image/url',
+                    'POST /api/projects/proj-1/image/favicon',
+                    'DELETE /api/projects/proj-1/image',
+                    'PUT /api/workspaces/ws-1/website',
+                    'POST /api/workspaces/ws-1/image',
+                    'POST /api/workspaces/ws-1/image/url',
+                    'POST /api/workspaces/ws-1/image/favicon',
+                    'DELETE /api/workspaces/ws-1/image',
+                    'PUT /api/projects/proj-1/channels/chan-1/website',
+                    'POST /api/projects/proj-1/channels/chan-1/image?expectedRevision=3',
+                    'POST /api/projects/proj-1/channels/chan-1/image/url',
+                    'POST /api/projects/proj-1/channels/chan-1/image/favicon?expectedRevision=5',
+                    'DELETE /api/projects/proj-1/channels/chan-1/image?expectedRevision=6',
+                ])
+            }
+        )
+    } finally {
+        if (previousKey === undefined) delete process.env.POSTDOT_API_KEY
+        else process.env.POSTDOT_API_KEY = previousKey
+        rmSync(dir, { recursive: true, force: true })
+    }
+})

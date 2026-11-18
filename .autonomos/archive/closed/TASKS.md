@@ -634,3 +634,43 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] **[AUTH-648]** Implement token-gated zero-window instance bootstrap and CLI/Studio setup onboarding ([SPEC-012](../../specs/SPEC-012-agentic-bootstrap-and-privileged-api-access.md), [ADR-102](../../decisions/ADR-102-token-gated-bootstrap-and-admin-api-key-capabilities.md)) `Priority: 🔴` `Complexity: M` `Completed: 2026-11-14`
 - [x] **[API-649]** Implement admin API-key capabilities, anti-escalation, and `POST /api/access/members` ([SPEC-012](../../specs/SPEC-012-agentic-bootstrap-and-privileged-api-access.md), [ADR-102](../../decisions/ADR-102-token-gated-bootstrap-and-admin-api-key-capabilities.md)) `Priority: 🔴` `Complexity: L` `Completed: 2026-11-14`
 - [x] **[CLI-650]** Expose admin API-key parity across CLI, MCP catalog, Studio UI, and docs ([SPEC-012](../../specs/SPEC-012-agentic-bootstrap-and-privileged-api-access.md), [ADR-102](../../decisions/ADR-102-token-gated-bootstrap-and-admin-api-key-capabilities.md)) `Priority: 🟠` `Complexity: M` `Completed: 2026-11-14`
+- [x] **[DESIGN-652]** Revise design direction, experience rules and agent guidance after the audit `Priority: 🔴` `Complexity: S` `Completed: 2026-11-14`
+- [x] **[UX-655]** One navigation: single sidebar, object settings pages, lean header (audit S1–S7, S16, T3, T4) `Priority: 🟠` `Complexity: L` `Completed: 2026-11-14`
+- [x] **[UX-656]** Calendar: channel identity, grouping by post, stable grid, linear axis, anchored preview (audit C1–C12) `Priority: 🔴` `Complexity: L` `Completed: 2026-11-14`
+- [x] **[UX-657]** Composer: labelled channels, explicit editing scope, honest preview, safe schedule (audit P1–P14) `Priority: 🔴` `Complexity: L` `Completed: 2026-11-14`
+- [x] **[UX-658]** Queue: grouped default, dense rows, history, undo (audit Q1–Q6) `Priority: 🟠` `Complexity: M` `Completed: 2026-11-14`
+- [x] **[UX-662]** Queue: Published history tab, hide filters when empty, two-line mobile rows (audit Q4–Q6; undo of Mark published done in Studio, API, MCP, CLI) `Priority: 🟠` `Complexity: M` `Completed: 2026-11-14`
+- [x] **[UX-659]** Publication and post pages: one save, no raw JSON, diagnostics aside (audit D1–D9) `Priority: 🟠` `Complexity: L` `Completed: 2026-11-14`
+
+## Closed 2026-11-15
+
+- [x] **[UX-661]** Calendar filter by channel and state, and "Move by…" bulk reschedule (audit C10 remainder, C11) `Priority: ⚪` `Complexity: M` `Completed: 2026-11-15`
+- [x] **[UX-654]** One page anatomy: header, empty state, dialog, status, buttons, time format (audit S8–S15) `Priority: 🔴` `Complexity: L` `Completed: 2026-11-15`
+- [x] **[COPY-653]** Apply the user vocabulary and useful errors to both catalogs (audit W1–W7, F1) `Priority: 🔴` `Complexity: L` `Completed: 2026-11-15`
+- [x] **[UX-660]** Channels, media, performance, settings and first run (audit F2–F4, H, M, R, T) `Priority: 🔵` `Complexity: L` `Completed: 2026-11-15`
+- [x] **[UX-651]** Studio experience overhaul from the 2026-11-14 audit (umbrella) `Priority: 🔴` `Complexity: XL` `Completed: 2026-11-15` — [audit](../../reviews/2026-11-14-studio-experience-audit.md), [ADR-103](../../decisions/ADR-103-studio-experience-principles.md); children DESIGN-652 to UX-662.
+
+## Closed 2026-11-16
+
+- [x] **[UX-669]** Repair seven stale or failing browser specs `Priority: 🟠` `Complexity: M` `Completed: 2026-11-16` [Worklog](../../worklogs/2026-11-16-UX-669.md)
+- [x] **[UX-679]** Publication page explains post text versus channel versions, discards pending changes, picks languages by name `Priority: 🟠` `Complexity: M` `Completed: 2026-11-16` [Worklog](../../worklogs/2026-11-16-UX-679.md)
+- [x] **[UX-677]** Calendar: one entry per post with channel avatars, hover preview, context menu, explicit status markers `Priority: 🟠` `Complexity: L` `Completed: 2026-11-16` [Worklog](../../worklogs/2026-11-16-UX-677.md)
+- [x] **[UX-671]** Repair editor composer pilot browser assertions `Priority: 🟠` `Complexity: M` `Completed: 2026-11-16` [Worklog](../../worklogs/2026-11-16-UX-671.md)
+- [x] **[UX-663]** Identity images for projects, workspaces and channels (owner feedback, 2026-11-15) `Priority: 🔵` `Complexity: L` `Completed: 2026-11-15`
+- [x] **[UX-664]** Settings pages on one anatomy (owner review, 2026-11-15) `Priority: 🔵` `Complexity: M` `Completed: 2026-11-15`
+- [x] **[UX-667]** Website icon lookup; identity image changes can be undone (owner feedback, 2026-11-16) `Priority: 🔵` `Complexity: S` `Completed: 2026-11-16`
+- [x] **[UX-668]** Performance tags use the shared filter menu (owner review, 2026-11-16) `Priority: 🔵` `Complexity: S` `Completed: 2026-11-16`
+- [x] **[UX-670]** Publication page actions sit with what they act on (owner review, 2026-11-16) `Priority: 🔵` `Complexity: S` `Completed: 2026-11-16`
+
+- [x] **[UX-673]** Website icon lookup reads conventional icon paths first and stops at the document head `Priority: 🔵` `Complexity: S` `Completed: 2026-11-16`
+- [x] **[UX-672]** Studio polish: switch thumb inset, sidebar toggle, own tooltips instead of native ones, inverted toasts `Priority: 🟠` `Complexity: M` `Completed: 2026-11-16`
+- [x] **[UX-676]** Sweep Studio copy for machine-written tics and guard them automatically `Priority: 🔵` `Complexity: M` `Completed: 2026-11-16` — Rewrote machine-written copy tics across en (51), fr (67), es (44), de (223) and extended `copy-typography.test.ts` with per-locale guards; unit/static checks and affected Playwright e2e specs pass. [Worklog](../../worklogs/2026-11-16-UX-676.md).
+- [x] **[UX-675]** Channel versions update: shown only when stale, inline notice and redesigned comparison `Priority: 🟠` `Complexity: M` `Completed: 2026-11-16`
+- [x] **[UX-674]** Notification inbox grouped by post with title, channels, direct action and relative time `Priority: 🟠` `Complexity: M` `Completed: 2026-11-16`
+
+- [x] **[UX-678]** Stale channel version shows one calm message and a precise comparison `Priority: 🟠` `Complexity: M` `Completed: 2026-11-16`
+- [x] **[UX-680]** Inventory every post and publication editing capability and browser journey for SPEC-013 `Priority: 🟠` `Complexity: M` `Completed: 2026-11-16` [Worklog](../../worklogs/2026-11-16-UX-680.md)
+- [x] **[UX-681]** Post composition API: save post text and several channel versions in one transaction (SPEC-013) `Priority: 🟠` `Complexity: L` `Completed: 2026-11-16`
+- [x] **[UX-682]** Extract the new post composer into a shared post composer without behavior change (SPEC-013) `Priority: 🟠` `Complexity: L` `Completed: 2026-11-16` [Worklog](../../worklogs/2026-11-16-UX-682.md)
+- [x] **[UX-683]** Edit mode and route unification on the shared composer (SPEC-013) `Priority: 🟠` `Complexity: XL` `Completed: 2026-11-18` [Worklog](../../worklogs/2026-11-18-UX-683.md)
+- [x] **[UX-684]** Repair composer production specs and the Channels audit locator `Priority: 🟠` `Complexity: S` `Completed: 2026-11-18` [Worklog](../../worklogs/2026-11-18-UX-683.md)

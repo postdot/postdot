@@ -1133,6 +1133,16 @@ export const api = {
         return unwrap(await client.api.projects({ projectId }).posts({ postId }).get())
     },
 
+    async savePostComposition(
+        projectId: string,
+        postId: string,
+        input: WebApiRequests['savePostComposition']
+    ) {
+        return unwrap(
+            await client.api.projects({ projectId }).posts({ postId }).composition.put(input)
+        )
+    },
+
     async savePostSource(
         projectId: string,
         postId: string,
@@ -1365,13 +1375,15 @@ export const api = {
     async reschedulePublications(
         projectId: string,
         publicationIds: readonly string[],
-        scheduledAt: number
+        scheduledAt: number,
+        scheduledTimes?: Record<string, number>
     ) {
         return withCadenceConfirmation(async cadenceConfirmation =>
             unwrap(
                 await client.api.projects({ projectId }).publications.schedule.patch({
                     publicationIds: [...publicationIds],
                     scheduledAt,
+                    scheduledTimes,
                     cadenceConfirmation,
                 })
             )
@@ -1460,6 +1472,15 @@ export const api = {
         )
     },
 
+    async undoManualPublication(projectId: string, publicationId: string) {
+        return unwrap(
+            await client.api
+                .projects({ projectId })
+                .publications({ publicationId })
+                .publish.undo.post()
+        )
+    },
+
     async retryFailedPublication(projectId: string, publicationId: string) {
         return withCadenceConfirmation(async cadenceConfirmation =>
             unwrap(
@@ -1545,6 +1566,7 @@ export type {
     PublicationEditorState,
     PublisherConnection,
     Project,
+    ProjectListItem,
     ProjectCategory,
     ProjectTag,
     Publication,
@@ -1567,6 +1589,9 @@ export type {
     WorkspaceTeam,
     WorkspaceTeamMember,
     WorkspaceInvitation,
+    WorkspaceChannelsResponse,
+    WorkspaceChannel,
+    WorkspaceChannelConnectionState,
 } from '@postdot/client'
 
 export function formatApiError(error: unknown): string {

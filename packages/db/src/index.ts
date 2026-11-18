@@ -282,6 +282,7 @@ export type {
     ManualStoreOptions,
     PromotePublicationDraftInput,
     PublishManualPublicationInput,
+    UndoManualPublicationInput,
     PreviewChannelProfileActivationInput,
     ReconcileAmbiguousPublicationInput,
     ReconcileAmbiguousPublicationResult,
@@ -303,6 +304,7 @@ export type {
     PublicationTargetRevision,
     SavePublicationDraftInput,
     SavePostSourceInput,
+    SavePostCompositionInput,
     RebasePublicationDraftInput,
     RestoreChannelInput,
     RetryFailedPublicationInput,
@@ -368,6 +370,25 @@ export type {
 } from './publisher-store'
 export { createUserAvatarStore, AvatarValidationError, avatarMaxBytes } from './user-avatar-store'
 export type { UserAvatarStore } from './user-avatar-store'
+export {
+    createIdentityImageStore,
+    IdentityImageValidationError,
+    IdentityImageAuthorizationError,
+    identityImageMaxBytes,
+    identityImageMaxDimension,
+    identityImageUrl,
+    normalizeIdentityWebsiteUrl,
+    processIdentityImage,
+    sniffIdentityImageFormat,
+} from './identity-image-store'
+export type {
+    IdentityImageErrorCode,
+    IdentityImageStore,
+    IdentityImageStoreOptions,
+    ProcessedIdentityImage,
+    SniffedIdentityImageFormat,
+    StoredIdentityImage,
+} from './identity-image-store'
 
 export {
     createNotificationEmailStore,
@@ -413,6 +434,7 @@ export type {
 
 export type {
     ChannelAccessPolicy,
+    ChannelConnectionState,
     ChannelManagementIntent,
     ChannelOccupancyItem,
     ChannelProjectAction,
@@ -433,3 +455,5 @@ export * from './transfer'
 export { isPostgresTransactionConflict } from './sql/postgres-adapter'
 
 export * from './publication-thread-store'
+
+export { PostCompositionConflictError } from './manual-store/post-composition-conflict'

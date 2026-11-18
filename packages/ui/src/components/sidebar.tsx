@@ -17,7 +17,7 @@ const SIDEBAR_COOKIE_NAME = 'sidebar_state'
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
 const SIDEBAR_WIDTH = '15rem'
 const SIDEBAR_WIDTH_MOBILE = '18rem'
-const SIDEBAR_WIDTH_ICON = '2rem'
+const SIDEBAR_WIDTH_ICON = '3rem'
 const SIDEBAR_KEYBOARD_SHORTCUT = 'b'
 
 function readSidebarState(defaultOpen: boolean) {
@@ -280,24 +280,30 @@ function SidebarRail({ className, ...props }: React.ComponentProps<'button'>) {
     const { toggleSidebar } = useSidebar()
 
     return (
-        <button
-            data-sidebar="rail"
-            data-slot="sidebar-rail"
-            aria-label="Toggle Sidebar"
-            tabIndex={-1}
-            onClick={toggleSidebar}
-            title="Toggle Sidebar"
-            className={cn(
-                'absolute inset-y-0 z-20 hidden w-4 transition-[background-color,transform] ease-linear group-data-[side=left]:-right-4 group-data-[side=right]:left-0 after:absolute after:inset-y-0 after:start-1/2 after:w-[2px] hover:after:bg-sidebar-border sm:flex ltr:-translate-x-1/2 rtl:-translate-x-1/2',
-                'in-data-[side=left]:cursor-w-resize in-data-[side=right]:cursor-e-resize',
-                '[[data-side=left][data-state=collapsed]_&]:cursor-e-resize [[data-side=right][data-state=collapsed]_&]:cursor-w-resize',
-                'group-data-[collapsible=offcanvas]:translate-x-0 group-data-[collapsible=offcanvas]:after:left-full hover:group-data-[collapsible=offcanvas]:bg-sidebar',
-                '[[data-side=left][data-collapsible=offcanvas]_&]:-right-2',
-                '[[data-side=right][data-collapsible=offcanvas]_&]:-left-2',
-                className
-            )}
-            {...props}
-        />
+        <Tooltip>
+            <TooltipTrigger
+                render={
+                    <button
+                        data-sidebar="rail"
+                        data-slot="sidebar-rail"
+                        aria-label="Toggle Sidebar"
+                        tabIndex={-1}
+                        onClick={toggleSidebar}
+                        className={cn(
+                            'absolute inset-y-0 z-20 hidden w-4 transition-[background-color,transform] ease-linear group-data-[side=left]:-right-4 group-data-[side=right]:left-0 after:absolute after:inset-y-0 after:start-1/2 after:w-[2px] hover:after:bg-sidebar-border sm:flex ltr:-translate-x-1/2 rtl:-translate-x-1/2',
+                            'in-data-[side=left]:cursor-w-resize in-data-[side=right]:cursor-e-resize',
+                            '[[data-side=left][data-state=collapsed]_&]:cursor-e-resize [[data-side=right][data-state=collapsed]_&]:cursor-w-resize',
+                            'group-data-[collapsible=offcanvas]:translate-x-0 group-data-[collapsible=offcanvas]:after:left-full hover:group-data-[collapsible=offcanvas]:bg-sidebar',
+                            '[[data-side=left][data-collapsible=offcanvas]_&]:-right-2',
+                            '[[data-side=right][data-collapsible=offcanvas]_&]:-left-2',
+                            className
+                        )}
+                        {...props}
+                    />
+                }
+            />
+            <TooltipContent>{'Toggle Sidebar'}</TooltipContent>
+        </Tooltip>
     )
 }
 
@@ -468,7 +474,7 @@ function SidebarMenuItem({ className, ...props }: React.ComponentProps<'li'>) {
 }
 
 const sidebarMenuButtonVariants = cva(
-    'peer/menu-button group/menu-button flex w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm ring-sidebar-ring outline-hidden transition-[width,height,padding] group-has-data-[sidebar=menu-action]/menu-item:pr-8 has-data-[slot=sidebar-menu-badge]:pr-32 group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:justify-center! group-data-[collapsible=icon]:p-2! hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-open:hover:bg-sidebar-accent data-open:hover:text-sidebar-accent-foreground data-active:bg-sidebar-accent data-active:font-medium data-active:text-sidebar-accent-foreground [&_svg]:size-4 [&_svg]:shrink-0 [&>span:last-child]:truncate',
+    'peer/menu-button group/menu-button flex w-full items-center gap-2.5 overflow-hidden rounded-md p-2 text-left text-sm ring-sidebar-ring outline-hidden transition-[width,height,padding] group-has-data-[sidebar=menu-action]/menu-item:pr-8 has-data-[slot=sidebar-menu-badge]:pr-32 group-data-[collapsible=icon]:size-9! group-data-[collapsible=icon]:justify-center! group-data-[collapsible=icon]:p-2! hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-open:hover:bg-sidebar-accent data-open:hover:text-sidebar-accent-foreground data-active:bg-sidebar-accent data-active:font-medium data-active:text-sidebar-accent-foreground [&_svg]:size-[18px] [&_svg]:shrink-0 [&>span:last-child]:truncate',
     {
         variants: {
             variant: {
@@ -477,7 +483,7 @@ const sidebarMenuButtonVariants = cva(
                     'bg-background shadow-[0_0_0_1px_var(--sidebar-border)] hover:bg-sidebar-accent hover:text-sidebar-accent-foreground hover:shadow-[0_0_0_1px_var(--sidebar-accent)]',
             },
             size: {
-                default: 'h-8 text-sm',
+                default: 'h-9 text-sm',
                 sm: 'h-7 text-xs',
                 lg: 'h-12 text-sm group-data-[collapsible=icon]:p-0!',
             },

@@ -14,6 +14,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@postdot/ui/components/select'
+import { AddIcon } from '@solar-icons/react/linear/add'
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 
@@ -34,7 +35,13 @@ export function AddPostDestination({
     const [open, setOpen] = useState(false)
     return (
         <>
-            <Button variant="outline" onClick={() => setOpen(true)}>
+            <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className="h-8 rounded-full px-2.5 text-xs text-muted-foreground hover:text-foreground"
+                onClick={() => setOpen(true)}>
+                <AddIcon aria-hidden="true" className="size-3.5" />
                 {m.add_destination_title()}
             </Button>
             <Dialog open={open} onOpenChange={setOpen}>

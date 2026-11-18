@@ -41,5 +41,5 @@ export const xProvider = {
             : m.publisher_member({
                   account: connection.externalAccountName ?? connection.externalAccountId,
               }),
-    preview: { layout: 'social', accountDriven: true, sampleIdentity: true },
+    preview: { layout: 'social', accountDriven: true },
 } as const satisfies ProviderDefinition

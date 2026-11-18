@@ -134,33 +134,33 @@ test('reschedules and cancels selected publications from Queue', async ({ page }
     await page.goto(`/dashboard/projects/${projectId}/queue`)
     const selectionToggles = page.locator('[data-publication-selection-toggle="true"]')
     await expect(selectionToggles).toHaveCount(3)
-    const view = page.getByRole('combobox', { name: 'Queue view', exact: true })
-    await view.click()
-    await page.getByRole('option', { name: 'By post', exact: true }).click()
-    await expect(page).toHaveURL(/view=posts/)
+    // ADR-103 §3: the queue lists a post once with its channels by default.
+    const view = page.getByRole('group', { name: 'Queue view', exact: true })
+    await expect(view.getByRole('button', { name: 'Per post', exact: true })).toHaveAttribute(
+        'aria-pressed',
+        'true'
+    )
+    await expect(page).not.toHaveURL(/view=/)
     const groups = page.locator('[data-queue-post-group]')
     await expect(groups).toHaveCount(2)
-    await expect(groups.first()).toContainText('2 destinations in these results')
     await expect(groups.first().locator('[data-publication-selection-toggle="true"]')).toHaveCount(
         2
     )
-    await expect(groups.first()).toContainText('Queued')
+    await expect(groups.first()).toContainText('Scheduled')
     await expect(groups.first()).toContainText('Draft')
     await expect(
         groups.first().getByRole('link', { name: 'View post', exact: true })
     ).toHaveAttribute('href', `/dashboard/projects/${projectId}/posts/${firstPublication.postId}`)
     await groups.first().locator('[data-publication-selection-toggle="true"]').first().click()
     await expect(page.locator('[data-publication-selection-active="true"]')).toHaveCount(1)
-    await view.click()
-    await page.getByRole('option', { name: 'Publication order', exact: true }).click()
+    await view.getByRole('button', { name: 'Per channel', exact: true }).click()
+    await expect(page).toHaveURL(/view=channels/)
     await expect(page.locator('[data-publication-selection-active="true"]')).toHaveCount(1)
-    await view.click()
-    await page.getByRole('option', { name: 'By post', exact: true }).click()
+    await view.getByRole('button', { name: 'Per post', exact: true }).click()
     await page.reload()
     await expect(groups).toHaveCount(2)
     await page.getByRole('tab', { name: /^Drafts/ }).click()
     await expect(groups).toHaveCount(1)
-    await expect(groups.first()).toContainText('1 destination in these results')
     await expect(selectionToggles).toHaveCount(1)
     await page.getByRole('tab', { name: /^All / }).click()
     await expect(groups).toHaveCount(2)
@@ -172,15 +172,12 @@ test('reschedules and cancels selected publications from Queue', async ({ page }
     await page.screenshot({ path: '/tmp/postdot-content382-narrow.png', fullPage: true })
     await page.setViewportSize({ width: 1280, height: 900 })
     await page.screenshot({ path: '/tmp/postdot-content382-wide.png', fullPage: true })
-    await view.click()
-    await page.getByRole('option', { name: 'Publication order', exact: true }).click()
+    await view.getByRole('button', { name: 'Per channel', exact: true }).click()
     await expect(groups).toHaveCount(0)
     await expect(selectionToggles).toHaveCount(3)
     const queueBulkActionBar = page.locator('[data-bulk-action-bar="true"]')
-    await expect(queueBulkActionBar).toBeVisible()
-    await expect(
-        queueBulkActionBar.getByRole('button', { name: 'Reschedule', exact: true })
-    ).toHaveCount(0)
+    // Nothing selected: no selection bar, and the toolbar keeps its shape.
+    await expect(queueBulkActionBar).toHaveCount(0)
     const publicationTable = page.locator('[data-publication-table-header="true"]')
     const initialTableTop = await publicationTable.evaluate(
         element => element.getBoundingClientRect().top
@@ -220,7 +217,7 @@ test('reschedules and cancels selected publications from Queue', async ({ page }
     await expect(
         page.getByRole('heading', { name: 'Reschedule 2 publications', exact: true })
     ).toBeVisible()
-    await page.getByLabel('Deliver at', { exact: true }).click()
+    await page.getByLabel('Publish on', { exact: true }).click()
     await expect(page.getByLabel('Time', { exact: true })).toBeVisible()
     await page.keyboard.press('Escape')
     await page.getByRole('button', { name: 'Apply schedule', exact: true }).click()
@@ -237,7 +234,7 @@ test('reschedules and cancels selected publications from Queue', async ({ page }
     ).toHaveCount(0)
 
     await selectionToggles.nth(0).click()
-    const cancelButton = page.getByRole('button', { name: 'Cancel', exact: true })
+    const cancelButton = page.getByRole('button', { name: 'Cancel publications', exact: true })
     await expect(cancelButton).toBeEnabled()
     await cancelButton.click()
     await expect(
@@ -312,12 +309,12 @@ async function createAccountAndProject(page: Page, suffix: string): Promise<stri
     await page.getByRole('combobox', { name: 'Select project', exact: true }).click()
     await page.getByRole('button', { name: 'Create project', exact: true }).last().click()
     await page
-        .getByRole('textbox', { name: 'New project', exact: true })
+        .getByRole('textbox', { name: 'Name', exact: true })
         .fill(`E2E queue bulk project ${suffix}`)
     await page
         .locator('form')
-        .filter({ has: page.getByRole('textbox', { name: 'New project', exact: true }) })
-        .getByRole('button', { name: 'Add project', exact: true })
+        .filter({ has: page.getByRole('textbox', { name: 'Name', exact: true }) })
+        .getByRole('button', { name: 'Create project', exact: true })
         .click()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/overview$/)
     await expect(page.getByRole('heading', { name: 'Overview', exact: true })).toBeVisible()

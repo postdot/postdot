@@ -71,6 +71,9 @@ export function createProjectChannelStore(
                time_zone as timeZone,
                workspace_id as workspaceId,
                primary_category_id as primaryCategoryId,
+               website_url as websiteUrl,
+               image_url as imageUrl,
+               image_source as imageSource,
                created_at as createdAt,
                updated_at as updatedAt
         from projects
@@ -97,6 +100,9 @@ export function createProjectChannelStore(
                projects.time_zone as timeZone,
                projects.workspace_id as workspaceId,
                projects.primary_category_id as primaryCategoryId,
+               projects.website_url as websiteUrl,
+               projects.image_url as imageUrl,
+               projects.image_source as imageSource,
                projects.created_at as createdAt,
                projects.updated_at as updatedAt
         from projects
@@ -112,6 +118,9 @@ export function createProjectChannelStore(
                projects.time_zone as timeZone,
                projects.workspace_id as workspaceId,
                projects.primary_category_id as primaryCategoryId,
+               projects.website_url as websiteUrl,
+               projects.image_url as imageUrl,
+               projects.image_source as imageSource,
                projects.created_at as createdAt,
                projects.updated_at as updatedAt
         from projects
@@ -138,6 +147,9 @@ export function createProjectChannelStore(
                channels.state,
                channels.archived_at as archivedAt,
                channels.revision,
+               channels.website_url as websiteUrl,
+               channels.image_url as imageUrl,
+               channels.image_source as imageSource,
                channels.created_at as createdAt,
                channels.updated_at as updatedAt
         from project_channel_contexts as channels
@@ -367,6 +379,11 @@ export function createProjectChannelStore(
             })
         },
 
+        async getProject(projectId: string): Promise<Project | null> {
+            const row = await loadProjectStatement.get(requireNonBlank(projectId, 'projectId'))
+            return row === null ? null : toProject(row)
+        },
+
         async listProjects(subjectId: string): Promise<Project[]> {
             return (await listProjectsStatement.all(requireNonBlank(subjectId, 'subjectId'))).map(
                 toProject
@@ -379,6 +396,34 @@ export function createProjectChannelStore(
                     requireNonBlank(workspaceId, 'workspaceId')
                 )
             ).map(toProject)
+        },
+
+        async countUpcomingScheduledPublications(
+            projectIds: readonly string[]
+        ): Promise<ReadonlyMap<string, number>> {
+            const uniqueProjectIds = [
+                ...new Set(projectIds.map(id => requireNonBlank(id, 'projectId'))),
+            ]
+            if (uniqueProjectIds.length === 0) return new Map()
+
+            const timestamp = requireTimestamp(options.now(), 'now')
+            const placeholders = uniqueProjectIds.map((_, index) => `?${index + 2}`).join(', ')
+            const rows = await sql
+                .statement<
+                    { readonly projectId: string; readonly count: number | bigint | string },
+                    [number, ...string[]]
+                >(`
+                    select project_id as projectId,
+                           count(*) as count
+                    from publications
+                    where state in ('scheduled', 'ready')
+                      and scheduled_at is not null
+                      and scheduled_at > ?1
+                      and project_id in (${placeholders})
+                    group by project_id
+                `)
+                .all(timestamp, ...uniqueProjectIds)
+            return new Map(rows.map(row => [row.projectId, Number(row.count)]))
         },
 
         async updateProjectTimeZone(input: UpdateProjectTimeZoneInput): Promise<Project | null> {

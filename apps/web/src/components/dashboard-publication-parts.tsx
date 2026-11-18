@@ -1,11 +1,22 @@
 import { Button } from '@postdot/ui/components/button'
 import {
+    Dialog,
+    DialogClose,
+    DialogContent,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+    DialogDescription,
+} from '@postdot/ui/components/dialog'
+import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@postdot/ui/components/dropdown-menu'
+import { Input } from '@postdot/ui/components/input'
+import { toast } from '@postdot/ui/components/toast'
 import {
     Tooltip,
     TooltipContent,
@@ -18,15 +29,17 @@ import { ClipboardCheckIcon } from '@solar-icons/react/linear/clipboard-check'
 import { CopyIcon } from '@solar-icons/react/linear/copy'
 import { EyeIcon } from '@solar-icons/react/linear/eye'
 import { GalleryIcon } from '@solar-icons/react/linear/gallery'
+import { LinkIcon } from '@solar-icons/react/linear/link'
 import { MenuDotsVerticalIcon } from '@solar-icons/react/linear/menu-dots-vertical'
 import { PenIcon } from '@solar-icons/react/linear/pen'
 import { RestartIcon } from '@solar-icons/react/linear/restart'
 import { TrashBinMinimalisticIcon } from '@solar-icons/react/linear/trash-bin-minimalistic'
 import { Link } from '@tanstack/react-router'
-import { useEffect, useRef, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 
-import { CopyPublicationLink } from '@/components/copy-publication-link'
+import { StatusText, type StatusTone } from '@/components/status-text'
 import { api, type PublicationSummary } from '@/lib/api'
+import { useOptionalProjectDashboard } from '@/lib/dashboard-context'
 import { formatProjectDateTime } from '@/lib/date-time'
 import { useLanguage } from '@/lib/i18n'
 import { publicationIdentityLabel } from '@/lib/publication-identity'
@@ -36,6 +49,7 @@ import * as m from '@/paraglide/messages.js'
 import { providerRegistry } from '@/providers/registry'
 
 import { EmptyState, type EmptyStateIllustration, type EmptyStateLayout } from './empty-state'
+import { ChannelAvatar } from './identity-visuals'
 
 export type PublicationState = PublicationSummary['state']
 
@@ -52,6 +66,7 @@ export function PublicationList({
     onDuplicateDraft,
     onPublish,
     onRetry,
+    onUndoPublish,
     onToggleAll,
     pending = false,
     onToggleSelection,
@@ -59,9 +74,12 @@ export function PublicationList({
     selectedPublicationIds,
     showCreationDate = false,
     showPostLink = false,
+    showIdentity = true,
     groupByPost = false,
     timeZone,
 }: {
+    /** False when every row belongs to the same post, as on the post page (audit P10). */
+    readonly showIdentity?: boolean
     readonly emptyDescription?: string | null
     readonly emptyAction?: ReactNode
     readonly emptyIllustration?: EmptyStateIllustration
@@ -71,6 +89,7 @@ export function PublicationList({
     readonly publications: readonly PublicationSummary[]
     readonly duePublicationIds?: ReadonlySet<string>
     readonly onPublish?: (publicationId: string) => Promise<boolean>
+    readonly onUndoPublish?: (publicationId: string) => Promise<boolean>
     readonly onRetry?: (publicationId: string) => Promise<boolean>
     readonly onDeleteDraft?: (publication: PublicationSummary) => void
     readonly onDuplicateDraft?: (publicationId: string) => void
@@ -117,7 +136,7 @@ export function PublicationList({
         <TooltipProvider delay={450}>
             <div
                 className={cn(
-                    'mt-4 overflow-hidden rounded-lg bg-surface-inset/55 p-1 shadow-surface lg:grid lg:gap-x-2',
+                    'mt-4 overflow-hidden rounded-lg border border-border bg-surface-raised p-1 lg:grid lg:gap-x-2',
                     selectionEnabled
                         ? 'lg:grid-cols-[auto_minmax(11rem,0.85fr)_minmax(0,1fr)_max-content]'
                         : 'lg:grid-cols-[minmax(11rem,0.85fr)_minmax(0,1fr)_max-content]'
@@ -140,17 +159,12 @@ export function PublicationList({
                         <div
                             key={group.postId}
                             data-queue-post-group={groupByPost ? group.postId : undefined}
-                            className="space-y-1 lg:col-span-full lg:grid lg:grid-cols-subgrid lg:gap-y-1 lg:space-y-0">
+                            className="space-y-1 border-t border-border/70 pb-1 first:border-t-0 lg:col-span-full lg:grid lg:grid-cols-subgrid lg:gap-y-1 lg:space-y-0">
                             {groupByPost ? (
-                                <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 px-3 pb-2 pt-5 lg:col-span-full">
+                                <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 px-3 pb-1.5 pt-4 lg:col-span-full">
                                     <h2 className="min-w-0 basis-full text-sm font-semibold sm:flex-1 sm:basis-auto">
                                         {publicationIdentityLabel(group.publications[0]!)}
                                     </h2>
-                                    <span className="text-xs text-muted-foreground">
-                                        {m.queue_visible_destinations({
-                                            count: group.publications.length,
-                                        })}
-                                    </span>
                                     <Link
                                         className="text-xs text-muted-foreground hover:text-foreground hover:underline"
                                         to="/dashboard/projects/$projectId/posts/$postId"
@@ -173,6 +187,7 @@ export function PublicationList({
                                         onDuplicateDraft={onDuplicateDraft}
                                         onPublish={onPublish}
                                         onRetry={onRetry}
+                                        onUndoPublish={onUndoPublish}
                                         onToggleSelection={
                                             selectionEnabled
                                                 ? () => onToggleSelection(publication)
@@ -184,7 +199,7 @@ export function PublicationList({
                                         selected={selected}
                                         showCreationDate={showCreationDate}
                                         showPostLink={showPostLink && !groupByPost}
-                                        showIdentity={!groupByPost}
+                                        showIdentity={showIdentity && !groupByPost}
                                         timeZone={timeZone}
                                     />
                                 )
@@ -212,7 +227,7 @@ function PublicationTableHeader({
 }) {
     return (
         <div
-            className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-center gap-x-2 rounded-md bg-surface-field/35 px-2 py-2 sm:px-3 lg:col-span-full lg:grid-cols-subgrid"
+            className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-center gap-x-2 border-b border-border px-2 py-2 sm:px-3 lg:col-span-full lg:grid-cols-subgrid"
             data-publication-table-header="true">
             <SelectionCheckbox
                 checked={allSelected}
@@ -248,6 +263,7 @@ function PublicationListItem({
     onDuplicateDraft,
     onPublish,
     onRetry,
+    onUndoPublish,
     onToggleSelection,
     pending,
     publication,
@@ -262,6 +278,7 @@ function PublicationListItem({
     readonly onDeleteDraft?: (publication: PublicationSummary) => void
     readonly onDuplicateDraft?: (publicationId: string) => void
     readonly onPublish?: (publicationId: string) => Promise<boolean>
+    readonly onUndoPublish?: (publicationId: string) => Promise<boolean>
     readonly onRetry?: (publicationId: string) => Promise<boolean>
     readonly onToggleSelection?: () => void
     readonly pending: boolean
@@ -280,6 +297,12 @@ function PublicationListItem({
         publication.deliveryMode === 'automatic' &&
         onRetry !== undefined
     const showReviewAction = publication.state === 'ambiguous'
+    // Q4: a mistaken manual record can be withdrawn from the history list.
+    const showUndoPublishAction =
+        publication.state === 'published' &&
+        publication.deliveryMode === 'manual' &&
+        !readOnly &&
+        onUndoPublish !== undefined
     const editable = !readOnly && canEditPublication(publication.state)
 
     return (
@@ -287,7 +310,7 @@ function PublicationListItem({
             data-publication-selection-card="true"
             data-publication-selection-active={selected || undefined}
             className={cn(
-                'min-w-0 rounded-md transition-[background-color,box-shadow] hover:bg-surface-field/55 lg:col-span-full lg:grid lg:grid-cols-subgrid lg:items-center lg:gap-x-2 lg:px-2 lg:py-3 sm:lg:px-3',
+                'min-w-0 rounded-md transition-[background-color,box-shadow] hover:bg-surface-hover lg:col-span-full lg:grid lg:grid-cols-subgrid lg:items-center lg:gap-x-2 lg:px-2 lg:py-1.5 sm:lg:px-3',
                 selected && 'bg-primary/[0.07]'
             )}>
             <div
@@ -317,10 +340,6 @@ function PublicationListItem({
                     selectionEnabled={selectionEnabled}
                     action={
                         <div className="flex flex-wrap items-center justify-end gap-1">
-                            <CopyPublicationLink
-                                projectId={publication.projectId}
-                                publicationId={publication.id}
-                            />
                             {showPostLink ? (
                                 <Link
                                     className="px-2 py-1 text-xs text-muted-foreground hover:text-foreground hover:underline"
@@ -351,6 +370,18 @@ function PublicationListItem({
                                     type="button">
                                     <CheckIcon aria-hidden="true" />
                                     {m.publication_record_published()}
+                                </Button>
+                            ) : showUndoPublishAction ? (
+                                <Button
+                                    className="text-muted-foreground hover:text-foreground"
+                                    data-publication-action="undo-publish"
+                                    disabled={pending}
+                                    onClick={() => void onUndoPublish(publication.id)}
+                                    size="sm"
+                                    type="button"
+                                    variant="ghost">
+                                    <RestartIcon aria-hidden="true" />
+                                    {m.publication_undo_publish()}
                                 </Button>
                             ) : showReviewAction ? (
                                 <Button
@@ -408,55 +439,14 @@ function PublicationListItem({
                                                   : m.common_view()}
                                         </span>
                                     </Button>
-                                    {publication.state === 'draft' &&
-                                    (onDeleteDraft !== undefined ||
-                                        onDuplicateDraft !== undefined) ? (
-                                        <DropdownMenu modal={false}>
-                                            <DropdownMenuTrigger
-                                                render={
-                                                    <Button
-                                                        aria-label={m.queue_draft_actions()}
-                                                        data-publication-draft-actions="true"
-                                                        disabled={pending}
-                                                        size="icon-sm"
-                                                        type="button"
-                                                        variant="ghost">
-                                                        <MenuDotsVerticalIcon aria-hidden="true" />
-                                                    </Button>
-                                                }
-                                            />
-                                            <DropdownMenuContent align="end" className="min-w-40">
-                                                {onDuplicateDraft !== undefined ? (
-                                                    <DropdownMenuItem
-                                                        disabled={pending}
-                                                        onClick={() =>
-                                                            onDuplicateDraft(publication.id)
-                                                        }>
-                                                        <CopyIcon aria-hidden="true" />
-                                                        {m.queue_duplicate_draft()}
-                                                    </DropdownMenuItem>
-                                                ) : null}
-                                                {onDeleteDraft !== undefined ? (
-                                                    <>
-                                                        {onDuplicateDraft !== undefined ? (
-                                                            <DropdownMenuSeparator />
-                                                        ) : null}
-                                                        <DropdownMenuItem
-                                                            disabled={pending}
-                                                            onClick={() =>
-                                                                onDeleteDraft(publication)
-                                                            }
-                                                            variant="destructive">
-                                                            <TrashBinMinimalisticIcon aria-hidden="true" />
-                                                            {m.queue_delete_draft()}
-                                                        </DropdownMenuItem>
-                                                    </>
-                                                ) : null}
-                                            </DropdownMenuContent>
-                                        </DropdownMenu>
-                                    ) : null}
                                 </div>
                             )}
+                            <PublicationRowMenu
+                                publication={publication}
+                                pending={pending}
+                                onDeleteDraft={onDeleteDraft}
+                                onDuplicateDraft={onDuplicateDraft}
+                            />
                         </div>
                     }
                     due={due}
@@ -467,6 +457,115 @@ function PublicationListItem({
                 />
             </div>
         </div>
+    )
+}
+
+export function PublicationRowMenu({
+    publication,
+    pending,
+    onDeleteDraft,
+    onDuplicateDraft,
+    onMove,
+}: {
+    readonly onMove?: () => void
+    readonly publication: PublicationSummary
+    readonly pending: boolean
+    readonly onDeleteDraft?: (publication: PublicationSummary) => void
+    readonly onDuplicateDraft?: (publicationId: string) => void
+}) {
+    const [fallbackUrl, setFallbackUrl] = useState<string | null>(null)
+    const input = useRef<HTMLInputElement>(null)
+    const isDraft = publication.state === 'draft'
+    async function copyLink() {
+        const url = new URL(
+            `/dashboard/projects/${encodeURIComponent(publication.projectId)}/publications/${encodeURIComponent(publication.id)}`,
+            window.location.origin
+        ).href
+        try {
+            if (!navigator.clipboard?.writeText) {
+                setFallbackUrl(url)
+                return
+            }
+            await navigator.clipboard.writeText(url)
+            toast.add({ title: m.publication_link_copied(), type: 'success' })
+        } catch {
+            setFallbackUrl(url)
+        }
+    }
+    return (
+        <>
+            <DropdownMenu modal={false}>
+                <DropdownMenuTrigger
+                    render={
+                        <Button
+                            aria-label={isDraft ? m.queue_draft_actions() : m.queue_bulk_actions()}
+                            data-publication-draft-actions={isDraft ? 'true' : undefined}
+                            data-publication-row-actions="true"
+                            disabled={pending}
+                            size="icon-sm"
+                            type="button"
+                            variant="ghost">
+                            <MenuDotsVerticalIcon aria-hidden="true" />
+                        </Button>
+                    }
+                />
+                <DropdownMenuContent align="end" className="min-w-40">
+                    <DropdownMenuItem onClick={() => void copyLink()}>
+                        <LinkIcon aria-hidden="true" />
+                        {m.publication_copy_link()}
+                    </DropdownMenuItem>
+                    {onMove ? (
+                        <DropdownMenuItem onClick={onMove}>
+                            {m.publication_move_action()}
+                        </DropdownMenuItem>
+                    ) : null}
+                    {isDraft && onDuplicateDraft ? (
+                        <DropdownMenuItem
+                            disabled={pending}
+                            onClick={() => onDuplicateDraft(publication.id)}>
+                            <CopyIcon aria-hidden="true" />
+                            {m.queue_duplicate_draft()}
+                        </DropdownMenuItem>
+                    ) : null}
+                    {isDraft && onDeleteDraft ? (
+                        <>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                                disabled={pending}
+                                onClick={() => onDeleteDraft(publication)}
+                                variant="destructive">
+                                <TrashBinMinimalisticIcon aria-hidden="true" />
+                                {m.queue_delete_draft()}
+                            </DropdownMenuItem>
+                        </>
+                    ) : null}
+                </DropdownMenuContent>
+            </DropdownMenu>
+            <Dialog
+                open={fallbackUrl !== null}
+                onOpenChange={open => {
+                    if (!open) setFallbackUrl(null)
+                }}>
+                <DialogContent initialFocus={input}>
+                    <DialogHeader>
+                        <DialogTitle>{m.publication_copy_link()}</DialogTitle>
+                        <DialogDescription>{m.publication_link_manual_copy()}</DialogDescription>
+                    </DialogHeader>
+                    <Input
+                        aria-label={m.publication_link_label()}
+                        onFocus={event => event.currentTarget.select()}
+                        readOnly
+                        ref={input}
+                        value={fallbackUrl ?? ''}
+                    />
+                    <DialogFooter>
+                        <DialogClose render={<Button type="button" variant="outline" />}>
+                            {m.common_close()}
+                        </DialogClose>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+        </>
     )
 }
 
@@ -551,6 +650,14 @@ export function PublicationRow({
     readonly timeZone: string
 }) {
     const { locale } = useLanguage()
+    // ADR-103 §3: every listed publication shows its channel's mark.
+    const channel = useOptionalProjectDashboard()?.channels.find(
+        item => item.id === publication.channelId
+    ) ?? {
+        id: publication.channelId,
+        name: publication.channelName,
+        profileId: '',
+    }
     const identityLabel = publicationIdentityLabel(publication)
     const createdAt = normalizePublicationTimestamp(publication.createdAt)
     const lastEditedAt =
@@ -560,7 +667,8 @@ export function PublicationRow({
     return (
         <div
             className={cn(
-                'grid min-w-0 grid-cols-1 items-start gap-y-2 px-2 py-3 sm:px-3',
+                // Q2/Q6: one dense line on desktop, two at most on a phone with actions beside.
+                'grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 px-2 py-2 sm:px-3',
                 sharedColumns && 'lg:contents',
                 action && !sharedColumns
                     ? 'lg:grid-cols-[minmax(11rem,0.85fr)_minmax(0,1fr)_auto] lg:items-center lg:gap-7'
@@ -568,10 +676,13 @@ export function PublicationRow({
             )}>
             <Link
                 to="/dashboard/projects/$projectId/publications/$publicationId"
-                params={{ projectId: publication.projectId, publicationId: publication.id }}
+                params={{
+                    projectId: publication.projectId,
+                    publicationId: publication.id,
+                }}
                 data-publication-edit-link="true"
                 className={cn(
-                    'col-span-full row-start-1 group min-w-0',
+                    'col-start-1 row-start-1 group min-w-0',
                     sharedColumns && (selectionEnabled ? 'lg:col-start-2' : 'lg:col-start-1'),
                     sharedColumns
                         ? 'lg:col-span-2 lg:grid lg:grid-cols-subgrid lg:items-center lg:gap-7'
@@ -585,26 +696,55 @@ export function PublicationRow({
                             <PublicationMediaThumbnail publication={publication} />
                         ) : null}
                         <div className="min-w-0">
-                            <h2 className="truncate text-sm font-medium" title={identityLabel}>
-                                {identityLabel}
-                            </h2>
+                            <Tooltip>
+                                <TooltipTrigger
+                                    render={
+                                        <h2 className="truncate text-sm font-medium">
+                                            {identityLabel}
+                                        </h2>
+                                    }
+                                />
+                                <TooltipContent>{identityLabel}</TooltipContent>
+                            </Tooltip>
                         </div>
                     </div>
-                ) : null}
+                ) : (
+                    // The group or page already shows the post; assistive tech still needs it.
+                    <span className="sr-only">{identityLabel}, </span>
+                )}
                 <div className={cn('min-w-0', !showIdentity && 'lg:col-span-2')}>
                     <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
                         <span className="inline-flex min-w-0 max-w-full items-center gap-2">
-                            <span
-                                className="min-w-0 truncate text-sm font-medium"
-                                title={publication.channelName}>
-                                {publication.channelName}
-                            </span>
+                            <ChannelAvatar channel={channel} size="xs" className="size-5" />
+                            <Tooltip>
+                                <TooltipTrigger
+                                    render={
+                                        <span className="min-w-0 truncate text-sm font-medium">
+                                            {publication.channelName}
+                                        </span>
+                                    }
+                                />
+                                <TooltipContent>{publication.channelName}</TooltipContent>
+                            </Tooltip>
                         </span>
                         {due ? (
                             <PublicationDueIndicator />
                         ) : (
                             <PublicationStatus state={publication.state} />
                         )}
+                        {/* D9: published work shows when it went out, not when it was planned. */}
+                        {!showCreationDate &&
+                        (publication.publishedAt ?? publication.scheduledAt) !== null ? (
+                            <span className="text-xs tabular-nums text-muted-foreground">
+                                {formatSchedule(
+                                    publication.state === 'published'
+                                        ? (publication.publishedAt ?? publication.scheduledAt)
+                                        : publication.scheduledAt,
+                                    timeZone,
+                                    locale
+                                )}
+                            </span>
+                        ) : null}
                         {publication.draftReviewState === 'review_required' ? (
                             <span
                                 data-publication-review-required="true"
@@ -613,7 +753,7 @@ export function PublicationRow({
                             </span>
                         ) : null}
                     </div>
-                    {showCreationDate || publication.scheduledAt !== null ? (
+                    {showCreationDate ? (
                         <p
                             className={cn(
                                 'mt-1 text-xs leading-5 text-muted-foreground',
@@ -640,7 +780,7 @@ export function PublicationRow({
             {action ? (
                 <div
                     className={cn(
-                        'col-start-1 row-start-2 flex w-full min-w-0 items-center justify-end lg:col-start-3 lg:row-start-1 lg:w-auto',
+                        'col-start-2 row-start-1 flex min-w-0 items-center justify-end lg:col-start-3 lg:row-start-1 lg:w-auto',
                         sharedColumns && selectionEnabled && 'lg:col-start-4'
                     )}>
                     {action}
@@ -656,7 +796,7 @@ function normalizePublicationTimestamp(value: unknown): number | null {
 }
 
 function formatPublicationDateTime(timestamp: number | null, timeZone: string, locale: string) {
-    return timestamp === null ? '—' : formatProjectDateTime(timestamp, timeZone, locale)
+    return timestamp === null ? '-' : formatProjectDateTime(timestamp, timeZone, locale)
 }
 
 function PublicationMediaThumbnail({ publication }: { readonly publication: PublicationSummary }) {
@@ -708,16 +848,18 @@ export function PublicationStatus({
     readonly state: PublicationState
 }) {
     useLanguage()
-    const label = due ? m.publication_due_manual() : publicationStateLabel(state)
-    return (
-        <span
-            className={cn(
-                'inline-flex items-center gap-1.5 text-xs font-medium',
-                due ? 'text-state-attention' : statusClass(state)
-            )}>
-            {label}
-        </span>
+    return due ? (
+        <StatusText tone="attention">{m.publication_due_manual()}</StatusText>
+    ) : (
+        <StatusText tone={publicationStatusTone(state)}>{publicationStateLabel(state)}</StatusText>
     )
+}
+
+function publicationStatusTone(state: PublicationState): StatusTone {
+    if (state === 'failed' || state === 'ambiguous') return 'critical'
+    if (state === 'published') return 'positive'
+    if (state === 'scheduled' || state === 'ready' || state === 'publishing') return 'progress'
+    return 'neutral'
 }
 
 export function channelMarkerClass(profileId: string) {
@@ -748,13 +890,4 @@ export function publicationStateLabel(state: PublicationState) {
     if (state === 'ambiguous') return m.publication_state_needs_review()
     if (state === 'cancelled') return m.publication_state_cancelled()
     return m.publication_state_draft()
-}
-
-function statusClass(state: PublicationState) {
-    if (state === 'failed' || state === 'ambiguous') return 'text-state-failed'
-    if (state === 'published') return 'text-state-published'
-    if (state === 'scheduled' || state === 'ready' || state === 'publishing') {
-        return 'text-state-queued'
-    }
-    return 'text-state-draft'
 }

@@ -1,5 +1,4 @@
 import type { PublicationApprovalRequest } from '@postdot/client'
-import { Badge } from '@postdot/ui/components/badge'
 import { Button } from '@postdot/ui/components/button'
 import {
     Dialog,
@@ -14,6 +13,7 @@ import { Link } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 
 import { DateTimePicker } from '@/components/date-time-picker'
+import { StatusText } from '@/components/status-text'
 import { api } from '@/lib/api'
 import {
     dateTimeLocalErrorMessage,
@@ -65,11 +65,11 @@ export function PublicationApprovalRequests({
                     id="publication-approval-title">
                     {m.approval_requests_title()}
                 </h2>
-                <Badge className="min-w-5 px-1.5 py-0 text-xs" variant="secondary">
+                <span className="text-sm text-muted-foreground tabular-nums">
                     {requests.length}
-                </Badge>
+                </span>
             </div>
-            <div className="space-y-2">
+            <div className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-surface-raised">
                 {requests.map(request => (
                     <PublicationApprovalRequestRow
                         key={request.id}
@@ -185,7 +185,7 @@ function PublicationApprovalRequestRow({
 
     return (
         <>
-            <article className="flex min-w-0 flex-col gap-3 rounded-lg bg-surface-inset/60 p-3 shadow-surface sm:flex-row sm:items-center sm:justify-between">
+            <article className="flex min-w-0 flex-col gap-3 p-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0 space-y-1">
                     <Link
                         className="block truncate text-sm font-medium hover:underline"
@@ -205,9 +205,9 @@ function PublicationApprovalRequestRow({
                             })}
                         </span>
                         {overdue ? (
-                            <Badge className="px-1.5 py-0 text-[0.65rem]" variant="secondary">
+                            <StatusText tone="attention">
                                 {m.approval_requests_time_passed()}
-                            </Badge>
+                            </StatusText>
                         ) : null}
                     </div>
                 </div>

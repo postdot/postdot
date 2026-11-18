@@ -3,7 +3,8 @@ import { useState } from 'react'
 
 import { AuthForm, type AuthFormValues, type AuthMode } from '@/components/auth-form'
 import { AuthShell } from '@/components/auth-shell'
-import { api, formatApiError } from '@/lib/api'
+import { api, ApiError, formatApiError } from '@/lib/api'
+import { useLanguage } from '@/lib/i18n'
 import * as m from '@/paraglide/messages.js'
 
 export const Route = createFileRoute('/login')({
@@ -24,6 +25,8 @@ export const Route = createFileRoute('/login')({
 })
 
 function LoginPage() {
+    // Re-render when a lazily loaded locale catalog arrives.
+    useLanguage()
     const navigate = useNavigate()
     const search = Route.useSearch()
     const invitationFlow = isOrganizationInvitationContinuation(search.continue)
@@ -44,7 +47,12 @@ function LoginPage() {
             }
             await continueAfterAuthentication()
         } catch (caughtError) {
-            setError(formatApiError(caughtError))
+            // Better Auth answers a wrong email or password with 401; say so plainly.
+            setError(
+                mode === 'sign-in' && caughtError instanceof ApiError && caughtError.status === 401
+                    ? m.auth_invalid_credentials()
+                    : formatApiError(caughtError)
+            )
         } finally {
             setPending(false)
         }

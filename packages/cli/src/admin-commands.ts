@@ -4,7 +4,16 @@ import type { PostdotClient, UserApiKeyCapability } from '@postdot/client'
 import { InvalidArgumentError, Option, type Command } from 'commander'
 
 import { resolveConnection } from './configuration'
-import { CliError, connection, output, publicClient, result, type Options } from './context'
+import {
+    CliError,
+    connection,
+    output,
+    publicClient,
+    resolveWebsiteOption,
+    result,
+    readIdentityImageFile,
+    type Options,
+} from './context'
 import { commaSeparatedIds, nonnegativeInteger, readJsonObject } from './input'
 
 const allCapabilities = [
@@ -798,6 +807,103 @@ export function registerAdminCommands(program: Command) {
             output(body, JSON.stringify(body, null, 2), options)
         })
     }
+
+    workspaces
+        .command('set-website')
+        .description(
+            'Set or clear a workspace website URL and resolve its favicon when no custom image is set.'
+        )
+        .requiredOption('--workspace <id>', 'Workspace identifier')
+        .option('--url <url>', 'Website HTTP(S) URL')
+        .option('--clear', 'Clear the website URL')
+        .action(async (_options, command: Command) => {
+            const options = command.optsWithGlobals<
+                Options & { workspace: string; url?: string; clear?: boolean }
+            >()
+            const websiteUrl = resolveWebsiteOption(options)
+            const body = await result(
+                connection(options)
+                    .api.workspaces({ workspaceId: options.workspace })
+                    .website.put({ websiteUrl })
+            )
+            const human = websiteUrl
+                ? `Workspace ${body.workspace.id} website: ${body.workspace.websiteUrl ?? websiteUrl}${body.warning ? ` (${body.warning})` : ''}.`
+                : `Cleared website for workspace ${body.workspace.id}.`
+            output(body, human, options)
+        })
+
+    workspaces
+        .command('upload-image')
+        .description('Upload a local image file as a workspace identity image.')
+        .requiredOption('--workspace <id>', 'Workspace identifier')
+        .requiredOption('--file <path>', 'Readable, nonempty local image file (maximum 2 MB)')
+        .action(async (_options, command: Command) => {
+            const options = command.optsWithGlobals<Options & { workspace: string; file: string }>()
+            const client = connection(options)
+            const file = await readIdentityImageFile(options.file)
+            const body = await result(
+                client.api.workspaces({ workspaceId: options.workspace }).image.post(undefined, {
+                    headers: { 'content-type': 'application/octet-stream' },
+                    fetch: { body: file },
+                })
+            )
+            output(
+                body,
+                `Uploaded image for workspace ${body.workspace.id}: ${body.workspace.imageUrl ?? ''}.`,
+                options
+            )
+        })
+
+    workspaces
+        .command('import-image-url')
+        .description('Set a workspace identity image from a remote HTTP(S) image URL.')
+        .requiredOption('--workspace <id>', 'Workspace identifier')
+        .requiredOption('--url <url>', 'Remote HTTP(S) image URL')
+        .action(async (_options, command: Command) => {
+            const options = command.optsWithGlobals<Options & { workspace: string; url: string }>()
+            const body = await result(
+                connection(options)
+                    .api.workspaces({ workspaceId: options.workspace })
+                    .image.url.post({ url: options.url })
+            )
+            output(
+                body,
+                `Imported image for workspace ${body.workspace.id}: ${body.workspace.imageUrl ?? ''}.`,
+                options
+            )
+        })
+
+    workspaces
+        .command('use-website-icon')
+        .description('Resolve and use the workspace website favicon as its identity image.')
+        .requiredOption('--workspace <id>', 'Workspace identifier')
+        .action(async (_options, command: Command) => {
+            const options = command.optsWithGlobals<Options & { workspace: string }>()
+            const body = await result(
+                connection(options)
+                    .api.workspaces({ workspaceId: options.workspace })
+                    .image.favicon.post()
+            )
+            output(
+                body,
+                `Updated workspace ${body.workspace.id} image from website icon: ${body.workspace.imageUrl ?? ''}.`,
+                options
+            )
+        })
+
+    workspaces
+        .command('remove-image')
+        .description('Remove a workspace identity image.')
+        .requiredOption('--workspace <id>', 'Workspace identifier')
+        .action(async (_options, command: Command) => {
+            const options = command.optsWithGlobals<Options & { workspace: string }>()
+            const body = await result(
+                connection(options)
+                    .api.workspaces({ workspaceId: options.workspace })
+                    .image.delete()
+            )
+            output(body, `Removed image for workspace ${body.workspace.id}.`, options)
+        })
 
     // --- Instance settings (email, recovery, provider applications) ---
     const settings = program

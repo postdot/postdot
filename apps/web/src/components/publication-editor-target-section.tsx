@@ -1,9 +1,9 @@
 import { Alert, AlertDescription, AlertTitle } from '@postdot/ui/components/alert'
-import { Badge } from '@postdot/ui/components/badge'
 import { AltArrowDownIcon } from '@solar-icons/react/linear/alt-arrow-down'
 
 import { PublicationTargetEditor } from '@/components/publication-target-editor'
 import { TargetFieldControl } from '@/components/publication-target-field-control'
+import { StatusText } from '@/components/status-text'
 import type { PublicationEditorState } from '@/lib/api'
 import { useLanguage } from '@/lib/i18n'
 import { getTargetEditorFields, readTargetField, updateTargetField } from '@/lib/target-editor'
@@ -15,6 +15,7 @@ type Profile = PublicationEditorState['profile']['profile']
 type ReviewState = PublicationEditorState['draft']['reviewState']
 
 interface PublicationEditorTargetSectionProps {
+    readonly composer?: boolean
     readonly projectId: string
     readonly publicationId: string
     readonly configuredEditor?: boolean
@@ -22,19 +23,22 @@ interface PublicationEditorTargetSectionProps {
     readonly reviewState: ReviewState
     readonly validationIssues: readonly Record<string, unknown>[]
     readonly target: Record<string, unknown> | null
-    readonly targetText: string
     readonly disabled: boolean
     readonly readOnly?: boolean
     readonly open?: boolean
     readonly onOpenChange?: (open: boolean) => void
     readonly onTargetChange: (target: Record<string, unknown>) => void
-    readonly onRawTextChange: (value: string) => void
     readonly targetError: string | null
     readonly issueCode: (issue: Record<string, unknown>) => string
     readonly issueMessage: (issue: Record<string, unknown>) => string
+    /** The disclosure's name; defaults to the generic channel customization label. */
+    readonly summaryTitle?: string
+    /** One line under the name saying whether this channel follows the post. */
+    readonly summaryDescription?: string
 }
 
 export function PublicationEditorTargetSection({
+    composer = false,
     projectId,
     publicationId,
     configuredEditor = true,
@@ -42,21 +46,21 @@ export function PublicationEditorTargetSection({
     reviewState,
     validationIssues,
     target,
-    targetText,
     disabled,
     readOnly = false,
     open,
     onOpenChange,
     onTargetChange,
-    onRawTextChange,
     targetError,
     issueCode,
     issueMessage,
+    summaryTitle,
+    summaryDescription,
 }: PublicationEditorTargetSectionProps) {
     const { locale } = useLanguage()
     const fields = getTargetEditorFields(profile, locale, target)
     const threadField = fields.find(
-        field => field.path === '/thread' && field.kind.startsWith('provider:')
+        field => !composer && field.path === '/thread' && field.kind.startsWith('provider:')
     )
     const inlinePaths =
         threadField && target && Array.isArray(target.thread) && target.thread.length
@@ -107,22 +111,29 @@ export function PublicationEditorTargetSection({
                 : null}
             <details
                 data-publication-customization="true"
-                className="group rounded-md bg-surface-inset/35 px-3 shadow-surface"
+                className="group rounded-lg border border-border bg-surface-raised px-3"
                 open={open}
                 onToggle={event => onOpenChange?.(event.currentTarget.open)}>
                 <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 py-3 text-sm [&::-webkit-details-marker]:hidden">
                     <span className="min-w-0">
-                        <span className="block font-medium">{m.editor_channel_details()}</span>
+                        <span className="block font-medium">
+                            {summaryTitle ?? m.editor_channel_details()}
+                        </span>
+                        {summaryDescription ? (
+                            <span
+                                className="mt-0.5 block text-xs text-muted-foreground"
+                                data-channel-version-mode="true">
+                                {summaryDescription}
+                            </span>
+                        ) : null}
                     </span>
                     <span className="flex shrink-0 items-center gap-3">
                         {reviewState !== 'compatible' ||
                         validationIssues.length > 0 ||
                         targetError !== null ? (
-                            <Badge
-                                variant="outline"
-                                className="border-0 bg-transparent px-0 text-state-attention">
+                            <StatusText tone="attention">
                                 {m.editor_target_review_required()}
-                            </Badge>
+                            </StatusText>
                         ) : null}
                         <AltArrowDownIcon
                             aria-hidden="true"
@@ -132,16 +143,28 @@ export function PublicationEditorTargetSection({
                 </summary>
                 <div className="pb-4 pt-1">
                     <PublicationTargetEditor
-                        omitPaths={threadField ? [threadField.path, ...inlinePaths] : undefined}
+                        omitPaths={
+                            composer
+                                ? fields
+                                      // The composer shows the text, title and media (with
+                                      // their descriptions) itself.
+                                      .filter(field =>
+                                          ['primary_text', 'headline', 'ordered_media'].includes(
+                                              field.semantic
+                                          )
+                                      )
+                                      .map(field => field.path)
+                                : threadField
+                                  ? [threadField.path, ...inlinePaths]
+                                  : undefined
+                        }
                         validationIssues={validationIssues}
                         projectId={projectId}
                         mediaScopeId={`publication:${publicationId}`}
                         configuredEditor={configuredEditor}
                         profile={profile}
                         target={target}
-                        rawText={targetText}
                         onTargetChange={onTargetChange}
-                        onRawTextChange={onRawTextChange}
                         disabled={disabled}
                         readOnly={readOnly}
                         compact
@@ -149,7 +172,7 @@ export function PublicationEditorTargetSection({
                     {targetError ? (
                         <Alert
                             variant="destructive"
-                            className="mt-4 rounded-md border-0 bg-state-failed/10 shadow-surface">
+                            className="mt-4 rounded-lg border border-border bg-surface-raised">
                             <AlertTitle>{m.editor_target_invalid_json()}</AlertTitle>
                             <AlertDescription>{targetError}</AlertDescription>
                         </Alert>

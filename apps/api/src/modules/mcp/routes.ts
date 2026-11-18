@@ -1,6 +1,7 @@
 import type { PostdotAuth } from '@postdot/auth'
 import { Elysia } from 'elysia'
 
+import { readBoundedRequestBytes } from '../../request-body'
 import { createUserApiKeyAuthenticator } from '../access/user-api-key-authentication'
 import {
     apiKeyHasCapability,
@@ -19,7 +20,7 @@ export interface McpRoutesOptions {
     readonly serverVersion?: string
 }
 
-const maximumRequestBytes = 1_000_000
+const maximumRequestBytes = Math.ceil((2 * 1024 * 1024) / 3) * 4 + 64 * 1024
 /** The protocol endpoint is documented in the MCP guide, not as an API operation. */
 const hidden = () => ({ detail: { hide: true } })
 
@@ -56,12 +57,16 @@ export function createMcpRoutes(options: McpRoutesOptions) {
                 return problem(401, 'A valid Postdot API key is required', {
                     'www-authenticate': 'Bearer realm="Postdot MCP"',
                 })
-            const declaredLength = Number(request.headers.get('content-length') ?? 0)
-            if (declaredLength > maximumRequestBytes) return problem(413, 'Request too large')
+            const bounded = await readBoundedRequestBytes(request, maximumRequestBytes)
+            if (!bounded.ok)
+                return problem(
+                    bounded.reason === 'too_large' ? 413 : 400,
+                    bounded.reason === 'too_large' ? 'Request too large' : 'Request body required'
+                )
 
             let payload: unknown
             try {
-                payload = JSON.parse(await request.text())
+                payload = JSON.parse(new TextDecoder().decode(bounded.bytes))
             } catch {
                 return Response.json(
                     {

@@ -10,17 +10,21 @@ import {
 } from '@postdot/ui/components/popover'
 import { ScrollArea } from '@postdot/ui/components/scroll-area'
 import { Switch } from '@postdot/ui/components/switch'
+import { Tooltip, TooltipTrigger, TooltipContent } from '@postdot/ui/components/tooltip'
 import { ArchiveIcon } from '@solar-icons/react/linear/archive'
 import { ArrowLeftIcon } from '@solar-icons/react/linear/arrow-left'
 import { BellIcon } from '@solar-icons/react/linear/bell'
 import { CheckIcon } from '@solar-icons/react/linear/check'
 import { CloseIcon } from '@solar-icons/react/linear/close'
+import { DangerTriangleIcon } from '@solar-icons/react/linear/danger-triangle'
+import { QuestionCircleIcon } from '@solar-icons/react/linear/question-circle'
 import { SettingsIcon } from '@solar-icons/react/linear/settings'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { useNavigate } from '@tanstack/react-router'
-import { useEffect, useState } from 'react'
+import { Link, useNavigate } from '@tanstack/react-router'
+import { useEffect, useId, useRef, useState } from 'react'
 
 import { EmptyState } from '@/components/empty-state'
+import { ChannelAvatar } from '@/components/identity-visuals'
 import {
     api,
     ApiError,
@@ -30,9 +34,21 @@ import {
     type NotificationPreference,
     type Project,
 } from '@/lib/api'
-import { formatDateTime } from '@/lib/format'
+import { formatProjectDateTime } from '@/lib/date-time'
 import { useLanguage } from '@/lib/i18n'
-import { notificationContent } from '@/lib/notification-content'
+import {
+    notificationChannelSummary,
+    notificationContent,
+    notificationOutcomeCopy,
+} from '@/lib/notification-content'
+import {
+    groupNotifications,
+    notificationChannels,
+    notificationSection,
+    notificationTime,
+    type NotificationGroup,
+} from '@/lib/notification-groups'
+import { publicationIdentityLabel } from '@/lib/publication-identity'
 import * as m from '@/paraglide/messages.js'
 import type { Locale } from '@/paraglide/runtime.js'
 
@@ -49,6 +65,7 @@ export function NotificationInbox({ projectId, projects }: NotificationInboxProp
     const { locale } = useLanguage()
     const queryClient = useQueryClient()
     const navigate = useNavigate()
+    const [now, setNow] = useState(Date.now)
     const [openingId, setOpeningId] = useState<string | null>(null)
     const [subjectError, setSubjectError] = useState<{ id: string; message: string } | null>(null)
     const [open, setOpen] = useState(false)
@@ -86,6 +103,13 @@ export function NotificationInbox({ projectId, projects }: NotificationInboxProp
         setSubjectError(null)
     }, [projectId])
 
+    useEffect(() => {
+        if (!open) return
+        setNow(Date.now())
+        const timer = window.setInterval(() => setNow(Date.now()), 30_000)
+        return () => window.clearInterval(timer)
+    }, [open])
+
     const openSubject = async (notification: Notification) => {
         if (
             openingId !== null ||
@@ -119,35 +143,6 @@ export function NotificationInbox({ projectId, projects }: NotificationInboxProp
         }
     }
 
-    const markRead = async (notification: Notification) => {
-        if (notification.readAt !== null) return
-
-        setWorkingId(notification.id)
-        setActionError(null)
-        try {
-            const updated = await api.markUserNotificationRead(notification.id)
-            queryClient.setQueryData<NotificationInboxState>(
-                ['notifications', projectId ?? 'all'],
-                current =>
-                    current === undefined
-                        ? current
-                        : {
-                              ...current,
-                              notifications: current.notifications.map(item =>
-                                  item.id === updated.id ? updated : item
-                              ),
-                              unreadCount: Math.max(0, current.unreadCount - 1),
-                              totalUnreadCount: Math.max(0, current.totalUnreadCount - 1),
-                          }
-            )
-        } catch (caughtError) {
-            setActionError(formatApiError(caughtError))
-            await inboxQuery.refetch().catch(() => undefined)
-        } finally {
-            setWorkingId(null)
-        }
-    }
-
     const updatePreference = async (preference: NotificationPreference, inAppEnabled: boolean) => {
         if (preference.inAppEnabled === inAppEnabled) return
 
@@ -177,33 +172,58 @@ export function NotificationInbox({ projectId, projects }: NotificationInboxProp
         }
     }
 
-    const archive = async (notification: Notification) => {
-        setWorkingId(notification.id)
+    const applyToGroup = async (group: NotificationGroup, action: 'read' | 'archive') => {
+        setWorkingId(group.notification.id)
         setActionError(null)
         try {
-            await api.archiveUserNotification(notification.id)
-            queryClient.setQueryData<NotificationInboxState>(
-                ['notifications', projectId ?? 'all'],
-                current =>
-                    current === undefined
-                        ? current
-                        : {
-                              ...current,
-                              notifications: current.notifications.filter(
-                                  item => item.id !== notification.id
-                              ),
-                              unreadCount:
-                                  notification.readAt === null
-                                      ? Math.max(0, current.unreadCount - 1)
-                                      : current.unreadCount,
-                              totalUnreadCount:
-                                  notification.readAt === null
-                                      ? Math.max(0, current.totalUnreadCount - 1)
-                                      : current.totalUnreadCount,
-                          }
+            for (const member of group.members) {
+                if (action === 'read' && member.readAt !== null) continue
+                const updated = await (action === 'read'
+                    ? api.markUserNotificationRead(member.id)
+                    : api.archiveUserNotification(member.id))
+                queryClient.setQueryData<NotificationInboxState>(
+                    ['notifications', projectId ?? 'all'],
+                    current => {
+                        if (current === undefined) return current
+                        const previous = current.notifications.find(item => item.id === member.id)
+                        const decrement = previous?.readAt === null ? 1 : 0
+                        return {
+                            ...current,
+                            notifications:
+                                action === 'archive'
+                                    ? current.notifications.filter(item => item.id !== member.id)
+                                    : current.notifications.map(item =>
+                                          item.id === member.id ? { ...item, ...updated } : item
+                                      ),
+                            unreadCount: Math.max(0, current.unreadCount - decrement),
+                            totalUnreadCount: Math.max(0, current.totalUnreadCount - decrement),
+                        }
+                    }
+                )
+            }
+        } catch (error) {
+            setActionError(formatApiError(error))
+            await inboxQuery.refetch().catch(() => undefined)
+        } finally {
+            setWorkingId(null)
+        }
+    }
+
+    const retry = async (group: NotificationGroup) => {
+        setWorkingId(group.notification.id)
+        setActionError(null)
+        try {
+            const publications = new Map(
+                group.members
+                    .filter(item => item.context?.canRetry)
+                    .map(item => [item.subject.id, item])
             )
-        } catch (caughtError) {
-            setActionError(formatApiError(caughtError))
+            for (const member of publications.values()) {
+                await api.retryFailedPublication(member.context!.projectId, member.subject.id)
+            }
+            await inboxQuery.refetch()
+        } catch (error) {
+            setActionError(formatApiError(error))
             await inboxQuery.refetch().catch(() => undefined)
         } finally {
             setWorkingId(null)
@@ -218,6 +238,18 @@ export function NotificationInbox({ projectId, projects }: NotificationInboxProp
     const unreadCount =
         projectId === null ? (inbox?.totalUnreadCount ?? 0) : (inbox?.unreadCount ?? 0)
     const notifications = inbox?.notifications ?? []
+    const groups = groupNotifications(notifications)
+    const zoneFor = (notification: Notification) =>
+        projects.find(
+            project =>
+                project.id === notification.context?.projectId ||
+                project.id === notification.projectId
+        )?.timeZone ?? 'UTC'
+    const sections = new Set(
+        groups.map(group =>
+            notificationSection(group.notification.createdAt, zoneFor(group.notification), now)
+        )
+    )
     const loading = inboxQuery.isPending || inboxQuery.isFetching
     const preferencesLoading = preferencesQuery.isPending || preferencesQuery.isFetching
     const queryError = panel === 'inbox' ? inboxQuery.error : preferencesQuery.error
@@ -236,27 +268,35 @@ export function NotificationInbox({ projectId, projects }: NotificationInboxProp
     return (
         <>
             <Popover modal={false} open={open} onOpenChange={handleOpenChange}>
-                <PopoverTrigger
-                    render={
-                        <Button
-                            aria-label={
-                                unreadCount === 0
-                                    ? m.notifications_open()
-                                    : m.notifications_open_unread({ count: unreadCount })
-                            }
-                            className="relative"
-                            size="icon-sm"
-                            title={m.notifications_title()}
-                            variant="ghost"
-                        />
-                    }>
-                    <BellIcon aria-hidden="true" />
-                    {unreadCount > 0 ? (
-                        <span className="absolute top-0.5 right-0.5 flex min-w-3.5 translate-x-1/4 -translate-y-1/4 items-center justify-center rounded-full bg-primary px-1 text-[0.6rem] leading-3.5 font-semibold text-primary-foreground tabular-nums">
-                            {unreadCount > 99 ? '99+' : unreadCount}
-                        </span>
-                    ) : null}
-                </PopoverTrigger>
+                <Tooltip>
+                    <PopoverTrigger
+                        render={
+                            <TooltipTrigger
+                                render={
+                                    <Button
+                                        aria-label={
+                                            unreadCount === 0
+                                                ? m.notifications_open()
+                                                : m.notifications_open_unread({
+                                                      count: unreadCount,
+                                                  })
+                                        }
+                                        className="relative"
+                                        size="icon-sm"
+                                        variant="ghost"
+                                    />
+                                }
+                            />
+                        }>
+                        <BellIcon aria-hidden="true" />
+                        {unreadCount > 0 ? (
+                            <span className="absolute top-0.5 right-0.5 flex min-w-3.5 translate-x-1/4 -translate-y-1/4 items-center justify-center rounded-full bg-primary px-1 text-[0.6rem] leading-3.5 font-semibold text-primary-foreground tabular-nums">
+                                {unreadCount > 99 ? '99+' : unreadCount}
+                            </span>
+                        ) : null}
+                    </PopoverTrigger>
+                    <TooltipContent>{m.notifications_title()}</TooltipContent>
+                </Tooltip>
 
                 <PopoverContent
                     align="end"
@@ -275,44 +315,56 @@ export function NotificationInbox({ projectId, projects }: NotificationInboxProp
                             ) : null}
                         </div>
                         <div className="flex shrink-0 items-center gap-1">
-                            <Button
-                                aria-label={
-                                    panel === 'inbox'
-                                        ? m.notifications_preferences_open()
-                                        : m.notifications_back()
-                                }
-                                size="icon-sm"
-                                title={
-                                    panel === 'inbox'
-                                        ? m.notifications_preferences()
-                                        : m.notifications_back()
-                                }
-                                variant="ghost"
-                                onClick={() => {
-                                    if (panel === 'inbox') {
-                                        setPanel('preferences')
-                                    } else {
-                                        setPanel('inbox')
-                                        void inboxQuery.refetch()
+                            <Tooltip>
+                                <TooltipTrigger
+                                    render={
+                                        <Button
+                                            aria-label={
+                                                panel === 'inbox'
+                                                    ? m.notifications_preferences_open()
+                                                    : m.notifications_back()
+                                            }
+                                            size="icon-sm"
+                                            variant="ghost"
+                                            onClick={() => {
+                                                if (panel === 'inbox') {
+                                                    setPanel('preferences')
+                                                } else {
+                                                    setPanel('inbox')
+                                                    void inboxQuery.refetch()
+                                                }
+                                            }}>
+                                            {panel === 'inbox' ? (
+                                                <SettingsIcon aria-hidden="true" />
+                                            ) : (
+                                                <ArrowLeftIcon aria-hidden="true" />
+                                            )}
+                                        </Button>
                                     }
-                                }}>
-                                {panel === 'inbox' ? (
-                                    <SettingsIcon aria-hidden="true" />
-                                ) : (
-                                    <ArrowLeftIcon aria-hidden="true" />
-                                )}
-                            </Button>
-                            <PopoverClose
-                                render={
-                                    <Button
-                                        aria-label={m.common_close()}
-                                        size="icon-sm"
-                                        title={m.common_close()}
-                                        variant="ghost"
-                                    />
-                                }>
-                                <CloseIcon aria-hidden="true" />
-                            </PopoverClose>
+                                />
+                                <TooltipContent>
+                                    {panel === 'inbox'
+                                        ? m.notifications_preferences()
+                                        : m.notifications_back()}
+                                </TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                                <PopoverClose
+                                    render={
+                                        <TooltipTrigger
+                                            render={
+                                                <Button
+                                                    aria-label={m.common_close()}
+                                                    size="icon-sm"
+                                                    variant="ghost"
+                                                />
+                                            }
+                                        />
+                                    }>
+                                    <CloseIcon aria-hidden="true" />
+                                </PopoverClose>
+                                <TooltipContent>{m.common_close()}</TooltipContent>
+                            </Tooltip>
                         </div>
                     </div>
 
@@ -342,41 +394,55 @@ export function NotificationInbox({ projectId, projects }: NotificationInboxProp
                                 <NotificationLoadingState />
                             ) : notifications.length === 0 ? (
                                 <EmptyState
-                                    className="min-h-56 bg-surface-inset/55 px-5 py-8 shadow-none"
+                                    className="py-10"
                                     description={null}
                                     illustration="notifications"
                                     illustrationClassName="w-32"
                                     title={m.notifications_empty()}
                                 />
                             ) : (
-                                <ul className="grid gap-2">
-                                    {notifications.map(notification => (
-                                        <NotificationItem
-                                            key={notification.id}
-                                            disabled={workingId === notification.id}
-                                            notification={notification}
-                                            projectName={
-                                                notification.projectId === null ||
-                                                notification.projectId === projectId
-                                                    ? null
-                                                    : (projects.find(
-                                                          project =>
-                                                              project.id === notification.projectId
-                                                      )?.name ?? null)
-                                            }
-                                            locale={locale}
-                                            opening={openingId === notification.id}
-                                            navigationDisabled={openingId !== null}
-                                            subjectError={
-                                                subjectError?.id === notification.id
-                                                    ? subjectError.message
-                                                    : null
-                                            }
-                                            onOpen={openSubject}
-                                            onArchive={archive}
-                                            onMarkRead={markRead}
-                                        />
-                                    ))}
+                                <ul className="grid grid-cols-1 gap-2">
+                                    {groups.map((group, index) => {
+                                        const notification = group.notification
+                                        const timeZone = zoneFor(notification)
+                                        const section = notificationSection(
+                                            notification.createdAt,
+                                            timeZone,
+                                            now
+                                        )
+                                        const previous = groups[index - 1]?.notification
+                                        const showSection =
+                                            sections.size > 1 &&
+                                            (previous === undefined ||
+                                                notificationSection(
+                                                    previous.createdAt,
+                                                    zoneFor(previous),
+                                                    now
+                                                ) !== section)
+                                        return (
+                                            <NotificationItem
+                                                key={notification.id}
+                                                group={group}
+                                                section={showSection ? section : null}
+                                                disabled={workingId !== null}
+                                                locale={locale}
+                                                timeZone={timeZone}
+                                                now={now}
+                                                opening={openingId === notification.id}
+                                                navigationDisabled={openingId !== null}
+                                                subjectError={
+                                                    subjectError?.id === notification.id
+                                                        ? subjectError.message
+                                                        : null
+                                                }
+                                                onOpen={openSubject}
+                                                onClose={() => setOpen(false)}
+                                                onArchive={() => applyToGroup(group, 'archive')}
+                                                onMarkRead={() => applyToGroup(group, 'read')}
+                                                onRetry={() => retry(group)}
+                                            />
+                                        )
+                                    })}
                                 </ul>
                             )}
                         </ScrollArea>
@@ -406,104 +472,222 @@ export function NotificationInbox({ projectId, projects }: NotificationInboxProp
 function NotificationItem({
     disabled,
     locale,
-    notification,
-    projectName,
+    group,
+    section,
+    timeZone,
+    now,
     onArchive,
     onMarkRead,
+    onRetry,
     onOpen,
+    onClose,
     opening,
     navigationDisabled,
     subjectError,
 }: {
+    readonly group: NotificationGroup
+    readonly section: 'today' | 'yesterday' | 'earlier' | null
+    readonly timeZone: string
+    readonly now: number
     readonly opening: boolean
     readonly navigationDisabled: boolean
     readonly subjectError: string | null
     readonly onOpen: (notification: Notification) => Promise<void>
+    readonly onClose: () => void
     readonly disabled: boolean
-    readonly notification: Notification
-    readonly projectName: string | null
     readonly locale: Locale
-    readonly onArchive: (notification: Notification) => Promise<void>
-    readonly onMarkRead: (notification: Notification) => Promise<void>
+    readonly onArchive: () => Promise<void>
+    readonly onMarkRead: () => Promise<void>
+    readonly onRetry: () => Promise<void>
 }) {
-    const unread = notification.readAt === null
-    const copy = notificationContent(notification, locale)
+    const rowRef = useRef<HTMLDivElement>(null)
+    const timeTooltipId = useId()
+    const notification = group.notification
+    const unread = group.members.some(item => item.readAt === null)
+    const context = notification.context
+    const title = context
+        ? publicationIdentityLabel(context)
+        : notificationContent(notification, locale).title
+    const channels = notificationChannels(group)
     const canOpen = notification.projectId !== null && notification.subject.type === 'publication'
+    const StatusIcon =
+        notification.severity === 'error'
+            ? DangerTriangleIcon
+            : notification.severity === 'warning'
+              ? QuestionCircleIcon
+              : CheckIcon
+    const sectionLabels = {
+        today: m.notifications_today,
+        yesterday: m.notifications_yesterday,
+        earlier: m.notifications_earlier,
+    }
 
     return (
-        <li
-            className={
-                unread
-                    ? 'rounded-md bg-surface-raised px-3.5 py-3 shadow-field'
-                    : 'rounded-md bg-muted/60 px-3.5 py-3'
-            }>
-            <div className="flex items-start gap-3">
-                <span
-                    className={`mt-1.5 size-2 shrink-0 rounded-full ${severityClass(notification)}`}
-                    aria-hidden="true"
-                />
-                <div className="min-w-0 flex-1">
-                    {canOpen ? (
-                        <button
-                            type="button"
-                            aria-label={m.notifications_open_subject({ title: copy.title })}
-                            aria-busy={opening}
-                            disabled={navigationDisabled}
-                            className="block min-h-11 w-full rounded-sm text-left text-sm leading-5 font-medium break-words text-foreground outline-none hover:text-primary focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60 sm:min-h-0"
-                            onClick={() => void onOpen(notification)}>
-                            {copy.title}
-                        </button>
+        <li className="min-w-0">
+            {section !== null ? (
+                <h3 className="px-2 pb-1 pt-3 text-xs font-medium text-muted-foreground">
+                    {sectionLabels[section]()}
+                </h3>
+            ) : null}
+            <div
+                data-notification-row
+                ref={rowRef}
+                className="group relative flex items-start gap-2 rounded-md px-2 py-3 hover:bg-muted/60 focus-within:bg-muted/60">
+                {canOpen ? (
+                    context ? (
+                        <Link
+                            className="absolute inset-0 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            aria-label={m.notifications_open_subject({ title })}
+                            to="/dashboard/projects/$projectId/posts/$postId"
+                            params={{ projectId: context.projectId, postId: context.postId }}
+                            onClick={onClose}
+                        />
                     ) : (
-                        <p className="text-sm leading-5 font-medium break-words text-foreground">
-                            {copy.title}
-                        </p>
-                    )}
+                        <Link
+                            className="absolute inset-0 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            aria-label={m.notifications_open_subject({ title })}
+                            aria-busy={opening}
+                            aria-disabled={navigationDisabled}
+                            to="/dashboard/projects/$projectId/publications/$publicationId"
+                            params={{
+                                projectId: notification.projectId!,
+                                publicationId: notification.subject.id,
+                            }}
+                            search={{ from: undefined, date: undefined, view: undefined }}
+                            onClick={event => {
+                                event.preventDefault()
+                                if (!navigationDisabled) void onOpen(notification)
+                            }}
+                        />
+                    )
+                ) : null}
+                <span
+                    aria-hidden="true"
+                    className={`mt-3 size-1.5 shrink-0 rounded-full ${unread ? 'bg-primary' : 'bg-transparent'}`}
+                />
+                <div className="pointer-events-none mt-0.5 w-14 shrink-0" aria-hidden="true">
+                    <div className="relative flex w-fit items-center -space-x-1.5">
+                        {channels.length === 0 ? (
+                            <span className="flex size-6 items-center justify-center rounded-md bg-muted">
+                                <BellIcon className="size-4 text-muted-foreground" />
+                            </span>
+                        ) : (
+                            channels
+                                .slice(0, 3)
+                                .map(channel => (
+                                    <ChannelAvatar
+                                        key={channel.id}
+                                        channel={{ ...channel, profileId: '' }}
+                                        size="sm"
+                                        className="ring-2 ring-popover"
+                                    />
+                                ))
+                        )}
+                        {channels.length > 3 ? (
+                            <span className="relative flex size-5 items-center justify-center rounded-full bg-muted text-xs ring-2 ring-popover">
+                                +{channels.length - 3}
+                            </span>
+                        ) : null}
+                        <span
+                            className={`absolute -right-2 -bottom-1.5 flex size-3.5 items-center justify-center rounded-full bg-popover ring-2 ring-popover ${severityClass(notification)}`}>
+                            <StatusIcon className="size-2.5" />
+                        </span>
+                    </div>
+                </div>
+                <div className="pointer-events-none min-w-0 flex-1 pl-1">
+                    <p
+                        className={`truncate text-sm font-medium ${unread ? 'pr-24 text-foreground sm:pr-18' : 'pr-12 text-muted-foreground sm:pr-9'}`}>
+                        {title}
+                    </p>
+                    <div className="mt-1 text-xs leading-5 break-words text-muted-foreground">
+                        {channels.length > 0 ? (
+                            <>
+                                <span className="min-w-0 break-words">
+                                    {notificationOutcomeCopy(
+                                        notification,
+                                        notificationChannelSummary(
+                                            channels.map(channel => channel.name),
+                                            locale
+                                        ),
+                                        locale
+                                    )}
+                                </span>
+                                <span aria-hidden="true"> · </span>
+                            </>
+                        ) : null}
+                        <Tooltip>
+                            <TooltipTrigger
+                                render={
+                                    <time
+                                        tabIndex={0}
+                                        aria-describedby={timeTooltipId}
+                                        className="pointer-events-auto relative z-10 cursor-default whitespace-nowrap rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                        dateTime={new Date(notification.createdAt).toISOString()}
+                                    />
+                                }>
+                                {notificationTime(notification.createdAt, timeZone, locale, now)}
+                            </TooltipTrigger>
+                            <TooltipContent container={rowRef} role="tooltip" id={timeTooltipId}>
+                                {formatProjectDateTime(notification.createdAt, timeZone, locale)}
+                            </TooltipContent>
+                        </Tooltip>
+                        {notification.kind === 'publication_failed' &&
+                        group.members.some(item => item.context?.canRetry) ? (
+                            <Button
+                                className="pointer-events-auto relative z-10 ml-2"
+                                size="xs"
+                                variant="secondary"
+                                disabled={disabled}
+                                onClick={() => void onRetry()}>
+                                {m.common_retry()}
+                            </Button>
+                        ) : null}
+                    </div>
                     {subjectError !== null ? (
-                        <p role="alert" className="mt-1 text-xs leading-5 text-state-failed">
+                        <p role="alert" className="mt-1 text-xs text-state-failed">
                             {subjectError}
                         </p>
                     ) : null}
-                    {copy.body !== null ? (
-                        <p className="mt-1 text-xs leading-5 break-words text-muted-foreground">
-                            {copy.body}
-                        </p>
+                </div>
+                <div className="absolute top-2 right-2 z-10 flex items-center gap-1 opacity-100 [@media(hover:hover)]:opacity-0 group-hover:opacity-100 group-focus-within:opacity-100">
+                    {unread ? (
+                        <Tooltip>
+                            <TooltipTrigger
+                                render={
+                                    <Button
+                                        aria-label={m.notifications_mark_as_read({ title })}
+                                        disabled={disabled}
+                                        size="icon"
+                                        className="size-11 sm:size-8"
+                                        variant="ghost"
+                                        onClick={() => void onMarkRead()}
+                                    />
+                                }>
+                                <CheckIcon aria-hidden="true" />
+                            </TooltipTrigger>
+                            <TooltipContent role="tooltip">
+                                {m.notifications_read_short()}
+                            </TooltipContent>
+                        </Tooltip>
                     ) : null}
-                    <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.68rem] leading-4 text-muted-foreground">
-                        {projectName !== null ? (
-                            <span className="min-w-0 break-words">{projectName}</span>
-                        ) : null}
-                        <time
-                            className="tabular-nums"
-                            dateTime={new Date(notification.createdAt).toISOString()}>
-                            {formatNotificationTime(notification.createdAt, locale)}
-                        </time>
-                        <div className="ml-auto flex shrink-0 items-center gap-1">
-                            {unread ? (
+                    <Tooltip>
+                        <TooltipTrigger
+                            render={
                                 <Button
-                                    aria-label={m.notifications_mark_as_read({ title: copy.title })}
+                                    aria-label={m.notifications_archive_item({ title })}
                                     disabled={disabled}
                                     size="icon"
                                     className="size-11 sm:size-8"
-                                    title={m.notifications_read_short()}
                                     variant="ghost"
-                                    onClick={() => void onMarkRead(notification)}>
-                                    <CheckIcon aria-hidden="true" />
-                                    <span className="sr-only">{m.notifications_read_short()}</span>
-                                </Button>
-                            ) : null}
-                            <Button
-                                aria-label={m.notifications_archive_item({ title: copy.title })}
-                                disabled={disabled}
-                                size="icon"
-                                className="size-11 sm:size-8"
-                                title={m.notifications_archive_short()}
-                                variant="ghost"
-                                onClick={() => void onArchive(notification)}>
-                                <ArchiveIcon aria-hidden="true" />
-                                <span className="sr-only">{m.notifications_archive_short()}</span>
-                            </Button>
-                        </div>
-                    </div>
+                                    onClick={() => void onArchive()}
+                                />
+                            }>
+                            <ArchiveIcon aria-hidden="true" />
+                        </TooltipTrigger>
+                        <TooltipContent role="tooltip">
+                            {m.notifications_archive_short()}
+                        </TooltipContent>
+                    </Tooltip>
                 </div>
             </div>
         </li>
@@ -588,13 +772,9 @@ function NotificationPreferencesPanel({
 }
 
 function severityClass(notification: Notification) {
-    if (notification.severity === 'error') return 'bg-state-failed'
-    if (notification.severity === 'warning') return 'bg-state-attention'
-    return 'bg-state-published'
-}
-
-function formatNotificationTime(timestamp: number, locale: string) {
-    return formatDateTime(timestamp, 'UTC', locale)
+    if (notification.severity === 'error') return 'text-state-failed'
+    if (notification.severity === 'warning') return 'text-state-attention'
+    return 'text-state-published'
 }
 
 function preferenceCopy(kind: NotificationPreference['kind']) {

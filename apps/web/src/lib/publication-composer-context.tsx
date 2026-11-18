@@ -6,12 +6,12 @@ import {
     useContext,
     useEffect,
     useRef,
-    useState,
     type Context,
     type FormEvent,
     type ReactNode,
 } from 'react'
 
+import { usePostComposition } from '@/components/post-composer/use-post-composition'
 import { api, type Publication } from '@/lib/api'
 import { useDashboardGlobal, useProjectDashboard } from '@/lib/dashboard-context'
 import {
@@ -23,8 +23,7 @@ import { useProjectAction } from '@/lib/project-action'
 import { useProjectChannelActions } from '@/lib/project-channel-actions'
 import { refreshPublicationResources } from '@/lib/project-resources'
 import { useProjectTagActions } from '@/lib/project-tags'
-import { createPublicationTarget, type PublicationTargetDraft } from '@/lib/publication-authoring'
-import type { MediaSelection } from '@/lib/target-media'
+import { createPublicationTarget } from '@/lib/publication-authoring'
 import * as m from '@/paraglide/messages.js'
 import { providerRegistry } from '@/providers/registry'
 
@@ -36,13 +35,23 @@ function useComposerSession() {
     const queryClient = useQueryClient()
     const { error, pending, setError, runAction } = useProjectAction()
     const tagActions = useProjectTagActions(project.id)
-    const [postTitle, setPostTitle] = useState('')
-    const [postContent, setPostContent] = useState('')
-    const [sourceMedia, setSourceMedia] = useState<MediaSelection[]>([])
-    const [publicationTargets, setPublicationTargets] = useState<PublicationTargetDraft[]>(() => [
-        createPublicationTarget(activeChannels[0]?.id ?? '', project.timeZone),
-    ])
-    const [publicationTagIds, setPublicationTagIds] = useState<string[]>([])
+    const composition = usePostComposition(() => ({
+        publicationTargets: [
+            createPublicationTarget(activeChannels[0]?.id ?? '', project.timeZone),
+        ],
+    }))
+    const {
+        postTitle,
+        postContent,
+        sourceMedia,
+        publicationTargets,
+        publicationTagIds,
+        onPostTitleChange: setPostTitle,
+        onPostContentChange: setPostContent,
+        onSourceMediaChange: setSourceMedia,
+        onPublicationTargetsChange: setPublicationTargets,
+        onPublicationTagIdsChange: setPublicationTagIds,
+    } = composition
     const channelActions = useProjectChannelActions(channelId => {
         setPublicationTargets(current =>
             current.map((target, index) =>
@@ -238,6 +247,7 @@ function useComposerSession() {
     }
 
     return {
+        composition,
         postTitle,
         postContent,
         sourceMedia,

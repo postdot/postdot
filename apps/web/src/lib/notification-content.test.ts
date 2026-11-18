@@ -5,7 +5,7 @@ import * as m from '@/paraglide/messages.js'
 import { notificationContent } from './notification-content'
 
 describe('notification content', () => {
-    test('localizes owned delivery copy without repeating the confirmation', () => {
+    test('localizes owned delivery titles without changing stored copy', () => {
         const notification = {
             kind: 'publication_published' as const,
             title: 'Publication delivered',
@@ -13,11 +13,9 @@ describe('notification content', () => {
         }
         expect(notificationContent(notification, 'fr')).toEqual({
             title: m.notification_delivered_title({}, { locale: 'fr' }),
-            body: null,
         })
         expect(notificationContent(notification, 'en')).toEqual({
             title: 'Publication delivered',
-            body: null,
         })
         expect(notification.title).toBe('Publication delivered')
     })
@@ -34,7 +32,6 @@ describe('notification content', () => {
             )
         ).toEqual({
             title: m.notification_uncertain_title({}, { locale: 'fr' }),
-            body: m.notification_uncertain_body({}, { locale: 'fr' }),
         })
         expect(
             notificationContent(
@@ -47,7 +44,6 @@ describe('notification content', () => {
             )
         ).toEqual({
             title: 'Failure confirmed',
-            body: 'The previously uncertain outcome has been verified.',
         })
         expect(
             notificationContent(
@@ -71,7 +67,7 @@ describe('notification content', () => {
         ).toBe(m.notification_failed_title({}, { locale: 'fr' }))
     })
 
-    test('preserves unfamiliar copy even when its kind or title matches', () => {
+    test('preserves unfamiliar titles even when the kind or title matches', () => {
         const custom = {
             kind: 'publication_failed' as const,
             title: 'Publication failed',
@@ -79,7 +75,6 @@ describe('notification content', () => {
         }
         expect(notificationContent(custom, 'fr')).toEqual({
             title: custom.title,
-            body: custom.body,
         })
         const mismatched = {
             kind: 'publication_failed' as const,
@@ -88,7 +83,6 @@ describe('notification content', () => {
         }
         expect(notificationContent(mismatched, 'fr')).toEqual({
             title: mismatched.title,
-            body: mismatched.body,
         })
     })
 })

@@ -27,10 +27,7 @@ if (tlsProxy && !realtimeAcceptance && !separateStudio)
     throw new Error('The TLS proxy requires isolated realtime acceptance')
 const runtime = await createE2ERuntimeResources()
 const { apiOrigin, apiPort, dataDirectory, mediaDirectory, webOrigin, webPort } = runtime
-const receiverPort =
-    realtimeAcceptance || separateStudio
-        ? await allocateTestPort('POSTDOT_E2E_RECEIVER_PORT', [apiPort, webPort])
-        : undefined
+const receiverPort = await allocateTestPort('POSTDOT_E2E_RECEIVER_PORT', [apiPort, webPort])
 if (receiverPort !== undefined) process.env.POSTDOT_E2E_RECEIVER_PORT = String(receiverPort)
 const tlsProxyPort = tlsProxy
     ? await allocateTestPort('POSTDOT_E2E_TLS_PROXY_PORT', [

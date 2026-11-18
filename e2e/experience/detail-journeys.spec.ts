@@ -76,11 +76,9 @@ for (const [locale, copy, theme] of [
         const published = await create('Retained published announcement', Date.now() + 1000, false)
         const base = `/dashboard/projects/${project.id}`
         await page.goto(`${base}/queue?filter=draft`)
-        const card = page
-            .locator('[data-publication-selection-card]')
-            .filter({ hasText: 'Newsroom' })
-            .first()
-        await card.getByRole('link', { name: copy.post_view, exact: true }).click()
+        await page.getByRole('button', { name: copy.queue_view_posts, exact: true }).click()
+        const group = page.locator(`[data-queue-post-group="${draft.post.id}"]`)
+        await group.getByRole('link', { name: copy.post_view, exact: true }).click()
         await expect(page).toHaveURL(new RegExp(`/posts/${draft.post.id}$`))
         await expect(
             page.getByRole('region', { name: copy.post_destinations, exact: true })
@@ -165,9 +163,7 @@ for (const [locale, copy, theme] of [
             else {
                 await expect(page.locator('[data-publication-lifecycle]')).toBeVisible()
                 await expect(
-                    page
-                        .locator('main [data-publication-tools]')
-                        .getByRole('button', { name: copy.add_destination_title, exact: true })
+                    page.getByRole('button', { name: copy.add_destination_title, exact: true })
                 ).toBeVisible()
                 await expect(page.locator('[data-publication-preview-social-actions]')).toHaveCount(
                     0

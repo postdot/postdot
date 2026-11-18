@@ -74,7 +74,7 @@ export const mcpToolCatalog: readonly McpToolEntry[] = [
         operationId: 'createUserApiKey',
         confirm: true,
         guidance:
-            'Mints an API key bounded by the caller scopes and capabilities. Security notice: the plaintext token is returned once in the tool output — transfer it securely and avoid exposing it in logs or prompts.',
+            'Mints an API key bounded by the caller scopes and capabilities. Security notice: the plaintext token is returned once in the tool output. Transfer it securely and avoid exposing it in logs or prompts.',
     },
     {
         operationId: 'updateUserApiKey',
@@ -125,6 +125,11 @@ export const mcpToolCatalog: readonly McpToolEntry[] = [
     { operationId: 'listWorkspaces' },
     { operationId: 'getWorkspace' },
     { operationId: 'createWorkspace', confirm: true },
+    { operationId: 'setWorkspaceWebsite', confirm: true, openWorld: true },
+    { operationId: 'uploadWorkspaceImage', confirm: true },
+    { operationId: 'importWorkspaceImageUrl', confirm: true, openWorld: true },
+    { operationId: 'useWorkspaceWebsiteIcon', confirm: true, openWorld: true },
+    { operationId: 'removeWorkspaceImage', confirm: true, destructive: true },
     { operationId: 'getWorkspaceLifecycleImpact' },
     {
         operationId: 'archiveWorkspace',
@@ -169,6 +174,11 @@ export const mcpToolCatalog: readonly McpToolEntry[] = [
             'Updates how schedules are entered and displayed without moving existing scheduled publications.',
     },
     { operationId: 'setProjectPrimaryCategory' },
+    { operationId: 'setProjectWebsite', openWorld: true },
+    { operationId: 'uploadProjectImage' },
+    { operationId: 'importProjectImageUrl', openWorld: true },
+    { operationId: 'useProjectWebsiteIcon', openWorld: true },
+    { operationId: 'removeProjectImage', destructive: true },
     { operationId: 'getProjectLifecycleState' },
     { operationId: 'getProjectLifecycleImpact' },
     {
@@ -214,6 +224,11 @@ export const mcpToolCatalog: readonly McpToolEntry[] = [
             'Creates an unconnected destination; it cannot publish until a provider connection is attached.',
     },
     { operationId: 'renameProjectChannel' },
+    { operationId: 'setProjectChannelWebsite', openWorld: true },
+    { operationId: 'uploadProjectChannelImage' },
+    { operationId: 'importProjectChannelImageUrl', openWorld: true },
+    { operationId: 'useProjectChannelWebsiteIcon', openWorld: true },
+    { operationId: 'removeProjectChannelImage', destructive: true },
     { operationId: 'archiveProjectChannel', destructive: true },
     { operationId: 'restoreProjectChannel' },
     { operationId: 'deleteProjectChannel', destructive: true, confirm: true },
@@ -274,6 +289,13 @@ export const mcpToolCatalog: readonly McpToolEntry[] = [
             'Without automatic delivery or a time it only creates drafts. Pass confirm:true to schedule.',
     },
     { operationId: 'savePostSource' },
+    {
+        operationId: 'savePostComposition',
+        confirm: input =>
+            publicationsOf(input).some(publication => publication.scheduledAt != null),
+        guidance:
+            'Saves drafts without promotion. Pass confirm:true when rescheduling existing work.',
+    },
     { operationId: 'addPostDestinationDrafts' },
     { operationId: 'listPublicationSummaries' },
     { operationId: 'listPublicationApprovalRequests' },
@@ -315,6 +337,11 @@ export const mcpToolCatalog: readonly McpToolEntry[] = [
         operationId: 'publishManualPublication',
         openWorld: true,
         guidance: 'Marks a manual publication as published by a human.',
+    },
+    {
+        operationId: 'undoManualPublication',
+        guidance:
+            'Withdraws a mistaken "published" record on a manual publication; it becomes due by hand again. Nothing is deleted at the destination.',
     },
     { operationId: 'retryFailedPublication', openWorld: true },
     {

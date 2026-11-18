@@ -1,7 +1,20 @@
 import { Alert, AlertDescription, AlertTitle } from '@postdot/ui/components/alert'
-import { Badge } from '@postdot/ui/components/badge'
 import { Button } from '@postdot/ui/components/button'
-import { Dialog, DialogContent, DialogTitle, DialogTrigger } from '@postdot/ui/components/dialog'
+import {
+    Dialog,
+    DialogClose,
+    DialogContent,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from '@postdot/ui/components/dialog'
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@postdot/ui/components/dropdown-menu'
 import { Field, FieldLabel } from '@postdot/ui/components/field'
 import { Input } from '@postdot/ui/components/input'
 import {
@@ -15,6 +28,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@postdot/ui/components
 import { AddIcon } from '@solar-icons/react/linear/add'
 import { CheckIcon } from '@solar-icons/react/linear/check'
 import { CloseIcon } from '@solar-icons/react/linear/close'
+import { MenuDotsIcon } from '@solar-icons/react/linear/menu-dots'
 import { PenIcon } from '@solar-icons/react/linear/pen'
 import { RefreshIcon } from '@solar-icons/react/linear/refresh'
 import { UserCrossRoundedIcon } from '@solar-icons/react/linear/user-cross-rounded'
@@ -25,6 +39,12 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { EmptyState } from '@/components/empty-state'
 import { UserAvatar } from '@/components/identity-visuals'
 import {
+    SettingsPage,
+    SettingsSection,
+    SettingsCard,
+    SettingsRow,
+} from '@/components/settings-layout'
+import {
     api,
     ApiError,
     formatApiError,
@@ -34,6 +54,7 @@ import {
     type WorkspaceTeamMember,
 } from '@/lib/api'
 import { useDashboardGlobal } from '@/lib/dashboard-context'
+import { useLanguage } from '@/lib/i18n'
 import * as m from '@/paraglide/messages.js'
 
 interface WorkspaceGroupsSectionProps {
@@ -51,6 +72,7 @@ interface WorkspaceTeamProject {
 type TeamProjectsById = Record<string, WorkspaceTeamProject[]>
 
 export function WorkspaceGroupsSection({ workspaceId }: WorkspaceGroupsSectionProps) {
+    useLanguage()
     const { session } = useDashboardGlobal()
     const [workspace, setWorkspace] = useState<WorkspaceSummary | null>(null)
     const [teamMembers, setTeamMembers] = useState<TeamMembersById>({})
@@ -349,29 +371,31 @@ export function WorkspaceGroupsSection({ workspaceId }: WorkspaceGroupsSectionPr
 
     if (workspace === null) {
         return (
-            <section className="mt-6 bg-surface-raised p-5 shadow-surface sm:p-6">
-                {error ? (
-                    <Alert variant="destructive">
-                        <AlertTitle>{m.access_workspace_groups_action_failed()}</AlertTitle>
-                        <AlertDescription className="flex flex-wrap items-center gap-x-3 gap-y-2">
-                            <span>{error}</span>
-                            <Button
-                                className="shrink-0"
-                                onClick={() => setReloadVersion(current => current + 1)}
-                                size="sm"
-                                type="button"
-                                variant="ghost">
-                                <RefreshIcon aria-hidden="true" />
-                                {m.common_retry()}
-                            </Button>
-                        </AlertDescription>
-                    </Alert>
-                ) : (
-                    <p className="text-sm text-muted-foreground" role="status">
-                        {m.access_workspace_groups_loading()}
-                    </p>
-                )}
-            </section>
+            <>
+                <SettingsPage title={m.access_workspace_title()}>
+                    {error ? (
+                        <Alert variant="destructive">
+                            <AlertTitle>{m.access_workspace_groups_action_failed()}</AlertTitle>
+                            <AlertDescription className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                                <span>{error}</span>
+                                <Button
+                                    className="shrink-0"
+                                    onClick={() => setReloadVersion(current => current + 1)}
+                                    size="sm"
+                                    type="button"
+                                    variant="ghost">
+                                    <RefreshIcon aria-hidden="true" />
+                                    {m.common_retry()}
+                                </Button>
+                            </AlertDescription>
+                        </Alert>
+                    ) : (
+                        <p className="text-sm text-muted-foreground" role="status">
+                            {m.access_workspace_groups_loading()}
+                        </p>
+                    )}
+                </SettingsPage>
+            </>
         )
     }
 
@@ -386,7 +410,21 @@ export function WorkspaceGroupsSection({ workspaceId }: WorkspaceGroupsSectionPr
             onOpenChange={open => {
                 if (!open && pendingAction === null) setActiveForm(null)
             }}>
-            <div className="space-y-6">
+            <SettingsPage
+                title={m.access_workspace_title()}
+                action={
+                    canManage ? (
+                        <DialogTrigger
+                            onClick={() => {
+                                setError(null)
+                                setActiveForm('invite')
+                            }}
+                            render={<Button disabled={pendingAction !== null} />}>
+                            <UserPlusRoundedIcon aria-hidden="true" />
+                            {m.access_project_invite_button()}
+                        </DialogTrigger>
+                    ) : undefined
+                }>
                 {error && activeForm === null ? (
                     <Alert variant="destructive">
                         <AlertTitle>{m.access_workspace_groups_action_failed()}</AlertTitle>
@@ -401,7 +439,7 @@ export function WorkspaceGroupsSection({ workspaceId }: WorkspaceGroupsSectionPr
                 ) : null}
 
                 <Tabs value={view} onValueChange={value => setView(String(value))}>
-                    <TabsList className="h-10 w-full">
+                    <TabsList variant="line">
                         <TabsTrigger value="members">
                             {m.access_workspace_members_title()}
                         </TabsTrigger>
@@ -410,380 +448,170 @@ export function WorkspaceGroupsSection({ workspaceId }: WorkspaceGroupsSectionPr
                         </TabsTrigger>
                     </TabsList>
                     <TabsContent value="members" className="space-y-8">
-                        <section aria-labelledby="workspace-members-title" className="min-w-0">
-                            <div className="flex items-center justify-between gap-3">
-                                <div className="min-w-0">
-                                    <h2 id="workspace-members-title" className="sr-only">
-                                        {m.access_workspace_members_title()}
-                                    </h2>
-                                </div>
-                                {canManage ? (
-                                    <DialogTrigger
-                                        onClick={() => {
-                                            setError(null)
-                                            setActiveForm('invite')
-                                        }}
-                                        render={
-                                            <Button
-                                                size="sm"
-                                                variant="secondary"
-                                                disabled={pendingAction !== null}
-                                            />
-                                        }>
-                                        <UserPlusRoundedIcon aria-hidden="true" />
-                                        {m.access_workspace_invite_title()}
-                                    </DialogTrigger>
-                                ) : (
-                                    <Badge variant="secondary">
-                                        {m.access_workspace_groups_read_only()}
-                                    </Badge>
-                                )}
-                            </div>
-
-                            <ul
-                                className="mt-5 divide-y divide-border/40"
-                                aria-label={m.access_workspace_members_title()}>
-                                {workspace.members.map(member => {
-                                    const isCurrent = member.userId === session.user.id
-                                    const isOwner = hasWorkspaceMemberRole(member.role, 'owner')
-                                    const pendingMemberAction =
-                                        pendingAction === `workspace-member:${member.id}` ||
-                                        pendingAction === `remove-workspace-member:${member.id}`
-
-                                    return (
-                                        <li
-                                            className="flex min-w-0 flex-col gap-3 py-3 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between"
-                                            key={member.id}
-                                            aria-busy={pendingMemberAction}>
-                                            <div className="flex min-w-0 items-center gap-3">
-                                                <UserAvatar
-                                                    imageUrl={member.image}
-                                                    name={member.name}
-                                                    seed={member.userId}
-                                                    size="sm"
-                                                />
-                                                <div className="min-w-0">
-                                                    <div className="flex min-w-0 items-center gap-2">
-                                                        <p className="truncate text-sm font-medium">
-                                                            {member.name}
-                                                        </p>
-                                                        {isCurrent ? (
-                                                            <Badge variant="outline">
-                                                                {m.access_current_member()}
-                                                            </Badge>
-                                                        ) : null}
-                                                    </div>
-                                                    <p className="truncate text-xs text-muted-foreground">
-                                                        {member.email}
-                                                    </p>
-                                                </div>
-                                            </div>
-
-                                            <div className="flex shrink-0 items-center gap-2">
-                                                {isOwner ? (
-                                                    <Badge variant="secondary">
-                                                        {m.access_project_role_owner()}
-                                                    </Badge>
-                                                ) : (
-                                                    <Select
-                                                        items={{
-                                                            admin: m.access_role_admin(),
-                                                            member: m.access_role_member(),
-                                                        }}
-                                                        value={
-                                                            hasWorkspaceMemberRole(
-                                                                member.role,
-                                                                'admin'
-                                                            )
-                                                                ? 'admin'
-                                                                : 'member'
-                                                        }
-                                                        onValueChange={value => {
-                                                            if (
-                                                                value === 'admin' ||
-                                                                value === 'member'
-                                                            ) {
-                                                                void handleUpdateWorkspaceMember(
-                                                                    member.id,
-                                                                    value
-                                                                )
-                                                            }
-                                                        }}>
-                                                        <SelectTrigger
-                                                            aria-label={m.access_workspace_member_role_label(
-                                                                {
-                                                                    name: member.name,
-                                                                }
-                                                            )}
-                                                            className="min-w-28"
-                                                            disabled={
-                                                                !canManage ||
-                                                                isCurrent ||
-                                                                pendingAction !== null
-                                                            }
-                                                            size="sm">
-                                                            <SelectValue />
-                                                        </SelectTrigger>
-                                                        <SelectContent align="end">
-                                                            <SelectItem value="admin">
-                                                                {m.access_role_admin()}
-                                                            </SelectItem>
-                                                            <SelectItem value="member">
-                                                                {m.access_role_member()}
-                                                            </SelectItem>
-                                                        </SelectContent>
-                                                    </Select>
-                                                )}
-                                                {canManage && !isOwner && !isCurrent ? (
-                                                    <Button
-                                                        aria-label={m.access_workspace_member_remove_label(
-                                                            {
-                                                                name: member.name,
-                                                            }
-                                                        )}
-                                                        disabled={pendingAction !== null}
-                                                        onClick={() =>
-                                                            void handleRemoveWorkspaceMember(
-                                                                member.id
-                                                            )
-                                                        }
-                                                        size="sm"
-                                                        type="button"
-                                                        variant="ghost">
-                                                        <UserCrossRoundedIcon aria-hidden="true" />
-                                                        {m.access_workspace_member_remove()}
-                                                    </Button>
-                                                ) : null}
-                                            </div>
-                                        </li>
-                                    )
-                                })}
-                            </ul>
-                        </section>
-
-                        {canManage && invitations.length > 0 ? (
-                            <section aria-labelledby="workspace-invite-title" className="min-w-0">
-                                <div className="min-w-0">
-                                    <h2
-                                        id="workspace-invite-title"
-                                        className="font-heading text-base font-medium">
-                                        {m.access_workspace_invite_pending_title()}
-                                    </h2>
-                                </div>
-
-                                {invitations.length > 0 ? (
-                                    <div className="mt-4">
-                                        <ul className="divide-y divide-border/40">
-                                            {invitations.map(invitation => (
-                                                <li
-                                                    className="flex min-w-0 items-center gap-3 py-3 first:pt-0 last:pb-0"
-                                                    key={invitation.id}>
-                                                    <div className="min-w-0 flex-1">
-                                                        <p className="truncate text-sm font-medium">
-                                                            {invitation.email}
-                                                        </p>
-                                                        <p className="truncate text-xs text-muted-foreground">
-                                                            {invitation.teamId === undefined
-                                                                ? m.access_workspace_invite_no_group()
-                                                                : (workspaceTeamsById.get(
-                                                                      invitation.teamId
-                                                                  )?.name ??
-                                                                  m.access_workspace_invite_no_group())}
-                                                        </p>
-                                                    </div>
-                                                    <Button
-                                                        aria-label={m.access_workspace_invite_revoke_label(
-                                                            {
-                                                                email: invitation.email,
-                                                            }
-                                                        )}
-                                                        disabled={pendingAction !== null}
-                                                        onClick={() =>
-                                                            void handleRevokeInvitation(
-                                                                invitation.id
-                                                            )
-                                                        }
-                                                        size="sm"
-                                                        type="button"
-                                                        variant="ghost">
-                                                        <CloseIcon aria-hidden="true" />
-                                                        {m.access_workspace_invite_revoke()}
-                                                    </Button>
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    </div>
-                                ) : null}
-                            </section>
-                        ) : null}
-                    </TabsContent>
-                    <TabsContent value="groups">
-                        <section aria-labelledby="workspace-groups-title" className="pt-1">
-                            <div className="flex items-center justify-between gap-3">
-                                <div className="min-w-0">
-                                    <h2 id="workspace-groups-title" className="sr-only">
-                                        {m.access_workspace_groups_title()}
-                                    </h2>
-                                </div>
-                                {canManage ? (
-                                    <DialogTrigger
-                                        onClick={() => {
-                                            setError(null)
-                                            setActiveForm('group')
-                                        }}
-                                        render={
-                                            <Button
-                                                size="sm"
-                                                variant="secondary"
-                                                disabled={pendingAction !== null}
-                                            />
-                                        }>
-                                        <AddIcon aria-hidden="true" />
-                                        {m.access_workspace_group_create()}
-                                    </DialogTrigger>
-                                ) : (
-                                    <Badge variant="secondary">
-                                        {m.access_workspace_groups_read_only()}
-                                    </Badge>
-                                )}
-                            </div>
-
-                            {workspace.teams.length === 0 ? (
-                                <EmptyState
-                                    className="mt-5 min-h-48"
-                                    icon={<UsersGroupTwoRoundedIcon aria-hidden="true" />}
-                                    layout="compact"
-                                    title={m.access_workspace_groups_empty()}
-                                />
-                            ) : (
-                                <div className="mt-4 space-y-8">
-                                    {workspace.teams.map(team => {
-                                        const members = teamMembers[team.id] ?? []
-                                        const projects = teamProjects[team.id] ?? []
-                                        const memberIds = new Set(
-                                            members.map(member => member.userId)
-                                        )
-                                        const availableMembers = workspace.members.filter(
-                                            member => !memberIds.has(member.userId)
-                                        )
-                                        const isRenaming = editingTeamId === team.id
+                        <SettingsSection
+                            id="workspace-members-title"
+                            title={m.access_workspace_members_title()}>
+                            <SettingsCard>
+                                <ul
+                                    className="divide-y divide-border"
+                                    aria-label={m.access_workspace_members_title()}>
+                                    {workspace.members.map(member => {
+                                        const isCurrent = member.userId === session.user.id
+                                        const isOwner = hasWorkspaceMemberRole(member.role, 'owner')
+                                        const pendingMemberAction =
+                                            pendingAction === `workspace-member:${member.id}` ||
+                                            pendingAction === `remove-workspace-member:${member.id}`
 
                                         return (
-                                            <article
-                                                aria-busy={pendingAction?.includes(team.id)}
-                                                className="min-w-0 border-t border-border/50 pt-5"
-                                                key={team.id}>
-                                                <div className="flex items-start justify-between gap-3">
-                                                    <div className="min-w-0 flex-1">
-                                                        {isRenaming ? (
-                                                            <form
-                                                                className="flex items-center gap-2"
-                                                                onSubmit={event =>
-                                                                    void handleRenameTeam(
-                                                                        event,
-                                                                        team.id
-                                                                    )
-                                                                }>
-                                                                <Input
-                                                                    aria-label={m.access_workspace_group_new_name()}
-                                                                    autoFocus
-                                                                    className="h-8"
-                                                                    value={editingTeamName}
-                                                                    onChange={event =>
-                                                                        setEditingTeamName(
-                                                                            event.target.value
+                                            <li key={member.id} aria-busy={pendingMemberAction}>
+                                                <SettingsRow
+                                                    icon={
+                                                        <UserAvatar
+                                                            imageUrl={member.image}
+                                                            name={member.name}
+                                                            seed={member.userId}
+                                                            size="sm"
+                                                        />
+                                                    }
+                                                    title={member.name}
+                                                    description={member.email}
+                                                    control={
+                                                        <div className="flex items-center gap-3">
+                                                            <span className="text-sm text-muted-foreground">
+                                                                {isOwner
+                                                                    ? m.access_project_role_owner()
+                                                                    : hasWorkspaceMemberRole(
+                                                                            member.role,
+                                                                            'admin'
                                                                         )
-                                                                    }
-                                                                />
-                                                                <Button
-                                                                    aria-label={m.common_save()}
-                                                                    disabled={
-                                                                        pendingAction !== null
-                                                                    }
-                                                                    size="icon-sm"
-                                                                    type="submit">
-                                                                    <CheckIcon aria-hidden="true" />
-                                                                </Button>
-                                                                <Button
-                                                                    aria-label={m.common_cancel()}
-                                                                    disabled={
-                                                                        pendingAction !== null
-                                                                    }
-                                                                    onClick={cancelRename}
-                                                                    size="icon-sm"
-                                                                    type="button"
-                                                                    variant="ghost">
-                                                                    <CloseIcon aria-hidden="true" />
-                                                                </Button>
-                                                            </form>
-                                                        ) : (
-                                                            <div className="flex min-w-0 items-center gap-2">
-                                                                <h3 className="truncate text-sm font-medium">
-                                                                    {team.name}
-                                                                </h3>
-                                                                {team.isDefault ? (
-                                                                    <Badge variant="secondary">
-                                                                        {m.access_workspace_group_default()}
-                                                                    </Badge>
-                                                                ) : null}
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                    {canManage && !isRenaming ? (
-                                                        <Button
-                                                            aria-label={m.access_workspace_group_rename_label(
-                                                                {
-                                                                    name: team.name,
-                                                                }
-                                                            )}
-                                                            disabled={pendingAction !== null}
-                                                            onClick={() =>
-                                                                beginRename(team.id, team.name)
-                                                            }
-                                                            size="icon-sm"
-                                                            type="button"
-                                                            variant="ghost">
-                                                            <PenIcon aria-hidden="true" />
-                                                        </Button>
-                                                    ) : null}
-                                                </div>
+                                                                      ? m.access_role_admin()
+                                                                      : m.access_role_member()}
+                                                            </span>
+                                                            {canManage && !isOwner && !isCurrent ? (
+                                                                <DropdownMenu>
+                                                                    <DropdownMenuTrigger
+                                                                        render={
+                                                                            <Button
+                                                                                size="icon"
+                                                                                variant="ghost"
+                                                                                aria-label={m.people_actions(
+                                                                                    {
+                                                                                        name: member.name,
+                                                                                    }
+                                                                                )}
+                                                                                disabled={
+                                                                                    pendingAction !==
+                                                                                    null
+                                                                                }
+                                                                            />
+                                                                        }>
+                                                                        <MenuDotsIcon aria-hidden="true" />
+                                                                    </DropdownMenuTrigger>
+                                                                    <DropdownMenuContent align="end">
+                                                                        {(
+                                                                            [
+                                                                                'admin',
+                                                                                'member',
+                                                                            ] as const
+                                                                        )
+                                                                            .filter(role =>
+                                                                                role === 'admin'
+                                                                                    ? !hasWorkspaceMemberRole(
+                                                                                          member.role,
+                                                                                          'admin'
+                                                                                      )
+                                                                                    : hasWorkspaceMemberRole(
+                                                                                          member.role,
+                                                                                          'admin'
+                                                                                      )
+                                                                            )
+                                                                            .map(role => (
+                                                                                <DropdownMenuItem
+                                                                                    key={role}
+                                                                                    onClick={() =>
+                                                                                        void handleUpdateWorkspaceMember(
+                                                                                            member.id,
+                                                                                            role
+                                                                                        )
+                                                                                    }>
+                                                                                    {m.people_change_role(
+                                                                                        {
+                                                                                            role:
+                                                                                                role ===
+                                                                                                'admin'
+                                                                                                    ? m.access_role_admin()
+                                                                                                    : m.access_role_member(),
+                                                                                        }
+                                                                                    )}
+                                                                                </DropdownMenuItem>
+                                                                            ))}
+                                                                        <DropdownMenuItem
+                                                                            variant="destructive"
+                                                                            onClick={() =>
+                                                                                void handleRemoveWorkspaceMember(
+                                                                                    member.id
+                                                                                )
+                                                                            }>
+                                                                            {m.access_workspace_member_remove()}
+                                                                        </DropdownMenuItem>
+                                                                    </DropdownMenuContent>
+                                                                </DropdownMenu>
+                                                            ) : null}
+                                                        </div>
+                                                    }
+                                                />
+                                            </li>
+                                        )
+                                    })}
+                                </ul>
+                            </SettingsCard>
+                        </SettingsSection>
 
-                                                {members.length > 0 ? (
-                                                    <ul
-                                                        className="mt-4 divide-y divide-border/40"
-                                                        aria-label={team.name}>
-                                                        {members.map(teamMember => {
-                                                            const member = workspaceMembersById.get(
-                                                                teamMember.userId
-                                                            )
-                                                            const displayName =
-                                                                member?.name ?? teamMember.userId
-                                                            return (
-                                                                <li
-                                                                    className="flex min-w-0 items-center gap-2 py-2 first:pt-0 last:pb-0"
-                                                                    key={teamMember.id}>
-                                                                    <UserAvatar
-                                                                        imageUrl={
-                                                                            member?.image ?? null
-                                                                        }
-                                                                        name={displayName}
-                                                                        seed={teamMember.userId}
-                                                                        size="sm"
-                                                                    />
-                                                                    <div className="min-w-0 flex-1">
-                                                                        <p className="truncate text-sm font-medium">
-                                                                            {displayName}
-                                                                        </p>
-                                                                        <p className="truncate text-xs text-muted-foreground">
-                                                                            {member?.email ??
-                                                                                teamMember.userId}
-                                                                        </p>
-                                                                    </div>
-                                                                    {canManage ? (
-                                                                        <Button
-                                                                            aria-label={m.access_workspace_group_remove_member_label(
+                        {canManage && invitations.length > 0 ? (
+                            <SettingsSection
+                                id="workspace-invite-title"
+                                title={m.access_project_invitations_title()}>
+                                <SettingsCard>
+                                    {invitations.length > 0 ? (
+                                        <div className="mt-4">
+                                            <ul className="divide-y divide-border/40">
+                                                {invitations.map(invitation => (
+                                                    <li key={invitation.id}>
+                                                        <SettingsRow
+                                                            title={invitation.email}
+                                                            description={
+                                                                invitation.teamId === undefined
+                                                                    ? m.access_workspace_invite_no_group()
+                                                                    : (workspaceTeamsById.get(
+                                                                          invitation.teamId
+                                                                      )?.name ??
+                                                                      m.access_workspace_invite_no_group())
+                                                            }
+                                                            control={
+                                                                <DropdownMenu>
+                                                                    <DropdownMenuTrigger
+                                                                        render={
+                                                                            <Button
+                                                                                variant="ghost"
+                                                                                size="icon-sm"
+                                                                                aria-label={m.people_actions(
+                                                                                    {
+                                                                                        name: invitation.email,
+                                                                                    }
+                                                                                )}
+                                                                                disabled={
+                                                                                    pendingAction !==
+                                                                                    null
+                                                                                }
+                                                                            />
+                                                                        }>
+                                                                        <MenuDotsIcon aria-hidden="true" />
+                                                                    </DropdownMenuTrigger>
+                                                                    <DropdownMenuContent align="end">
+                                                                        <DropdownMenuItem
+                                                                            aria-label={m.access_workspace_invite_revoke_label(
                                                                                 {
-                                                                                    name: displayName,
+                                                                                    email: invitation.email,
                                                                                 }
                                                                             )}
                                                                             disabled={
@@ -791,166 +619,366 @@ export function WorkspaceGroupsSection({ workspaceId }: WorkspaceGroupsSectionPr
                                                                                 null
                                                                             }
                                                                             onClick={() =>
-                                                                                void handleRemoveMember(
-                                                                                    team.id,
-                                                                                    teamMember.userId
+                                                                                void handleRevokeInvitation(
+                                                                                    invitation.id
                                                                                 )
-                                                                            }
-                                                                            size="icon-sm"
-                                                                            type="button"
-                                                                            variant="ghost">
-                                                                            <UserCrossRoundedIcon aria-hidden="true" />
-                                                                        </Button>
-                                                                    ) : null}
-                                                                </li>
-                                                            )
-                                                        })}
-                                                    </ul>
-                                                ) : null}
+                                                                            }>
+                                                                            {m.access_workspace_invite_revoke()}
+                                                                        </DropdownMenuItem>
+                                                                    </DropdownMenuContent>
+                                                                </DropdownMenu>
+                                                            }
+                                                        />
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    ) : null}
+                                </SettingsCard>
+                            </SettingsSection>
+                        ) : null}
+                    </TabsContent>
+                    <TabsContent value="groups">
+                        <SettingsSection
+                            id="workspace-groups-title"
+                            title={m.access_workspace_groups_title()}>
+                            <SettingsCard>
+                                <div className="flex items-center justify-between gap-3">
+                                    {canManage ? (
+                                        <DialogTrigger
+                                            onClick={() => {
+                                                setError(null)
+                                                setActiveForm('group')
+                                            }}
+                                            render={
+                                                <Button
+                                                    size="sm"
+                                                    variant="secondary"
+                                                    disabled={pendingAction !== null}
+                                                />
+                                            }>
+                                            <AddIcon aria-hidden="true" />
+                                            {m.access_workspace_group_create()}
+                                        </DialogTrigger>
+                                    ) : (
+                                        <span className="text-sm text-muted-foreground">
+                                            {m.access_workspace_groups_read_only()}
+                                        </span>
+                                    )}
+                                </div>
 
-                                                {canManage ? (
-                                                    <div className="mt-4">
-                                                        {projects.length > 0 ? (
-                                                            <h4 className="text-xs font-medium text-muted-foreground">
-                                                                {m.access_workspace_group_project_access()}
-                                                            </h4>
-                                                        ) : null}
-                                                        {projects.length === 0 ? (
-                                                            <p className="mt-2 text-xs text-muted-foreground">
-                                                                {m.access_workspace_group_no_projects()}
-                                                            </p>
-                                                        ) : (
-                                                            <ul className="mt-2 flex flex-wrap gap-1.5">
-                                                                {projects.map(project => (
-                                                                    <li
-                                                                        className="bg-surface-raised px-2 py-1 text-xs shadow-field"
-                                                                        key={project.id}>
-                                                                        <span>{project.name}</span>
-                                                                        <span className="ml-1 text-muted-foreground">
-                                                                            {project.role ===
-                                                                            'editor'
-                                                                                ? m.access_project_role_editor()
-                                                                                : m.access_project_role_viewer()}
-                                                                        </span>
-                                                                    </li>
-                                                                ))}
-                                                            </ul>
-                                                        )}
-                                                    </div>
-                                                ) : null}
+                                {workspace.teams.length === 0 ? (
+                                    <EmptyState
+                                        className="mt-5"
+                                        icon={<UsersGroupTwoRoundedIcon aria-hidden="true" />}
+                                        layout="compact"
+                                        title={m.access_workspace_groups_empty()}
+                                    />
+                                ) : (
+                                    <div className="mt-4 space-y-8">
+                                        {workspace.teams.map(team => {
+                                            const members = teamMembers[team.id] ?? []
+                                            const projects = teamProjects[team.id] ?? []
+                                            const memberIds = new Set(
+                                                members.map(member => member.userId)
+                                            )
+                                            const availableMembers = workspace.members.filter(
+                                                member => !memberIds.has(member.userId)
+                                            )
+                                            const isRenaming = editingTeamId === team.id
 
-                                                {canManage ? (
-                                                    availableMembers.length > 0 ? (
-                                                        <div className="mt-4">
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                onClick={() =>
-                                                                    setAddingToTeam(current =>
-                                                                        current === team.id
-                                                                            ? null
-                                                                            : team.id
-                                                                    )
-                                                                }
-                                                                aria-expanded={
-                                                                    addingToTeam === team.id
-                                                                }>
-                                                                <UserPlusRoundedIcon aria-hidden="true" />
-                                                                {m.access_workspace_invite_title()}
-                                                            </Button>
-                                                            {addingToTeam === team.id ? (
-                                                                <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-                                                                    <Select
-                                                                        items={Object.fromEntries(
-                                                                            availableMembers.map(
-                                                                                member => [
-                                                                                    member.userId,
-                                                                                    member.name,
-                                                                                ]
+                                            return (
+                                                <article
+                                                    aria-busy={pendingAction?.includes(team.id)}
+                                                    className="min-w-0 border-t border-border/50 pt-5"
+                                                    key={team.id}>
+                                                    <div className="flex items-start justify-between gap-3">
+                                                        <div className="min-w-0 flex-1">
+                                                            {isRenaming ? (
+                                                                <form
+                                                                    className="flex items-center gap-2"
+                                                                    onSubmit={event =>
+                                                                        void handleRenameTeam(
+                                                                            event,
+                                                                            team.id
+                                                                        )
+                                                                    }>
+                                                                    <Input
+                                                                        aria-label={m.access_workspace_group_new_name()}
+                                                                        autoFocus
+                                                                        className="h-8"
+                                                                        value={editingTeamName}
+                                                                        onChange={event =>
+                                                                            setEditingTeamName(
+                                                                                event.target.value
                                                                             )
-                                                                        )}
-                                                                        value={
-                                                                            selectedMemberByTeam[
-                                                                                team.id
-                                                                            ] ?? ''
                                                                         }
-                                                                        onValueChange={value =>
-                                                                            setSelectedMemberByTeam(
-                                                                                current => ({
-                                                                                    ...current,
-                                                                                    [team.id]:
-                                                                                        value ?? '',
-                                                                                })
-                                                                            )
-                                                                        }>
-                                                                        <SelectTrigger
-                                                                            aria-label={m.access_workspace_group_add_member()}
-                                                                            className="min-w-0 flex-1"
-                                                                            disabled={
-                                                                                pendingAction !==
+                                                                    />
+                                                                    <Button
+                                                                        aria-label={m.common_save()}
+                                                                        disabled={
+                                                                            pendingAction !== null
+                                                                        }
+                                                                        size="icon-sm"
+                                                                        type="submit">
+                                                                        <CheckIcon aria-hidden="true" />
+                                                                    </Button>
+                                                                    <Button
+                                                                        aria-label={m.common_cancel()}
+                                                                        disabled={
+                                                                            pendingAction !== null
+                                                                        }
+                                                                        onClick={cancelRename}
+                                                                        size="icon-sm"
+                                                                        type="button"
+                                                                        variant="ghost">
+                                                                        <CloseIcon aria-hidden="true" />
+                                                                    </Button>
+                                                                </form>
+                                                            ) : (
+                                                                <div className="flex min-w-0 items-center gap-2">
+                                                                    <h3 className="truncate text-sm font-medium">
+                                                                        {team.name}
+                                                                    </h3>
+                                                                    {team.isDefault ? (
+                                                                        <span className="text-sm text-muted-foreground">
+                                                                            {m.access_workspace_group_default()}
+                                                                        </span>
+                                                                    ) : null}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        {canManage && !isRenaming ? (
+                                                            <Button
+                                                                aria-label={m.access_workspace_group_rename_label(
+                                                                    {
+                                                                        name: team.name,
+                                                                    }
+                                                                )}
+                                                                disabled={pendingAction !== null}
+                                                                onClick={() =>
+                                                                    beginRename(team.id, team.name)
+                                                                }
+                                                                size="icon-sm"
+                                                                type="button"
+                                                                variant="ghost">
+                                                                <PenIcon aria-hidden="true" />
+                                                            </Button>
+                                                        ) : null}
+                                                    </div>
+
+                                                    {members.length > 0 ? (
+                                                        <ul
+                                                            className="mt-4 divide-y divide-border/40"
+                                                            aria-label={team.name}>
+                                                            {members.map(teamMember => {
+                                                                const member =
+                                                                    workspaceMembersById.get(
+                                                                        teamMember.userId
+                                                                    )
+                                                                const displayName =
+                                                                    member?.name ??
+                                                                    teamMember.userId
+                                                                return (
+                                                                    <li
+                                                                        className="flex min-w-0 items-center gap-2 py-2 first:pt-0 last:pb-0"
+                                                                        key={teamMember.id}>
+                                                                        <UserAvatar
+                                                                            imageUrl={
+                                                                                member?.image ??
                                                                                 null
                                                                             }
-                                                                            size="sm">
-                                                                            <SelectValue
-                                                                                placeholder={m.access_workspace_group_member_placeholder()}
-                                                                            />
-                                                                        </SelectTrigger>
-                                                                        <SelectContent align="start">
-                                                                            {availableMembers.map(
-                                                                                member => (
-                                                                                    <SelectItem
-                                                                                        key={
-                                                                                            member.userId
-                                                                                        }
-                                                                                        value={
-                                                                                            member.userId
-                                                                                        }>
-                                                                                        {
-                                                                                            member.name
-                                                                                        }
-                                                                                    </SelectItem>
+                                                                            name={displayName}
+                                                                            seed={teamMember.userId}
+                                                                            size="sm"
+                                                                        />
+                                                                        <div className="min-w-0 flex-1">
+                                                                            <p className="truncate text-sm font-medium">
+                                                                                {displayName}
+                                                                            </p>
+                                                                            <p className="truncate text-xs text-muted-foreground">
+                                                                                {member?.email ??
+                                                                                    teamMember.userId}
+                                                                            </p>
+                                                                        </div>
+                                                                        {canManage ? (
+                                                                            <Button
+                                                                                aria-label={m.access_workspace_group_remove_member_label(
+                                                                                    {
+                                                                                        name: displayName,
+                                                                                    }
+                                                                                )}
+                                                                                disabled={
+                                                                                    pendingAction !==
+                                                                                    null
+                                                                                }
+                                                                                onClick={() =>
+                                                                                    void handleRemoveMember(
+                                                                                        team.id,
+                                                                                        teamMember.userId
+                                                                                    )
+                                                                                }
+                                                                                size="icon-sm"
+                                                                                type="button"
+                                                                                variant="ghost">
+                                                                                <UserCrossRoundedIcon aria-hidden="true" />
+                                                                            </Button>
+                                                                        ) : null}
+                                                                    </li>
+                                                                )
+                                                            })}
+                                                        </ul>
+                                                    ) : null}
+
+                                                    {canManage ? (
+                                                        <div className="mt-4">
+                                                            {projects.length > 0 ? (
+                                                                <h4 className="text-xs font-medium text-muted-foreground">
+                                                                    {m.access_workspace_group_project_access()}
+                                                                </h4>
+                                                            ) : null}
+                                                            {projects.length === 0 ? (
+                                                                <p className="mt-2 text-xs text-muted-foreground">
+                                                                    {m.access_workspace_group_no_projects()}
+                                                                </p>
+                                                            ) : (
+                                                                <ul className="mt-2 flex flex-wrap gap-1.5">
+                                                                    {projects.map(project => (
+                                                                        <li
+                                                                            className="bg-surface-raised px-2 py-1 text-xs shadow-field"
+                                                                            key={project.id}>
+                                                                            <span>
+                                                                                {project.name}
+                                                                            </span>
+                                                                            <span className="ml-1 text-muted-foreground">
+                                                                                {project.role ===
+                                                                                'editor'
+                                                                                    ? m.access_project_role_editor()
+                                                                                    : m.access_project_role_viewer()}
+                                                                            </span>
+                                                                        </li>
+                                                                    ))}
+                                                                </ul>
+                                                            )}
+                                                        </div>
+                                                    ) : null}
+
+                                                    {canManage ? (
+                                                        availableMembers.length > 0 ? (
+                                                            <div className="mt-4">
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    onClick={() =>
+                                                                        setAddingToTeam(current =>
+                                                                            current === team.id
+                                                                                ? null
+                                                                                : team.id
+                                                                        )
+                                                                    }
+                                                                    aria-expanded={
+                                                                        addingToTeam === team.id
+                                                                    }>
+                                                                    <UserPlusRoundedIcon aria-hidden="true" />
+                                                                    {m.access_workspace_invite_title()}
+                                                                </Button>
+                                                                {addingToTeam === team.id ? (
+                                                                    <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                                                                        <Select
+                                                                            items={Object.fromEntries(
+                                                                                availableMembers.map(
+                                                                                    member => [
+                                                                                        member.userId,
+                                                                                        member.name,
+                                                                                    ]
                                                                                 )
                                                                             )}
-                                                                        </SelectContent>
-                                                                    </Select>
-                                                                    <Button
-                                                                        disabled={
-                                                                            pendingAction !==
-                                                                                null ||
-                                                                            (selectedMemberByTeam[
-                                                                                team.id
-                                                                            ] ?? '') === ''
-                                                                        }
-                                                                        onClick={() =>
-                                                                            void handleAddMember(
-                                                                                team.id
-                                                                            )
-                                                                        }
-                                                                        size="sm"
-                                                                        type="button">
-                                                                        <UserPlusRoundedIcon aria-hidden="true" />
-                                                                        {m.access_workspace_group_add_button()}
-                                                                    </Button>
-                                                                </div>
-                                                            ) : null}
-                                                        </div>
-                                                    ) : null
-                                                ) : null}
-                                            </article>
-                                        )
-                                    })}
-                                </div>
-                            )}
-                        </section>
+                                                                            value={
+                                                                                selectedMemberByTeam[
+                                                                                    team.id
+                                                                                ] ?? ''
+                                                                            }
+                                                                            onValueChange={value =>
+                                                                                setSelectedMemberByTeam(
+                                                                                    current => ({
+                                                                                        ...current,
+                                                                                        [team.id]:
+                                                                                            value ??
+                                                                                            '',
+                                                                                    })
+                                                                                )
+                                                                            }>
+                                                                            <SelectTrigger
+                                                                                aria-label={m.access_workspace_group_add_member()}
+                                                                                className="min-w-0 flex-1"
+                                                                                disabled={
+                                                                                    pendingAction !==
+                                                                                    null
+                                                                                }
+                                                                                size="sm">
+                                                                                <SelectValue
+                                                                                    placeholder={m.access_workspace_group_member_placeholder()}
+                                                                                />
+                                                                            </SelectTrigger>
+                                                                            <SelectContent align="start">
+                                                                                {availableMembers.map(
+                                                                                    member => (
+                                                                                        <SelectItem
+                                                                                            key={
+                                                                                                member.userId
+                                                                                            }
+                                                                                            value={
+                                                                                                member.userId
+                                                                                            }>
+                                                                                            {
+                                                                                                member.name
+                                                                                            }
+                                                                                        </SelectItem>
+                                                                                    )
+                                                                                )}
+                                                                            </SelectContent>
+                                                                        </Select>
+                                                                        <Button
+                                                                            disabled={
+                                                                                pendingAction !==
+                                                                                    null ||
+                                                                                (selectedMemberByTeam[
+                                                                                    team.id
+                                                                                ] ?? '') === ''
+                                                                            }
+                                                                            onClick={() =>
+                                                                                void handleAddMember(
+                                                                                    team.id
+                                                                                )
+                                                                            }
+                                                                            size="sm"
+                                                                            type="button">
+                                                                            <UserPlusRoundedIcon aria-hidden="true" />
+                                                                            {m.access_workspace_group_add_button()}
+                                                                        </Button>
+                                                                    </div>
+                                                                ) : null}
+                                                            </div>
+                                                        ) : null
+                                                    ) : null}
+                                                </article>
+                                            )
+                                        })}
+                                    </div>
+                                )}
+                            </SettingsCard>
+                        </SettingsSection>
                     </TabsContent>
                 </Tabs>
-            </div>
-            <DialogContent className="bg-surface-raised" showCloseButton={pendingAction === null}>
-                <DialogTitle className="pr-6">
-                    {activeForm === 'invite'
-                        ? m.access_invite_to_scope({ name: workspace.workspace.name })
-                        : m.access_workspace_group_create()}
-                </DialogTitle>
+            </SettingsPage>
+            <DialogContent className="sm:max-w-lg" showCloseButton={pendingAction === null}>
+                <DialogHeader>
+                    <DialogTitle>
+                        {activeForm === 'invite'
+                            ? m.access_invite_to_scope({ name: workspace.workspace.name })
+                            : m.access_workspace_group_create()}
+                    </DialogTitle>
+                </DialogHeader>
                 {error ? (
                     <Alert variant="destructive">
                         <AlertTitle>{m.access_workspace_groups_action_failed()}</AlertTitle>
@@ -961,63 +989,72 @@ export function WorkspaceGroupsSection({ workspaceId }: WorkspaceGroupsSectionPr
                     <form
                         className="grid gap-4"
                         onSubmit={event => void handleCreateInvitation(event)}>
-                        <Field className="min-w-0 gap-1.5">
-                            <FieldLabel htmlFor="workspace-invite-email">
-                                {m.access_workspace_invite_email()}
-                            </FieldLabel>
-                            <Input
-                                disabled={pendingAction !== null}
-                                id="workspace-invite-email"
-                                placeholder={m.access_workspace_invite_email_placeholder()}
-                                required
-                                type="email"
-                                value={inviteEmail}
-                                onChange={event => setInviteEmail(event.target.value)}
-                            />
-                        </Field>
-                        <Field className="min-w-0 gap-1.5">
-                            <FieldLabel htmlFor="workspace-invite-group">
-                                {m.access_workspace_invite_group()}
-                            </FieldLabel>
-                            <Select
-                                items={Object.fromEntries(
-                                    workspace.teams.map(team => [team.id, team.name])
-                                )}
-                                value={inviteTeamId}
-                                onValueChange={value => setInviteTeamId(value ?? '')}>
-                                <SelectTrigger
-                                    aria-label={m.access_workspace_invite_group()}
-                                    className="w-full"
+                        <div className="grid items-start gap-4 sm:grid-cols-[minmax(0,1fr)_10rem]">
+                            <Field className="min-w-0 gap-2">
+                                <FieldLabel htmlFor="workspace-invite-email">
+                                    {m.access_workspace_invite_email()}
+                                </FieldLabel>
+                                <Input
                                     disabled={pendingAction !== null}
-                                    id="workspace-invite-group">
-                                    <SelectValue
-                                        placeholder={m.access_workspace_invite_group_placeholder()}
-                                    />
-                                </SelectTrigger>
-                                <SelectContent align="start">
-                                    {workspace.teams.map(team => (
-                                        <SelectItem key={team.id} value={team.id}>
-                                            {team.name}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </Field>
-                        <Button
-                            className="justify-self-end"
-                            disabled={
-                                pendingAction !== null ||
-                                inviteEmail.trim() === '' ||
-                                inviteTeamId === ''
-                            }
-                            type="submit">
-                            <UserPlusRoundedIcon aria-hidden="true" />
-                            {m.access_workspace_invite_button()}
-                        </Button>
+                                    id="workspace-invite-email"
+                                    placeholder={m.access_workspace_invite_email_placeholder()}
+                                    required
+                                    type="email"
+                                    value={inviteEmail}
+                                    onChange={event => setInviteEmail(event.target.value)}
+                                />
+                            </Field>
+                            <Field className="min-w-0 gap-2">
+                                <FieldLabel htmlFor="workspace-invite-group">
+                                    {m.access_workspace_invite_group()}
+                                </FieldLabel>
+                                <Select
+                                    items={Object.fromEntries(
+                                        workspace.teams.map(team => [team.id, team.name])
+                                    )}
+                                    value={inviteTeamId}
+                                    onValueChange={value => setInviteTeamId(value ?? '')}>
+                                    <SelectTrigger
+                                        aria-label={m.access_workspace_invite_group()}
+                                        className="w-full"
+                                        disabled={pendingAction !== null}
+                                        id="workspace-invite-group">
+                                        <SelectValue
+                                            placeholder={m.access_workspace_invite_group_placeholder()}
+                                        />
+                                    </SelectTrigger>
+                                    <SelectContent align="start">
+                                        {workspace.teams.map(team => (
+                                            <SelectItem key={team.id} value={team.id}>
+                                                {team.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </Field>
+                        </div>
+                        <DialogFooter>
+                            <DialogClose
+                                render={
+                                    <Button variant="outline" disabled={pendingAction !== null} />
+                                }>
+                                {m.common_cancel()}
+                            </DialogClose>
+                            <Button
+                                disabled={
+                                    pendingAction !== null ||
+                                    inviteEmail.trim() === '' ||
+                                    inviteTeamId === ''
+                                }
+                                type="submit">
+                                <UserPlusRoundedIcon aria-hidden="true" />
+                                {m.access_workspace_invite_button()}
+                            </Button>
+                        </DialogFooter>
                     </form>
                 ) : (
                     <form className="grid gap-4" onSubmit={handleCreateTeam}>
-                        <Field className="min-w-0 flex-1 gap-1.5">
+                        <Field className="min-w-0 flex-1 gap-2">
                             <FieldLabel htmlFor="workspace-group-name">
                                 {m.access_workspace_group_new_name()}
                             </FieldLabel>
@@ -1030,13 +1067,20 @@ export function WorkspaceGroupsSection({ workspaceId }: WorkspaceGroupsSectionPr
                                 onChange={event => setNewTeamName(event.target.value)}
                             />
                         </Field>
-                        <Button
-                            className="justify-self-end"
-                            disabled={pendingAction !== null || newTeamName.trim() === ''}
-                            type="submit">
-                            <AddIcon aria-hidden="true" />
-                            {m.access_workspace_group_create()}
-                        </Button>
+                        <DialogFooter>
+                            <DialogClose
+                                render={
+                                    <Button variant="outline" disabled={pendingAction !== null} />
+                                }>
+                                {m.common_cancel()}
+                            </DialogClose>
+                            <Button
+                                disabled={pendingAction !== null || newTeamName.trim() === ''}
+                                type="submit">
+                                <AddIcon aria-hidden="true" />
+                                {m.access_workspace_group_create()}
+                            </Button>
+                        </DialogFooter>
                     </form>
                 )}
             </DialogContent>

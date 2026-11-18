@@ -1,10 +1,11 @@
 import { Alert, AlertDescription } from '@postdot/ui/components/alert'
 import { Button } from '@postdot/ui/components/button'
-import { Field, FieldDescription, FieldLabel } from '@postdot/ui/components/field'
 import { toast } from '@postdot/ui/components/toast'
+import { ClockCircleIcon } from '@solar-icons/react/linear/clock-circle'
 import { useRouter } from '@tanstack/react-router'
 import { useEffect, useState, type FormEvent } from 'react'
 
+import { SettingsSection, SettingsCard, SettingsRow } from '@/components/settings-layout'
 import { TimeZoneCombobox } from '@/components/time-zone-combobox'
 import { api, formatApiError } from '@/lib/api'
 import { useProjectDashboard } from '@/lib/dashboard-context'
@@ -51,47 +52,46 @@ export function ProjectTimeZoneSection() {
     }
 
     return (
-        <section
-            aria-labelledby="project-timezone-title"
-            className="mt-8 border-t border-border pt-6">
-            <h2 className="font-heading text-lg font-medium" id="project-timezone-title">
-                {m.project_timezone_title()}
-            </h2>
-            <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-                {m.project_timezone_description()}
-            </p>
-
-            <form
-                className="mt-4 flex max-w-md flex-col gap-3"
-                onSubmit={e => void handleSubmit(e)}>
-                <Field className="gap-1.5">
-                    <FieldLabel htmlFor="project-timezone">{m.project_timezone_label()}</FieldLabel>
-                    <TimeZoneCombobox
-                        disabled={!canEdit || pending}
-                        id="project-timezone"
-                        label={m.project_timezone_label()}
-                        onValueChange={setTimeZone}
-                        value={timeZone}
+        <SettingsSection
+            id="project-timezone-title"
+            title={m.project_timezone_title()}
+            description={m.project_timezone_description()}>
+            <SettingsCard>
+                <form onSubmit={e => void handleSubmit(e)}>
+                    {/* One row: the choice, and its save only once something changed. */}
+                    <SettingsRow
+                        description={
+                            !canEditRole && access.status === 'confirmed'
+                                ? m.project_timezone_viewer_note()
+                                : undefined
+                        }
+                        htmlFor="project-timezone"
+                        icon={<ClockCircleIcon />}
+                        title={m.project_timezone_label()}
+                        control={
+                            <div className="flex items-center gap-2">
+                                <TimeZoneCombobox
+                                    disabled={!canEdit || pending}
+                                    id="project-timezone"
+                                    label={m.project_timezone_label()}
+                                    onValueChange={setTimeZone}
+                                    value={timeZone}
+                                />
+                                {canEditRole && isDirty ? (
+                                    <Button disabled={!canEdit || pending} size="sm" type="submit">
+                                        {m.common_save()}
+                                    </Button>
+                                ) : null}
+                            </div>
+                        }
                     />
-                    {!canEditRole && access.status === 'confirmed' ? (
-                        <FieldDescription>{m.project_timezone_viewer_note()}</FieldDescription>
+                    {error ? (
+                        <Alert className="m-4 mt-0 w-auto" role="alert" variant="destructive">
+                            <AlertDescription>{error}</AlertDescription>
+                        </Alert>
                     ) : null}
-                </Field>
-
-                {error ? (
-                    <Alert role="alert" variant="destructive">
-                        <AlertDescription>{error}</AlertDescription>
-                    </Alert>
-                ) : null}
-
-                {canEditRole ? (
-                    <div>
-                        <Button disabled={!canEdit || pending || !isDirty} type="submit">
-                            {m.project_timezone_save()}
-                        </Button>
-                    </div>
-                ) : null}
-            </form>
-        </section>
+                </form>
+            </SettingsCard>
+        </SettingsSection>
     )
 }

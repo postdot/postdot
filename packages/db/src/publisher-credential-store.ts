@@ -1,9 +1,11 @@
 import {
     createPublisherCredential,
+    identityImageSources,
     publisherCredentialStates,
     requireNonBlank,
     requireTimestamp,
     type Actor,
+    type IdentityImageSource,
     type Project,
     type PublisherCredential,
     type PublisherCredentialState,
@@ -91,6 +93,9 @@ interface ProjectRow {
     readonly timeZone: string
     readonly workspaceId: string | null
     readonly primaryCategoryId: string | null
+    readonly websiteUrl: string | null
+    readonly imageUrl: string | null
+    readonly imageSource: string | null
     readonly createdAt: number
     readonly updatedAt: number
 }
@@ -192,12 +197,21 @@ function toCredential(row: CredentialMetadataRow): PublisherCredential {
 }
 
 function toProject(row: ProjectRow): Project {
+    const imageSource =
+        row.imageSource === null
+            ? null
+            : (identityImageSources as readonly string[]).includes(row.imageSource)
+              ? (row.imageSource as IdentityImageSource)
+              : null
     return {
         id: row.id,
         name: row.name,
         timeZone: row.timeZone,
         workspaceId: row.workspaceId,
         primaryCategoryId: row.primaryCategoryId,
+        websiteUrl: row.websiteUrl,
+        imageUrl: row.imageUrl,
+        imageSource,
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,
     }
@@ -265,6 +279,9 @@ export function createPublisherCredentialStore(
                time_zone as timeZone,
                workspace_id as workspaceId,
                primary_category_id as primaryCategoryId,
+               website_url as websiteUrl,
+               image_url as imageUrl,
+               image_source as imageSource,
                created_at as createdAt,
                updated_at as updatedAt
         from projects

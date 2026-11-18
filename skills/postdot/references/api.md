@@ -36,3 +36,10 @@ existing CLI. Do not install an unrelated `postdot` package or clone/install a
 whole development environment just to perform an HTTP request. The full source
 CLI guide is at
 https://github.com/postdot/postdot/blob/8de7fb5762324657aa4c74cfcdfdee8e73b9debf/apps/docs/content/docs/%28developers%29/%28clients%29/cli-reference.mdx.
+
+## Identity images in current source instances
+
+Read [identity images](identity-images.md) for website, upload, image URL,
+favicon and removal operations on projects, workspaces and channels. Check the
+instance's OpenAPI contract before using these source additions on a published
+release.

@@ -9,6 +9,9 @@ export function toProject(row: ProjectRow): Project {
         timeZone: row.timeZone,
         workspaceId: row.workspaceId,
         primaryCategoryId: row.primaryCategoryId,
+        websiteUrl: row.websiteUrl ?? null,
+        imageUrl: row.imageUrl ?? null,
+        imageSource: row.imageSource ?? null,
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,
     }
@@ -24,6 +27,9 @@ export function toChannel(row: ChannelRow): Channel {
         state: row.state,
         archivedAt: row.archivedAt,
         revision: row.revision,
+        websiteUrl: row.websiteUrl ?? null,
+        imageUrl: row.imageUrl ?? null,
+        imageSource: row.imageSource ?? null,
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,
     }

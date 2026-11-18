@@ -50,7 +50,7 @@ for (const [locale, copy, theme] of [
         await expect(
             page.locator('[data-slot="sidebar-menu-button"][aria-current="page"]')
         ).toHaveText(copy.lifecycle_archives)
-        await expect(page.locator('[data-page-column="management"]')).toBeVisible()
+        await expect(page.locator('[data-page-column="reading"]')).toBeVisible()
         await page.getByRole('button', { name: copy.search_open, exact: true }).click()
         await page
             .getByRole('combobox', { name: copy.search_open, exact: true })
@@ -69,7 +69,8 @@ for (const [locale, copy, theme] of [
                 })
             ).status()
         ).toBe(200)
-        await page.goto(`/dashboard/projects/${current.id}/access`)
+        await page.goto(`/dashboard/projects/${current.id}/settings`)
+        await page.getByRole('link', { name: copy.nav_settings, exact: true }).click()
         await page.getByRole('link', { name: copy.lifecycle_archives, exact: true }).click()
         await expect(page).toHaveURL(/\/dashboard\/settings\/archives\?/)
         await expect(
@@ -110,9 +111,7 @@ for (const [locale, copy, theme] of [
         await expect(
             dialog.getByRole('button', { name: copy.lifecycle_restore, exact: true })
         ).toBeEnabled()
-        await expect(
-            dialog.getByText(copy.lifecycle_archive_explanation, { exact: true })
-        ).toHaveCount(0)
+        await expect(dialog.getByText(copy.lifecycle_no_scheduled, { exact: true })).toHaveCount(0)
         expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([])
         await page.screenshot({ path: info.outputPath('restore-confirmation.png') })
         await dialog.getByRole('button', { name: copy.lifecycle_restore, exact: true }).click()
@@ -132,7 +131,8 @@ for (const [locale, copy, theme] of [
         await page.unroute('**/api/resource-removals')
         await page.getByRole('button', { name: copy.common_retry, exact: true }).click()
         await expect(page.getByText(copy.lifecycle_empty, { exact: true })).toBeVisible()
-        await page.getByRole('button', { name: copy.nav_back_to_project, exact: true }).click()
+        await page.getByRole('button', { name: copy.nav_show_menu, exact: true }).click()
+        await page.locator('[data-settings-return="true"]').click()
         await expect(page).toHaveURL(new RegExp(`/dashboard/projects/${current.id}/overview$`))
         await expect(
             page.getByRole('heading', { name: copy.nav_overview, exact: true })
@@ -189,16 +189,16 @@ test('restores a workspace separately from its projects and keeps cancelled work
     expect(postResponse.status()).toBe(201)
     const { publications } = await postResponse.json()
     await page.goto(
-        `/dashboard/settings/workspace?workspaceId=${workspace.id}&projectId=${project.id}`
+        `/dashboard/settings/workspace/settings?workspaceId=${workspace.id}&projectId=${project.id}`
     )
     const section = page.getByRole('region', { name: en.lifecycle_title, exact: true })
-    await section.getByRole('button', { name: en.lifecycle_archive, exact: true }).click()
+    await section.getByRole('button', { name: en.lifecycle_archive_workspace, exact: true }).click()
     const dialog = page.locator('[data-slot="dialog-content"]')
     await expect(
-        dialog.getByRole('button', { name: en.lifecycle_archive, exact: true })
+        dialog.getByRole('button', { name: en.lifecycle_archive_workspace, exact: true })
     ).toBeDisabled()
     await dialog.getByRole('checkbox', { name: en.lifecycle_cancel_pending, exact: true }).check()
-    await dialog.getByRole('button', { name: en.lifecycle_archive, exact: true }).click()
+    await dialog.getByRole('button', { name: en.lifecycle_archive_workspace, exact: true }).click()
     await expect(dialog).toHaveCount(0)
     await page.goto('/dashboard/settings/archives?projectId=none')
     const projectSection = page

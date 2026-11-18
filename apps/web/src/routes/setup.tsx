@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { AuthForm, type AuthFormValues } from '@/components/auth-form'
 import { AuthShell } from '@/components/auth-shell'
 import { ApiError, api, formatApiError } from '@/lib/api'
+import { useLanguage } from '@/lib/i18n'
 import * as m from '@/paraglide/messages.js'
 
 export const Route = createFileRoute('/setup')({
@@ -22,6 +23,8 @@ export const Route = createFileRoute('/setup')({
 })
 
 function SetupPage() {
+    // Re-render when a lazily loaded locale catalog arrives.
+    useLanguage()
     const navigate = useNavigate()
     const status = Route.useLoaderData()
     const tokenRequired = status.bootstrapMode === 'token_required'

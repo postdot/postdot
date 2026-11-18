@@ -1,6 +1,9 @@
 import type { Channel } from '@/lib/api'
 
-export type ChannelIdentityPeer = Pick<Channel, 'id' | 'name' | 'profileId' | 'createdAt'>
+export type ChannelIdentityPeer = Pick<
+    Channel,
+    'id' | 'name' | 'profileId' | 'createdAt' | 'imageUrl'
+>
 
 export function channelVariant(channelId: string, channels: readonly ChannelIdentityPeer[]) {
     const channel = channels.find(item => item.id === channelId)

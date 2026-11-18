@@ -2,6 +2,13 @@ import { Alert, AlertDescription, AlertTitle } from '@postdot/ui/components/aler
 import { Button } from '@postdot/ui/components/button'
 import { Field, FieldLabel } from '@postdot/ui/components/field'
 import { Input } from '@postdot/ui/components/input'
+import {
+    Popover,
+    PopoverContent,
+    PopoverDescription,
+    PopoverTrigger,
+} from '@postdot/ui/components/popover'
+import { Textarea } from '@postdot/ui/components/textarea'
 import { CloseIcon } from '@solar-icons/react/linear/close'
 import { GalleryAddIcon } from '@solar-icons/react/linear/gallery-add'
 import { PaperclipIcon } from '@solar-icons/react/linear/paperclip'
@@ -24,7 +31,10 @@ import { MediaBulkDeletionDialog } from '@/components/media-bulk-deletion-dialog
 import { MediaDeletionDialog } from '@/components/media-deletion-dialog'
 import { MediaInformationDialog } from '@/components/media-information-dialog'
 import { MediaPermanentDeletionDialog } from '@/components/media-permanent-deletion-dialog'
-import { MediaSourcePickerDialog } from '@/components/media-source-picker-dialog'
+import {
+    MediaSourcePickerDialog,
+    MediaUrlImportDialog,
+} from '@/components/media-source-picker-dialog'
 import { MediaUploadRecoveryNotice } from '@/components/media-upload-recovery-notice'
 import { MediaWebcamDialog } from '@/components/media-webcam-dialog'
 import { MediaLibrarySkeleton } from '@/components/media/media-library-skeleton'
@@ -111,6 +121,8 @@ export interface MediaAttachmentPickerProps {
     readonly renderHeader?: (actions: {
         readonly disabled: boolean
         readonly onImport: () => void
+        readonly onImportFromUrl?: () => void
+        readonly onTakePhoto?: () => void
         readonly view: 'library' | 'trash'
         readonly uploading: string | null
     }) => ReactNode
@@ -244,10 +256,10 @@ function MediaAttachmentPickerView({
     const [bulkDeletionPending, setBulkDeletionPending] = useState(false)
     const [bulkSelectionResolutionPending, setBulkSelectionResolutionPending] = useState(false)
     const [bulkDeletionError, setBulkDeletionError] = useState<string | null>(null)
-    const [bulkSelectionMode, setBulkSelectionMode] = useState(false)
     const [dragActive, setDragActive] = useState(false)
     const dragDepthRef = useRef(0)
     const [sourcePickerOpen, setSourcePickerOpen] = useState(false)
+    const [urlImportDialogOpen, setUrlImportDialogOpen] = useState(false)
     const [webcamOpen, setWebcamOpen] = useState(false)
     const [mediaSources, setMediaSources] = useState<MediaImportSource[]>([
         ...DEFAULT_MEDIA_IMPORT_SOURCES,
@@ -306,6 +318,21 @@ function MediaAttachmentPickerView({
         bulkSelectionResolutionPending ||
         recoveryActionPending
     const mediaWriteDisabled = interactionLocked || readOnly
+    const hasBlockingManageDialog =
+        sourcePickerOpen ||
+        urlImportDialogOpen ||
+        webcamOpen ||
+        viewerAsset !== null ||
+        editorAsset !== null ||
+        deletionAsset !== null ||
+        permanentDeletionAsset !== null ||
+        bulkDeletionAssets.length > 0 ||
+        informationAsset !== null
+    const canAcceptPageDrop =
+        canManageLibrary &&
+        mediaView === 'library' &&
+        !mediaWriteDisabled &&
+        !hasBlockingManageDialog
     useEffect(() => {
         if (!onPreparationChange) return
         const report = () =>
@@ -407,7 +434,7 @@ function MediaAttachmentPickerView({
     }, [controller, projectId])
 
     useEffect(() => {
-        if (!sourcePickerOpen) return
+        if (!canManageLibrary && !sourcePickerOpen) return
 
         let active = true
         setMediaSourcesLoading(true)
@@ -426,7 +453,81 @@ function MediaAttachmentPickerView({
         return () => {
             active = false
         }
-    }, [projectId, sourcePickerOpen])
+    }, [canManageLibrary, projectId, sourcePickerOpen])
+
+    useEffect(() => {
+        if (!manageOnly) return
+        if (!canAcceptPageDrop) {
+            dragDepthRef.current = 0
+            setDragActive(false)
+            return
+        }
+
+        const hasDraggedFiles = (event: DragEvent) => {
+            const types = event.dataTransfer?.types
+            if (types && Array.from(types).includes('Files')) return true
+            return (event.dataTransfer?.files?.length ?? 0) > 0
+        }
+
+        const handleDragEnter = (event: DragEvent) => {
+            if (!hasDraggedFiles(event)) return
+            event.preventDefault()
+            dragDepthRef.current += 1
+            setDragActive(true)
+        }
+
+        const handleDragOver = (event: DragEvent) => {
+            if (!hasDraggedFiles(event)) return
+            event.preventDefault()
+            if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy'
+            setDragActive(true)
+        }
+
+        const handleDragLeave = (event: DragEvent) => {
+            if (!hasDraggedFiles(event) && dragDepthRef.current === 0) return
+            dragDepthRef.current = Math.max(0, dragDepthRef.current - 1)
+            if (dragDepthRef.current === 0 || event.relatedTarget === null) {
+                dragDepthRef.current = 0
+                setDragActive(false)
+            }
+        }
+
+        const handleDrop = (event: DragEvent) => {
+            dragDepthRef.current = 0
+            setDragActive(false)
+            const files = Array.from(event.dataTransfer?.files ?? [])
+            if (files.length === 0) return
+            event.preventDefault()
+            controller.uppy.addFiles(
+                files.map(file => ({
+                    name: file.name,
+                    type: file.type,
+                    data: file,
+                }))
+            )
+        }
+
+        const handleDragEnd = () => {
+            dragDepthRef.current = 0
+            setDragActive(false)
+        }
+
+        window.addEventListener('dragenter', handleDragEnter)
+        window.addEventListener('dragover', handleDragOver)
+        window.addEventListener('dragleave', handleDragLeave)
+        window.addEventListener('drop', handleDrop)
+        window.addEventListener('dragend', handleDragEnd)
+        window.addEventListener('blur', handleDragEnd)
+
+        return () => {
+            window.removeEventListener('dragenter', handleDragEnter)
+            window.removeEventListener('dragover', handleDragOver)
+            window.removeEventListener('dragleave', handleDragLeave)
+            window.removeEventListener('drop', handleDrop)
+            window.removeEventListener('dragend', handleDragEnd)
+            window.removeEventListener('blur', handleDragEnd)
+        }
+    }, [canAcceptPageDrop, controller, manageOnly])
 
     useEffect(() => {
         const handleRestrictionFailed = (file: PostdotMediaUppyFile | undefined) => {
@@ -450,7 +551,6 @@ function MediaAttachmentPickerView({
 
     useEffect(() => {
         if (!canManageLibrary) {
-            setBulkSelectionMode(false)
             setBulkSelectedAssetIds(new Set())
         }
     }, [canManageLibrary])
@@ -775,12 +875,6 @@ function MediaAttachmentPickerView({
         setBulkSelectedAssetIds(new Set())
     }
 
-    function toggleBulkSelectionMode() {
-        if (!canManageLibrary || mediaWriteDisabled) return
-        if (bulkSelectionMode) setBulkSelectedAssetIds(new Set())
-        setBulkSelectionMode(current => !current)
-    }
-
     function updateAccessibilityText(assetId: string, text: string) {
         onChange(
             value.map(item => {
@@ -861,7 +955,7 @@ function MediaAttachmentPickerView({
     async function openViewer(asset: MediaReference) {
         const previewOnly = compact && libraryOpen && pendingLibrarySelectionRef.current !== null
 
-        if (canManageLibrary && bulkSelectionMode && bulkSelectedAssetIds.has(asset.asset.id)) {
+        if (canManageLibrary && bulkSelectedAssetIds.has(asset.asset.id)) {
             const collection = await resolveBulkSelectedAssets()
             if (collection === null || collection.length === 0) return
             setViewerAllowsFileActions(true)
@@ -1003,7 +1097,6 @@ function MediaAttachmentPickerView({
         setLoadingMore(false)
         setError(null)
         setStatusMessage(null)
-        setBulkSelectionMode(false)
         clearBulkSelection()
     }
 
@@ -1220,6 +1313,7 @@ function MediaAttachmentPickerView({
             }
 
             setSourcePickerOpen(false)
+            setUrlImportDialogOpen(false)
         } catch (caughtError) {
             setUrlImportError(describeError(caughtError))
         } finally {
@@ -1345,7 +1439,7 @@ function MediaAttachmentPickerView({
         visibleReadyAssets.length > 0 &&
         visibleReadyAssets.every(asset => bulkSelectedAssetIds.has(asset.asset.id))
     const dropzoneRootProps = mediaWriteDisabled ? {} : dropzone.getRootProps()
-    const containerDropzoneProps = dropzoneRootProps
+    const containerDropzoneProps = manageOnly || mediaWriteDisabled ? {} : dropzoneRootProps
     const fileInputProps = fileInput.getInputProps()
     const fileButtonProps = fileInput.getButtonProps()
     const queuedFiles = uppyFiles.filter(
@@ -1413,6 +1507,12 @@ function MediaAttachmentPickerView({
         fileButtonProps.onClick()
         setSourcePickerOpen(false)
     }
+    const openUrlImportDialog = () => {
+        if (mediaWriteDisabled) return
+        setUrlImportError(null)
+        setSourcePickerOpen(false)
+        setUrlImportDialogOpen(true)
+    }
     const openWebcamPicker = () => {
         if (mediaWriteDisabled) return
         setUrlImportError(null)
@@ -1434,9 +1534,13 @@ function MediaAttachmentPickerView({
             throw caughtError
         }
     }
+    const hasWebcamSource = mediaSources.some(source => source.id === 'webcam')
+    const hasUrlSource = mediaSources.some(source => source.id === 'url')
     const header = renderHeader?.({
         disabled: mediaWriteDisabled,
-        onImport: openSourcePicker,
+        onImport: manageOnly ? openDevicePicker : openSourcePicker,
+        onImportFromUrl: hasUrlSource ? openUrlImportDialog : undefined,
+        onTakePhoto: hasWebcamSource ? openWebcamPicker : undefined,
         view: mediaView,
         uploading,
     })
@@ -1554,10 +1658,8 @@ function MediaAttachmentPickerView({
                         restorableAssetIds={restorableAssetIds}
                         bulkSelectedAssetIds={bulkSelectedAssetIds}
                         bulkSelectedCount={bulkSelectedCount}
-                        bulkSelectionMode={bulkSelectionMode}
                         bulkSelectionResolutionPending={bulkSelectionResolutionPending}
                         canManageLibrary={canManageLibrary}
-                        dragActive={dragActive}
                         emptyDescription={emptyDescription}
                         error={error}
                         interactionDisabled={interactionLocked}
@@ -1569,14 +1671,12 @@ function MediaAttachmentPickerView({
                         mediaFamilyFilter={mediaFamilyFilter}
                         mediaSort={mediaSort}
                         mediaViewMode={mediaViewMode}
-                        mediaWriteDisabled={mediaWriteDisabled}
                         view={mediaView}
                         trashCount={trashCount}
                         retentionMs={retentionMs}
                         statusMessage={statusMessage}
                         nextCursor={nextCursor}
                         onAccessibilityTextChange={updateAccessibilityText}
-                        onBrowse={openSourcePicker}
                         onClearBulkSelection={clearBulkSelection}
                         onDateChange={setMediaDateFilter}
                         onDownload={downloadAsset}
@@ -1600,7 +1700,6 @@ function MediaAttachmentPickerView({
                         onSortChange={setMediaSort}
                         onToggleAsset={toggleAsset}
                         onToggleBulkAsset={canManageLibrary ? toggleBulkAsset : undefined}
-                        onToggleSelectionMode={toggleBulkSelectionMode}
                         onToggleVisibleBulkSelection={
                             visibleReadyAssets.length > 0 ? toggleVisibleBulkSelection : undefined
                         }
@@ -1611,7 +1710,6 @@ function MediaAttachmentPickerView({
                         searchQuery={searchQuery}
                         selectedAssetById={selectedAssetById}
                         totalAssets={totalAssets}
-                        uploading={uploading}
                         visibleReadyAssetCount={visibleReadyAssets.length}
                     />
                 ) : (
@@ -1635,9 +1733,11 @@ function MediaAttachmentPickerView({
                                         showAccessibilityText={
                                             showAccessibilityText ??
                                             (showSelectedAccessibilityText ||
-                                                (asset !== undefined &&
+                                                (!inline &&
+                                                    asset !== undefined &&
                                                     readyRepresentation(asset)?.family === 'video'))
                                         }
+                                        accessibilityBadge={inline}
                                         onAccessibilityTextChange={updateAccessibilityText}
                                         onMove={moveSelection}
                                         onRemove={removeSelection}
@@ -1729,10 +1829,12 @@ function MediaAttachmentPickerView({
                                             showAccessibilityText={
                                                 showAccessibilityText ??
                                                 (showSelectedAccessibilityText ||
-                                                    (asset !== undefined &&
+                                                    (!inline &&
+                                                        asset !== undefined &&
                                                         readyRepresentation(asset)?.family ===
                                                             'video'))
                                             }
+                                            accessibilityBadge={inline}
                                             onAccessibilityTextChange={updateAccessibilityText}
                                             onMove={moveSelection}
                                             onRemove={removeSelection}
@@ -1744,7 +1846,7 @@ function MediaAttachmentPickerView({
                         ) : assets.length === 0 ? (
                             normalizedSearchQuery !== '' ? (
                                 <EmptyState
-                                    className="mt-4 min-h-48 bg-surface-field px-4 py-6 shadow-none"
+                                    className="mt-4"
                                     description={null}
                                     illustration="result"
                                     illustrationClassName="w-32"
@@ -1752,7 +1854,7 @@ function MediaAttachmentPickerView({
                                 />
                             ) : (
                                 <EmptyState
-                                    className="mt-4 min-h-28 bg-surface-field px-4 py-5 shadow-none"
+                                    className="mt-4 py-8"
                                     description={emptyDescription ?? null}
                                     illustration="image"
                                     illustrationClassName="w-28"
@@ -1852,12 +1954,33 @@ function MediaAttachmentPickerView({
                 urlImportError={urlImportError}
                 urlImportPending={urlImportPending}
             />
+            <MediaUrlImportDialog
+                disabled={mediaWriteDisabled}
+                onImportUrl={importMediaFromUrl}
+                onOpenChange={open => {
+                    setUrlImportDialogOpen(open)
+                    if (!open && !urlImportPending) setUrlImportError(null)
+                }}
+                open={urlImportDialogOpen && !readOnly}
+                urlImportError={urlImportError}
+                urlImportPending={urlImportPending}
+            />
             <MediaWebcamDialog
                 disabled={mediaWriteDisabled}
                 onCapture={captureWebcamFile}
                 onOpenChange={setWebcamOpen}
                 open={webcamOpen && !readOnly}
             />
+            {manageOnly && canAcceptPageDrop && dragActive ? (
+                <div
+                    aria-hidden="true"
+                    data-media-drop-overlay="true"
+                    className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-6 dark:bg-black/55">
+                    <div className="rounded-lg border border-border bg-surface-raised px-5 py-3 text-center text-sm font-medium text-foreground shadow-overlay">
+                        {m.media_drop_files_active()}
+                    </div>
+                </div>
+            ) : null}
             <Suspense fallback={null}>
                 {viewerAsset !== null ? (
                     <MediaViewer
@@ -1964,6 +2087,7 @@ function CompactMediaPreview({
     projectId,
     selection,
     showAccessibilityText,
+    accessibilityBadge = false,
     total,
     onAccessibilityTextChange,
     onMove,
@@ -1976,6 +2100,8 @@ function CompactMediaPreview({
     readonly projectId: string
     readonly selection: MediaSelection
     readonly showAccessibilityText: boolean
+    /** Offer the text behind a small "ALT" badge on the thumbnail instead of a field. */
+    readonly accessibilityBadge?: boolean
     readonly total: number
     readonly onAccessibilityTextChange: (assetId: string, text: string) => void
     readonly onMove: (index: number, offset: -1 | 1) => void
@@ -2066,6 +2192,14 @@ function CompactMediaPreview({
                         <CloseIcon aria-hidden="true" />
                     </Button>
                 </ActionTooltip>
+                {accessibilityBadge && !showAccessibilityText && asset !== undefined ? (
+                    <AccessibilityTextBadge
+                        disabled={disabled}
+                        filename={filename}
+                        value={selection.accessibilityText ?? ''}
+                        onChange={text => onAccessibilityTextChange(asset.asset.id, text)}
+                    />
+                ) : null}
             </div>
             {showAccessibilityText && asset !== undefined ? (
                 <Field className="min-w-0 w-full max-w-full gap-1 sm:w-56">
@@ -2085,6 +2219,62 @@ function CompactMediaPreview({
                 </Field>
             ) : null}
         </Reorder.Item>
+    )
+}
+
+/**
+ * Optional description for screen readers, sent to the channels that carry one. It stays out
+ * of the way: a small badge on the thumbnail, filled once a description exists.
+ */
+function AccessibilityTextBadge({
+    disabled,
+    filename,
+    value,
+    onChange,
+}: {
+    readonly disabled: boolean
+    readonly filename: string
+    readonly value: string
+    readonly onChange: (text: string) => void
+}) {
+    const inputId = useId()
+    const hintId = useId()
+    const described = value.trim() !== ''
+    return (
+        <Popover>
+            <PopoverTrigger
+                disabled={disabled}
+                data-media-accessibility-badge={described ? 'described' : 'empty'}
+                aria-label={
+                    described
+                        ? m.media_accessibility_edit({ filename })
+                        : m.media_accessibility_add({ filename })
+                }
+                className={
+                    described
+                        ? 'absolute right-1 bottom-1 rounded-sm bg-foreground px-1 text-[10px] leading-4 font-semibold text-background shadow-field focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-60'
+                        : 'absolute right-1 bottom-1 rounded-sm bg-surface-overlay/90 px-1 text-[10px] leading-4 font-semibold text-muted-foreground shadow-field hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-60'
+                }>
+                {m.media_accessibility_badge()}
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-72 max-w-[calc(100vw-2rem)]">
+                <Field className="gap-1.5">
+                    <FieldLabel htmlFor={inputId}>{m.media_accessibility_text()}</FieldLabel>
+                    <Textarea
+                        id={inputId}
+                        aria-describedby={hintId}
+                        value={value}
+                        disabled={disabled}
+                        rows={3}
+                        placeholder={m.media_accessibility_placeholder()}
+                        onChange={event => onChange(event.target.value)}
+                    />
+                    <PopoverDescription id={hintId} className="text-xs">
+                        {m.media_accessibility_hint()}
+                    </PopoverDescription>
+                </Field>
+            </PopoverContent>
+        </Popover>
     )
 }
 

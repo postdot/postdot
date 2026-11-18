@@ -25,8 +25,24 @@ const channelSchema = Type.Object({
     name: Type.String(),
     profileVersionId: Type.String(),
     profileId: Type.String(),
+    connectionState: Type.Union([
+        Type.Literal('active'),
+        Type.Literal('reconnect_required'),
+        Type.Literal('revoked'),
+        Type.Literal('none'),
+    ]),
     state: Type.Union([Type.Literal('active'), Type.Literal('archived')]),
     archivedAt: Type.Union([Type.Integer(), Type.Null()]),
+    websiteUrl: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+    imageUrl: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+    imageSource: Type.Optional(
+        Type.Union([
+            Type.Literal('upload'),
+            Type.Literal('url'),
+            Type.Literal('favicon'),
+            Type.Null(),
+        ])
+    ),
     revision: Type.Integer(),
     createdAt: Type.Integer(),
     updatedAt: Type.Integer(),

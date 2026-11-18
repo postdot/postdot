@@ -3,6 +3,8 @@ import { readFile } from 'node:fs/promises'
 
 import { expect, test } from '@playwright/test'
 
+import { composerMedia } from './support/post-editor'
+
 test('retains and reorders a mixed Telegram album through reload and target selection', async ({
     page,
 }, info) => {
@@ -75,10 +77,10 @@ test('retains and reorders a mixed Telegram album through reload and target sele
     const id = (await made.json()).publications[0].id
     const path = `${base}/publications/${id}`
     await page.goto(`/dashboard/projects/${project.id}/publications/${id}`)
-    const details = page.locator('[data-publication-customization]')
-    await details.locator(':scope > summary').click()
-    await expect(details.locator('[data-media-reorderable="true"]')).toHaveCount(2)
-    await details
+    // The channel's media sit under its editor (SPEC-013).
+    const media = composerMedia(page)
+    await expect(media.locator('[data-media-reorderable="true"]')).toHaveCount(2)
+    await media
         .getByRole('button', { name: 'Reorder album-photo.png', exact: true })
         .press('ArrowRight')
     const editor = async () => (await (await page.request.get(path + '/editor')).json()).editor

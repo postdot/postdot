@@ -1,12 +1,12 @@
 ---
-title: Archive and delete projects
-description: Retire projects and workspaces, review their data and restore archived work.
+title: Project and workspace settings
+description: Set project and workspace images and scheduling preferences, or archive and restore work.
 ---
 
 These actions are available from `0.1.0-alpha.3`.
 
-Open **Project configuration → Access → Archive and delete** to retire a project.
-For a workspace, open **Workspace → Members & groups**. Its retirement includes
+Open **Project settings** to retire a project.
+For a workspace, open **Workspace settings**. Its retirement includes
 its projects; the impact screen lists them before confirmation.
 
 ## Archive and restore
@@ -59,9 +59,31 @@ Backups made before deletion still contain the old data. Their retention and
 off-machine copies remain the operator's responsibility; see
 [backup and recovery](/docs/operations/).
 
+## Identity images
+
+Open **Project settings** or **Workspace settings**, then find **Image**. Enter a
+**Website** and save to use its icon automatically. An uploaded image or an image
+imported from a URL takes precedence when you change the website.
+
+**Change image** offers **Upload…**, **From an image URL…**, **Use the website’s
+icon**, and **Remove**. Changes take effect when you save. Removing the image
+restores the monogram and keeps the website; choosing its icon again is explicit.
+If no supported icon is found, the website is saved and you can upload an image
+or give its URL.
+
+Use PNG, JPEG, WebP, GIF or ICO files up to 2 MB. Postdot stores a square WebP image
+at most 256 pixels wide; animation and metadata are discarded. Images imported
+from URLs and website icons are copied into Postdot. Studio never needs to load
+them from the original website. Private network addresses are refused unless the
+installation's outbound policy explicitly permits that destination.
+
+Project owners and editors can change project images. Workspace owners and
+administrators can change workspace images. The same operations are available
+through the [CLI](/docs/cli-reference/#identity-images) and [MCP](/docs/mcp/).
+
 ## Scheduling timezone
 
-Open **Project configuration → Access → Scheduling timezone** to view or change
+Open **Project settings → Scheduling timezone** to view or change
 the project's IANA timezone. New projects default to your browser timezone when
 created in Studio, and can override it during creation or later from project
 settings. Changing the timezone affects how upcoming scheduled times are entered

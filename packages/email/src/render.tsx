@@ -75,7 +75,7 @@ export async function renderPostdotPublicationOutcomeEmail(
 ): Promise<PostdotRenderedEmail> {
     return {
         to: input.email,
-        subject: `Postdot — ${input.title}`,
+        subject: `Postdot: ${input.title}`,
         html: await render(<PublicationOutcomeEmail {...input} />),
         text: await render(<PublicationOutcomeEmail {...input} />, { plainText: true }),
     }

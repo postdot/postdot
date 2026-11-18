@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 
 import { expect, type Page } from '@playwright/test'
 
-export async function accounts(page: Page) {
+export async function accounts(page: Page, editor: 'legacy' | 'default' = 'legacy') {
     await page.goto('/')
     const origin = new URL(page.url()).origin
     const suffix = randomUUID()
@@ -56,7 +56,7 @@ export async function accounts(page: Page) {
         admin,
         member,
         project,
-        url: `/dashboard/projects/${project.id}/publications/new?editor=legacy`,
+        url: `/dashboard/projects/${project.id}/publications/new${editor === 'legacy' ? '?editor=legacy' : ''}`,
         endpoint: `/api/projects/${project.id}/publication-composer-draft`,
         close: async () => {
             await admin.close()

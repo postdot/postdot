@@ -10,6 +10,7 @@ import { defineTransaction, type DatabaseHandle } from '../client'
 import type {
     DueManualPublication,
     PublishManualPublicationInput,
+    UndoManualPublicationInput,
     ReconcileAmbiguousPublicationInput,
     ReconcileAmbiguousPublicationResult,
 } from '../manual-store'
@@ -109,6 +110,34 @@ export function createPublicationOutcomeStore(
         where id = ?1
           and project_id = ?2
           and state = 'scheduled'
+    `)
+    const loadManuallyPublishedStatement = sql.statement<
+        PublicationRow,
+        [projectId: string, publicationId: string]
+    >(`
+        select ${publicationColumns}
+        from publications
+        where publications.project_id = ?1
+          and publications.id = ?2
+          and publications.state = 'published'
+          and publications.delivery_mode = 'manual'
+    `)
+    const undoManualPublicationStatement = sql.statement<
+        void,
+        [publicationId: string, projectId: string, actorId: string, now: number]
+    >(`
+        update publications
+        set state = 'scheduled',
+            published_at = null,
+            published_by_actor_id = null,
+            external_id = null,
+            external_url = null,
+            state_changed_by_actor_id = ?3,
+            updated_at = ?4
+        where id = ?1
+          and project_id = ?2
+          and state = 'published'
+          and delivery_mode = 'manual'
     `)
     const reconcilePublishedPublicationStatement = sql.statement<
         { changes: number },
@@ -255,6 +284,58 @@ export function createPublicationOutcomeStore(
             })
 
             return published
+        }
+    )
+    const undoManualPublicationTransaction = defineTransaction(
+        database,
+        async (input: UndoManualPublicationInput): Promise<Publication | null> => {
+            const actorRow = await options.loadActor(input.projectId, input.subjectId)
+            if (actorRow === null) return null
+            const row = await loadManuallyPublishedStatement.get(
+                input.projectId,
+                input.publicationId
+            )
+            if (row === null) return null
+            const publication = toPublication(row)
+            const actor = toActor(actorRow)
+            const timestamp = Math.max(
+                requireTimestamp(options.now(), 'now'),
+                publication.updatedAt
+            )
+            const result = await undoManualPublicationStatement.run(
+                publication.id,
+                publication.projectId,
+                actor.id,
+                timestamp
+            )
+            if (result.changes !== 1) return null
+            await options.insertAuditEvent({
+                id: options.createId(),
+                projectId: publication.projectId,
+                actorId: actor.id,
+                action: 'publication.publish_undone',
+                entityType: 'publication',
+                entityId: publication.id,
+                metadataJson: JSON.stringify({
+                    fromState: 'published',
+                    toState: 'scheduled',
+                    externalId: publication.externalId,
+                    externalUrl: publication.externalUrl,
+                    deliveryMode: 'manual',
+                    provider: 'manual',
+                }),
+                createdAt: timestamp,
+            })
+            return {
+                ...publication,
+                state: 'scheduled',
+                publishedAt: null,
+                publishedByActorId: null,
+                externalId: null,
+                externalUrl: null,
+                stateChangedByActorId: actor.id,
+                updatedAt: timestamp,
+            }
         }
     )
     const reconcileAmbiguousPublicationTransaction = defineTransaction(
@@ -452,6 +533,16 @@ export function createPublicationOutcomeStore(
                     })
                 )
             }, 'deferred')
+        },
+
+        async undoManualPublication(
+            input: UndoManualPublicationInput
+        ): Promise<Publication | null> {
+            return undoManualPublicationTransaction.immediate({
+                projectId: requireNonBlank(input.projectId, 'projectId'),
+                publicationId: requireNonBlank(input.publicationId, 'publicationId'),
+                subjectId: requireNonBlank(input.subjectId, 'subjectId'),
+            })
         },
 
         async publishManualPublication(

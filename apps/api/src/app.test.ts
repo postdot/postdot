@@ -1205,6 +1205,7 @@ describe('Postdot API', () => {
                 '/api/oauth/x/callback',
                 '/api/projects/{projectId}/channels/{channelId}/publisher',
                 '/api/projects/{projectId}/posts/{postId}',
+                '/api/projects/{projectId}/posts/{postId}/composition',
                 '/api/projects/{projectId}/posts/{postId}/destinations',
                 '/api/projects/{projectId}/posts',
                 '/api/projects/{projectId}/publications/{publicationId}/move',
@@ -1231,6 +1232,7 @@ describe('Postdot API', () => {
                 '/api/projects/{projectId}/publications/{publicationId}/draft/rebase',
                 '/api/projects/{projectId}/publications/{publicationId}/draft/promote',
                 '/api/projects/{projectId}/publications/{publicationId}/publish',
+                '/api/projects/{projectId}/publications/{publicationId}/publish/undo',
                 '/api/projects/{projectId}/publications/{publicationId}/retry',
                 '/api/projects/{projectId}/publications/{publicationId}/reconcile',
                 '/api/projects/{projectId}/media/uploads',
@@ -1246,6 +1248,19 @@ describe('Postdot API', () => {
                 '/api/projects/{projectId}/media/deletion-requests',
                 '/api/projects/{projectId}/media/{assetId}/permanent',
                 '/api/projects/{projectId}/media/{assetId}/restore',
+                '/api/identity-images/{sha256}',
+                '/api/projects/{projectId}/website',
+                '/api/projects/{projectId}/image',
+                '/api/projects/{projectId}/image/url',
+                '/api/projects/{projectId}/image/favicon',
+                '/api/workspaces/{workspaceId}/website',
+                '/api/workspaces/{workspaceId}/image',
+                '/api/workspaces/{workspaceId}/image/url',
+                '/api/workspaces/{workspaceId}/image/favicon',
+                '/api/projects/{projectId}/channels/{channelId}/website',
+                '/api/projects/{projectId}/channels/{channelId}/image',
+                '/api/projects/{projectId}/channels/{channelId}/image/url',
+                '/api/projects/{projectId}/channels/{channelId}/image/favicon',
                 '/api/projects/{projectId}/email-alerts',
                 '/api/notifications',
                 '/api/notifications/{notificationId}/read',
@@ -1642,7 +1657,14 @@ describe('Postdot API', () => {
                     }),
                 ],
                 nextCursor: null,
-                summary: { total: 1, manual: 1, automatic: 0, scheduled: 0, draft: 1 },
+                summary: {
+                    total: 1,
+                    manual: 1,
+                    automatic: 0,
+                    scheduled: 0,
+                    draft: 1,
+                    published: 0,
+                },
             })
 
             const repeatedFilterResponse = await jsonRequest(
@@ -1695,7 +1717,14 @@ describe('Postdot API', () => {
             expect(await foreignFilterResponse.json()).toEqual({
                 publications: [],
                 nextCursor: null,
-                summary: { total: 0, manual: 0, automatic: 0, scheduled: 0, draft: 0 },
+                summary: {
+                    total: 0,
+                    manual: 0,
+                    automatic: 0,
+                    scheduled: 0,
+                    draft: 0,
+                    published: 0,
+                },
             })
 
             const firstTagsResponse = await jsonRequest(
@@ -1937,6 +1966,126 @@ describe('Postdot API', () => {
                     })
                 ).status
             ).toBe(200)
+        } finally {
+            await closeTestDatabase(database)
+        }
+    })
+
+    it('resolves live notification context in batches without disclosing revoked project content', async () => {
+        const { app, database, notifications, access } = await createFixture()
+        try {
+            const cookie = await signUp(app)
+            const projectResponse = await jsonRequest(app, '/api/projects', cookie, {
+                method: 'POST',
+                body: JSON.stringify({ name: 'Inbox context' }),
+            })
+            const { project } = (await projectResponse.json()) as { project: { id: string } }
+            const channelResponse = await jsonRequest(
+                app,
+                `/api/projects/${project.id}/channels`,
+                cookie,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({ name: 'Release channel', profile: 'manual-message' }),
+                }
+            )
+            expect(channelResponse.status).toBe(201)
+            const { channel } = (await channelResponse.json()) as { channel: { id: string } }
+            const postResponse = await jsonRequest(
+                app,
+                `/api/projects/${project.id}/posts`,
+                cookie,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        title: 'Release notes',
+                        sourceContent: {
+                            body: { format: 'plain_text', text: 'A calmer inbox' },
+                            media: [],
+                        },
+                        publications: [{ channelId: channel.id, deliveryMode: 'manual' }],
+                    }),
+                }
+            )
+            expect(postResponse.status).toBe(201)
+            const { post, publications } = (await postResponse.json()) as {
+                post: { id: string }
+                publications: { id: string }[]
+            }
+            const actor = await database.sql
+                .statement<{ id: string; userId: string }, [string]>(
+                    `select id, subject_id as userId from actors where project_id = ?1 and kind = 'human'`
+                )
+                .get(project.id)
+            for (const [id, subjectId] of [
+                ['context-event', publications[0]!.id],
+                ['missing-context-event', 'deleted-publication'],
+            ]) {
+                await createEventJournalStore(database).append({
+                    id: id!,
+                    projectId: project.id,
+                    actorId: actor!.id,
+                    name: 'publication.execution.succeeded',
+                    version: 1,
+                    subject: { type: 'publication', id: subjectId! },
+                    occurredAt: now,
+                })
+            }
+            await notifications.project(project.id)
+            const readInbox = async (path = '/api/notifications') => {
+                const response = await jsonRequest(app, path, cookie)
+                expect(response.status).toBe(200)
+                return (await response.json()) as {
+                    notifications: Array<{
+                        id: string
+                        context: null | {
+                            postId: string
+                            postTitle: string
+                            channel: { name: string }
+                            canRetry: boolean
+                        }
+                    }>
+                }
+            }
+            const initial = await readInbox()
+            expect(initial.notifications).toHaveLength(2)
+            expect(initial.notifications.filter(item => item.context === null)).toHaveLength(1)
+            expect(initial.notifications.find(item => item.context)?.context).toMatchObject({
+                postId: post.id,
+                postTitle: 'Release notes',
+                channel: { id: channel.id, name: 'Release channel', imageUrl: null },
+                projectId: project.id,
+                projectName: 'Inbox context',
+                scheduledAt: null,
+                canRetry: false,
+            })
+            const projectInbox = await readInbox(`/api/projects/${project.id}/notifications`)
+            expect(projectInbox.notifications).toEqual(initial.notifications)
+            await database.sql
+                .statement(`update posts set title = 'Updated title' where id = ?1`)
+                .run(post.id)
+            await database.sql
+                .statement(`update channels set name = 'Updated channel' where id = ?1`)
+                .run(channel.id)
+            const renamed = await readInbox()
+            expect(renamed.notifications.find(item => item.context)?.context).toMatchObject({
+                postTitle: 'Updated title',
+                channel: { name: 'Updated channel' },
+            })
+            const before = await database.sql
+                .statement(`select title, body from notifications order by id`)
+                .all()
+            await database.sql
+                .statement(`delete from project_user_grants where project_id = ?1 and user_id = ?2`)
+                .run(project.id, actor!.userId)
+            expect(await access.canAccessProject(project.id, actor!.userId)).toBe(false)
+            const revoked = await readInbox()
+            expect(revoked.notifications.map(item => item.context)).toEqual([null, null])
+            expect(
+                await database.sql
+                    .statement(`select title, body from notifications order by id`)
+                    .all()
+            ).toEqual(before)
         } finally {
             await closeTestDatabase(database)
         }
@@ -4172,7 +4321,7 @@ describe('Postdot API', () => {
                 }
             ).toMatchObject({
                 publications: [
-                    { id: publicationId, draftDiffersFromTarget: false },
+                    { id: publicationId, draftDiffersFromTarget: false, draftSourceRevision: 1 },
                     expect.objectContaining({ draftDiffersFromTarget: true }),
                 ],
             })

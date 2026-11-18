@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises'
 import { expect, test } from '@playwright/test'
 import type { PublicationSummary } from '@postdot/client'
 
-import { frenchTranslation } from './locale'
+import { frenchTranslation, openLanguageMenu } from './locale'
 
 test('exports all filtered stored results and handles cancellation or incomplete reads without partial downloads', async ({
     page,
@@ -24,9 +24,16 @@ test('exports all filtered stored results and handles cancellation or incomplete
         await page.request.post('/api/projects', { data: { name: 'CSV report', timeZone: 'UTC' } })
     ).json()
     await page.goto(`/dashboard/projects/${project.id}/performance`)
+    await expect(page.getByRole('status').filter({ hasText: 'No engagement yet' })).toBeVisible()
     await expect(
-        page.getByRole('status').filter({ hasText: 'No statistics to show' })
-    ).toBeVisible()
+        page.getByRole('heading', { name: 'Latest engagement by post and channel', exact: true })
+    ).toHaveCount(0)
+    await expect(
+        page.getByText('Available for posts published on Bluesky, DEV.to and Mastodon.', {
+            exact: true,
+        })
+    ).toHaveCount(0)
+    await expect(page.locator('[data-filter-menu="true"]')).toHaveCount(0)
     await expect(page.getByRole('button', { name: 'Export CSV', exact: true })).toHaveCount(0)
     await expect(page.getByText('This project has no tags yet.', { exact: true })).toHaveCount(0)
     const base = `/api/projects/${project.id}`
@@ -168,8 +175,8 @@ test('exports all filtered stored results and handles cancellation or incomplete
     expect(downloads).toBe(1)
     expect(collections).toBe(0)
     await page.setViewportSize({ width: 390, height: 844 })
-    await page.getByRole('button', { name: 'Language', exact: true }).click()
-    await page.getByRole('menuitem', { name: 'French', exact: true }).click()
+    await openLanguageMenu(page)
+    await page.getByRole('menuitem', { name: 'Français', exact: true }).click()
     await page.keyboard.press('Escape')
     await expect(page.getByRole('menu')).toHaveCount(0)
     await expect(
