@@ -198,6 +198,7 @@
 - Evidence: `apps/web/src/components/media-image-editor-dialog.tsx` wraps `react-easy-crop` 6.2.3 with crop, zoom, 90-degree rotation and four aspect presets (source, square, portrait, landscape). The owner finds the interface plain next to a library seen elsewhere and wants a nicer crop experience. An earlier evaluation (archived intake on Uppy, see `archive/closed/ISSUES.md`) kept the Postdot-owned editor and left "evaluate Uppy Image Editor as an isolated dialog adapter" as a follow-up.
 - Impact: Cropping is the one image operation most posts need (each network favours its own ratio); a clumsy editor costs every post with media.
 - Desired outcome: A crop editor that matches the Studio design system, works with touch and keyboard, stays light in the bundle, and keeps the current contract (saving creates a new media item). Candidate libraries and features are compared before choosing; free-angle straighten, flip and per-channel ratio presets are in scope, a full photo editor is not.
+- Owner direction (2026-11-18): the reference is zriz (https://zriz.dev, https://github.com/pqoqubbw/zriz). Weigh adopting, vendoring the parts we need, or reworking our own editor; do not add a dependency by default, and never one that brings `sharp` or a heavier server image. Checked: `@zriz/core` and `@zriz/react` have no runtime dependencies (React peer only), MIT, export runs in the browser (canvas in a worker); `toSharp` only builds an optional recipe and imports nothing. Postdot uses no `sharp` today.
 - Source: owner request, 2026-11-18. Library survey: [image editor survey](reviews/2026-11-18-image-editor-survey.md); best fits are `@zriz/react` (headless, Base UI blocks, straighten dial, very new), `@zag-js/image-cropper` (headless, maintained by the Zag and Ark UI team, preview status) or an improved `react-easy-crop` wrapper.
 - Tasks: none
 
@@ -218,4 +219,44 @@
 - Evidence: On 2026-11-18 GitHub reported 27 open alerts on `main` (5 high, 19 moderate, 3 low). All are in development scope: vite (18, fixed in 8.3.3), lodash, form-data, minimatch, qs, stream-json and uuid. None is in the shipped container runtime according to the alert scope.
 - Impact: The Vite alerts concern the development server, which developers and the CI browser shards run; the rest are build and test tooling. Unattended alerts also hide a future runtime alert in the noise.
 - Desired outcome: Development dependencies upgraded to the patched versions with checks green, alerts closed, and a routine so the list stays near zero.
+- Tasks: none
+
+## [ISSUE-210] External tools cannot react to what happens in Postdot
+
+- Type: proposal
+- Status: open
+- Evidence: Postdot emits no general lifecycle events to the outside. What exists: the custom HTTP channel in `postdot_webhook` mode sends one event, `publication.delivery` (`packages/custom-http/src/contract.ts`), because it is a destination, not a subscription; the project event stream (`apps/api/src/modules/projects/realtime-routes.ts`) is server-sent events reserved to human sessions (API keys get 403); notifications cover published, failed and ambiguous outcomes, in Studio and by e-mail; the n8n node has actions only, no trigger. Postiz users ask for lifecycle webhooks (gitroomhq/postiz-app#1191, 7 votes).
+- Impact: An automation or an AI workflow cannot start when a draft is created, a publication is approved, fails, or a manual publication becomes due. Manual channels are where this matters most: an external script or agent could publish on a platform Postdot cannot reach, then report the URL back.
+- Desired outcome: A person subscribes an endpoint (or an n8n trigger, or a future built-in agent) to chosen events of a project, with signed deliveries, retries and a delivery log; an external tool can claim a due manual publication and confirm it with the published URL. First decide whether a custom HTTP channel already covers "publish this manual post elsewhere" and document it if so.
+- Source: owner request, 2026-11-18.
+- Tasks: none
+
+## [ISSUE-211] A built-in AI agent in Studio
+
+- Type: proposal
+- Status: open
+- Evidence: Postdot already exposes an MCP server with scoped tools, a REST API, a CLI and an n8n node, so external agents can operate it. The owner wants an agent inside Studio: a chat in the person's language, acting through tools within permissions the person grants, and later started by events (ISSUE-210), as Twenty CRM does. Competitors ask for bring-your-own-key and custom OpenAI-compatible base URLs (gitroomhq/postiz-app#1074, #498, #256).
+- Impact: Makes Postdot usable by conversation, and turns events into automations without external tooling.
+- Desired outcome: A decision on framework, provider layer (OpenAI-compatible, Anthropic, local models), reuse of the MCP tool catalog and API key scopes for permissions, key storage and cost limits, and event triggers with human approval for risky actions. Also assess the owner's idea of driving subscription CLIs (Claude Code, Codex, Gemini CLI) from the server, which is cheaper for users but fragile to install, update and authenticate, and must respect each provider's terms.
+- Source: owner request, 2026-11-18. Research in progress.
+- Tasks: none
+
+## [ISSUE-212] Stronger sign-in options suited to self-hosting
+
+- Type: proposal
+- Status: open
+- Evidence: Sign-in is e-mail and password through Better Auth (`packages/auth/src/plugins.ts`: admin, organization, apiKey). Public signup already closes after bootstrap and access is by invitation. Self-hosters of competing tools ask for 2FA, passkeys and OIDC (gitroomhq/postiz-app#807; brightbeanxyz/brightbean-studio#22, #23).
+- Impact: An instance exposed on the internet relies on passwords alone.
+- Desired outcome: Options that need no third-party application first: TOTP two-factor with backup codes, passkeys (WebAuthn, bound to the instance's domain). Then optional OIDC single sign-on against the operator's own identity provider (Authentik, Keycloak, Pocket ID, Authelia), configured by the operator. Social OAuth logins are out of scope.
+- Source: owner discussion, 2026-11-18.
+- Tasks: none
+
+## [ISSUE-213] Which new platforms bring value to a self-hosted user
+
+- Type: question
+- Status: open
+- Evidence: Competitors' most requested platforms: Pixelfed (gitroomhq/postiz-app#510, 18 votes), Threads, YouTube, TikTok, Pinterest, Reddit, Google Business Profile. Owner experience: TikTok direct posting needs an audited platform application, out of reach for an individual; YouTube works with a Google Cloud application in testing mode but setup is tedious. Both suit a hosted service holding one approved application, which is not planned.
+- Impact: Adding a logo nobody can connect brings no value; each provider costs maintenance.
+- Desired outcome: A short list ranked by "a self-hoster can connect it alone in minutes" and demand, with setup effort recorded per provider (as `providers/setup-effort.mdx` does). Likely first candidates to verify: Pixelfed (Mastodon-like API, per-instance app registration), Threads, Reddit.
+- Source: owner discussion, 2026-11-18.
 - Tasks: none
