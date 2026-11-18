@@ -1211,6 +1211,8 @@ test('saves the post text without touching channels with their own text and keep
 })
 
 test('shows review skeletons and retries a failed comparison read', async ({ page }) => {
+    // Waiting for the opening reads to settle takes most of the default budget in development.
+    test.setTimeout(90_000)
     const pair = await createDraftPair(page)
     const before = await pair.read(page, pair.first)
     expect(
