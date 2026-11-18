@@ -98,3 +98,63 @@
 - Tasks: none
 
 - Remaining scope (ALPHA-578, 2026-10-24): Run a time-boxed real project workflow and prioritize from observed friction. This is product validation, not additional provider breadth.
+
+## [ISSUE-198] The post editor fails as a whole when one channel cannot be read
+
+- Type: problem
+- Status: open
+- Evidence: `loadExistingPost` (`apps/web/src/components/post-composer/load-existing-post.ts`) reads the post, every publication summary page, then every channel's editor state with `Promise.all`. One failed channel read rejects the whole load, so the route shows its error page instead of the editor. The post editor also issues one editor read per channel on every open and every refresh. Seen during UX-683: a test that failed one sibling read made the review action disappear until the load was retried.
+- Impact: A transient error on one channel blocks editing every other channel of the post; posts with many channels cost N+2 requests per open and per realtime refresh.
+- Desired outcome: A channel that cannot be read shows as unavailable (with retry) on its own tab while the others stay editable; consider a single post-level read for all channel states.
+- Source: UX-683 migration, 2026-11-18.
+- Tasks: none
+
+## [ISSUE-199] A required media description is not signalled on the thumbnail
+
+- Type: question
+- Status: open
+- Evidence: Bluesky's channel profile sets `accessibilityTextRequired: true`. Since UX-683 the description sits behind an optional "ALT" badge on the composer thumbnail, which only distinguishes empty and filled. The default description comes from the media library, so most items have one, but an item without it is not marked on the badge.
+- Impact: For a channel that requires a description, the person may learn it only from a validation message elsewhere, or not before publishing.
+- Desired outcome: Verify what happens today when a Bluesky media item has no description; if it blocks or fails, mark the badge (attention state) on that channel's tab only, without making the field mandatory elsewhere.
+- Source: owner review, 2026-11-18.
+- Tasks: none
+
+## [ISSUE-200] Opt-in and development-only browser suites rot unnoticed
+
+- Type: problem
+- Status: open
+- Evidence: `realtime-automatic-acceptance.spec.ts` (needs `POSTDOT_E2E_REALTIME_ACCEPTANCE`), the experience audit (`POSTDOT_EXPERIENCE_AUDIT`) and `editor-experiment.spec.ts` (development builds only) are excluded from the default run. During UX-683 all three had fallen behind the product: stale selectors, an obsolete menu locator, a contrast check measured mid-transition. Running the realtime acceptance found a real bug (a channel published elsewhere stayed editable under unsaved text).
+- Impact: The suites that cover the riskiest paths give false confidence and find bugs late.
+- Desired outcome: Run them on a schedule or as a release gate (see ADR-093 acceptance), with their results recorded in the release worklog.
+- Source: UX-683, 2026-11-18.
+- Tasks: none
+
+## [ISSUE-201] Text rendered outside a language subscription stays in English
+
+- Type: problem
+- Status: open
+- Evidence: Non-English catalogs load lazily (ISSUE-193). A component that renders messages without `useLanguage()` and has no subscribed ancestor keeps the English strings it rendered first. The French setup and login pages showed mixed languages until UX-683 added the subscription to the auth pages; only one browser test (setup in French) caught it.
+- Impact: Any other surface outside the dashboard shell can regress the same way silently.
+- Desired outcome: A guard (lint rule or a test that renders each public route in fr, es and de and finds no English base strings) instead of relying on per-component discipline.
+- Source: UX-683, 2026-11-18.
+- Tasks: none
+
+## [ISSUE-202] Unused Studio message keys and retired editor leftovers
+
+- Type: proposal
+- Status: open
+- Evidence: About 209 keys of `apps/web/messages/en.json` are not referenced statically from `apps/web/src` (some may be built dynamically); UX-683 removed only the 43 its deletions orphaned. The development-only `?editor=legacy` switch (`configuredEditor`) still exists on the post and publication routes, and recovery still reads legacy `postdot:publication-editor:v3:` local copies.
+- Impact: Translators and the copy guards maintain text nobody sees; dead switches keep code paths alive.
+- Desired outcome: Classify the unused keys (dynamic or dead), delete the dead ones with a guard against new ones; retire the legacy editor switch; drop the v3 recovery reader one release after 0.1.0-alpha.8.
+- Source: UX-683, 2026-11-18.
+- Tasks: none
+
+## [ISSUE-203] Should "Save" apply channels the person did not change?
+
+- Type: question
+- Status: open
+- Evidence: In the post editor, "Save" applies every channel with pending changes, which includes a channel whose draft was never applied even when the person only edited another channel (SPEC-013 "applies the post text and every changed channel version"). Seen while migrating `publication-concurrent-editing.spec.ts`.
+- Impact: Probably what people expect ("what will be published equals what is shown"), but it can surprise someone who edited one channel on purpose.
+- Desired outcome: Owner decision; if it stays, name the channels Save will apply (for example in its tooltip or a count).
+- Source: UX-683, 2026-11-18.
+- Tasks: none
