@@ -29,7 +29,7 @@ async function setup(page: Page, context: BrowserContext) {
             })
         ).status()
     ).toBe(201)
-    const url = `/dashboard/projects/${project.id}/publications/new?editor=legacy`
+    const url = `/dashboard/projects/${project.id}/publications/new`
     const endpoint = `/api/projects/${project.id}/publication-composer-draft`
     const other = await context.newPage()
     await page.goto(url)
@@ -66,6 +66,8 @@ for (const [locale, copy, theme] of [
                 name: copy.publication_new_source_content,
                 exact: true,
             })
+            await expect(firstEditor).toHaveAttribute('contenteditable', 'true')
+            await expect(secondEditor).toHaveAttribute('contenteditable', 'true')
             async function saveFirst(text: string) {
                 const saved = page.waitForResponse(
                     response =>
@@ -155,11 +157,13 @@ for (const [locale, copy, theme] of [
                 choice === 'local'
                     ? 'Version B continued locally'
                     : 'Version A continued after the conflict'
-            await expect(secondEditor).toHaveValue(expected)
+            await expect(secondEditor).toHaveAttribute('contenteditable', 'true')
+            await expect(secondEditor).toHaveText(expected)
             expect(
                 (await (await page.request.get(endpoint)).json()).draft.content.postContent
             ).toBe(expected)
-            await expect(firstEditor).toHaveValue(
+            await expect(firstEditor).toHaveAttribute('contenteditable', 'true')
+            await expect(firstEditor).toHaveText(
                 choice === 'local'
                     ? 'Version A changed during comparison'
                     : 'Version A continued after the conflict'
@@ -292,9 +296,9 @@ test('keeps both choices blocked after a failed conflict read, then recovers wit
     await comparison
         .getByRole('button', { name: en.composer_conflict_use_saved, exact: true })
         .click()
-    await expect(other.getByRole('textbox', { name: 'Content', exact: true })).toHaveValue(
-        'Server version before read failure'
-    )
+    const otherEditor = other.getByRole('textbox', { name: 'Content', exact: true })
+    await expect(otherEditor).toHaveAttribute('contenteditable', 'true')
+    await expect(otherEditor).toHaveText('Server version before read failure')
     await other.close()
 })
 

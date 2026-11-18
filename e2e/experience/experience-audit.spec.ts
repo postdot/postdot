@@ -192,7 +192,7 @@ for (const scenario of [
                 })
                 .click()
             await page
-                .getByRole('menuitem', { name: scenario.copy.nav_projects, exact: true })
+                .getByRole('menuitem', { name: scenario.copy.channel_share_action, exact: true })
                 .click()
             const sharingDialog = page.getByRole('dialog')
             await expect(
