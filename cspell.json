@@ -192,7 +192,8 @@
         "xinfo",
         "xrpc",
         "YYYYMMDDTHHMMSS",
-        "Zoomable"
+        "Zoomable",
+        "zriz"
     ],
     "ignoreWords": [
         "aede",
