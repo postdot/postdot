@@ -1,7 +1,9 @@
 import { Button } from '@postdot/ui/components/button'
 import {
     Dialog,
+    DialogClose,
     DialogContent,
+    DialogFooter,
     DialogHeader,
     DialogTitle,
     DialogDescription,
@@ -556,6 +558,11 @@ export function PublicationRowMenu({
                         ref={input}
                         value={fallbackUrl ?? ''}
                     />
+                    <DialogFooter>
+                        <DialogClose render={<Button type="button" variant="outline" />}>
+                            {m.common_close()}
+                        </DialogClose>
+                    </DialogFooter>
                 </DialogContent>
             </Dialog>
         </>
