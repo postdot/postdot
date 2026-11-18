@@ -1975,3 +1975,16 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Related: GH #35, [SPEC-012](../../specs/SPEC-012-agentic-bootstrap-and-privileged-api-access.md), [ADR-102](../../decisions/ADR-102-token-gated-bootstrap-and-admin-api-key-capabilities.md), ADR-075, ADR-096
 - Tasks: AUTH-648, API-649, CLI-650
 - Resolution (2026-11-14): Token-gated bootstrap, admin API-key capabilities, and CLI/MCP/Studio/documentation parity implemented under SPEC-012 and ADR-102 across AUTH-648, API-649, and CLI-650.
+
+## Closed 2026-11-18
+
+## [ISSUE-208] A manual publication cannot be copied out of Postdot quickly
+
+- Type: problem
+- Status: resolved (2026-11-18)
+- Evidence: For a manual channel the person recreates the post by hand in the platform's own editor. The publication view offers "copy link" (`dashboard-publication-parts.tsx`) and "mark as published", but no way to copy the title or the text, nor to copy or download the images and videos. Today the person must select text by hand and fetch each file from the media library.
+- Impact: Manual channels are the fallback for every network without an API; each manual post costs several extra steps and invites mistakes (wrong channel variant, missing image, lost line breaks).
+- Desired outcome: From the publication view of a due manual post, the person copies the channel's title and text in one action each, and copies or downloads each media item (or all of them at once) in the variant prepared for that channel, then marks it published.
+- Source: owner feedback, 2026-11-18.
+- Resolution: UX-688 adds copy and download actions on the post page ([worklog](../../worklogs/2026-11-18-UX-688.md)).
+- Tasks: UX-688

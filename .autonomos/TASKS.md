@@ -13,8 +13,6 @@
 
 - [/] **[CI-687]** Run browser shards against the production build and balance them `Priority: 🟠` `Complexity: M` [ISSUE-206](ISSUES.md)
 
-- [/] **[UX-688]** Copy the title, text and media of a manual publication `Priority: 🟠` `Complexity: M` [ISSUE-208](ISSUES.md)
-
 - [ ] **[UX-690]** Rebuild the image editor on the zriz engine with our own interface `Priority: 🔵` `Complexity: L` [ISSUE-207](ISSUES.md)
 
 ## Current direction

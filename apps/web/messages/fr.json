@@ -2773,5 +2773,15 @@
     "notifications_today": "Aujourd’hui",
     "notifications_yesterday": "Hier",
     "notifications_earlier": "Plus tôt",
+    "manual_kit_title": "Contenu à copier dans {channel}",
+    "manual_kit_copy_title": "Copier le titre",
+    "manual_kit_copy_text": "Copier le texte",
+    "manual_kit_download_all": "Tout télécharger ({count})",
+    "manual_kit_share": "Partager",
+    "manual_kit_copy_image": "Copier l’image {name}",
+    "manual_kit_download_media": "Télécharger {name}",
+    "manual_kit_copy_description": "Copier la description de {name}",
+    "manual_kit_copied": "Copié",
+    "manual_kit_failed": "La copie n’est pas disponible. Téléchargez le fichier ou sélectionnez le texte.",
     "calendar_moved": "Déplacée au {time}"
 }

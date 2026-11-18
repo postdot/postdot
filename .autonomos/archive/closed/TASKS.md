@@ -678,4 +678,5 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 
 ## Closed 2026-11-18
 
+- [x] **[UX-688]** Copy the title, text and media of a manual publication `Priority: 🟠` `Complexity: M` Completed: 2026-11-18 [ISSUE-208](../../ISSUES.md) [worklog](../../worklogs/2026-11-18-UX-688.md)
 - [x] **[UX-689]** Reschedule publications by dragging them in the calendar `Priority: 🔵` `Complexity: M` Completed: 2026-11-18 [worklog](../../worklogs/2026-11-18-UX-689.md)

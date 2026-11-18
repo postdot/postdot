@@ -2773,5 +2773,15 @@
     "notifications_today": "Today",
     "notifications_yesterday": "Yesterday",
     "notifications_earlier": "Earlier",
+    "manual_kit_title": "Content to copy into {channel}",
+    "manual_kit_copy_title": "Copy title",
+    "manual_kit_copy_text": "Copy text",
+    "manual_kit_download_all": "Download all ({count})",
+    "manual_kit_share": "Share",
+    "manual_kit_copy_image": "Copy image {name}",
+    "manual_kit_download_media": "Download {name}",
+    "manual_kit_copy_description": "Copy the description of {name}",
+    "manual_kit_copied": "Copied",
+    "manual_kit_failed": "Copying was unavailable. Download the file or select the text instead.",
     "calendar_moved": "Moved to {time}"
 }
