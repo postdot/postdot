@@ -1,5 +1,13 @@
 # @postdot/cli
 
+## 0.1.0-alpha.5
+
+### Minor Changes
+
+- bb50f8d: Add identity image and website commands for projects, workspaces and channels, save a post's
+  text and several channel versions in one composition write, and undo a mistaken manual
+  publication record.
+
 ## 0.1.0-alpha.4
 
 ### Patch Changes
