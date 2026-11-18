@@ -631,15 +631,25 @@ function ExistingPostEditor({
                             <div
                                 key={editor.publication.id}
                                 className="flex min-w-0 flex-wrap items-center gap-3 py-2">
-                                <Button
-                                    variant="ghost"
-                                    className="min-w-0"
-                                    onClick={() =>
-                                        composition.selectContentScope(editor.publication.id)
+                                <Link
+                                    className={buttonVariants({
+                                        variant: 'ghost',
+                                        className: 'min-w-0',
+                                    })}
+                                    data-publication-edit-link="true"
+                                    to="/dashboard/projects/$projectId/publications/$publicationId"
+                                    params={{
+                                        projectId: project.id,
+                                        publicationId: editor.publication.id,
+                                    }}
+                                    search={
+                                        backToCalendar
+                                            ? { ...backToCalendar, from: 'calendar' as const }
+                                            : undefined
                                     }>
                                     <ChannelAvatar channel={editor.channel} size="sm" />
                                     <span className="truncate">{editor.channel.name}</span>
-                                </Button>
+                                </Link>
                                 <PublicationStatus state={editor.publication.state} />
                                 <span className="text-xs text-muted-foreground">
                                     {formatSchedule(
