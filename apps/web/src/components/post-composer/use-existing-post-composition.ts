@@ -61,8 +61,24 @@ export async function loadExistingPost(
     return { post, publications, editors }
 }
 
+/** JSON with sorted keys: the server stores channel content canonically, so key order differs. */
+function stableJson(value: unknown): string {
+    if (Array.isArray(value)) return `[${value.map(stableJson).join(',')}]`
+    if (value !== null && typeof value === 'object') {
+        return `{${Object.keys(value)
+            .filter(key => (value as Record<string, unknown>)[key] !== undefined)
+            .sort()
+            .map(
+                key =>
+                    `${JSON.stringify(key)}:${stableJson((value as Record<string, unknown>)[key])}`
+            )
+            .join(',')}}`
+    }
+    return JSON.stringify(value) ?? 'null'
+}
+
 export function compositionFingerprint(state: PostCompositionState, data: ExistingPostData) {
-    return JSON.stringify({
+    return stableJson({
         source: compositionSource(state, data.post.sourceContent),
         targets: data.editors
             .filter(

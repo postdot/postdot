@@ -63,6 +63,7 @@ export function PostChannelPanel({
     const actions = useProjectPublicationActions()
     const [pending, setPending] = useState(false)
     const [error, setError] = useState<string | null>(null)
+    const [notice, setNotice] = useState<string | null>(null)
     const [cancelOpen, setCancelOpen] = useState(false)
     const [moveOpen, setMoveOpen] = useState(false)
     const [adoptionOpen, setAdoptionOpen] = useState(false)
@@ -90,12 +91,19 @@ export function PostChannelPanel({
             setPending(false)
         }
     }
+    // The outcome panel shows its own refusal and re-enables its choices only when this throws.
     async function reconcile(input: PublicationOutcomeResolutionInput) {
         if (blocked) return
-        await run(async () => {
+        const epoch = getAccessEpoch()
+        try {
             await api.reconcileAmbiguousPublication(publication.projectId, publication.id, input)
-            return true
-        })
+        } catch (caught) {
+            if (getAccessEpoch() !== epoch) return
+            if (caught instanceof ApiError && [403, 404].includes(caught.status)) onAccessRefused()
+            throw caught
+        }
+        if (getAccessEpoch() !== epoch) return
+        await onRefresh()
     }
     if (part === 'status') {
         return (
@@ -124,7 +132,13 @@ export function PostChannelPanel({
                     onRetry={
                         blocked
                             ? undefined
-                            : () => run(() => actions.onRetryPublication(publication.id))
+                            : () =>
+                                  run(() => actions.onRetryPublication(publication.id)).then(
+                                      retried => {
+                                          if (retried) setNotice(m.publication_retry_scheduled())
+                                          return retried
+                                      }
+                                  )
                     }
                     otherActions={
                         !blocked && editor.movement?.canMove ? (
@@ -196,6 +210,11 @@ export function PostChannelPanel({
                                 timeZone,
                             }).format(editor.movement.requestedScheduledAt),
                         })}
+                    </p>
+                ) : null}
+                {notice ? (
+                    <p role="status" className="text-sm text-muted-foreground">
+                        {notice}
                     </p>
                 ) : null}
                 {error ? (

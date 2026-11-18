@@ -362,12 +362,15 @@ function ExistingPostEditor({
                         </Link>
                     }
                 />
-                <PublicationEditorStatus
-                    message={session.message}
-                    passive={session.passive}
-                    saveState={session.saveState}
-                    onReviewConflict={() => void session.reload()}
-                />
+                {/* A background update is told after the work it updated, never above it. */}
+                {session.passive ? null : (
+                    <PublicationEditorStatus
+                        message={session.message}
+                        passive={session.passive}
+                        saveState={session.saveState}
+                        onReviewConflict={() => void session.reload()}
+                    />
+                )}
                 {!readOnly ? (
                     <PostSourceReview
                         projectId={project.id}
@@ -611,6 +614,14 @@ function ExistingPostEditor({
                         />
                     }
                 />
+                {session.passive ? (
+                    <PublicationEditorStatus
+                        message={session.message}
+                        passive={session.passive}
+                        saveState={session.saveState}
+                        onReviewConflict={() => void session.reload()}
+                    />
+                ) : null}
                 {!activeEditor ? (
                     <section
                         className="mx-auto mt-6 min-w-0 max-w-6xl"
