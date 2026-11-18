@@ -470,6 +470,17 @@ export function useExistingPostComposition({
             return
         lastIncoming.current = incomingStamp
         if (JSON.stringify(base) === incomingStamp) return
+        // Only a newer server revision conflicts with local work. A refetch of the revisions
+        // already acknowledged (other summary fields, another shape) must not.
+        const newer =
+            initialData.post.sourceRevision > base.post.sourceRevision ||
+            initialData.editors.some(
+                incoming =>
+                    incoming.draft.revision >
+                    (base.editors.find(editor => editor.publication.id === incoming.publication.id)
+                        ?.draft.revision ?? 0)
+            )
+        if (dirtyRef.current && !newer) return
         if (dirtyRef.current) {
             setSaveState('conflict')
             setMessage(m.editor_server_newer_local())
@@ -488,8 +499,12 @@ export function useExistingPostComposition({
                 const fresh = await loadExistingPost(projectId, initialData.post.id)
                 if (!validEpoch(accessEpoch)) return
                 const before = current.current.data
-                if (!dirtyRef.current) adopt(fresh)
-                else if (
+                if (!dirtyRef.current) {
+                    adopt(fresh)
+                    // The server state is confirmed for this epoch: nothing local is left.
+                    acknowledgedEpoch.current = accessEpoch
+                    setSaveState('saved')
+                } else if (
                     fresh.post.sourceRevision !== before.post.sourceRevision ||
                     fresh.editors.some(
                         editor =>
@@ -501,6 +516,11 @@ export function useExistingPostComposition({
                 ) {
                     setSaveState('conflict')
                     setMessage(m.editor_server_newer_local())
+                } else {
+                    // A write refused during the suspension left an error; the server did not
+                    // move, so the local work resumes and autosave writes it.
+                    setSaveState('local_only')
+                    setMessage(null)
                 }
                 onAccessReconciled(true)
             } catch {

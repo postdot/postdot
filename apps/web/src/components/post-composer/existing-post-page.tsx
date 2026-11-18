@@ -16,7 +16,7 @@ import {
 } from '@postdot/ui/components/select'
 import { AltArrowLeftIcon } from '@solar-icons/react/linear/alt-arrow-left'
 import { Link, useNavigate, useBlocker } from '@tanstack/react-router'
-import { lazy, Suspense, useState, useEffect, type SetStateAction } from 'react'
+import { lazy, Suspense, useState, useEffect, useRef, type SetStateAction } from 'react'
 
 import { DashboardPageHeader } from '@/components/dashboard-page-header'
 import { PublicationStatus, formatSchedule } from '@/components/dashboard-publication-parts'
@@ -196,13 +196,20 @@ function ExistingPostEditor({
         if (queryError instanceof ApiError && [403, 404].includes(queryError.status))
             access.onAccessRefused()
     }, [queryError, access.onAccessRefused])
+    // Without confirmed access there is nothing to save here and the local work stays in its
+    // recovery copy, so leaving is never blocked (the denial page has no dialog to answer).
+    const leaveGuarded =
+        access.status === 'confirmed' && (session.dirty || session.scheduleDirty || mediaPending)
+    // The blocker may keep its first callback; read the current guard through a ref.
+    const leaveGuardedRef = useRef(leaveGuarded)
+    leaveGuardedRef.current = leaveGuarded
     const blocker = useBlocker({
         shouldBlockFn: ({ next }) =>
-            (session.dirty || session.scheduleDirty || mediaPending) &&
+            leaveGuardedRef.current &&
             !data.editors.some(editor =>
                 next.pathname.endsWith(`/publications/${editor.publication.id}`)
             ),
-        enableBeforeUnload: session.dirty || session.scheduleDirty || mediaPending,
+        enableBeforeUnload: leaveGuarded,
         withResolver: true,
     })
     const select = (id: string) => {

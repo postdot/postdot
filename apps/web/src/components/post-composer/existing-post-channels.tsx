@@ -79,7 +79,7 @@ export function ExistingPostChannels({
                             key={target.id}
                             data-channel-selected
                             data-publication-id={target.id}
-                            className={`flex min-w-0 max-w-full flex-wrap items-center gap-1 rounded-full px-1 ${composition.activeContentScopeId === target.id ? 'bg-primary/12 ring-2 ring-primary/70' : 'bg-surface-control shadow-control'}`}>
+                            className={`flex min-w-0 max-w-full flex-wrap items-center gap-1 rounded-full px-1 ${composition.activeContentScopeId === target.id ? 'bg-surface-raised ring-2 ring-primary/70' : 'bg-surface-control shadow-control'}`}>
                             <Button
                                 variant="ghost"
                                 className="min-w-0 max-w-56 gap-2 rounded-full ps-1"
