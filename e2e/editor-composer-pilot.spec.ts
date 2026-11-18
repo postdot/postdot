@@ -11,6 +11,7 @@ import {
     openAllChannels,
     openChannel,
     openContentOptions,
+    saveButton,
 } from './support/post-editor'
 
 test('recovers composition text, target formatting and media through the existing draft contract', async ({
@@ -500,7 +501,7 @@ test('corrects destination attachments without changing shared media or another 
             response.url().endsWith(`/publications/${publication.id}/draft/promote`) &&
             response.request().method() === 'POST'
     )
-    await page.getByRole('button', { name: /^Save changes(?:\s*(?:Ctrl|⌘)↵)?$/ }).click()
+    await saveButton(page).click()
     const appliedResponse = await applied
     expect(appliedResponse.ok()).toBe(true)
     const { editor: appliedEditor } = await appliedResponse.json()
@@ -550,8 +551,9 @@ test('previews the article destination headline through adaptation and locked in
     await expect(preview.getByRole('heading', { level: 2 })).toHaveText('Shared article headline')
     await expect(previewBody).toHaveText('Article body content.')
     await expect(previewMedia).toHaveCount(1)
-    const field = page.locator('[data-target-field="title"]')
-    await openCustomization(page, field)
+    // The channel's own title is the title field of its tab (SPEC-013).
+    const field = page.locator('[data-channel-title] [data-target-field="title"]')
+    await expect(field).toBeVisible()
     await field.getByRole('textbox').fill('Customized destination headline')
     await expect(preview.getByRole('heading', { level: 2 })).toHaveText(
         'Customized destination headline'
@@ -1226,8 +1228,9 @@ test('composer native presentation follows execution rather than profile identit
         expect(binding.path).toMatch(/^\/[^/]+$/)
         const property = binding.path.slice(1)
         await page.goto(`/dashboard/projects/${projectId}/publications/${publication.id}`)
-        const field = page.locator(`[data-target-field="${binding.id}"]`)
-        await openCustomization(page, field)
+        // The channel tab's editor is this channel's primary text, with its native controls.
+        const field = page.locator('[data-editor-scope]:not([hidden])')
+        await expect(composerText(page)).toBeVisible()
         const rich = channel.kind !== 'manual'
         await expect(field.getByRole('button', { name: 'Bold', exact: true })).toHaveCount(
             rich ? 1 : 0
@@ -1237,13 +1240,8 @@ test('composer native presentation follows execution rather than profile identit
         )
         const text =
             channel.kind === 'manual' ? 'Saved' : `Saved ${channel.kind}-${channel.platform}`
-        const saving = page.waitForResponse(
-            response =>
-                response.url().endsWith(`${publication.id}/draft`) &&
-                response.request().method() === 'PATCH' &&
-                response.ok()
-        )
-        await field.getByRole('textbox').fill(text)
+        const saving = compositionSaved(page)
+        await composerText(page).fill(text)
         await saving
         const saved = await read()
         expect(saved.draft.content[property]).toBe(text)
@@ -1498,18 +1496,14 @@ for (const platform of ['linkedin', 'mastodon', 'discord', 'bluesky'] as const) 
         expect(editor.profile.profile.execution).toEqual(preset.execution)
         if (platform === 'discord' || platform === 'bluesky') {
             await page.goto(`/dashboard/projects/${projectId}/publications/${publication.id}`)
-            const targetSection = page.locator('[data-publication-customization="true"]')
-            await expect(targetSection.locator('summary')).toContainText('Adapt for')
-            await targetSection.locator('summary').click()
+            const targetSection = await openContentOptions(page)
+            await expect(targetSection.locator('summary')).toContainText('Content options')
             const description = targetSection.getByRole('textbox', {
                 name: 'Accessibility text',
                 exact: true,
             })
             await expect(description).toHaveValue('A moving scene')
-            const savedDescription = page.waitForResponse(
-                response =>
-                    response.request().method() === 'PATCH' && response.url().includes('/draft')
-            )
+            const savedDescription = compositionSaved(page)
             await description.fill('Destination video description')
             await savedDescription
             const updated = await (
