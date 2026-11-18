@@ -217,6 +217,14 @@ export function createPublicInstanceRoutes(
                         ? new URL(authBaseURL).origin
                         : new URL(request.url).origin
 
+                if (body.apiKey !== undefined) {
+                    // Creating a key starts the API key plugin's expired-key cleanup without
+                    // awaiting it. Inside the bootstrap transaction that query outlives the
+                    // commit on PostgreSQL (ISSUE-204). Run the cleanup here, outside the
+                    // transaction; the plugin then skips it for the next ten seconds.
+                    await options.auth.api.deleteAllExpiredApiKeys().catch(() => undefined)
+                }
+
                 try {
                     const outcome = await options.database.sql.transaction(
                         () =>
