@@ -8,6 +8,48 @@ import * as m from '@/paraglide/messages.js'
 
 type Source = PublicationEditorState['post']['sourceContent']
 
+function stableJson(value: unknown): string {
+    if (Array.isArray(value)) return `[${value.map(stableJson).join(',')}]`
+    if (value !== null && typeof value === 'object') {
+        return `{${Object.keys(value)
+            .sort()
+            .map(
+                key =>
+                    `${JSON.stringify(key)}:${stableJson((value as Record<string, unknown>)[key])}`
+            )
+            .join(',')}}`
+    }
+    return JSON.stringify(value) ?? 'undefined'
+}
+
+export interface RecoveryComparisonInput {
+    readonly editor: PublicationEditorState
+    readonly localSource: Source
+    readonly localTarget: Record<string, unknown> | null
+    readonly localSchedule: string
+    readonly savedSchedule: string
+}
+
+/** What a local copy changes compared to the saved version, ignoring key order. */
+export function recoveryComparisonChanges({
+    editor,
+    localSource,
+    localTarget,
+    localSchedule,
+    savedSchedule,
+}: RecoveryComparisonInput) {
+    return {
+        source: stableJson(localSource) !== stableJson(editor.post.sourceContent),
+        target: stableJson(localTarget) !== stableJson(editor.draft.content),
+        schedule: localSchedule !== savedSchedule,
+    }
+}
+
+/**
+ * Saved version and local copy side by side. `parts` limits the comparison to the post text
+ * (`source`) or to one channel's version and schedule (`channel`), so a post with several
+ * channels shows its text once.
+ */
 export function PublicationRecoveryComparison({
     editor,
     localSource,
@@ -16,19 +58,23 @@ export function PublicationRecoveryComparison({
     savedSchedule,
     projectId,
     media,
-}: {
-    readonly editor: PublicationEditorState
-    readonly localSource: Source
-    readonly localTarget: Record<string, unknown> | null
-    readonly localSchedule: string
-    readonly savedSchedule: string
+    parts = 'all',
+}: RecoveryComparisonInput & {
     readonly projectId: string
     readonly media: readonly MediaReference[]
+    readonly parts?: 'all' | 'source' | 'channel'
 }) {
     const { locale } = useLanguage()
-    const sourceChanged = JSON.stringify(localSource) !== JSON.stringify(editor.post.sourceContent)
-    const targetChanged = JSON.stringify(localTarget) !== JSON.stringify(editor.draft.content)
-    const scheduleChanged = localSchedule !== savedSchedule
+    const changes = recoveryComparisonChanges({
+        editor,
+        localSource,
+        localTarget,
+        localSchedule,
+        savedSchedule,
+    })
+    const sourceChanged = parts !== 'channel' && changes.source
+    const targetChanged = parts !== 'source' && changes.target
+    const scheduleChanged = parts !== 'source' && changes.schedule
     if (!sourceChanged && !targetChanged && !scheduleChanged) return null
     return (
         <div className="grid min-w-0 gap-4 sm:grid-cols-2" data-recovery-comparison>

@@ -28,7 +28,10 @@ import {
     PublicationEditorSaveIndicator,
     PublicationEditorStatus,
 } from '@/components/publication-editor-status'
-import { PublicationRecoveryComparison } from '@/components/publication-recovery-comparison'
+import {
+    PublicationRecoveryComparison,
+    recoveryComparisonChanges,
+} from '@/components/publication-recovery-comparison'
 import { PublicationTargetEditor } from '@/components/publication-target-editor'
 import { useProjectLifecycle } from '@/components/resource-lifecycle-section'
 import { ApiError } from '@/lib/api'
@@ -45,7 +48,7 @@ import type { PublicationCalendarView } from '@/lib/publication-calendar-events'
 import { shortExcerpt } from '@/lib/publication-identity'
 import { getTargetPreviewBody } from '@/lib/publication-preview'
 import { getTargetEditorFields } from '@/lib/target-editor'
-import type { MediaSelection } from '@/lib/target-media'
+import { getTargetMediaSelections, type MediaSelection } from '@/lib/target-media'
 import * as m from '@/paraglide/messages.js'
 
 import { ExistingPostChannels } from './existing-post-channels'
@@ -59,6 +62,7 @@ import { PostChannelPreview } from './post-channel-preview'
 import { PostComposer } from './post-composer'
 import { recoveryMatchesProfiles } from './post-composition-recovery'
 import { useExistingPostComposition, type ExistingPostData } from './use-existing-post-composition'
+import { useMediaReferences } from './use-media-references'
 import { usePostEditorAccess } from './use-post-editor-access'
 
 const PostChannelPanel = lazy(() =>
@@ -179,6 +183,49 @@ function ExistingPostEditor({
         channels,
         data.post.sourceRevision
     )
+    const recoveryChoice = session.recoveryChoice
+    const recoveryInputs = recoveryChoice
+        ? data.editors
+              .filter(
+                  editor =>
+                      !session.recoveryCandidate?.publicationId ||
+                      editor.publication.id === session.recoveryCandidate.publicationId
+              )
+              .map(editor => ({
+                  editor,
+                  localSource: compositionSource(recoveryChoice, data.post.sourceContent),
+                  localTarget: compositionChannelContent(recoveryChoice, editor),
+                  localSchedule:
+                      recoveryChoice.publicationTargets.find(
+                          target => target.id === editor.publication.id
+                      )?.scheduledAt ?? '',
+                  savedSchedule: toDateTimeLocal(editor.publication.scheduledAt, project.timeZone),
+              }))
+        : []
+    const comparing = recoveryChoice !== null || session.saveState === 'conflict'
+    // The comparisons show media items by id; load the ones the saved and local versions use.
+    const comparisonMedia = useMediaReferences(
+        project.id,
+        comparing
+            ? [
+                  ...data.post.sourceContent.media,
+                  ...data.editors.flatMap(editor => [
+                      ...editor.draft.baseSourceContent.media,
+                      ...getTargetMediaSelections(editor.profile.profile, editor.draft.content),
+                  ]),
+                  ...recoveryInputs.flatMap(input => [
+                      ...input.localSource.media,
+                      ...(input.localTarget
+                          ? getTargetMediaSelections(
+                                input.editor.profile.profile,
+                                input.localTarget
+                            )
+                          : []),
+                  ]),
+              ].map(item => item.assetId)
+            : [],
+        comparing
+    )
 
     useEffect(() => {
         const keydown = (event: KeyboardEvent) => {
@@ -247,39 +294,35 @@ function ExistingPostEditor({
                         !recoveryMatchesProfiles(session.recoveryCandidate, data.editors) ? (
                             <p role="alert">{m.profile_adoption_recovery_mismatch()}</p>
                         ) : null}
-                        {data.editors
-                            .filter(
-                                editor =>
-                                    !session.recoveryCandidate?.publicationId ||
-                                    editor.publication.id ===
-                                        session.recoveryCandidate.publicationId
-                            )
-                            .map(editor => (
-                                <div key={editor.publication.id}>
+                        {recoveryInputs[0] &&
+                        recoveryComparisonChanges(recoveryInputs[0]).source ? (
+                            <div>
+                                <h2 className="mt-4 text-sm font-medium">
+                                    {m.publication_new_common_tab()}
+                                </h2>
+                                <PublicationRecoveryComparison
+                                    {...recoveryInputs[0]}
+                                    parts="source"
+                                    projectId={project.id}
+                                    media={comparisonMedia}
+                                />
+                            </div>
+                        ) : null}
+                        {recoveryInputs
+                            .filter(input => {
+                                const changes = recoveryComparisonChanges(input)
+                                return changes.target || changes.schedule
+                            })
+                            .map(input => (
+                                <div key={input.editor.publication.id}>
                                     <h2 className="mt-4 text-sm font-medium">
-                                        {editor.channel.name}
+                                        {input.editor.channel.name}
                                     </h2>
                                     <PublicationRecoveryComparison
-                                        editor={editor}
-                                        localSource={compositionSource(
-                                            session.recoveryChoice!,
-                                            data.post.sourceContent
-                                        )}
-                                        localTarget={compositionChannelContent(
-                                            session.recoveryChoice!,
-                                            editor
-                                        )}
-                                        localSchedule={
-                                            session.recoveryChoice!.publicationTargets.find(
-                                                target => target.id === editor.publication.id
-                                            )?.scheduledAt ?? ''
-                                        }
-                                        savedSchedule={toDateTimeLocal(
-                                            editor.publication.scheduledAt,
-                                            project.timeZone
-                                        )}
+                                        {...input}
+                                        parts="channel"
                                         projectId={project.id}
-                                        media={[]}
+                                        media={comparisonMedia}
                                     />
                                 </div>
                             ))}
@@ -386,7 +429,7 @@ function ExistingPostEditor({
                     <PublicationEditorSidebar
                         editor={(activeEditor ?? data.editors[0])!}
                         projectId={project.id}
-                        media={[]}
+                        media={comparisonMedia}
                         sourceConflict={session.sourceConflict}
                         saveState={session.saveState}
                         isRebasing={session.saving}
