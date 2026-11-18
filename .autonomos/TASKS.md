@@ -9,6 +9,16 @@
 
 - [/] **[PUB-627]** Complete GitHub profile, application releases and clean-install acceptance `Priority: 🟠` `Complexity: L`
 
+- [/] **[DEPS-686]** Upgrade development dependencies flagged by Dependabot `Priority: 🔵` `Complexity: S` [ISSUE-209](ISSUES.md)
+
+- [/] **[CI-687]** Run browser shards against the production build and balance them `Priority: 🟠` `Complexity: M` [ISSUE-206](ISSUES.md)
+
+- [/] **[UX-688]** Copy the title, text and media of a manual publication `Priority: 🟠` `Complexity: M` [ISSUE-208](ISSUES.md)
+
+- [ ] **[UX-689]** Reschedule publications by dragging them in the calendar `Priority: 🔵` `Complexity: M`
+
+- [ ] **[UX-690]** Rebuild the image editor on the zriz engine with our own interface `Priority: 🔵` `Complexity: L` [ISSUE-207](ISSUES.md)
+
 ## Current direction
 
 Shared-channel implementation follows [ADR-095](decisions/ADR-095-workspace-channels-and-project-attachments.md)

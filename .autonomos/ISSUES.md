@@ -184,42 +184,42 @@
 ## [ISSUE-206] A CI round takes about 20 minutes, set by the slowest browser shard
 
 - Type: proposal
-- Status: open
+- Status: accepted
 - Evidence: PR #40 needed eight CI rounds. In each, static checks took 4-5 min, PostgreSQL unit tests 8 min, image restore 1 min, and the four browser shards 12-20 min; Verify waits for the slowest, so a round is about 21 min. The browser shards run against the Vite development server (`playwright test --shard=n/4`, no `POSTDOT_E2E_PRODUCTION_WEB`), which compiles modules on demand and is slower and less like what ships than the production build used locally (266 tests in about 22 min on one local worker). Several failures in that PR appeared only in development mode (timing), while the production-only regressions (anonymous entry budget) were caught locally.
 - Impact: Slow feedback; fixes pushed one at a time each cost a full round; the suite tests a mode nobody runs in production.
 - Desired outcome, to measure before deciding: (1) run the browser shards against the production build (`vite preview`), keeping the few development-only specs (editor lab) in a small separate job or local only; (2) balance shards by recorded duration, or use more shards, so the slowest is near the mean; (3) on pull requests, consider running the specs touched by the change first and the full suite on main. Record before/after round times.
 - Source: owner feedback on PR #40, 2026-11-18.
-- Tasks: none
+- Tasks: CI-687
 
 ## [ISSUE-207] The image editor works but looks and feels basic
 
 - Type: proposal
-- Status: open
+- Status: accepted
 - Evidence: `apps/web/src/components/media-image-editor-dialog.tsx` wraps `react-easy-crop` 6.2.3 with crop, zoom, 90-degree rotation and four aspect presets (source, square, portrait, landscape). The owner finds the interface plain next to a library seen elsewhere and wants a nicer crop experience. An earlier evaluation (archived intake on Uppy, see `archive/closed/ISSUES.md`) kept the Postdot-owned editor and left "evaluate Uppy Image Editor as an isolated dialog adapter" as a follow-up.
 - Impact: Cropping is the one image operation most posts need (each network favours its own ratio); a clumsy editor costs every post with media.
 - Desired outcome: A crop editor that matches the Studio design system, works with touch and keyboard, stays light in the bundle, and keeps the current contract (saving creates a new media item). Candidate libraries and features are compared before choosing; free-angle straighten, flip and per-channel ratio presets are in scope, a full photo editor is not.
 - Owner direction (2026-11-18): the reference is zriz (https://zriz.dev, https://github.com/pqoqubbw/zriz). Weigh adopting, vendoring the parts we need, or reworking our own editor; do not add a dependency by default, and never one that brings `sharp` or a heavier server image. Checked: `@zriz/core` and `@zriz/react` have no runtime dependencies (React peer only), MIT, export runs in the browser (canvas in a worker); `toSharp` only builds an optional recipe and imports nothing. Postdot uses no `sharp` today.
 - Source: owner request, 2026-11-18. Library survey: [image editor survey](reviews/2026-11-18-image-editor-survey.md); best fits are `@zriz/react` (headless, Base UI blocks, straighten dial, very new), `@zag-js/image-cropper` (headless, maintained by the Zag and Ark UI team, preview status) or an improved `react-easy-crop` wrapper.
-- Tasks: none
+- Tasks: UX-690
 
 ## [ISSUE-208] A manual publication cannot be copied out of Postdot quickly
 
 - Type: problem
-- Status: open
+- Status: accepted
 - Evidence: For a manual channel the person recreates the post by hand in the platform's own editor. The publication view offers "copy link" (`dashboard-publication-parts.tsx`) and "mark as published", but no way to copy the title or the text, nor to copy or download the images and videos. Today the person must select text by hand and fetch each file from the media library.
 - Impact: Manual channels are the fallback for every network without an API; each manual post costs several extra steps and invites mistakes (wrong channel variant, missing image, lost line breaks).
 - Desired outcome: From the publication view of a due manual post, the person copies the channel's title and text in one action each, and copies or downloads each media item (or all of them at once) in the variant prepared for that channel, then marks it published.
 - Source: owner feedback, 2026-11-18.
-- Tasks: none
+- Tasks: UX-688
 
 ## [ISSUE-209] Open Dependabot alerts on development dependencies
 
 - Type: problem
-- Status: open
+- Status: accepted
 - Evidence: On 2026-11-18 GitHub reported 27 open alerts on `main` (5 high, 19 moderate, 3 low). All are in development scope: vite (18, fixed in 8.3.3), lodash, form-data, minimatch, qs, stream-json and uuid. None is in the shipped container runtime according to the alert scope.
 - Impact: The Vite alerts concern the development server, which developers and the CI browser shards run; the rest are build and test tooling. Unattended alerts also hide a future runtime alert in the noise.
 - Desired outcome: Development dependencies upgraded to the patched versions with checks green, alerts closed, and a routine so the list stays near zero.
-- Tasks: none
+- Tasks: DEPS-686
 
 ## [ISSUE-210] External tools cannot react to what happens in Postdot
 
@@ -239,6 +239,7 @@
 - Impact: Makes Postdot usable by conversation, and turns events into automations without external tooling.
 - Desired outcome: A decision on framework, provider layer (OpenAI-compatible, Anthropic, local models), reuse of the MCP tool catalog and API key scopes for permissions, key storage and cost limits, and event triggers with human approval for risky actions. Also assess the owner's idea of driving subscription CLIs (Claude Code, Codex, Gemini CLI) from the server, which is cheaper for users but fragile to install, update and authenticate, and must respect each provider's terms.
 - Research (2026-11-18, [AI agent survey](reviews/2026-11-18-ai-agent-survey.md)): Twenty uses the Vercel AI SDK with lazily discovered tools, chat runs under the user's own role, and event triggers skip agent-caused events and run under a dedicated role. Suggested fit: Vercel AI SDK (Apache-2.0), provider registry for OpenAI-compatible, OpenAI Responses and Anthropic, keys encrypted with the existing secret cipher, an in-process executor shared with the MCP catalog, `confirm` rules mapped to tool approval, triggers on the existing scheduler with no new broker. Subscription CLIs on the server conflict with the consumer terms of Anthropic, OpenAI and Google as reported (to confirm before any decision) and would run a shell next to the instance secrets; the supported path for subscription users is their local CLI connected to Postdot's MCP endpoint.
+- Owner position (2026-11-18): Postdot targets one person running their own instance with their own subscription, not a hosted service; most of that audience pays for AI subscriptions and few use metered APIs, which cost far more for the same volume. Subscription CLIs remain desirable; the obstacles are technical (installing, updating and authenticating CLIs on a server) and the providers' terms, not multi-user abuse. Priority: last, after the smaller items.
 - Source: owner request, 2026-11-18.
 - Tasks: none
 
