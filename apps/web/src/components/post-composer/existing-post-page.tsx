@@ -708,7 +708,7 @@ function ExistingPostEditor({
                                 <Link
                                     className={buttonVariants({
                                         variant: 'ghost',
-                                        className: 'min-w-0',
+                                        className: 'min-w-0 max-w-full shrink',
                                     })}
                                     data-publication-edit-link="true"
                                     to="/dashboard/projects/$projectId/publications/$publicationId"

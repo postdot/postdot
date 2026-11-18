@@ -79,10 +79,10 @@ export function ExistingPostChannels({
                             key={target.id}
                             data-channel-selected
                             data-publication-id={target.id}
-                            className={`flex min-w-0 max-w-full flex-wrap items-center gap-1 rounded-full px-1 ${composition.activeContentScopeId === target.id ? 'bg-surface-raised ring-2 ring-primary/70' : 'bg-surface-control shadow-control'}`}>
+                            className={`flex min-w-0 max-w-full items-center gap-1 rounded-full px-1 ${composition.activeContentScopeId === target.id ? 'bg-surface-raised ring-2 ring-primary/70' : 'bg-surface-control shadow-control'}`}>
                             <Button
                                 variant="ghost"
-                                className="min-w-0 max-w-56 gap-2 rounded-full ps-1"
+                                className="min-w-0 max-w-56 shrink gap-2 rounded-full ps-1"
                                 data-channel-selected-button
                                 data-channel-id={target.channelId}
                                 aria-label={editor.channel.name}
@@ -103,7 +103,7 @@ export function ExistingPostChannels({
                             )}
                             {target.customized && !target.locked ? (
                                 <span
-                                    className="px-1 text-xs text-muted-foreground"
+                                    className="hidden shrink-0 px-1 text-xs text-muted-foreground sm:inline"
                                     data-channel-own-text>
                                     {m.editor_channel_customized()}
                                 </span>

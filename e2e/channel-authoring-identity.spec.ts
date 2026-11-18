@@ -6,6 +6,7 @@ import { expect, test, type Page } from '@playwright/test'
 import en from '../apps/web/messages/en.json' with { type: 'json' }
 import fr from '../apps/web/messages/fr.json' with { type: 'json' }
 import { switchTheme } from './locale'
+import { composerText } from './support/post-editor'
 
 const fill = (template: string, values: Record<string, string>) =>
     template.replace(/\{(\w+)\}/g, (_, key: string) => values[key] ?? '')
@@ -577,7 +578,8 @@ test('creates the first destination while preserving the first publication', asy
     await page.goto(`/dashboard/projects/${projectId}/queue`)
     await expect(page.locator('a[data-publication-edit-link]').first()).toBeVisible()
     await page.locator('a[data-publication-edit-link]').first().click()
-    await expect(page.locator('#source-body')).toHaveText(body)
+    // The channel's tab shows the post text it follows.
+    await expect(composerText(page)).toHaveText(body)
 })
 
 test('resumes composition from channel setup and after an OAuth callback reload', async ({

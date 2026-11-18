@@ -5,6 +5,7 @@ import xIcon from '@iconify-icons/logos/x'
 import { Icon } from '@iconify/react'
 import { useEffect, useRef } from 'react'
 
+import { useLanguage } from '@/lib/i18n'
 import * as m from '@/paraglide/messages.js'
 
 const destinations = [
@@ -50,6 +51,8 @@ const grainImage = `url("data:image/svg+xml,${encodeURIComponent(
  * assistive technology; the form is the page.
  */
 export function AuthDispatchStage() {
+    // Re-render when a lazily loaded locale catalog arrives.
+    useLanguage()
     const stageRef = useRef<HTMLDivElement>(null)
     const canvasRef = useRef<HTMLCanvasElement>(null)
     const sourceRef = useRef<HTMLDivElement>(null)

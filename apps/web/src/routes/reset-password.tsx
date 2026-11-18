@@ -6,6 +6,7 @@ import { useId, useState, type FormEvent } from 'react'
 
 import { AuthShell } from '@/components/auth-shell'
 import { ApiError, api, formatApiError } from '@/lib/api'
+import { useLanguage } from '@/lib/i18n'
 import * as m from '@/paraglide/messages.js'
 
 export const Route = createFileRoute('/reset-password')({
@@ -17,6 +18,8 @@ export const Route = createFileRoute('/reset-password')({
 })
 
 function ResetPasswordPage() {
+    // Re-render when a lazily loaded locale catalog arrives.
+    useLanguage()
     const navigate = useNavigate()
     const search = Route.useSearch()
     const passwordId = useId()
