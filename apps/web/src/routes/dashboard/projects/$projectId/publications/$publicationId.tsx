@@ -11,7 +11,7 @@ import {
 import { useId } from 'react'
 
 import { ExistingPostPage } from '@/components/post-composer/existing-post-page'
-import { loadExistingPost } from '@/components/post-composer/use-existing-post-composition'
+import { loadExistingPost } from '@/components/post-composer/load-existing-post'
 import { api, ApiError } from '@/lib/api'
 import { useLanguage } from '@/lib/i18n'
 import { projectQueryKeys } from '@/lib/project-realtime'

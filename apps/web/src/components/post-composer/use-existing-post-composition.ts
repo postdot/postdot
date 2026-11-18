@@ -2,16 +2,8 @@ import { toast } from '@postdot/ui/components/toast'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import type { PublicationEditorSaveState } from '@/components/publication-editor-sidebar'
-import {
-    api,
-    ApiError,
-    formatApiError,
-    type Post,
-    type PublicationEditorState,
-    type PublicationSummary,
-} from '@/lib/api'
+import { api, ApiError, formatApiError, type PublicationEditorState } from '@/lib/api'
 import { parseDateTimeLocal, toDateTimeLocal, dateTimeLocalErrorMessage } from '@/lib/date-time'
-import { loadPostPublications } from '@/lib/post-publications'
 import type { ProjectAccessStatus } from '@/lib/project-access-verification'
 import { isActiveChannelProfilePromotionError } from '@/lib/publication-promotion'
 import * as m from '@/paraglide/messages.js'
@@ -27,6 +19,7 @@ import {
     compositionSource,
     isCompositionChannelLocked,
 } from './existing-post-composition'
+import { loadExistingPost, type ExistingPostData } from './load-existing-post'
 import {
     postCompositionRecoveryKey,
     readPostRecoveries,
@@ -36,30 +29,7 @@ import {
 } from './post-composition-recovery'
 import { usePostComposition, type PostCompositionState } from './use-post-composition'
 
-export interface ExistingPostData {
-    readonly post: Post
-    readonly editors: readonly PublicationEditorState[]
-    readonly publications: readonly PublicationSummary[]
-}
-
-export async function loadExistingPost(
-    projectId: string,
-    postId: string,
-    initialEditor?: PublicationEditorState
-): Promise<ExistingPostData> {
-    const [{ post }, publications] = await Promise.all([
-        api.getPost(projectId, postId),
-        loadPostPublications(projectId, postId),
-    ])
-    const editors = await Promise.all(
-        publications.map(async publication =>
-            publication.id === initialEditor?.publication.id
-                ? initialEditor
-                : (await api.getPublicationEditor(projectId, publication.id)).editor
-        )
-    )
-    return { post, publications, editors }
-}
+export { loadExistingPost, type ExistingPostData }
 
 /** JSON with sorted keys: the server stores channel content canonically, so key order differs. */
 function stableJson(value: unknown): string {

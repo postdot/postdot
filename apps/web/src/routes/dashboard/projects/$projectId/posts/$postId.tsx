@@ -4,7 +4,7 @@ import { createFileRoute, Link } from '@tanstack/react-router'
 
 import { EmptyState } from '@/components/empty-state'
 import { ExistingPostPage } from '@/components/post-composer/existing-post-page'
-import { loadExistingPost } from '@/components/post-composer/use-existing-post-composition'
+import { loadExistingPost } from '@/components/post-composer/load-existing-post'
 import { QueryErrorState } from '@/components/query-error-state'
 import { ApiError } from '@/lib/api'
 import { useLanguage } from '@/lib/i18n'
