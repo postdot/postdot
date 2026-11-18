@@ -8,6 +8,28 @@ import {
     emailSettingsSchema,
     type EmailSettingsService,
 } from './settings'
+import { describeSmtpFailure } from './smtp-failure'
+
+// The test names the step that failed and repeats the server's reply, so a person can tell a
+// blocked port from a rejected login without reading server logs.
+const emailTestFailure = Type.Object({
+    error: Type.Object({
+        code: Type.Literal('email_test_failed'),
+        message: Type.String(),
+        reason: Type.Union([
+            Type.Literal('no_recipient'),
+            Type.Literal('dns'),
+            Type.Literal('refused'),
+            Type.Literal('timeout'),
+            Type.Literal('tls'),
+            Type.Literal('authentication'),
+            Type.Literal('sender_rejected'),
+            Type.Literal('recipient_rejected'),
+            Type.Literal('unknown'),
+        ]),
+        serverReply: Type.Optional(Type.String()),
+    }),
+})
 
 const denied = {
     error: { code: 'forbidden', message: 'An instance administrator role is required' },
@@ -84,7 +106,7 @@ export function registerEmailSettingsRoutes<const Routes extends Record<string, 
                 auth: true,
                 response: {
                     200: Type.Object({ accepted: Type.Literal(true) }),
-                    400: errorResponse,
+                    400: emailTestFailure,
                     401: errorResponse,
                     403: errorResponse,
                     503: errorResponse,
@@ -103,19 +125,31 @@ export function registerEmailSettingsRoutes<const Routes extends Record<string, 
                 if (recipientEmail === null) {
                     return status(400, {
                         error: {
-                            code: 'email_test_failed',
+                            code: 'email_test_failed' as const,
                             message: 'No email address is configured for the acting administrator',
+                            reason: 'no_recipient' as const,
                         },
                     })
                 }
                 try {
                     return await service.test(recipientEmail)
-                } catch {
+                } catch (error) {
+                    const failure = describeSmtpFailure(error)
+                    console.warn('[postdot-email] SMTP test failed', {
+                        reason: failure.reason,
+                        code: failure.code,
+                        command: failure.command,
+                        responseCode: failure.responseCode,
+                        serverReply: failure.serverReply,
+                    })
                     return status(400, {
                         error: {
-                            code: 'email_test_failed',
-                            message:
-                                'SMTP did not confirm acceptance; check the configuration before trying again',
+                            code: 'email_test_failed' as const,
+                            message: `SMTP test failed at step: ${failure.reason}`,
+                            reason: failure.reason,
+                            ...(failure.serverReply === undefined
+                                ? {}
+                                : { serverReply: failure.serverReply }),
                         },
                     })
                 }

@@ -45,6 +45,15 @@ copyable one-use links. Enable
 mail transport. SMTP submission is asynchronous and best-effort; delivery
 guarantees, retries, bounces, and provider webhooks are outside this boundary.
 
+Administrators can also set SMTP in Studio (Settings, System) and send themselves a
+test email. When the test fails, Studio names the step: server name not found,
+connection refused, no answer, secure connection, login refused, or sender or
+recipient refused, with the server's reply when it sent one. "No answer" usually
+means the port is blocked between the container and the mail server: check egress
+firewall rules or, on Kubernetes, the namespace's network policies for ports 465
+and 587. The API log records the same step as `[postdot-email] SMTP test failed`,
+without the password.
+
 For local development, `docker-compose.dev.yml` starts a Mailpit relay on
 `127.0.0.1:1025` and its inspection UI on `127.0.0.1:8025`. The React Email
 templates are owned by the `@postdot/email` workspace package; the API owns only
