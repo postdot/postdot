@@ -1,4 +1,4 @@
-# Install Postdot 0.1.0-alpha.7
+# Install Postdot 0.1.0-alpha.8
 
 Requires Docker Engine/Compose v2.20+, Python 3 for the optional preparer, and an
 operator-controlled host. Supported image platforms: Linux AMD64 and ARM64.
@@ -6,10 +6,10 @@ The matching application source is commit
 `8de7fb5762324657aa4c74cfcdfdee8e73b9debf` in `postdot/postdot`.
 
 Image:
-`ghcr.io/postdot/postdot:0.1.0-alpha.7`
+`ghcr.io/postdot/postdot:0.1.0-alpha.8`
 
 Pinned manifest:
-`ghcr.io/postdot/postdot@sha256:83d27b3d17fcdde437b9821441c2277dd16b55cba316f0e1399f7e11acf3474f`
+`ghcr.io/postdot/postdot@sha256:fd22a9929a0417ea9c31441b47b697cb71aaa265df95c70b705ecd2b3ac07626`
 
 ## Prepare private configuration
 

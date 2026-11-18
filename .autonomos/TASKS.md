@@ -8,7 +8,6 @@
 - [/] **[SITE-626]** Publish and verify public documentation updates `Priority: 🟠` `Complexity: S`
 
 - [/] **[PUB-627]** Complete GitHub profile, application releases and clean-install acceptance `Priority: 🟠` `Complexity: L`
-- [/] **[RELEASE-685]** Publish 0.1.0-alpha.8 with the Studio experience milestone (PR #40) `Priority: 🟠` `Complexity: L`
 
 ## Current direction
 
@@ -40,8 +39,8 @@ the durable server journal; see [ADR-047](decisions/ADR-047-evaluate-reactive-cl
 and [ADR-050](decisions/ADR-050-post-commit-project-realtime-signal.md).
 The comparison experiment is retired; future DB adoption requires a concrete need.
 Foundation maintenance follows [ADR-092](decisions/ADR-092-propose-foundation-release-baseline.md).
-The current published image is `0.1.0-alpha.7`, with native AMD64/ARM64 upgrade
-and restoration acceptance from `0.1.0-alpha.6` under RELEASE-621. Distribution
+The current published image is `0.1.0-alpha.8`, with native AMD64/ARM64 upgrade
+and restoration acceptance from `0.1.0-alpha.7` under RELEASE-685. Distribution
 notices remain packaged; release policy follows ADR-093.
 The anonymous login entry meets the 180 KiB JavaScript target under WEB-587; build CI guards it.
 

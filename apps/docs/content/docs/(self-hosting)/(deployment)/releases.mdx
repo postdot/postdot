@@ -9,8 +9,52 @@ The updated manual publication workflow attaches a versioned Studio archive to
 new releases, alongside the installation files and `SHA256SUMS`. It extracts the
 static files from the immutable image and records their version/source identity.
 See [separate Studio hosting](/docs/studio-hosting/#use-a-release-archive) for
-verification and deployment. Releases through `0.1.0-alpha.7` were published before
-that addition and do not include Studio archives.
+verification and deployment. `0.1.0-alpha.8` is the first release with one; releases
+through `0.1.0-alpha.7` were published before that addition and do not include it.
+
+## 0.1.0-alpha.8
+
+[GitHub Release and installation files](https://github.com/postdot/postdot/releases/tag/v0.1.0-alpha.8)
+
+- Image: `ghcr.io/postdot/postdot:0.1.0-alpha.8`
+- Manifest digest: `sha256:fd22a9929a0417ea9c31441b47b697cb71aaa265df95c70b705ecd2b3ac07626`
+- Platforms: Linux AMD64 and ARM64; anonymous registry access verified.
+- Studio archive: `postdot-studio-0.1.0-alpha.8.tar.gz`, listed in `SHA256SUMS`.
+- [Matching source](https://github.com/postdot/postdot/tree/484c79041b632a515fed7f1ff99204cb237f49ed).
+- [Publication and native acceptance](https://github.com/postdot/postdot/actions/runs/44356860030).
+- [Source integration CI](https://github.com/postdot/postdot/actions/runs/44353356229).
+
+### Changes
+
+- One composer creates and edits a post: "All channels" holds the post text and each
+  channel has its own tab. A channel that follows the post changes with it; one with its
+  own text says so and can take the post text again. One Save applies the changes,
+  Discard comes with an undo, and a change made elsewhere is shown once with your local
+  copy kept. Opening a publication from the queue, calendar or a notification lands on
+  its channel's tab.
+- Save a post's text and several channel versions in one request
+  (`PUT /api/projects/{projectId}/posts/{postId}/composition`), from the API, CLI and MCP.
+- The calendar shows one entry per post, with a preview on hover and its actions;
+  notifications are grouped by post.
+- Queue, Media and Performance share one Filter and Sort menu; settings pages share one
+  layout; empty pages explain what to do next.
+- Projects, workspaces and channels can have an image and a website, with icon lookup.
+- Media descriptions (alternative text) are optional, behind an "ALT" badge on each
+  thumbnail.
+- Plain wording across Studio, and sign-in and setup pages fully translated.
+- Fixes: claiming a new PostgreSQL instance with an initial API key no longer fails
+  intermittently; a plain N typed while the editor freezes no longer opens a new post.
+
+### Upgrade from 0.1.0-alpha.7
+
+Back up the database and media and preserve deployment secrets before updating.
+Native checks on Linux AMD64 and ARM64 upgraded an alpha.7 data set and restored its
+pre-update backup with the alpha.7 executable. Login, projects, channels, drafts,
+media, recorded connections and queued work were preserved. No provider request was
+dispatched by these acceptance fixtures.
+
+The public CLI is released separately: `@postdot/cli` `0.1.0-alpha.5` adds the
+identity image, website, composition and manual-record undo commands.
 
 ## 0.1.0-alpha.7
 
