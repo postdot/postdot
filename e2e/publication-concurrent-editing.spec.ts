@@ -1226,10 +1226,14 @@ test('shows review skeletons and retries a failed comparison read', async ({ pag
             })
         ).ok()
     ).toBe(true)
+    const reads = observeProjectReads(page, `/publications/${pair.first}/editor`)
     await page.goto(pair.pageUrl(pair.first))
-    // The post editor reads every channel when it opens; fail only the review's own read.
+    // The post editor reads every channel when it opens, and the project stream replays
+    // events on connect; let those reads settle so the failure hits the review's own read.
     const review = page.getByRole('button', { name: 'Review and update', exact: true })
     await expect(review).toBeEnabled()
+    await reads.waitForQuiescence()
+    reads.dispose()
     await page.route(
         `**/publications/${pair.second}/editor`,
         route =>
