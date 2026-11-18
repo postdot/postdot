@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto'
 import { expect, test } from '@playwright/test'
 
 import { frenchTranslation, openLanguageMenu } from './locale'
+import { openContentOptions } from './support/post-editor'
 
 test('authors a Telegram poll, retains it through reload and selects an immutable target without publishing', async ({
     page,
@@ -38,8 +39,7 @@ test('authors a Telegram poll, retains it through reload and selects an immutabl
     const id = (await made.json()).publications[0].id
     const path = `/api/projects/${project.id}/publications/${id}`
     await page.goto(`/dashboard/projects/${project.id}/publications/${id}`)
-    const details = page.locator('[data-publication-customization]')
-    await details.locator(':scope > summary').click()
+    const details = await openContentOptions(page)
     await details.getByRole('checkbox', { name: 'Add a poll', exact: true }).check()
     await details.getByRole('textbox', { name: 'Option 1', exact: true }).fill('Product updates')
     await details.getByRole('textbox', { name: 'Option 2', exact: true }).fill('Tutorials')
@@ -68,7 +68,7 @@ test('authors a Telegram poll, retains it through reload and selects an immutabl
             multiple: true,
         })
     await page.reload()
-    await details.locator(':scope > summary').click()
+    await openContentOptions(page)
     await expect(details.getByRole('textbox', { name: 'Option 3', exact: true })).toHaveValue(
         'Community stories'
     )
