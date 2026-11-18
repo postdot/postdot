@@ -2782,5 +2782,6 @@
     "manual_kit_download_media": "{name} herunterladen",
     "manual_kit_copy_description": "Beschreibung von {name} kopieren",
     "manual_kit_copied": "Kopiert",
-    "manual_kit_failed": "Kopieren ist nicht verfügbar. Laden Sie die Datei herunter oder markieren Sie den Text."
+    "manual_kit_failed": "Kopieren ist nicht verfügbar. Laden Sie die Datei herunter oder markieren Sie den Text.",
+    "calendar_moved": "Verschoben auf {time}"
 }

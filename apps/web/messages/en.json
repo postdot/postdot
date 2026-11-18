@@ -2782,5 +2782,6 @@
     "manual_kit_download_media": "Download {name}",
     "manual_kit_copy_description": "Copy the description of {name}",
     "manual_kit_copied": "Copied",
-    "manual_kit_failed": "Copying was unavailable. Download the file or select the text instead."
+    "manual_kit_failed": "Copying was unavailable. Download the file or select the text instead.",
+    "calendar_moved": "Moved to {time}"
 }
