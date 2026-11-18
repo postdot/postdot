@@ -158,3 +158,13 @@
 - Desired outcome: Owner decision; if it stays, name the channels Save will apply (for example in its tooltip or a count).
 - Source: UX-683, 2026-11-18.
 - Tasks: none
+
+## [ISSUE-204] Instance bootstrap with an API key can fail on PostgreSQL
+
+- Type: problem
+- Status: open
+- Evidence: CI run 44318221807 (PR #40), "Unit tests on PostgreSQL": `access HTTP routes > closes public sign-up in token_required mode and bootstraps admin, workspace, session cookie, and API key atomically` returned 500 instead of 201. The log shows `[Better Auth]: Failed to delete expired API keys: PostgresError: cannot run a query after its transaction or savepoint ended`. The same code passed on the previous run; the API key plugin's background expired-key cleanup appears to run on the bootstrap transaction after it ended (ambient transaction from ADR-097 leaking into a fire-and-forget query).
+- Impact: Intermittent 500 on `POST /api/instance/bootstrap` with an initial API key on PostgreSQL instances (AUTH-648); intermittent CI.
+- Desired outcome: Fire-and-forget work started inside a request transaction runs outside it (or the cleanup is disabled during bootstrap); a test that reproduces the race.
+- Source: PR #40 CI, 2026-11-18.
+- Tasks: none
