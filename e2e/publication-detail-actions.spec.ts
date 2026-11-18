@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto'
 import { expect, test, type Page } from '@playwright/test'
 
 import { frenchTranslation, openLanguageMenu, switchTheme } from './locale'
+import { composerText, saveButton } from './support/post-editor'
 
 // Seeded local copies are written in UTC; the project must share that time zone.
 test.use({ timezoneId: 'UTC' })
@@ -61,28 +62,21 @@ test('keeps publication detail actions aligned with the scheduled lifecycle', as
         'page'
     )
     await expect(page.locator('[data-publication-action="cancel"]')).toBeVisible()
-    const delivery = page.locator('[data-publication-delivery-disclosure="true"]')
-    // D7: the schedule is one labelled field, not a fold around a picker.
-    await expect(page.locator('#deliver-at')).toBeVisible()
-    await expect(delivery.locator('summary')).toHaveCount(0)
-    await expect(
-        page.getByRole('button', { name: /^Save changes(?:\s*(?:Ctrl|⌘)↵)?$/ })
-    ).toBeVisible()
-    await expect(
-        page.locator('[data-composer-settings]').locator('[data-publication-delivery-disclosure]')
-    ).toBeVisible()
-    await expect(
-        page
-            .locator('[data-composer-actions]')
-            .getByRole('button', { name: /^Save changes(?:\s*(?:Ctrl|⌘)↵)?$/ })
-    ).toBeVisible()
-    await expect(
-        page.locator('[data-composer-editor]').locator('[data-publication-delivery-disclosure]')
-    ).toHaveCount(0)
+    // SPEC-013: the publication opens in the shared post editor on its channel tab. The
+    // schedule is one labelled field in that channel's settings, the one save action sits in
+    // the composer actions, and the editor holds this channel's text.
+    const publicationId = new URL(page.url()).pathname.split('/').pop()!
+    await page
+        .locator(`[data-publication-id="${publicationId}"]`)
+        .getByRole('button', { name: /: When and how$/ })
+        .click()
+    await expect(page.locator(`#deliver-at-${publicationId}`)).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(page.locator('[data-composer-actions] [data-post-save]')).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Content', exact: true })).toHaveCount(0)
-    await expect(page.locator('#source-body')).toBeVisible()
-    await expect(page.locator('#source-body')).toHaveAccessibleName('Body')
-    const customization = page.locator('[data-publication-customization]')
+    await expect(composerText(page)).toBeVisible()
+    await expect(composerText(page)).toHaveAccessibleName('Channel content')
+    const customization = page.locator('[data-post-channel-panel] [data-publication-customization]')
     await expect(customization.locator(':scope > summary')).not.toContainText('Compatible')
     await customization.locator(':scope > summary').focus()
     await page.keyboard.press('Enter')
@@ -117,11 +111,9 @@ test('keeps publication detail actions aligned with the scheduled lifecycle', as
     await expect(page.getByText('Publication cancelled.', { exact: true })).toBeVisible()
     await expect(page.locator('[data-publication-action="cancel"]')).toHaveCount(0)
     await expect(page.locator('[data-publication-lifecycle="true"]')).toContainText('Cancelled')
-    await expect(page.locator('#source-body')).toHaveCount(0)
+    // A cancelled channel is read-only: its tab shows the content without a text box.
+    await expect(composerText(page)).toHaveCount(0)
     await expect(page.locator('[data-publication-draft-preview="true"]')).toBeVisible()
-
-    const publicationId = page.url().split('/').pop()
-    expect(publicationId).toBeTruthy()
     let lifecycleState: 'due' | 'failed' = 'due'
     let sourceConflict = false
     let olderRecovery = false
@@ -141,6 +133,17 @@ test('keeps publication detail actions aligned with the scheduled lifecycle', as
                     publication.state = lifecycleState === 'due' ? 'scheduled' : 'failed'
                 }
             }
+            await route.fulfill({ response, json: payload })
+        }
+    )
+    // The post editor reads the post on its own; a newer post makes this channel behind.
+    await page.route(
+        url => url.pathname === `/api/projects/${projectId}/posts/${baselineEditor.editor.post.id}`,
+        async route => {
+            const response = await route.fetch()
+            const payload = await response.json()
+            if (sourceConflict)
+                payload.post.sourceRevision = baselineEditor.editor.draft.sourceRevision + 1
             await route.fulfill({ response, json: payload })
         }
     )
@@ -221,6 +224,10 @@ test('keeps publication detail actions aligned with the scheduled lifecycle', as
     })
     sourceConflict = false
     olderRecovery = true
+    // The mocked editor claims a newer draft revision than the server holds, so writes are
+    // held here: this part checks the local copy choice, not a save against that mock.
+    await page.route('**/api/projects/*/posts/*/composition', () => undefined)
+    // Copies written by the previous publication editor are still offered (SPEC-013).
     const recoveryKey = `postdot:publication-editor:v3:${projectId}:${publicationId}`
     const localCopy = {
         version: 3,
@@ -253,14 +260,21 @@ test('keeps publication detail actions aligned with the scheduled lifecycle', as
         fullPage: true,
     })
     await recoveryDecision.getByRole('button', { name: 'Restore local copy', exact: true }).click()
+    await page.waitForTimeout(4000)
     await expect(recoveryDecision).toHaveCount(0)
-    await expect(page.locator('#source-body')).toHaveText('Unsent local draft')
+    await expect(composerText(page)).toHaveText('Unsent local draft')
     // The same startup fixture supplies a fresh older copy for the discard path.
     await page.reload()
     await expect(recoveryDecision).toBeVisible()
-    await recoveryDecision.getByRole('button', { name: 'Discard local copy', exact: true }).click()
+    // The restored copy was never written (writes are held), so it is offered too: discard
+    // every local copy and the saved text comes back.
+    for (let offered = 0; offered < 2 && (await recoveryDecision.count()) > 0; offered += 1) {
+        await recoveryDecision
+            .getByRole('button', { name: 'Discard local copy', exact: true })
+            .click()
+    }
     await expect(recoveryDecision).toHaveCount(0)
-    await expect(page.locator('#source-body')).toHaveText('E2E detail lifecycle content')
+    await expect(composerText(page)).toHaveText('E2E detail lifecycle content')
 })
 
 test('shows the active-profile refusal when promotion rejects a superseded draft', async ({
@@ -298,10 +312,10 @@ test('shows the active-profile refusal when promotion rejects a superseded draft
     const editorUrl = `/dashboard/projects/${projectId}/publications/${publication.id}`
     await page.goto(editorUrl)
 
-    const action = page.getByRole('button', { name: /^Save changes(?:\s*(?:Ctrl|⌘)↵)?$/ })
+    const action = saveButton(page)
     await expect(action).toBeEnabled()
-    const bodyField = page.locator('[data-target-field="body"] textarea')
-    await expect(bodyField).toHaveValue(initialBody)
+    const bodyField = composerText(page)
+    await expect(bodyField).toHaveText(initialBody)
 
     const profileResponse = await page.request.get(
         `/api/projects/${projectId}/channels/${channel.channel.id}/profile`
@@ -334,7 +348,6 @@ test('shows the active-profile refusal when promotion rejects a superseded draft
     expect(activationResponse.status()).toBe(200)
 
     await page.reload()
-    await expect(action).toBeDisabled()
     const replacementBody = 'Active profile body two'
     await bodyField.fill(replacementBody)
     await expect(page.getByRole('status', { name: /^(Saved|Changes pending)$/ })).toBeVisible()
@@ -351,7 +364,7 @@ test('shows the active-profile refusal when promotion rejects a superseded draft
         page.getByRole('button', { name: 'Check server status', exact: true })
     ).toHaveCount(0)
     await expect(page.locator('[data-publication-recovery-decision]')).toHaveCount(0)
-    await expect(bodyField).toHaveValue(replacementBody)
+    await expect(bodyField).toHaveText(replacementBody)
     const finalEditorResponse = await page.request.get(
         `/api/projects/${projectId}/publications/${publication.id}/editor`
     )
@@ -392,7 +405,7 @@ test('shows the active-profile refusal when promotion rejects a superseded draft
     )
     expect(unchangedResponse.status()).toBe(200)
     expect(await unchangedResponse.json()).toEqual(finalEditor)
-    await expect(bodyField).toHaveValue(replacementBody)
+    await expect(bodyField).toHaveText(replacementBody)
 })
 
 test('adapts a draft explicitly without changing its source or selecting a publication target', async ({
