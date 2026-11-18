@@ -286,14 +286,11 @@ test('exposes reconciliation when a server refresh overtakes an in-flight autosa
     try {
         await other.goto(pair.pageUrl(pair.first))
         await openCustomization(other)
-        await other.route(
-            `**/api/projects/${pair.id}/publications/${pair.first}/draft`,
-            async route => {
-                saveStarted?.()
-                await heldSave
-                await route.continue()
-            }
-        )
+        await other.route(`**/api/projects/${pair.id}/posts/*/composition`, async route => {
+            saveStarted?.()
+            await heldSave
+            await route.continue()
+        })
         const local = composerText(other)
         await local.fill('In-flight local destination')
         await startedSave
@@ -335,15 +332,7 @@ test('exposes reconciliation when a server refresh overtakes an in-flight autosa
         expect((await pair.read(page, pair.first)).draft.content.text).toBe(
             'Concurrent saved destination'
         )
-        const key = `postdot:publication-editor:v3:${pair.id}:${pair.first}`
-        await expect
-            .poll(async () =>
-                other.evaluate(
-                    key => JSON.parse(localStorage.getItem(key) ?? 'null')?.targetText,
-                    key
-                )
-            )
-            .toContain('In-flight local destination')
+        await expect.poll(async () => localCopy(other)).toContain('In-flight local destination')
     } finally {
         releaseSave?.()
         await otherContext.close()
@@ -363,7 +352,8 @@ test('catches up missed draft signals on visibility return and SSE reconnect', a
     try {
         await other.goto(pair.pageUrl(pair.first))
         await expect.poll(() => reads.count).toBeGreaterThanOrEqual(1)
-        await expect(other.locator('#source-body')).toHaveText('Initial common source')
+        const text = await postText(other)
+        await expect(text).toHaveText('Initial common source')
         // The project stream replays journal events on connect and every replayed event
         // fans out project reads, so wait for that fan-out to become observably idle
         // before hiding. A fixed sleep no longer covers the replay retries.
@@ -400,7 +390,7 @@ test('catches up missed draft signals on visibility return and SSE reconnect', a
             })
             document.dispatchEvent(new Event('visibilitychange'))
         })
-        await expect(other.locator('#source-body')).toHaveText('Changed while hidden')
+        await expect(text).toHaveText('Changed while hidden')
         await context.setOffline(true)
         await other.waitForTimeout(700)
         const newer = await pair.read(page, pair.first)
@@ -419,7 +409,7 @@ test('catches up missed draft signals on visibility return and SSE reconnect', a
         )
         expect(offlineSave.ok()).toBe(true)
         await context.setOffline(false)
-        await expect(other.locator('#source-body')).toHaveText('Changed while disconnected', {
+        await expect(text).toHaveText('Changed while disconnected', {
             timeout: 15_000,
         })
         await expect(other.locator('[data-publication-conflict="true"]')).toHaveCount(0)
