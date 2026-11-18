@@ -240,3 +240,13 @@
 - Impact: Sharing would add cross-project ownership, permissions, usage protection and deletion rules to media, which today rely on one project owning each asset (usage protection, trash and retention); a mistake there produces orphan files or posts whose media disappear.
 - Desired outcome: Decide from real use. Until a case shows that duplication or channel sharing is not enough, keep media project-scoped. If it comes back, compare "copy to another project" (no shared ownership) before any shared library.
 - Tasks: none
+
+## [ISSUE-216] Diagnosing a problem on a production instance is hard
+
+- Type: proposal
+- Status: open
+- Evidence: The SMTP test (GH #49) returns one generic message for every failure and drops the cause. The API logs with pino (`LOG_LEVEL`) and exposes metrics (`docs/(self-hosting)/(operations)/metrics.mdx`), but Studio offers no way for a person to see why an operation failed, nor to produce a report to share with whoever helps them. Earlier decisions rejected third-party telemetry for a self-hosted product (ADR-042, ADR-051) and set redaction rules for operational logs (ADR-018, ADR-060); OpenTelemetry export was never decided.
+- Impact: The owner, running alpha.8 in production on Kubernetes, could not tell whether the SMTP failure was configuration, TLS or a blocked port. Other users will hit the same wall without anyone to ask.
+- Desired outcome: (1) failures shown in Studio say which step failed with a safe, specific reason; (2) an administrator can download a redacted diagnostic report (version, configuration summary without secrets, recent sanitized errors, connectivity checks such as SMTP and provider reachability) to attach to an issue; (3) an optional, operator-enabled OpenTelemetry export (traces, metrics, logs) for those who run a collector, off by default, never phoning home. Discuss scope with the owner before tasks.
+- Source: owner discussion, 2026-11-19.
+- Tasks: none
