@@ -473,16 +473,24 @@ export function useExistingPostComposition({
             return
         lastIncoming.current = incomingStamp
         if (JSON.stringify(base) === incomingStamp) return
-        // Only a newer server revision conflicts with local work. A refetch of the revisions
-        // already acknowledged (other summary fields, another shape) must not.
+        // Only a newer server state conflicts with local work: a newer revision, or a channel
+        // whose lifecycle moved elsewhere (published, cancelled, rescheduled, applied). A
+        // refetch of what is already acknowledged (other summary fields, another shape) must not.
         const newer =
             initialData.post.sourceRevision > base.post.sourceRevision ||
-            initialData.editors.some(
-                incoming =>
-                    incoming.draft.revision >
-                    (base.editors.find(editor => editor.publication.id === incoming.publication.id)
-                        ?.draft.revision ?? 0)
-            )
+            initialData.editors.some(incoming => {
+                const known = base.editors.find(
+                    editor => editor.publication.id === incoming.publication.id
+                )
+                return (
+                    incoming.draft.revision > (known?.draft.revision ?? 0) ||
+                    (known !== undefined &&
+                        (incoming.publication.state !== known.publication.state ||
+                            incoming.publication.scheduledAt !== known.publication.scheduledAt ||
+                            (incoming.selectedTarget?.sequence ?? 0) >
+                                (known.selectedTarget?.sequence ?? 0)))
+                )
+            })
         if (dirtyRef.current && !newer) return
         if (dirtyRef.current) {
             setSaveState('conflict')
