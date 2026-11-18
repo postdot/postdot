@@ -52,6 +52,8 @@ const restoredData = join(testRoot, 'restored-data')
 const backupDirectory = join(testRoot, 'backups')
 const startupData = join(testRoot, 'startup-data')
 const authSecret = 'production-image-recovery-test-auth-secret'
+// Production images require a one-time token for the first account (AUTH-648).
+const bootstrapToken = 'production-image-recovery-test-bootstrap-token'
 const mediaUrlSecret = 'production-image-recovery-test-media-secret'
 const publisherEncryptionKey = '0123456789abcdef'.repeat(4)
 let imageBuilt = false
@@ -211,9 +213,15 @@ async function verifyAuthenticatedProject(port: number): Promise<void> {
     const denied = await fetch(`${origin}/api/projects`)
     if (denied.status !== 401)
         throw new Error('Production project reads did not require authentication')
-    const signup = await fetch(`${origin}/api/auth/sign-up/email`, {
+    // A production image claims its first account through the token-gated bootstrap route,
+    // as Studio's setup page does.
+    const signup = await fetch(`${origin}/api/instance/bootstrap`, {
         method: 'POST',
-        headers: { 'content-type': 'application/json', origin: 'http://localhost:3000' },
+        headers: {
+            'content-type': 'application/json',
+            origin: 'http://localhost:3000',
+            'x-postdot-bootstrap-token': bootstrapToken,
+        },
         body: JSON.stringify({
             name: 'Container acceptance operator',
             email: `container-${runId}@postdot.local`,
@@ -262,6 +270,8 @@ function serverEnvironment(dataDirectory: string): string[] {
         `POSTDOT_MEDIA_PUBLIC_URL_SECRET=${mediaUrlSecret}`,
         '--env',
         `POSTDOT_PUBLISHER_ENCRYPTION_KEY=${publisherEncryptionKey}`,
+        '--env',
+        `POSTDOT_BOOTSTRAP_TOKEN=${bootstrapToken}`,
     ]
 }
 

@@ -373,12 +373,12 @@ it('includes upcomingScheduledCount across multiple, empty, and archived project
         const activeList = (await (await request('GET', '/api/projects')).json()) as {
             projects: { id: string; upcomingScheduledCount: number }[]
         }
+        // Projects created in the same instant have no guaranteed order; compare counts by id.
         expect(
-            activeList.projects.map(project => [project.id, project.upcomingScheduledCount])
-        ).toEqual([
-            [activeProject.id, 2],
-            [emptyProject.id, 0],
-        ])
+            Object.fromEntries(
+                activeList.projects.map(project => [project.id, project.upcomingScheduledCount])
+            )
+        ).toEqual({ [activeProject.id]: 2, [emptyProject.id]: 0 })
 
         const allList = (await (
             await request('GET', '/api/projects?includeArchived=true')
@@ -386,11 +386,9 @@ it('includes upcomingScheduledCount across multiple, empty, and archived project
             projects: { id: string; upcomingScheduledCount: number }[]
         }
         expect(
-            allList.projects.map(project => [project.id, project.upcomingScheduledCount])
-        ).toEqual([
-            [activeProject.id, 2],
-            [emptyProject.id, 0],
-            [archivedProject.id, 0],
-        ])
+            Object.fromEntries(
+                allList.projects.map(project => [project.id, project.upcomingScheduledCount])
+            )
+        ).toEqual({ [activeProject.id]: 2, [emptyProject.id]: 0, [archivedProject.id]: 0 })
     })
 })
