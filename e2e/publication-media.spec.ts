@@ -486,16 +486,20 @@ test('keeps dashboard and composer media journeys reliable', async ({ page, requ
 
     const mediaEditor = page.getByRole('dialog').filter({ hasText: mediaFilename }).last()
     await expect(mediaEditor).toBeVisible()
-    await expect(
-        mediaEditor.getByRole('button', { name: 'Original', exact: true })
-    ).toHaveAttribute('aria-pressed', 'true')
-    await mediaEditor.getByRole('button', { name: 'Square', exact: true }).click()
-    await expect(mediaEditor.getByRole('button', { name: 'Square', exact: true })).toHaveAttribute(
-        'aria-pressed',
+    // The crop keeps the photo's own shape until a ratio is chosen.
+    await expect(mediaEditor.getByRole('radio', { name: 'Original', exact: true })).toHaveAttribute(
+        'aria-checked',
         'true'
     )
-    await mediaEditor.getByRole('button', { name: 'Rotate right', exact: true }).click()
-    await expect(mediaEditor.getByText('90°', { exact: true })).toBeVisible()
+    await mediaEditor.getByRole('radio', { name: '1:1', exact: true }).click()
+    await expect(mediaEditor.getByRole('radio', { name: '1:1', exact: true })).toHaveAttribute(
+        'aria-checked',
+        'true'
+    )
+    // Reset appears once something changed.
+    await expect(mediaEditor.getByRole('button', { name: 'Reset', exact: true })).toBeVisible()
+    await mediaEditor.getByRole('button', { name: 'Rotate left', exact: true }).click()
+    await expect(mediaEditor.getByRole('slider', { name: 'Straighten' })).toBeVisible()
     await mediaEditor.getByRole('button', { name: 'Save as new media', exact: true }).click()
     await expect(
         page.getByRole('button', { name: new RegExp(`Remove ${editedMediaFilename}`) })

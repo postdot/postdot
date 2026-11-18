@@ -1975,3 +1975,17 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Related: GH #35, [SPEC-012](../../specs/SPEC-012-agentic-bootstrap-and-privileged-api-access.md), [ADR-102](../../decisions/ADR-102-token-gated-bootstrap-and-admin-api-key-capabilities.md), ADR-075, ADR-096
 - Tasks: AUTH-648, API-649, CLI-650
 - Resolution (2026-11-14): Token-gated bootstrap, admin API-key capabilities, and CLI/MCP/Studio/documentation parity implemented under SPEC-012 and ADR-102 across AUTH-648, API-649, and CLI-650.
+
+## Closed 2026-11-18
+
+## [ISSUE-207] The image editor works but looks and feels basic
+
+- Type: proposal
+- Status: resolved (2026-11-18)
+- Evidence: `apps/web/src/components/media-image-editor-dialog.tsx` wraps `react-easy-crop` 6.2.3 with crop, zoom, 90-degree rotation and four aspect presets (source, square, portrait, landscape). The owner finds the interface plain next to a library seen elsewhere and wants a nicer crop experience. An earlier evaluation (archived intake on Uppy, see `archive/closed/ISSUES.md`) kept the Postdot-owned editor and left "evaluate Uppy Image Editor as an isolated dialog adapter" as a follow-up.
+- Impact: Cropping is the one image operation most posts need (each network favours its own ratio); a clumsy editor costs every post with media.
+- Desired outcome: A crop editor that matches the Studio design system, works with touch and keyboard, stays light in the bundle, and keeps the current contract (saving creates a new media item). Candidate libraries and features are compared before choosing; free-angle straighten, flip and per-channel ratio presets are in scope, a full photo editor is not.
+- Owner direction (2026-11-18): the reference is zriz (https://zriz.dev, https://github.com/pqoqubbw/zriz). Weigh adopting, vendoring the parts we need, or reworking our own editor; do not add a dependency by default, and never one that brings `sharp` or a heavier server image. Checked: `@zriz/core` and `@zriz/react` have no runtime dependencies (React peer only), MIT, export runs in the browser (canvas in a worker); `toSharp` only builds an optional recipe and imports nothing. Postdot uses no `sharp` today.
+- Source: owner request, 2026-11-18. Library survey: [image editor survey](../../reviews/2026-11-18-image-editor-survey.md); best fits are `@zriz/react` (headless, Base UI blocks, straighten dial, very new), `@zag-js/image-cropper` (headless, maintained by the Zag and Ark UI team, preview status) or an improved `react-easy-crop` wrapper.
+- Resolution: UX-690 rebuilt the editor on the zriz engine with Postdot's own interface ([worklog](../../worklogs/2026-11-18-UX-690.md)).
+- Tasks: UX-690

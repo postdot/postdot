@@ -191,17 +191,6 @@
 - Source: owner feedback on PR #40, 2026-11-18.
 - Tasks: CI-687
 
-## [ISSUE-207] The image editor works but looks and feels basic
-
-- Type: proposal
-- Status: accepted
-- Evidence: `apps/web/src/components/media-image-editor-dialog.tsx` wraps `react-easy-crop` 6.2.3 with crop, zoom, 90-degree rotation and four aspect presets (source, square, portrait, landscape). The owner finds the interface plain next to a library seen elsewhere and wants a nicer crop experience. An earlier evaluation (archived intake on Uppy, see `archive/closed/ISSUES.md`) kept the Postdot-owned editor and left "evaluate Uppy Image Editor as an isolated dialog adapter" as a follow-up.
-- Impact: Cropping is the one image operation most posts need (each network favours its own ratio); a clumsy editor costs every post with media.
-- Desired outcome: A crop editor that matches the Studio design system, works with touch and keyboard, stays light in the bundle, and keeps the current contract (saving creates a new media item). Candidate libraries and features are compared before choosing; free-angle straighten, flip and per-channel ratio presets are in scope, a full photo editor is not.
-- Owner direction (2026-11-18): the reference is zriz (https://zriz.dev, https://github.com/pqoqubbw/zriz). Weigh adopting, vendoring the parts we need, or reworking our own editor; do not add a dependency by default, and never one that brings `sharp` or a heavier server image. Checked: `@zriz/core` and `@zriz/react` have no runtime dependencies (React peer only), MIT, export runs in the browser (canvas in a worker); `toSharp` only builds an optional recipe and imports nothing. Postdot uses no `sharp` today.
-- Source: owner request, 2026-11-18. Library survey: [image editor survey](reviews/2026-11-18-image-editor-survey.md); best fits are `@zriz/react` (headless, Base UI blocks, straighten dial, very new), `@zag-js/image-cropper` (headless, maintained by the Zag and Ark UI team, preview status) or an improved `react-easy-crop` wrapper.
-- Tasks: UX-690
-
 ## [ISSUE-208] A manual publication cannot be copied out of Postdot quickly
 
 - Type: problem
