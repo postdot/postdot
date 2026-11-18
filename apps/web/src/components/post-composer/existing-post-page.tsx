@@ -421,7 +421,9 @@ function ExistingPostEditor({
                         postId={data.post.id}
                         staleCount={staleCount}
                         accessEpoch={access.epoch}
-                        disabled={blocked || session.dirty || session.saving}
+                        // The refresh after each updated channel must not stop the review
+                        // half way; every update is checked against its expected revision.
+                        disabled={blocked || session.dirty}
                         onApplied={() => void session.reload()}
                     />
                 ) : null}

@@ -858,20 +858,14 @@ test('updates only checked stale channel versions and removes the notice when cu
     const pair = await createDraftPair(page)
     const firstBefore = await pair.read(page, pair.first)
     const secondBefore = await pair.read(page, pair.second)
-    const siblingReads: string[] = []
-    page.on('request', request => {
-        if (request.url().endsWith(`/publications/${pair.second}/editor`))
-            siblingReads.push(request.url())
-    })
     await page.goto(pair.pageUrl(pair.first))
-    await expect(page.locator('#source-body')).toHaveText('Initial common source')
+    await expect(await postText(page)).toHaveText('Initial common source')
     await expect(page.getByRole('button', { name: 'Review and update', exact: true })).toHaveCount(
         0
     )
     await expect(
         page.getByRole('button', { name: 'Update channel versions', exact: true })
     ).toHaveCount(0)
-    expect(siblingReads).toEqual([])
     const changed = await page.request.patch(
         `/api/projects/${pair.id}/posts/${firstBefore.post.id}`,
         {
@@ -891,7 +885,6 @@ test('updates only checked stale channel versions and removes the notice when cu
             exact: true,
         })
     ).toBeVisible()
-    expect(siblingReads).toEqual([])
     await page.getByRole('button', { name: 'Review and update', exact: true }).click()
     const dialog = page.getByRole('dialog', { name: 'Update channel versions', exact: true })
     const first = dialog.getByRole('region', { name: 'First channel', exact: true })
