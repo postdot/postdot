@@ -524,9 +524,7 @@ test('keeps operational labels localized without changing custom notification co
         await expect(
             page.getByRole('textbox', { name: copy.publication_new_channel_copy, exact: true })
         ).toBeVisible()
-        await expect(
-            page.getByRole('textbox', { name: copy.builder_title_optional, exact: true })
-        ).toBeVisible()
+        await expect(page.locator('[data-channel-title]').getByRole('textbox')).toBeVisible()
         await page
             .locator('[data-post-channel-panel] [data-publication-customization="true"] > summary')
             .click()

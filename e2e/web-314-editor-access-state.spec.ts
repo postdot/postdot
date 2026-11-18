@@ -284,7 +284,7 @@ test('a late draft response is quarantined instead of applied', async ({ page })
         await expect(
             editorPage.getByRole('status', { name: /^(Saved|Changes pending)$/ })
         ).toHaveCount(0)
-        await expect(editorPage.getByText('The server has newer work')).toHaveCount(0)
+        await expect(editorPage.locator('[data-publication-conflict="true"]')).toHaveCount(0)
         expect(await countRecoveryBuffers(editorPage)).toBe(1)
         const bufferText = await readRecoveryBufferText(editorPage)
         expect(bufferText).toContain('plus held unsent work')
@@ -462,7 +462,7 @@ test('a technical error retries once and confirms into a concurrent conflict', a
         expect(restoredRole.status()).toBe(200)
         allowRealMembership = true
         await editorPage.getByRole('button', { name: 'Retry', exact: true }).click()
-        await expect(editorPage.getByText('The server has newer work')).toBeVisible({
+        await expect(editorPage.locator('[data-publication-conflict="true"]')).toBeVisible({
             timeout: 60_000,
         })
         // The retry resolved into confirmation, and no later cycle disturbs
@@ -476,7 +476,7 @@ test('a technical error retries once and confirms into a concurrent conflict', a
             projectId: owner.projectId,
             publicationId: publication.id,
         })
-        await expect(editorPage.getByText('The server has newer work')).toBeVisible()
+        await expect(editorPage.locator('[data-publication-conflict="true"]')).toBeVisible()
         await expect(
             editorPage.getByRole('textbox', { name: /^(Content|Channel content)$/ })
         ).toContainText('Local work concurrent with the owner')
