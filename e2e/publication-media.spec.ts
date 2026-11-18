@@ -1608,7 +1608,9 @@ test('persists mixed and media-only publications through the dashboard', async (
 
     await page.getByRole('link', { name: /Back to queue/ }).click()
     await page.locator(mediaOnlySelector).first().click()
-    await expect(page.getByRole('heading', { name: 'Media · 1' })).toBeVisible()
+    await expect(
+        page.getByRole('heading', { name: 'Media · 1', exact: true, level: 1 })
+    ).toBeVisible()
     // A media-only post opens with an empty editor and its media; the editor toolbar sits above
     // the attachments in every theme and width.
     const mediaOnlyEditor = page.locator('[data-new-publication-editor="true"]')

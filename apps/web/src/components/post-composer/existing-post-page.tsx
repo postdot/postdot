@@ -373,9 +373,12 @@ function ExistingPostEditor({
             <div inert={session.recoveryChoice !== null}>
                 <DashboardPageHeader
                     title={
+                        // Named as the queue names it (publicationIdentityLabel).
                         data.post.title ||
                         shortExcerpt(composition.postContent || composition.postTitle) ||
-                        m.publication_untitled()
+                        (composition.sourceMedia.length > 0
+                            ? m.publication_media_count({ count: composition.sourceMedia.length })
+                            : m.publication_untitled())
                     }
                     action={
                         <PublicationEditorSaveIndicator

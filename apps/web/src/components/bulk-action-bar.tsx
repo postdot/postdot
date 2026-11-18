@@ -113,16 +113,14 @@ export function BulkActionBar({
                         </Button>
                     ) : null}
                     {actions?.map(action => (
-                        <Tooltip>
+                        <Tooltip key={action.id}>
                             <TooltipTrigger
                                 render={
                                     <Button
-                                        key={action.id}
                                         type="button"
                                         variant={action.variant ?? 'secondary'}
                                         size="sm"
                                         disabled={selectedCount === 0 || action.disabled === true}
-
                                         data-bulk-action={action.id}
                                         onClick={action.onSelect}>
                                         {action.icon}
