@@ -180,3 +180,13 @@
 - Source: PR #40 CI, 2026-11-18.
 - Resolution: the CI trace showed a navigation to `/publications/new`. The live revocation froze the editor while the test was typing; the frozen editor lost focus, so the typed letters reached the document and the plain N shortcut (new post) fired. A real hazard for anyone typing at that moment. N now does nothing when it arrives within a second of another key. 4/4 local repeats in development mode.
 - Tasks: none
+
+## [ISSUE-206] A CI round takes about 20 minutes, set by the slowest browser shard
+
+- Type: proposal
+- Status: open
+- Evidence: PR #40 needed eight CI rounds. In each, static checks took 4-5 min, PostgreSQL unit tests 8 min, image restore 1 min, and the four browser shards 12-20 min; Verify waits for the slowest, so a round is about 21 min. The browser shards run against the Vite development server (`playwright test --shard=n/4`, no `POSTDOT_E2E_PRODUCTION_WEB`), which compiles modules on demand and is slower and less like what ships than the production build used locally (266 tests in about 22 min on one local worker). Several failures in that PR appeared only in development mode (timing), while the production-only regressions (anonymous entry budget) were caught locally.
+- Impact: Slow feedback; fixes pushed one at a time each cost a full round; the suite tests a mode nobody runs in production.
+- Desired outcome, to measure before deciding: (1) run the browser shards against the production build (`vite preview`), keeping the few development-only specs (editor lab) in a small separate job or local only; (2) balance shards by recorded duration, or use more shards, so the slowest is near the mean; (3) on pull requests, consider running the specs touched by the change first and the full suite on main. Record before/after round times.
+- Source: owner feedback on PR #40, 2026-11-18.
+- Tasks: none
