@@ -161,17 +161,15 @@ below. It changes styling of existing surfaces, not page layouts or workflows.
   keep their publication scope; one group link opens the complete shared post.
   The view is URL-addressable and changing it preserves the current selection.
   The explicit Queue link to `/dashboard/projects/:projectId/posts/:postId`
-  inspects the current shared source and all its destination publications. Post
-  inspection retains Queue as its navigation context; individual publication
-  links keep their editing and execution-inspection jobs. Source review is an
-  explicit per-destination draft action, separate from publication or scheduling.
-  The post page also owns explicit shared-source saving, independently of any
-  destination lifecycle. Editing preserves historical targets and leaves destination
-  adaptations unchanged; unsaved source work is not used for review or addition.
+  opens the post editor (SPEC-013) on its "All channels" tab; a publication link
+  opens the same editor on that channel's tab. Both keep Queue as their navigation
+  context. Source review is an explicit per-channel action, separate from
+  publication or scheduling. Editing preserves historical targets and leaves
+  channels with their own text unchanged.
 - Calendar planning contract (provisional): show one Monday-first month at a
   time on desktop and tablet, with previous/next/today controls. Scheduled
-  publications are grouped by their local date and link to the existing
-  project publication editor; unscheduled work remains explicit outside the
+  publications are grouped by their local date and link to the post
+  editor on that channel's tab; unscheduled work remains explicit outside the
   date grid. On narrow screens, replace the compressed seven-column grid with
   an agenda grouped by day. Manual and automatic destinations share the same
   calendar, while delivery state and due-human work remain visible as state.
@@ -619,14 +617,15 @@ A tool that reconciles state appears only when there is something to reconcile.
 It names what it acts on in the user's words, such as channel versions that still
 use the post's previous content.
 
-## Post text and channel versions (owner review, 2026-11-16)
+## Post text and channel versions (owner review, 2026-11-16; SPEC-013, 2026-11-18)
 
-On a publication page, the editor at the top is the post's text, shared by every channel, and
-says so when the post has more than one channel. A channel version that publishes that text as
-it is follows it while the person types, so the preview always shows what this channel will
-publish. "Adapt for {channel}" is where a channel gets its own text; once it has one, a notice
-under the post text says that typing there no longer changes this channel and offers to take
-the post text again. Pending changes are named as pending, with what will be published stated
-as unchanged, and can be discarded with an undo toast. A locked publication shows its content
-once, as the channel shows it. Content languages are picked by name; the BCP 47 tag stays out
-of sight.
+A post is created and edited in one composer. "All channels" holds the post text; each channel
+tab shows that channel's version, with a quiet line saying whether it shares the post text or
+has its own, and a reset to the post text when it has its own. Typing on "All channels" carries
+every following channel along in the same save; a channel with its own text is left alone.
+Channel-only fields sit in "Content options" under the editor; the channel's state and actions
+sit above it, its outcome, comments and activity below. Changes autosave as pending; one "Save"
+applies them, the editor stays visible but read-only while it applies, and "Discard changes"
+comes with an undo toast. A change made elsewhere is told once, as one conflict card about the
+post, with the local copy kept. A locked channel shows its content once, as the channel shows
+it. Content languages are picked by name; the BCP 47 tag stays out of sight.
