@@ -173,9 +173,10 @@
 ## [ISSUE-205] The access suspension journey is timing-sensitive
 
 - Type: problem
-- Status: open
+- Status: resolved (2026-11-18)
 - Evidence: `e2e/web-314-editor-access-state.spec.ts:10` ("an ambiguous signal suspends writes, verifies once, then shows removal") failed in PR #40 CI (run 44319733363: the editor textbox was gone while "Checking project access…" should hold it frozen) and once in five local development-mode repeats (test timeout; the typed attempt after revocation never reached the editor). The live revocation signal can start verification, or conclude removal, before the test's held membership read and its typed write.
 - Impact: Intermittent CI; possibly a real path where removal is shown without the frozen intermediate state.
 - Desired outcome: Determine whether the product can skip the frozen state (then decide if that is acceptable) and make the journey deterministic by controlling the live signal as well as the membership read.
 - Source: PR #40 CI, 2026-11-18.
+- Resolution: the CI trace showed a navigation to `/publications/new`. The live revocation froze the editor while the test was typing; the frozen editor lost focus, so the typed letters reached the document and the plain N shortcut (new post) fired. A real hazard for anyone typing at that moment. N now does nothing when it arrives within a second of another key. 4/4 local repeats in development mode.
 - Tasks: none

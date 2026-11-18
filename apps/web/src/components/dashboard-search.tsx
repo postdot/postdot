@@ -97,8 +97,13 @@ export function DashboardSearch({
     const allShortcuts = getAppShortcuts()
 
     useEffect(() => {
+        let previousKeyAt = 0
         const onKeyDown = (event: KeyboardEvent) => {
             if (event.isComposing) return
+            // A plain N in the middle of typing is text, even if the field it was meant for
+            // just became read-only (an editor frozen during an access check, for example).
+            const typing = event.timeStamp - previousKeyAt < 1000
+            previousKeyAt = event.timeStamp
             const hasMod = event.metaKey || event.ctrlKey
             if (hasMod && event.key.toLowerCase() === 'k') {
                 event.preventDefault()
@@ -109,7 +114,8 @@ export function DashboardSearch({
                 !event.altKey &&
                 !event.shiftKey &&
                 event.key.toLowerCase() === 'n' &&
-                projectId !== null
+                projectId !== null &&
+                !typing
             ) {
                 if (!isEditableTarget(event.target)) {
                     event.preventDefault()
