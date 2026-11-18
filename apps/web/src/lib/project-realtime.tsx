@@ -521,12 +521,21 @@ function ProjectRealtimeBridge({
                     queryKey: projectQueryKeys.publicationEditors(projectId),
                     predicate: query => {
                         const data = query.state.data as
-                            | { editor?: PublicationEditorState }
+                            | {
+                                  editor?: PublicationEditorState
+                                  post?: { id: string }
+                                  editors?: readonly PublicationEditorState[]
+                              }
                             | undefined
                         return changes.some(
                             change =>
                                 query.queryKey[3] === change.publicationId ||
-                                (change.sourceChanged && data?.editor?.post.id === change.postId)
+                                (change.sourceChanged && data?.editor?.post.id === change.postId) ||
+                                // The post editor (SPEC-013) holds every channel of its post.
+                                data?.post?.id === change.postId ||
+                                data?.editors?.some(
+                                    editor => editor.publication.id === change.publicationId
+                                ) === true
                         )
                     },
                 })

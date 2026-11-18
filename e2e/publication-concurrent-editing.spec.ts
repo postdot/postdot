@@ -4,6 +4,8 @@ import AxeBuilder from '@axe-core/playwright'
 import { expect, test, type Locator, type Page, type Request } from '@playwright/test'
 import type { PublicationEditorState } from '@postdot/client'
 
+import { composerText, openAllChannels, openContentOptions } from './support/post-editor'
+
 // Seeded local copies are written in UTC; the project must share that time zone.
 test.use({ timezoneId: 'UTC' })
 
@@ -22,28 +24,54 @@ test('shows one calm notice for a stale sibling and keeps its text and attachmen
         await other.goto(pair.pageUrl(pair.second))
         const before = await pair.read(other, pair.second)
         await openCustomization(other)
-        await expect(
-            other.locator('[data-target-field="text"] [contenteditable="true"]')
-        ).toHaveText('Second destination')
-        await page.locator('#source-body').fill('New common source')
+        await expect(composerText(other)).toHaveText('Second destination')
+        // A change made elsewhere (here the API) leaves a channel with its own text behind.
+        // Changes made in the post editor carry every channel along (SPEC-013).
+        const changedElsewhere = await page.request.patch(
+            `/api/projects/${pair.id}/posts/${before.post.id}`,
+            {
+                data: {
+                    expectedSourceRevision: 1,
+                    sourceContent: {
+                        ...pair.source,
+                        body: { format: 'plain_text', text: 'New common source' },
+                    },
+                },
+            }
+        )
+        expect(changedElsewhere.ok()).toBe(true)
         await expect
             .poll(async () => (await pair.read(page, pair.first)).post.sourceRevision)
             .toBe(2)
+        // The first channel keeps its own version, so only the second one stays behind.
+        const first = await pair.read(page, pair.first)
+        const kept = await page.request.post(
+            `/api/projects/${pair.id}/publications/${pair.first}/draft/rebase`,
+            {
+                data: {
+                    expectedRevision: first.draft.revision,
+                    expectedSourceRevision: 2,
+                    replaceContent: false,
+                },
+            }
+        )
+        expect(kept.ok()).toBe(true)
         await expect(page.locator('[data-publication-conflict="true"]')).toHaveCount(0)
         const notice = other.getByText(
             'The post changed. 1 channel still uses the previous version.',
             { exact: true }
         )
         await expect(notice).toBeVisible({ timeout: 10_000 })
-        await expect(other.locator('[data-publication-editor-message]')).toHaveCount(0)
+        // A quiet "changed elsewhere" line may appear; nothing asks for attention.
+        await expect(
+            other.locator('[data-publication-editor-message]:not([data-passive-update])')
+        ).toHaveCount(0)
         await expect(other.locator('[data-publication-conflict]')).toHaveCount(0)
         await expect(other.getByRole('status', { name: 'Conflict', exact: true })).toHaveCount(0)
         await expect(
             other.getByRole('button', { name: 'Review the changes', exact: true })
         ).toHaveCount(0)
-        await expect(
-            other.getByRole('button', { name: /^Save changes(?:\s*(?:Ctrl|⌘)↵)?$/ })
-        ).toBeDisabled()
+        await expect(other.locator('[data-post-save]')).toBeDisabled()
         for (const width of [1440, 390]) {
             await other.setViewportSize({ width, height: 900 })
             await notice.scrollIntoViewIfNeeded()
@@ -80,7 +108,7 @@ test('shows one calm notice for a stale sibling and keeps its text and attachmen
         await expect(review).toContainText('Second channel already up to date.')
         await review.getByRole('button', { name: 'Cancel', exact: true }).click()
         await expect(notice).toHaveCount(0)
-        await expect(other.locator('#source-body')).toHaveText('New common source')
+        await expect(await postText(other)).toHaveText('New common source')
         await expect(other.locator('[data-publication-recovery-decision]')).toHaveCount(0)
         const after = await pair.read(other, pair.second)
         expect(after.draft.content).toEqual(before.draft.content)
@@ -97,9 +125,7 @@ test('shows one calm notice for a stale sibling and keeps its text and attachmen
             other.getByRole('button', { name: 'Review and update', exact: true })
         ).toHaveCount(0)
         await openCustomization(other)
-        await expect(
-            other.locator('[data-target-field="text"] [contenteditable="true"]')
-        ).toHaveText('Second destination')
+        await expect(composerText(other)).toHaveText('Second destination')
         await expect(
             other.locator('[data-target-field="media"] [data-media-selection-preview]')
         ).toHaveCount(1)
@@ -130,24 +156,18 @@ test('recovers unsaved destination changes after another session saves a newer d
         await other.goto(pair.pageUrl(pair.first))
         await openCustomization(page)
         await openCustomization(other)
-        const draftUrl = `**/api/projects/${pair.id}/publications/${pair.first}/draft`
+        const draftUrl = `**/api/projects/${pair.id}/posts/*/composition`
         await other.route(draftUrl, route => route.abort('failed'))
-        const local = other.locator('[data-target-field="text"] [contenteditable="true"]')
+        const local = composerText(other)
         await local.fill('Local destination adaptation')
         await other
             .locator('[data-target-field="media"]')
             .getByRole('button', { name: 'Remove second.png', exact: true })
             .click()
         const key = `postdot:publication-editor:v3:${pair.id}:${pair.first}`
-        await expect
-            .poll(async () =>
-                other.evaluate(
-                    key => JSON.parse(localStorage.getItem(key) ?? 'null')?.targetText,
-                    key
-                )
-            )
-            .toContain('Local destination adaptation')
-        const remote = page.locator('[data-target-field="text"] [contenteditable="true"]')
+        // The post editor keeps one local copy per post (SPEC-013).
+        await expect.poll(async () => localCopy(other)).toContain('Local destination adaptation')
+        const remote = composerText(page)
         await remote.fill('Newer saved destination')
         await expect
             .poll(async () => (await pair.read(page, pair.first)).draft.content.text)
@@ -163,9 +183,7 @@ test('recovers unsaved destination changes after another session saves a newer d
             other.getByRole('button', { name: 'Review the changes', exact: true })
         ).toBeVisible()
         await expect(local).toHaveText('Local destination adaptation')
-        await expect(
-            other.getByRole('button', { name: /^Save changes(?:\s*(?:Ctrl|⌘)↵)?$/ })
-        ).toBeDisabled()
+        await expect(other.locator('[data-post-save]')).toBeDisabled()
         await other.unroute(draftUrl)
         await conflict.getByRole('button', { name: 'Load the saved version', exact: true }).click()
         const decision = other.locator('[data-publication-recovery-decision]')
@@ -276,7 +294,7 @@ test('exposes reconciliation when a server refresh overtakes an in-flight autosa
                 await route.continue()
             }
         )
-        const local = other.locator('[data-target-field="text"] [contenteditable="true"]')
+        const local = composerText(other)
         await local.fill('In-flight local destination')
         await startedSave
         const before = await pair.read(page, pair.first)
@@ -313,9 +331,7 @@ test('exposes reconciliation when a server refresh overtakes an in-flight autosa
             other.getByRole('button', { name: 'Review the changes', exact: true })
         ).toBeVisible()
         await expect(local).toHaveText('In-flight local destination')
-        await expect(
-            other.getByRole('button', { name: /^Save changes(?:\s*(?:Ctrl|⌘)↵)?$/ })
-        ).toBeDisabled()
+        await expect(other.locator('[data-post-save]')).toBeDisabled()
         expect((await pair.read(page, pair.first)).draft.content.text).toBe(
             'Concurrent saved destination'
         )
@@ -413,11 +429,26 @@ test('catches up missed draft signals on visibility return and SSE reconnect', a
     }
 })
 
+// SPEC-013: a channel tab edits the channel text in its editor and keeps media and other
+// channel fields in Content options.
 async function openCustomization(page: Page) {
-    const details = page.locator('[data-publication-customization="true"]')
-    if ((await details.getAttribute('open')) === null)
-        await details.locator(':scope > summary').click()
-    await expect(details.locator('[data-target-field="text"]')).toBeVisible()
+    await expect(composerText(page)).toBeVisible()
+    await openContentOptions(page)
+}
+
+/** The post text, on the "All channels" tab. */
+async function postText(page: Page) {
+    return openAllChannels(page)
+}
+
+/** Reads the post editor's local copy of this post, whatever its key. */
+async function localCopy(page: Page): Promise<string> {
+    return page.evaluate(() => {
+        const key = Object.keys(localStorage).find(item =>
+            item.startsWith('postdot:post-composition:')
+        )
+        return key === undefined ? '' : (localStorage.getItem(key) ?? '')
+    })
 }
 
 /**
@@ -586,7 +617,7 @@ for (const outcome of ['rejected', 'lost_response'] as const) {
         const pair = await createDraftPair(page)
         await page.goto(pair.pageUrl(pair.first))
         await openCustomization(page)
-        const content = page.locator('[data-target-field="text"] [contenteditable="true"]')
+        const content = composerText(page)
         await content.fill('Saved version awaiting application')
         await expect
             .poll(async () => (await pair.read(page, pair.first)).draft.content.text)
@@ -683,7 +714,7 @@ for (const outcome of ['rejected', 'lost_response'] as const) {
             })
         }
         // Keep an unsaved edit in recovery while reading the authoritative selected version.
-        const draftUrl = `**/api/projects/${pair.id}/publications/${pair.first}/draft`
+        const draftUrl = `**/api/projects/${pair.id}/posts/*/composition`
         await page.route(draftUrl, route => route.abort('failed'))
         await content.fill('Unsaved local work to recover')
         await expect(page.getByRole('status', { name: 'Save failed', exact: true })).toBeVisible()
