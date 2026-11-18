@@ -2772,5 +2772,6 @@
     "notifications_more_channels": "{count} más",
     "notifications_today": "Hoy",
     "notifications_yesterday": "Ayer",
-    "notifications_earlier": "Anteriores"
+    "notifications_earlier": "Anteriores",
+    "calendar_moved": "Movida al {time}"
 }

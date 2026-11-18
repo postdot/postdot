@@ -675,3 +675,7 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] **[UX-683]** Edit mode and route unification on the shared composer (SPEC-013) `Priority: 🟠` `Complexity: XL` `Completed: 2026-11-18` [Worklog](../../worklogs/2026-11-18-UX-683.md)
 - [x] **[UX-684]** Repair composer production specs and the Channels audit locator `Priority: 🟠` `Complexity: S` `Completed: 2026-11-18` [Worklog](../../worklogs/2026-11-18-UX-683.md)
 - [x] **[RELEASE-685]** Publish 0.1.0-alpha.8 with the Studio experience milestone (PR #40) `Priority: 🟠` `Complexity: L` `Completed: 2026-11-18` [Worklog](../../worklogs/2026-11-18-RELEASE-685.md)
+
+## Closed 2026-11-18
+
+- [x] **[UX-689]** Reschedule publications by dragging them in the calendar `Priority: 🔵` `Complexity: M` Completed: 2026-11-18 [worklog](../../worklogs/2026-11-18-UX-689.md)

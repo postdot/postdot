@@ -2772,5 +2772,6 @@
     "notifications_more_channels": "{count} weiteren",
     "notifications_today": "Heute",
     "notifications_yesterday": "Gestern",
-    "notifications_earlier": "Früher"
+    "notifications_earlier": "Früher",
+    "calendar_moved": "Verschoben auf {time}"
 }

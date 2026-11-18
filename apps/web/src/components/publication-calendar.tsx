@@ -1,5 +1,6 @@
 import { Button } from '@postdot/ui/components/button'
 import { Kbd } from '@postdot/ui/components/kbd'
+import { toast } from '@postdot/ui/components/toast'
 import { cn } from '@postdot/ui/lib/utils'
 import { AltArrowLeftIcon } from '@solar-icons/react/linear/alt-arrow-left'
 import { AltArrowRightIcon } from '@solar-icons/react/linear/alt-arrow-right'
@@ -42,6 +43,7 @@ import type {
     CalendarEvent,
     CalendarView,
     EventCalendarOccurrence,
+    EventCalendarProposedUpdate,
     EventCalendarSlotInfo,
 } from '@/components/reui/event-calendar/event-calendar-types'
 import type { Channel, ChannelOccupancy, PublicationSummary } from '@/lib/api'
@@ -62,8 +64,9 @@ import * as m from '@/paraglide/messages.js'
 
 const CALENDAR_VIEWS: CalendarView[] = ['month', 'week', 'day', 'agenda']
 const MOBILE_CALENDAR_QUERY = '(max-width: 47.999rem)'
+// A publication is a moment, not a span: entries move, they never stretch.
 const CALENDAR_INTERACTIONS = {
-    drag: false,
+    drag: true,
     resize: false,
     selectSlot: false,
 } as const
@@ -78,6 +81,10 @@ const CALENDAR_VIEW_SHORTCUTS = {
 
 type ChannelIdentity = Pick<Channel, 'id' | 'name' | 'profileId'>
 
+function entryPublications(data: PublicationCalendarEventData | undefined) {
+    return data?.occupancy === undefined ? (data?.publications ?? []) : []
+}
+
 export function PublicationCalendar({
     filterControl,
     filterSummary,
@@ -88,6 +95,7 @@ export function PublicationCalendar({
     calendarDate,
     initialView,
     onSelectedPublicationIdsChange,
+    onReschedule,
     occupancy = [],
     projectId,
     publications,
@@ -106,6 +114,11 @@ export function PublicationCalendar({
     readonly calendarDate: Date
     readonly initialView?: PublicationCalendarView
     readonly onSelectedPublicationIdsChange: (publicationIds: readonly string[]) => void
+    /**
+     * Move scheduled publications to new times, one time per publication. Without it, entries
+     * cannot be dragged.
+     */
+    readonly onReschedule?: (scheduledTimes: Readonly<Record<string, number>>) => Promise<boolean>
     /** Time other projects already use on this project's shared channels. */
     readonly occupancy?: readonly ChannelOccupancy[]
     readonly projectId: string
@@ -147,13 +160,95 @@ export function PublicationCalendar({
     // Month and agenda only say the day, so a post's channels share one entry for the day;
     // week and day place entries on a time axis, where only the same minute can share one.
     const groupByDay = view === 'month' || view === 'agenda'
+    // A dropped entry stays where it was dropped while the move is saved, instead of jumping
+    // back until the refreshed list arrives.
+    const [movedTimes, setMovedTimes] = useState<ReadonlyMap<string, number>>(new Map())
+    const shownPublications = useMemo(
+        () =>
+            movedTimes.size === 0
+                ? publications
+                : publications.map(publication => {
+                      const scheduledAt = movedTimes.get(publication.id)
+                      return scheduledAt === undefined
+                          ? publication
+                          : { ...publication, scheduledAt }
+                  }),
+        [movedTimes, publications]
+    )
+    const draggable = !readOnly && onReschedule !== undefined
     const publicationEvents = useMemo(
         () =>
             groupPublicationCalendarEvents(
-                toPublicationCalendarEvents(publications, duePublicationIds),
+                toPublicationCalendarEvents(shownPublications, duePublicationIds),
                 groupByDay ? timeZone : undefined
-            ),
-        [duePublicationIds, groupByDay, publications, timeZone]
+            ).map(event => ({
+                ...event,
+                // Only work still waiting for its time can move; drafts have no time yet and
+                // published, failed or cancelled work keeps the time it happened.
+                readOnly:
+                    !draggable ||
+                    !(event.data?.publications ?? []).every(
+                        publication => publication.state === 'scheduled'
+                    ),
+            })),
+        [draggable, duePublicationIds, groupByDay, shownPublications, timeZone]
+    )
+    const moveEntry = useCallback(
+        (update: EventCalendarProposedUpdate<PublicationCalendarEventData>) => {
+            const members = entryPublications(update.event.data)
+            const shift = update.start.getTime() - update.event.start.getTime()
+            if (onReschedule === undefined || members.length === 0 || shift === 0) return false
+            // A post sent to several channels moves as one: every channel keeps its offset.
+            const previous = Object.fromEntries(
+                members.map(publication => [publication.id, publication.scheduledAt ?? 0])
+            )
+            const next = Object.fromEntries(
+                members.map(publication => [publication.id, (publication.scheduledAt ?? 0) + shift])
+            )
+            const showTimes = (times: Record<string, number>) =>
+                setMovedTimes(current => new Map([...current, ...Object.entries(times)]))
+            const forget = () =>
+                setMovedTimes(current => {
+                    const remaining = new Map(current)
+                    for (const id of Object.keys(next)) remaining.delete(id)
+                    return remaining
+                })
+            showTimes(next)
+            void onReschedule(next).then(moved => {
+                forget()
+                if (!moved) return
+                toast.add({
+                    actionProps: {
+                        children: m.common_undo(),
+                        onClick: () => {
+                            showTimes(previous)
+                            void onReschedule(previous).finally(forget)
+                        },
+                    },
+                    timeout: 10_000,
+                    title: m.calendar_moved({
+                        time: new Intl.DateTimeFormat(locale, {
+                            dateStyle: 'medium',
+                            timeStyle: 'short',
+                            timeZone,
+                        }).format(Math.min(...Object.values(next))),
+                    }),
+                    type: 'success',
+                })
+            })
+            return true
+        },
+        [locale, onReschedule, timeZone]
+    )
+    // The past is not a destination: a publication dropped there would be due at once.
+    const canDropEntry = useCallback(
+        (update: EventCalendarProposedUpdate<PublicationCalendarEventData>) => {
+            const shift = update.start.getTime() - update.event.start.getTime()
+            return entryPublications(update.event.data).every(
+                publication => (publication.scheduledAt ?? 0) + shift > Date.now()
+            )
+        },
+        []
     )
     const events = useMemo<CalendarEvent<PublicationCalendarEventData>[]>(
         () => [...publicationEvents, ...occupancyEvents],
@@ -370,6 +465,8 @@ export function PublicationCalendar({
                 fixedWeeks
                 i18n={i18n}
                 interactions={CALENDAR_INTERACTIONS}
+                onEventUpdate={moveEntry}
+                canDropEvent={canDropEntry}
                 loading={loading}
                 locale={dateFnsLocale}
                 apiRef={calendarApiRef}

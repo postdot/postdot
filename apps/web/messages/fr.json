@@ -2772,5 +2772,6 @@
     "notifications_more_channels": "{count} autres",
     "notifications_today": "Aujourd’hui",
     "notifications_yesterday": "Hier",
-    "notifications_earlier": "Plus tôt"
+    "notifications_earlier": "Plus tôt",
+    "calendar_moved": "Déplacée au {time}"
 }
