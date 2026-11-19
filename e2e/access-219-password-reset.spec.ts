@@ -300,8 +300,11 @@ test('configures SMTP in administration and sends a real test without exposing c
         page.getByRole('status').filter({ hasText: 'Email settings saved.' })
     ).toBeVisible()
     await page.getByRole('button', { name: 'Send me a test email', exact: true }).click()
+    // It names the step that failed, so a person knows to check the port.
     await expect(
-        page.getByRole('alert').filter({ hasText: 'SMTP did not confirm the test.' })
+        page.getByRole('alert').filter({
+            hasText: 'The connection was refused or closed. Check the server address and port.',
+        })
     ).toBeVisible()
     await page.getByLabel('Port', { exact: true }).fill(process.env.POSTDOT_E2E_MAILPIT_SMTP_PORT!)
     await page.getByRole('button', { name: 'Save', exact: true }).click()
