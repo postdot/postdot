@@ -4,6 +4,10 @@ export {
     type MediaAttachmentLibraryDialogProps,
 } from './media-attachment-library-dialog'
 export {
+    MediaFailedUploadsNotice,
+    type MediaFailedUploadsNoticeProps,
+} from './media-failed-uploads-notice'
+export {
     MediaLibraryToolbar,
     type MediaLibraryFeatureOptions,
     type MediaLibraryToolbarProps,
