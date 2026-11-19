@@ -143,8 +143,24 @@ export const api = {
     async saveEmailSettings(input: EmailSettingsInput) {
         return unwrap(await client.api.settings.email.put(input))
     },
-    async testEmailSettings() {
-        return unwrap(await client.api.settings.email.test.post())
+    /** The step that failed and the server's reply, so the form can say what to change. */
+    async testEmailSettings(): Promise<EmailTestOutcome> {
+        const result = await client.api.settings.email.test.post()
+        if (result.error === null) return { accepted: true }
+        const body = (result.error as { value?: unknown }).value
+        const failure =
+            typeof body === 'object' && body !== null && 'error' in body
+                ? (body as { error: { reason?: unknown; serverReply?: unknown } }).error
+                : undefined
+        if (result.status !== 400 || failure === undefined)
+            throw errorFrom(result.status, result.error)
+        return {
+            accepted: false,
+            reason: isEmailTestReason(failure.reason) ? failure.reason : 'unknown',
+            ...(typeof failure.serverReply === 'string'
+                ? { serverReply: failure.serverReply }
+                : {}),
+        }
     },
     async getInstanceSetupStatus() {
         return unwrap(await client.api.instance.status.get())
@@ -1740,3 +1756,25 @@ export type { EmailSettings, EmailSettingsInput }
 export type ChannelOccupancy = Awaited<
     ReturnType<typeof api.listChannelOccupancy>
 >['occupancy'][number]
+
+const EMAIL_TEST_REASONS = [
+    'no_recipient',
+    'dns',
+    'refused',
+    'timeout',
+    'tls',
+    'authentication',
+    'sender_rejected',
+    'recipient_rejected',
+    'unknown',
+] as const
+
+export type EmailTestReason = (typeof EMAIL_TEST_REASONS)[number]
+
+export type EmailTestOutcome =
+    | { readonly accepted: true }
+    | { readonly accepted: false; readonly reason: EmailTestReason; readonly serverReply?: string }
+
+function isEmailTestReason(value: unknown): value is EmailTestReason {
+    return EMAIL_TEST_REASONS.includes(value as EmailTestReason)
+}

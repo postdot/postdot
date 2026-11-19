@@ -9,8 +9,6 @@
 
 - [/] **[PUB-627]** Complete GitHub profile, application releases and clean-install acceptance `Priority: 🟠` `Complexity: L`
 
-- [/] **[OPS-692]** Say which step of the SMTP test failed `Priority: 🟠` `Complexity: S` GH #49
-
 ## Current direction
 
 Shared-channel implementation follows [ADR-095](decisions/ADR-095-workspace-channels-and-project-attachments.md)

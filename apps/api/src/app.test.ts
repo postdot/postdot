@@ -6137,6 +6137,7 @@ function readOpenApiStatus(response: OpenApiResponse | undefined): string | unde
 it('restricts SMTP settings to human instance administrators and never returns credentials', async () => {
     const settingsDatabase = (await openTestDatabase()).database
     const sent: string[] = []
+    let rejectLogin = false
     const service = await createEmailSettingsService({
         store: createInstallationEmailSettingsStore(
             settingsDatabase,
@@ -6148,6 +6149,14 @@ it('restricts SMTP settings to human instance administrators and never returns c
         ),
         createTransport: () => ({
             async sendMail(message) {
+                if (rejectLogin) {
+                    throw Object.assign(new Error('Invalid login'), {
+                        code: 'EAUTH',
+                        command: 'AUTH PLAIN',
+                        responseCode: 535,
+                        response: '535 5.7.8 Authentication credentials invalid',
+                    })
+                }
                 sent.push(String(message.to))
             },
         }),
@@ -6184,6 +6193,22 @@ it('restricts SMTP settings to human instance administrators and never returns c
             (await jsonRequest(app, '/api/settings/email/test', cookie, { method: 'POST' })).status
         ).toBe(200)
         expect(sent).toEqual(['smtp-admin@postdot.local'])
+        // A failed test names the step and repeats the server's reply, never the password.
+        rejectLogin = true
+        const rejected = await jsonRequest(app, '/api/settings/email/test', cookie, {
+            method: 'POST',
+        })
+        rejectLogin = false
+        expect(rejected.status).toBe(400)
+        const rejectedText = await rejected.text()
+        expect(rejectedText).not.toContain('FAKE_SECRET_355')
+        expect(JSON.parse(rejectedText)).toMatchObject({
+            error: {
+                code: 'email_test_failed',
+                reason: 'authentication',
+                serverReply: '535 5.7.8 Authentication credentials invalid',
+            },
+        })
         const invalid = await jsonRequest(app, '/api/settings/email', cookie, {
             method: 'PUT',
             body: JSON.stringify({ ...input, host: 'smtp server' }),

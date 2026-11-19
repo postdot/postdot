@@ -688,3 +688,4 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 
 - [x] **[UX-693]** Treat a failed upload as a problem to resolve, not library media `Priority: 🔵` `Complexity: M` Completed: 2026-11-19 GH #52 [worklog](../../worklogs/2026-11-19-UX-693.md)
 - [x] **[UX-691]** Lighten the image description popover `Priority: 🟠` `Complexity: S` Completed: 2026-11-19 GH #51 [worklog](../../worklogs/2026-11-19-UX-691.md)
+- [x] **[OPS-692]** Say which step of the SMTP test failed `Priority: 🟠` `Complexity: S` Completed: 2026-11-19 GH #49 [worklog](../../worklogs/2026-11-19-OPS-692.md)

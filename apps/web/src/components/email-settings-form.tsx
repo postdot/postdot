@@ -7,7 +7,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState, type FormEvent } from 'react'
 
 import { SettingsCard, SettingsRow, SettingsSection } from '@/components/settings-layout'
-import { api, type EmailSettings, type EmailSettingsInput } from '@/lib/api'
+import { api, type EmailSettings, type EmailSettingsInput, type EmailTestReason } from '@/lib/api'
 import * as m from '@/paraglide/messages.js'
 
 export function EmailSettingsForm() {
@@ -84,8 +84,17 @@ function EmailSettingsFields({
         setNotice(null)
         setError(null)
         try {
-            await api.testEmailSettings()
-            setNotice(m.smtp_test_accepted())
+            const outcome = await api.testEmailSettings()
+            if (outcome.accepted) setNotice(m.smtp_test_accepted())
+            else
+                setError(
+                    outcome.serverReply === undefined
+                        ? smtpTestFailure(outcome.reason)
+                        : m.smtp_test_failed_reply({
+                              reason: smtpTestFailure(outcome.reason),
+                              reply: outcome.serverReply,
+                          })
+                )
         } catch {
             setError(m.smtp_test_failed())
         } finally {
@@ -247,4 +256,27 @@ function EmailSettingsFields({
             </form>
         </SettingsSection>
     )
+}
+
+function smtpTestFailure(reason: EmailTestReason): string {
+    switch (reason) {
+        case 'no_recipient':
+            return m.smtp_test_no_recipient()
+        case 'dns':
+            return m.smtp_test_dns()
+        case 'refused':
+            return m.smtp_test_refused()
+        case 'timeout':
+            return m.smtp_test_timeout()
+        case 'tls':
+            return m.smtp_test_tls()
+        case 'authentication':
+            return m.smtp_test_authentication()
+        case 'sender_rejected':
+            return m.smtp_test_sender_rejected()
+        case 'recipient_rejected':
+            return m.smtp_test_recipient_rejected()
+        default:
+            return m.smtp_test_failed()
+    }
 }
