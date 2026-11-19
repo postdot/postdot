@@ -12,6 +12,45 @@ See [separate Studio hosting](/docs/studio-hosting/#use-a-release-archive) for
 verification and deployment. `0.1.0-alpha.8` is the first release with one; releases
 through `0.1.0-alpha.7` were published before that addition and do not include it.
 
+## 0.1.0-alpha.9
+
+[GitHub Release and installation files](https://github.com/postdot/postdot/releases/tag/v0.1.0-alpha.9)
+
+- Image: `ghcr.io/postdot/postdot:0.1.0-alpha.9`
+- Manifest digest: `sha256:cdcbbbe2eeb1a211255542e2ce18f309094d44863fe7ea633006e0e05cd11230`
+- Platforms: Linux AMD64 and ARM64; anonymous registry access verified.
+- Studio archive: `postdot-studio-0.1.0-alpha.9.tar.gz`, listed in `SHA256SUMS`.
+- [Matching source](https://github.com/postdot/postdot/tree/b077b1d15fea47f4999fe590c18a51428885b0da).
+- [Publication and native acceptance](https://github.com/postdot/postdot/actions/runs/44512109785).
+- [Source integration CI](https://github.com/postdot/postdot/actions/runs/44510566553).
+
+### Changes
+
+- A manual publication shows what to copy into the platform: its title, its text and
+  each image with its description, one action each, plus "download all" and, where the
+  browser supports it, share.
+- Drag a scheduled post to another day in the month calendar. Every channel keeps its
+  time and its offset from the others; the move can be undone, and past days refuse it.
+- New image editor: crop with Original, Free, 1:1, 4:5 and 16:9 ratios, rotation and
+  flip. JPEG stays JPEG; other formats are saved as PNG.
+- The SMTP test names the step that failed (address lookup, refused connection, no
+  answer, TLS, login, sender or recipient) and shows the server's reply. A port blocked
+  by a firewall or network policy shows as "no answer".
+- The alt text popover is shorter and no longer cramped.
+- Uploads that failed leave the media grid; a notice lists them with the reason and a
+  Remove action.
+- Fixes a false "This post changed elsewhere" right after saving on a slow network.
+- Dependency updates.
+
+### Upgrade from 0.1.0-alpha.8
+
+Back up the database and media and preserve deployment secrets before updating.
+Native checks on Linux AMD64 and ARM64 upgraded an alpha.8 data set and restored its
+pre-update backup with the alpha.8 executable. Login, projects, channels, drafts,
+media, recorded connections and queued work were preserved. No provider request was
+dispatched by these acceptance fixtures. No migration, configuration or API change is
+required; the SMTP test response adds a `reason` and an optional `serverReply`.
+
 ## 0.1.0-alpha.8
 
 [GitHub Release and installation files](https://github.com/postdot/postdot/releases/tag/v0.1.0-alpha.8)
