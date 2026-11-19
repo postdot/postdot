@@ -1,15 +1,15 @@
-# Install Postdot 0.1.0-alpha.8
+# Install Postdot 0.1.0-alpha.9
 
 Requires Docker Engine/Compose v2.20+, Python 3 for the optional preparer, and an
 operator-controlled host. Supported image platforms: Linux AMD64 and ARM64.
 The matching application source is commit
-`8de7fb5762324657aa4c74cfcdfdee8e73b9debf` in `postdot/postdot`.
+`b077b1d15fea47f4999fe590c18a51428885b0da` in `postdot/postdot`.
 
 Image:
-`ghcr.io/postdot/postdot:0.1.0-alpha.8`
+`ghcr.io/postdot/postdot:0.1.0-alpha.9`
 
 Pinned manifest:
-`ghcr.io/postdot/postdot@sha256:fd22a9929a0417ea9c31441b47b697cb71aaa265df95c70b705ecd2b3ac07626`
+`ghcr.io/postdot/postdot@sha256:cdcbbbe2eeb1a211255542e2ce18f309094d44863fe7ea633006e0e05cd11230`
 
 ## Prepare private configuration
 
@@ -47,7 +47,10 @@ with a protected route first; complete initial account creation before opening
 public access. For a remote loopback-only bootstrap, use the user's authorized
 SSH tunnel/proxy arrangement. Do not weaken cookie/origin security to bypass it.
 
-Open Studio at the configured origin, create the first administrator account,
+Read the one-time bootstrap token with
+`docker compose exec postdot cat /data/bootstrap-token` and give it to the user
+privately; do not print it into shared logs. Open Studio at the configured
+origin, enter the token and create the first administrator account,
 create a project and a manual channel, then save/reopen an unscheduled draft.
 These checks need no provider request. On a new empty installation, a controlled
 restart can verify that the project/draft persist. On an existing installation,
@@ -64,7 +67,7 @@ cannot complete built-in publisher OAuth. The exact OAuth requirements vary:
 public Bluesky metadata/callbacks must be reachable at their configured HTTPS
 URLs; loopback development uses a distinct profile. Do not invent a universal
 callback URL. Inspect the provider's configuration UI and the matching version's
-[provider requirements](https://github.com/postdot/postdot/blob/8de7fb5762324657aa4c74cfcdfdee8e73b9debf/apps/docs/content/docs/%28self-hosting%29/%28deployment%29/provider-configuration.mdx).
+[provider requirements](https://github.com/postdot/postdot/blob/b077b1d15fea47f4999fe590c18a51428885b0da/apps/docs/content/docs/%28self-hosting%29/%28deployment%29/provider-configuration.mdx).
 
 SMTP is optional. Without it, automatic verification/password-reset emails and
 email alerts are unavailable. Copyable invitation links remain available. Do not

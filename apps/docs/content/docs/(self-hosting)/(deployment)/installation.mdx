@@ -5,8 +5,8 @@ description: Install Postdot with Docker Compose and configure persistent storag
 
 Postdot runs its API, dashboard, publication worker and scheduler in one Bun
 container. SQLite and local media share one persistent volume. The current release is
-`0.1.0-alpha.8`. This guide uses release-matched Compose/configuration files and the public
-`ghcr.io/postdot/postdot:0.1.0-alpha.8` image, accepted on Linux AMD64 and ARM64.
+`0.1.0-alpha.9`. This guide uses release-matched Compose/configuration files and the public
+`ghcr.io/postdot/postdot:0.1.0-alpha.9` image, accepted on Linux AMD64 and ARM64.
 Upgrade from `0.1.0-alpha.6` and restoration of its pre-update backup have been
 validated on both platforms; see the [release record](/docs/releases/). For cluster
 orchestration environments, see the [Kubernetes guide](/docs/kubernetes/) or the
@@ -21,12 +21,12 @@ Before starting, have these available:
 - OpenSSL to generate the deployment secrets.
 
 Create a new installation directory and download both files from the image's
-[source revision](https://github.com/postdot/postdot/tree/8de7fb5762324657aa4c74cfcdfdee8e73b9debf):
+[source revision](https://github.com/postdot/postdot/tree/b077b1d15fea47f4999fe590c18a51428885b0da):
 
 ```sh
 mkdir postdot
 cd postdot
-POSTDOT_SOURCE=8de7fb5762324657aa4c74cfcdfdee8e73b9debf
+POSTDOT_SOURCE=b077b1d15fea47f4999fe590c18a51428885b0da
 curl --fail --location --output compose.yaml "https://raw.githubusercontent.com/postdot/postdot/$POSTDOT_SOURCE/compose.yaml"
 curl --fail --location --output compose.env.example "https://raw.githubusercontent.com/postdot/postdot/$POSTDOT_SOURCE/compose.env.example"
 ```
@@ -57,7 +57,7 @@ Git and never publish the output of `docker compose config`, which includes secr
 ### 2. Pull, start and check readiness
 
 ```sh
-printf '\nPOSTDOT_IMAGE=ghcr.io/postdot/postdot:0.1.0-alpha.8\n' >> .env
+printf '\nPOSTDOT_IMAGE=ghcr.io/postdot/postdot:0.1.0-alpha.9\n' >> .env
 docker compose config --quiet
 docker compose pull
 docker compose up -d --no-build --wait
@@ -68,7 +68,7 @@ The readiness request must succeed before you continue. If startup fails, inspec
 `docker compose logs --tail 100 postdot` before changing the configuration.
 
 For reproducible content, replace the tag in `POSTDOT_IMAGE` with
-`ghcr.io/postdot/postdot@sha256:fd22a9929a0417ea9c31441b47b697cb71aaa265df95c70b705ecd2b3ac07626`.
+`ghcr.io/postdot/postdot@sha256:cdcbbbe2eeb1a211255542e2ce18f309094d44863fe7ea633006e0e05cd11230`.
 See the [release record](/docs/releases/) for its matching source and limits.
 
 To build from source instead, obtain the full repository in a separate directory:
@@ -76,7 +76,7 @@ To build from source instead, obtain the full repository in a separate directory
 ```sh
 git clone https://github.com/postdot/postdot.git postdot-source
 cd postdot-source
-git checkout 8de7fb5762324657aa4c74cfcdfdee8e73b9debf
+git checkout b077b1d15fea47f4999fe590c18a51428885b0da
 ```
 
 Repeat the configuration step there, leave `POSTDOT_IMAGE` unset, run
@@ -86,8 +86,17 @@ files downloaded above are sufficient only for the published image.
 
 ### 3. Create the administrator account
 
-Open the dashboard and create the first account. It becomes the installation
-administrator; public signup then closes. Create your project and first channel.
+Open the dashboard and create the first account. The setup page asks for a
+one-time bootstrap token, which Postdot writes to its data volume on first start:
+
+```sh
+docker compose exec postdot cat /data/bootstrap-token
+```
+
+The first account becomes the installation administrator; public signup then
+closes and the token stops working. To choose the token yourself, set
+`POSTDOT_BOOTSTRAP_TOKEN` (or `POSTDOT_BOOTSTRAP_TOKEN_FILE`) in `.env` before the
+first start. Create your project and first channel.
 A manual channel lets you prepare and schedule content without configuring a
 provider account. Invite additional users through the application.
 
