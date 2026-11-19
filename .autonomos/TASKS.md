@@ -9,8 +9,6 @@
 
 - [/] **[PUB-627]** Complete GitHub profile, application releases and clean-install acceptance `Priority: 🟠` `Complexity: L`
 
-- [/] **[UX-691]** Lighten the image description popover `Priority: 🟠` `Complexity: S` GH #51
-
 - [/] **[OPS-692]** Say which step of the SMTP test failed `Priority: 🟠` `Complexity: S` GH #49
 
 ## Current direction

@@ -2,12 +2,7 @@ import { Alert, AlertDescription, AlertTitle } from '@postdot/ui/components/aler
 import { Button } from '@postdot/ui/components/button'
 import { Field, FieldLabel } from '@postdot/ui/components/field'
 import { Input } from '@postdot/ui/components/input'
-import {
-    Popover,
-    PopoverContent,
-    PopoverDescription,
-    PopoverTrigger,
-} from '@postdot/ui/components/popover'
+import { Popover, PopoverContent, PopoverTrigger } from '@postdot/ui/components/popover'
 import { Textarea } from '@postdot/ui/components/textarea'
 import { CloseIcon } from '@solar-icons/react/linear/close'
 import { GalleryAddIcon } from '@solar-icons/react/linear/gallery-add'
@@ -2293,7 +2288,6 @@ function AccessibilityTextBadge({
     readonly onChange: (text: string) => void
 }) {
     const inputId = useId()
-    const hintId = useId()
     const described = value.trim() !== ''
     return (
         <Popover>
@@ -2312,21 +2306,17 @@ function AccessibilityTextBadge({
                 }>
                 {m.media_accessibility_badge()}
             </PopoverTrigger>
-            <PopoverContent align="start" className="w-72 max-w-[calc(100vw-2rem)]">
-                <Field className="gap-1.5">
+            <PopoverContent align="start" className="w-80 max-w-[calc(100vw-2rem)] p-3">
+                <Field className="gap-2">
                     <FieldLabel htmlFor={inputId}>{m.media_accessibility_text()}</FieldLabel>
                     <Textarea
                         id={inputId}
-                        aria-describedby={hintId}
                         value={value}
                         disabled={disabled}
                         rows={3}
                         placeholder={m.media_accessibility_placeholder()}
                         onChange={event => onChange(event.target.value)}
                     />
-                    <PopoverDescription id={hintId} className="text-xs">
-                        {m.media_accessibility_hint()}
-                    </PopoverDescription>
                 </Field>
             </PopoverContent>
         </Popover>
