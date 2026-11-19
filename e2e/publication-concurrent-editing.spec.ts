@@ -562,7 +562,9 @@ for (const scheduled of [false, true]) {
             await expect(action).toHaveText('Saving…')
             // One write at a time: the text stays visible but cannot change while it applies.
             await expect(composerText(page)).toHaveAttribute('contenteditable', 'false')
-            expect(requests).toBe(1)
+            // Save first writes the latest keystrokes, then applies: the held request may leave
+            // a moment after the button shows "Saving…".
+            await expect.poll(() => requests).toBe(1)
             await page.screenshot({
                 path: info.outputPath(`promotion-pending-${scheduled ? 'scheduled' : 'draft'}.png`),
                 fullPage: true,
