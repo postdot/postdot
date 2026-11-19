@@ -461,14 +461,22 @@ export function useExistingPostComposition({
         )
             return
         const base = current.current.data
+        // A refetch that started before our own write can land after it. It is older than what
+        // is acknowledged (a lower revision, or an application older than the one just made) and
+        // must not replace it: adopting it would make the next fresh refetch look like a change
+        // made elsewhere.
         if (
             initialData.post.sourceRevision < base.post.sourceRevision ||
-            initialData.editors.some(
-                incoming =>
-                    incoming.draft.revision <
-                    (base.editors.find(editor => editor.publication.id === incoming.publication.id)
-                        ?.draft.revision ?? 0)
-            )
+            initialData.editors.some(incoming => {
+                const known = base.editors.find(
+                    editor => editor.publication.id === incoming.publication.id
+                )
+                return (
+                    incoming.draft.revision < (known?.draft.revision ?? 0) ||
+                    (incoming.selectedTarget?.sequence ?? 0) <
+                        (known?.selectedTarget?.sequence ?? 0)
+                )
+            })
         )
             return
         lastIncoming.current = incomingStamp
