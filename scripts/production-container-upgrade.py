@@ -20,7 +20,7 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-PREVIOUS = "ghcr.io/postdot/postdot@sha256:83d27b3d17fcdde437b9821441c2277dd16b55cba316f0e1399f7e11acf3474f"
+PREVIOUS = "ghcr.io/postdot/postdot@sha256:fd22a9929a0417ea9c31441b47b697cb71aaa265df95c70b705ecd2b3ac07626"
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--image", required=True)
 parser.add_argument("--previous-image", default=PREVIOUS)
@@ -112,6 +112,9 @@ with tempfile.TemporaryDirectory(prefix="postdot-upgrade-") as directory:
                 "POSTBOT_PUBLISHER_ENCRYPTION_KEY": secrets.token_hex(32),
                 "POSTBOT_MEDIA_DIRECTORY": "/data/media",
                 "LOG_LEVEL": "error",
+                # Production images since 0.1.0-alpha.8 require a bootstrap token for the first
+                # account; this isolated fixture creates it by open sign-up instead.
+                "POSTDOT_BOOTSTRAP_MODE": "open",
                 # Retain deprecated deployment names to verify compatibility with existing settings.
             }.items()
         )
