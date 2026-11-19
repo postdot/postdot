@@ -11,8 +11,6 @@
 
 - [/] **[UX-691]** Lighten the image description popover `Priority: 🟠` `Complexity: S` GH #51
 
-- [/] **[UX-693]** Treat a failed upload as a problem to resolve, not library media `Priority: 🔵` `Complexity: M` GH #52
-
 ## Current direction
 
 Shared-channel implementation follows [ADR-095](decisions/ADR-095-workspace-channels-and-project-attachments.md)
