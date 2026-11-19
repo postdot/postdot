@@ -1200,6 +1200,24 @@
     "media_state_deleted": "Gelöscht",
     "media_state_unknown": "Nicht verfügbar",
     "media_bytes": "{size} Bytes",
+    "media_failed_uploads_title": [
+        {
+            "declarations": ["input count", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": {
+                "countPlural=one": "{count} fehlgeschlagener Upload",
+                "countPlural=other": "{count} fehlgeschlagene Uploads"
+            }
+        }
+    ],
+    "media_failed_uploads_show_more": "{count} weitere anzeigen",
+    "media_failed_uploads_show_less": "Weniger anzeigen",
+    "media_failed_reason_unsupported_format": "Dateityp nicht unterstützt",
+    "media_failed_reason_file_too_large": "Datei zu groß",
+    "media_failed_reason_upload_expired": "Upload abgelaufen",
+    "media_failed_reason_upload_incomplete": "Upload unterbrochen",
+    "media_failed_reason_file_missing": "Datei konnte nicht gespeichert werden",
+    "media_failed_reason_generic": "Datei konnte nicht verarbeitet werden",
     "notifications_title": "Benachrichtigungen",
     "notifications_settings": "Benachrichtigungseinstellungen",
     "notifications_description": "Wählen Sie aus, welche Veröffentlichungsereignisse in Ihrem Posteingang erscheinen sollen.",

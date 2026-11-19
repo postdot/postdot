@@ -20,12 +20,15 @@ import type { MediaSelection } from '@/lib/target-media'
 import * as m from '@/paraglide/messages.js'
 
 import { MediaAssetCollection, mediaLibraryGridClass } from './media-asset-collection'
+import { MediaFailedUploadsNotice } from './media-failed-uploads-notice'
 import { MediaLibrarySkeleton } from './media-library-skeleton'
 import { MediaLibraryToolbar, type MediaLibraryFeatureOptions } from './media-library-toolbar'
 
 export interface MediaLibraryManagementSurfaceProps {
     readonly projectId: string
     readonly assets: readonly MediaReference[]
+    readonly failedAssets?: readonly MediaReference[]
+    readonly removingFailedAssetIds?: ReadonlySet<string>
     readonly restorableAssetIds: ReadonlySet<string>
     readonly selectedAssetById: ReadonlyMap<string, MediaSelection>
     readonly loading: boolean
@@ -69,6 +72,7 @@ export interface MediaLibraryManagementSurfaceProps {
     readonly onEdit?: (asset: MediaReference) => void
     readonly onInfo?: (asset: MediaReference) => void
     readonly onOpenAsset?: (asset: MediaReference) => void
+    readonly onRemoveFailedAsset?: (asset: MediaReference) => void
     readonly onRequestDelete?: (asset: MediaReference) => void
     readonly onPermanentlyDelete?: (asset: MediaReference) => void
     readonly onToggleAsset: (asset: MediaReference) => void
@@ -79,6 +83,8 @@ export interface MediaLibraryManagementSurfaceProps {
 export function MediaLibraryManagementSurface({
     projectId,
     assets,
+    failedAssets = [],
+    removingFailedAssetIds,
     restorableAssetIds,
     selectedAssetById,
     loading,
@@ -122,6 +128,7 @@ export function MediaLibraryManagementSurface({
     onEdit,
     onInfo,
     onOpenAsset,
+    onRemoveFailedAsset,
     onRequestDelete,
     onPermanentlyDelete,
     onRestore,
@@ -255,9 +262,18 @@ export function MediaLibraryManagementSurface({
                 </Alert>
             ) : null}
 
-            {loading && assets.length === 0 ? (
+            {view === 'library' && failedAssets.length > 0 ? (
+                <MediaFailedUploadsNotice
+                    assets={failedAssets}
+                    disabled={interactionDisabled}
+                    removingAssetIds={removingFailedAssetIds}
+                    onRemove={onRemoveFailedAsset}
+                />
+            ) : null}
+
+            {loading && assets.length === 0 && failedAssets.length === 0 ? (
                 <MediaLibrarySkeleton viewMode={mediaViewMode} />
-            ) : assets.length === 0 ? (
+            ) : assets.length === 0 && nextCursor === null ? (
                 hasActiveQuery ? (
                     <EmptyState
                         className="mt-4"
@@ -281,7 +297,7 @@ export function MediaLibraryManagementSurface({
                         }
                     />
                 )
-            ) : (
+            ) : assets.length > 0 ? (
                 <MediaAssetCollection
                     assets={assets}
                     restorableAssetIds={restorableAssetIds}
@@ -308,9 +324,9 @@ export function MediaLibraryManagementSurface({
                     showActions
                     viewMode={mediaViewMode}
                 />
-            )}
+            ) : null}
 
-            {!loading && assets.length > 0 && nextCursor !== null ? (
+            {!loading && (assets.length > 0 || failedAssets.length > 0) && nextCursor !== null ? (
                 <div ref={loadMoreSentinelRef} className="mt-4 flex justify-center">
                     <Button
                         type="button"

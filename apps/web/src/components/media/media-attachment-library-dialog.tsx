@@ -158,7 +158,7 @@ export function MediaAttachmentLibraryDialog({
                     className="-mr-5 min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain p-1 pr-5">
                     {loading ? (
                         <MediaLibrarySkeleton viewMode={mediaViewMode} />
-                    ) : assets.length === 0 ? (
+                    ) : assets.length === 0 && nextCursor === null ? (
                         <EmptyState
                             action={
                                 <Button
@@ -178,20 +178,22 @@ export function MediaAttachmentLibraryDialog({
                         />
                     ) : (
                         <>
-                            <MediaAssetCollection
-                                assets={assets}
-                                className={mediaLibraryGridClass(mediaViewMode)}
-                                interactionDisabled={interactionDisabled}
-                                layout={mediaViewMode}
-                                onToggle={onToggle}
-                                projectId={projectId}
-                                selectable
-                                selectedAssetById={selectedAssetById}
-                                showActions={false}
-                                showAccessibilityText={false}
-                                viewMode={mediaViewMode}
-                                previewUrl={previewUrl}
-                            />
+                            {assets.length > 0 ? (
+                                <MediaAssetCollection
+                                    assets={assets}
+                                    className={mediaLibraryGridClass(mediaViewMode)}
+                                    interactionDisabled={interactionDisabled}
+                                    layout={mediaViewMode}
+                                    onToggle={onToggle}
+                                    projectId={projectId}
+                                    selectable
+                                    selectedAssetById={selectedAssetById}
+                                    showActions={false}
+                                    showAccessibilityText={false}
+                                    viewMode={mediaViewMode}
+                                    previewUrl={previewUrl}
+                                />
+                            ) : null}
                             {nextCursor !== null ? (
                                 <div ref={loadMoreSentinelRef} className="mt-4 flex justify-center">
                                     <Button
