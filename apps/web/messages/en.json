@@ -1199,6 +1199,24 @@
     "media_state_deleted": "Deleted",
     "media_state_unknown": "Unavailable",
     "media_bytes": "{size} bytes",
+    "media_failed_uploads_title": [
+        {
+            "declarations": ["input count", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": {
+                "countPlural=one": "{count} failed upload",
+                "countPlural=other": "{count} failed uploads"
+            }
+        }
+    ],
+    "media_failed_uploads_show_more": "Show {count} more",
+    "media_failed_uploads_show_less": "Show fewer",
+    "media_failed_reason_unsupported_format": "Unsupported file type",
+    "media_failed_reason_file_too_large": "File is too large",
+    "media_failed_reason_upload_expired": "Upload expired",
+    "media_failed_reason_upload_incomplete": "Upload was interrupted",
+    "media_failed_reason_file_missing": "File could not be saved",
+    "media_failed_reason_generic": "File could not be processed",
     "notifications_title": "Notifications",
     "notifications_settings": "Notification settings",
     "notifications_description": "Choose which publication events should appear in your inbox.",

@@ -1199,6 +1199,24 @@
     "media_state_deleted": "Eliminado",
     "media_state_unknown": "No disponible",
     "media_bytes": "{size} bytes",
+    "media_failed_uploads_title": [
+        {
+            "declarations": ["input count", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": {
+                "countPlural=one": "{count} subida fallida",
+                "countPlural=other": "{count} subidas fallidas"
+            }
+        }
+    ],
+    "media_failed_uploads_show_more": "Mostrar {count} más",
+    "media_failed_uploads_show_less": "Mostrar menos",
+    "media_failed_reason_unsupported_format": "Tipo de archivo no compatible",
+    "media_failed_reason_file_too_large": "Archivo demasiado grande",
+    "media_failed_reason_upload_expired": "Subida caducada",
+    "media_failed_reason_upload_incomplete": "Subida interrumpida",
+    "media_failed_reason_file_missing": "No se pudo guardar el archivo",
+    "media_failed_reason_generic": "No se pudo procesar el archivo",
     "notifications_title": "Notificaciones",
     "notifications_settings": "Ajustes de notificaciones",
     "notifications_description": "Elige qué eventos de publicación deben aparecer en tu bandeja de entrada.",

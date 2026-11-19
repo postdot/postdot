@@ -241,6 +241,9 @@ function MediaAttachmentPickerView({
     const [deletionAsset, setDeletionAsset] = useState<MediaReference | null>(null)
     const [deletionPending, setDeletionPending] = useState(false)
     const [deletionError, setDeletionError] = useState<string | null>(null)
+    const [removingFailedAssetIds, setRemovingFailedAssetIds] = useState<Set<string>>(
+        () => new Set()
+    )
     const [permanentDeletionAsset, setPermanentDeletionAsset] = useState<MediaReference | null>(
         null
     )
@@ -971,7 +974,7 @@ function MediaAttachmentPickerView({
                       )
                       return selected === undefined ? [] : [selected]
                   })
-                : assets
+                : usableAssets
         setViewerAssets(collection.length > 0 ? collection : [asset])
         setViewerAsset(asset)
     }
@@ -1034,6 +1037,30 @@ function MediaAttachmentPickerView({
             setDeletionError(describeError(caughtError))
         } finally {
             setDeletionPending(false)
+        }
+    }
+
+    async function removeFailedAsset(asset: MediaReference) {
+        if (!canManageLibrary || mediaView !== 'library') return
+        const assetId = asset.asset.id
+        if (removingFailedAssetIds.has(assetId)) return
+
+        setRemovingFailedAssetIds(current => new Set(current).add(assetId))
+        setError(null)
+        try {
+            await api.deleteMedia(projectId, assetId)
+            setAssets(current => current.filter(candidate => candidate.asset.id !== assetId))
+            selectedMediaByIdRef.current.delete(assetId)
+            setListRefreshKey(current => current + 1)
+        } catch (caughtError) {
+            setError(describeError(caughtError))
+        } finally {
+            setRemovingFailedAssetIds(current => {
+                if (!current.has(assetId)) return current
+                const next = new Set(current)
+                next.delete(assetId)
+                return next
+            })
         }
     }
 
@@ -1429,6 +1456,22 @@ function MediaAttachmentPickerView({
         [assetsById, value]
     )
     const bulkSelectedCount = bulkSelectedAssetIds.size
+    const failedAssets = useMemo(
+        () =>
+            mediaView === 'library' ? assets.filter(asset => asset.asset.state === 'failed') : [],
+        [assets, mediaView]
+    )
+    const usableAssets = useMemo(
+        () =>
+            mediaView === 'library'
+                ? assets.filter(asset => asset.asset.state !== 'failed')
+                : assets,
+        [assets, mediaView]
+    )
+    const usableTotalAssets =
+        mediaView === 'library'
+            ? Math.max(usableAssets.length, totalAssets - failedAssets.length)
+            : totalAssets
     const visibleReadyAssets = assets.filter(asset => asset.asset.state === 'ready')
     const allVisibleBulkSelected =
         visibleReadyAssets.length > 0 &&
@@ -1649,7 +1692,9 @@ function MediaAttachmentPickerView({
                 {manageOnly ? (
                     <MediaLibraryManagementSurface
                         allVisibleBulkSelected={allVisibleBulkSelected}
-                        assets={assets}
+                        assets={usableAssets}
+                        failedAssets={failedAssets}
+                        removingFailedAssetIds={removingFailedAssetIds}
                         restorableAssetIds={restorableAssetIds}
                         bulkSelectedAssetIds={bulkSelectedAssetIds}
                         bulkSelectedCount={bulkSelectedCount}
@@ -1688,6 +1733,13 @@ function MediaAttachmentPickerView({
                         onOpenSelected={() => {
                             void openSelectedViewer()
                         }}
+                        onRemoveFailedAsset={
+                            canManageLibrary
+                                ? asset => {
+                                      void removeFailedAsset(asset)
+                                  }
+                                : undefined
+                        }
                         onRequestDelete={canManageLibrary ? openDeletion : undefined}
                         onPermanentlyDelete={canManageLibrary ? openPermanentDeletion : undefined}
                         onRestore={canManageLibrary ? restoreAsset : undefined}
@@ -1704,7 +1756,7 @@ function MediaAttachmentPickerView({
                         searchPending={searchPending}
                         searchQuery={searchQuery}
                         selectedAssetById={selectedAssetById}
-                        totalAssets={totalAssets}
+                        totalAssets={usableTotalAssets}
                         visibleReadyAssetCount={visibleReadyAssets.length}
                     />
                 ) : (
@@ -1798,7 +1850,7 @@ function MediaAttachmentPickerView({
                             </Alert>
                         ) : null}
 
-                        {loading && assets.length === 0 ? (
+                        {loading && usableAssets.length === 0 && failedAssets.length === 0 ? (
                             <MediaLibrarySkeleton viewMode={compact ? 'compact' : 'list'} />
                         ) : compact ? (
                             inline ? null : selectedAssets.length === 0 ? (
@@ -1838,7 +1890,7 @@ function MediaAttachmentPickerView({
                                     ))}
                                 </Reorder.Group>
                             )
-                        ) : assets.length === 0 ? (
+                        ) : usableAssets.length === 0 && nextCursor === null ? (
                             normalizedSearchQuery !== '' ? (
                                 <EmptyState
                                     className="mt-4"
@@ -1856,9 +1908,9 @@ function MediaAttachmentPickerView({
                                     title={m.media_empty_title()}
                                 />
                             )
-                        ) : (
+                        ) : usableAssets.length > 0 ? (
                             <MediaAssetCollection
-                                assets={assets}
+                                assets={usableAssets}
                                 className="mt-4 sm:grid-cols-2"
                                 interactionDisabled={interactionLocked}
                                 layout="list"
@@ -1870,9 +1922,12 @@ function MediaAttachmentPickerView({
                                 selectedAssetById={selectedAssetById}
                                 showActions={false}
                             />
-                        )}
+                        ) : null}
 
-                        {!compact && !loading && assets.length > 0 && nextCursor !== null ? (
+                        {!compact &&
+                        !loading &&
+                        (usableAssets.length > 0 || failedAssets.length > 0) &&
+                        nextCursor !== null ? (
                             <div ref={loadMoreSentinelRef} className="mt-4 flex justify-center">
                                 <Button
                                     type="button"
@@ -1901,7 +1956,7 @@ function MediaAttachmentPickerView({
 
             {compact ? (
                 <MediaAttachmentLibraryDialog
-                    assets={assets}
+                    assets={usableAssets}
                     emptyDescription={emptyDescription}
                     error={error}
                     interactionDisabled={interactionLocked || readOnly}
@@ -1930,7 +1985,7 @@ function MediaAttachmentPickerView({
                     searchPending={searchPending}
                     searchQuery={searchQuery}
                     libraryFeatures={libraryFeatures}
-                    totalAssets={totalAssets}
+                    totalAssets={usableTotalAssets}
                     uploading={uploading}
                 />
             ) : null}

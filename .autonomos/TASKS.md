@@ -11,8 +11,6 @@
 
 - [/] **[OPS-692]** Say which step of the SMTP test failed `Priority: 🟠` `Complexity: S` GH #49
 
-- [/] **[UX-693]** Treat a failed upload as a problem to resolve, not library media `Priority: 🔵` `Complexity: M` GH #52
-
 ## Current direction
 
 Shared-channel implementation follows [ADR-095](decisions/ADR-095-workspace-channels-and-project-attachments.md)

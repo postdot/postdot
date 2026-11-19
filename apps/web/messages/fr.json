@@ -1199,6 +1199,24 @@
     "media_state_deleted": "Supprimé",
     "media_state_unknown": "Indisponible",
     "media_bytes": "{size} octets",
+    "media_failed_uploads_title": [
+        {
+            "declarations": ["input count", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": {
+                "countPlural=one": "{count} envoi en échec",
+                "countPlural=other": "{count} envois en échec"
+            }
+        }
+    ],
+    "media_failed_uploads_show_more": "Afficher {count} de plus",
+    "media_failed_uploads_show_less": "Afficher moins",
+    "media_failed_reason_unsupported_format": "Type de fichier non pris en charge",
+    "media_failed_reason_file_too_large": "Fichier trop volumineux",
+    "media_failed_reason_upload_expired": "Envoi expiré",
+    "media_failed_reason_upload_incomplete": "Envoi interrompu",
+    "media_failed_reason_file_missing": "Impossible d’enregistrer le fichier",
+    "media_failed_reason_generic": "Le fichier n’a pas pu être traité",
     "notifications_title": "Notifications",
     "notifications_settings": "Paramètres des notifications",
     "notifications_description": "Choisissez les événements de publication qui doivent apparaître dans votre boîte de réception.",
