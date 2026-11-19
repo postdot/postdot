@@ -23,7 +23,7 @@ export async function openMediaDescription(page: Page, filename: string): Promis
     await composerMedia(page)
         .getByRole('button', { name: new RegExp(`description (of|for) ${filename}$`) })
         .click()
-    const field = page.getByRole('textbox', { name: 'Accessibility text', exact: true })
+    const field = page.getByRole('textbox', { name: 'Alt text', exact: true })
     await expect(field).toBeVisible()
     return field
 }
